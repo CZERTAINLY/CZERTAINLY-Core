@@ -1,0 +1,9 @@
+{
+  "name": "local-ejbca-ca-connector",
+  "url": "http://localhost:8082",
+  "functionGroups": [
+    {
+      "id": 2
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "callbackContext": "/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileId}/certificateprofiles",
+  "callbackMethod": "GET",
+  "mappings": [
+    {
+      "to": "authorityId",
+      "targets": [
+        "PATH_VARIABLE"
+      ],
+      "value": 30
+    },
+    {
+      "from": "endEntityProfile",
+      "to": "endEntityProfileId",
+      "targets": [
+        "PATH_VARIABLE"
+      ]
+    }
+  ],
+  "pathVariables": {
+    "authorityId": 30,
+    "endEntityProfileId": 1058487535
+  }
+}

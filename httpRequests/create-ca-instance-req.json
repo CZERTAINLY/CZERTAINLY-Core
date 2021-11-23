@@ -1,0 +1,40 @@
+{
+  "name": "ejbca-ca-instance1",
+  "connectorId": 59,
+  "attributes": [
+    {
+      "name": "url",
+      "type": "string",
+      "value": "https://lab01.3key.company:8453/ejbca/ejbcaws/ejbcaws?wsdl"
+    },
+    {
+      "id": "9379ca2c-aa51-42c8-8afd-2a2d16c99c57",
+      "name": "credential",
+      "label": "Credential Kind",
+      "type": "CREDENTIAL",
+      "required": true,
+      "readOnly": false,
+      "editable": true,
+      "visible": true,
+      "multiValue": false,
+      "description": "Credential for the communication",
+      "validationRegex": null,
+      "dependsOn": null,
+      "attributeCallback": {
+        "callbackMethod": "coreGetCredentials",
+        "mappings": {
+          "credentialKind": "credentialKind"
+        },
+        "pathVariables": {
+          "credentialKind": "softKeyStore"
+        },
+        "queryParameters": null,
+        "requestBody": null
+      },
+      "value": {
+        "id": 39,
+        "name": "dš-credential-ejbca"
+      }
+    }
+  ]
+}
