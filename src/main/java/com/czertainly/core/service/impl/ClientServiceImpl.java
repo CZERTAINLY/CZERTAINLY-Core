@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
 
+import com.czertainly.api.core.modal.*;
 import com.czertainly.core.aop.AuditLogged;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -15,11 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
-import com.czertainly.api.core.modal.AddClientRequestDto;
-import com.czertainly.api.core.modal.ClientDto;
-import com.czertainly.api.core.modal.EditClientRequestDto;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -246,17 +242,14 @@ public class ClientServiceImpl implements ClientService {
     	Client client = new Client();
     	Certificate certificate;
         if((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
-            if (requestDTO.getCertificateUuid() != null) {
+            if (!requestDTO.getCertificateUuid().isEmpty()) {
                 certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
                 client.setCertificate(certificate);
 
             } else {
-                X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getClientCertificate());
-                if (certificateRepository.findBySerialNumberIgnoreCase(x509Cert.getSerialNumber().toString(16)).isPresent()) {
-                    throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
-                }
-                certificate = certificateService.createCertificateEntity(x509Cert);
-                certificateRepository.save(certificate);
+                UploadCertificateRequestDto request = new UploadCertificateRequestDto();
+                request.setCertificate(requestDTO.getClientCertificate());
+                certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
                 client.setCertificate(certificate);
             }
             client.setSerialNumber(certificate.getSerialNumber());
@@ -271,19 +264,15 @@ public class ClientServiceImpl implements ClientService {
     private Client updateClient(Client client, EditClientRequestDto requestDTO) throws CertificateException, NotFoundException, AlreadyExistException {
         client.setDescription(requestDTO.getDescription());
         Certificate certificate;
-        if(requestDTO.getCertificateUuid() != null) {
+        if(!requestDTO.getCertificateUuid().isEmpty()) {
         	certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
         	client.setCertificate(certificate);
         	
         }else {
-        	X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getClientCertificate());
-        	if (certificateRepository.findBySerialNumberIgnoreCase(x509Cert.getSerialNumber().toString(16)).isPresent()) {
-                throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
-            }
-        	
-        	certificate = certificateService.createCertificateEntity(x509Cert);
-        	certificateRepository.save(certificate);
-        	client.setCertificate(certificate);
+            UploadCertificateRequestDto request = new UploadCertificateRequestDto();
+            request.setCertificate(requestDTO.getClientCertificate());
+            certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
+            client.setCertificate(certificate);
         }
         client.setSerialNumber(certificate.getSerialNumber());
         return client;
