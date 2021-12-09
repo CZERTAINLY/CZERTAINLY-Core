@@ -90,11 +90,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                     .and()
                     .csrf().disable()
                     .cors().disable()
-                    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                    .and()
-                    .x509()
-                    .x509PrincipalExtractor(new SerialNumberX509PrincipalExtractor())
-                    .userDetailsService(s -> User.withUsername(s).password("").roles(AdminRole.SUPERADMINISTRATOR.toString()).build());
+                    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
         }
     }
 
@@ -107,7 +103,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             http
                     .antMatcher("/v1/connector/**")
                     .authorizeRequests()
-                    .anyRequest().permitAll()
+                    .anyRequest().anonymous()
                     .and()
                     .csrf().disable()
                     .cors().disable()
