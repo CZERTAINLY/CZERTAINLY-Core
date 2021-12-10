@@ -7,11 +7,13 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Admin;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.repository.AdminRepository;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.LocalAdminService;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.X509ObjectToString;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,8 +27,11 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import javax.servlet.http.HttpServletRequest;
 import javax.transaction.Transactional;
 import java.net.InetAddress;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -38,7 +43,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
     @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
-    private CertificateService certificateService;
+    private CertificateContentRepository certificateContentRepository;
 
     @Override
     @AuditLogged(originator = ObjectType.LOCALHOST, affected = ObjectType.ADMINISTRATOR, operation = OperationType.CREATE)
@@ -77,7 +82,9 @@ public class LocalAdminServiceImpl implements LocalAdminService {
             X509Certificate certificate = CertificateUtil.getX509Certificate(request.getAdminCertificate());
             serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
         } else {
-            Certificate certificate = certificateService.getCertificateEntity(request.getCertificateUuid());
+            Certificate certificate = certificateRepository
+                    .findByUuid(request.getCertificateUuid())
+                    .orElseThrow(() -> new NotFoundException(Certificate.class, request.getCertificateUuid()));
             serialNumber = certificate.getSerialNumber();
         }
 
@@ -99,14 +106,16 @@ public class LocalAdminServiceImpl implements LocalAdminService {
 
         Certificate certificate;
         if(!requestDTO.getCertificateUuid().isEmpty()) {
-            certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
+            certificate = certificateRepository
+                    .findByUuid(requestDTO.getCertificateUuid())
+                    .orElseThrow(() -> new NotFoundException(Certificate.class, requestDTO.getCertificateUuid()));
             model.setCertificate(certificate);
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getAdminCertificate());
             if (certificateRepository.findBySerialNumberIgnoreCase(x509Cert.getSerialNumber().toString(16)).isPresent()) {
                 throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
             }
-            certificate = certificateService.createCertificateEntity(x509Cert);
+            certificate = checkAddCertificate(x509Cert);
             certificateRepository.save(certificate);
             model.setCertificate(certificate);
         }
@@ -119,6 +128,42 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         model.setSurname(requestDTO.getSurname());
         model.setSerialNumber(certificate.getSerialNumber());
         return model;
+    }
+
+    private Certificate checkAddCertificate(X509Certificate x509Cert) {
+        logger.debug("Making a new entry for a certificate");
+        Certificate certificate = new Certificate();
+        String fingerprint = null;
+        try {
+            fingerprint = CertificateUtil.getThumbprint(x509Cert.getEncoded());
+            Optional<Certificate> existingCertificate = certificateRepository.findByFingerprint(fingerprint);
+
+            if (existingCertificate.isPresent()) {
+                return existingCertificate.get();
+            }
+        } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
+            logger.error("Unable to calculate sha 256 thumbprint");
+        }
+
+        CertificateUtil.prepareCertificate(certificate, x509Cert);
+        certificate.setFingerprint(fingerprint);
+        certificate.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert)));
+
+        return certificate;
+    }
+
+    private CertificateContent checkAddCertificateContent(String fingerprint, String content) {
+        CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
+        if (certificateContent != null) {
+            return certificateContent;
+        }
+
+        certificateContent = new CertificateContent();
+        certificateContent.setContent(CertificateUtil.normalizeCertificateContent(content));
+        certificateContent.setFingerprint(fingerprint);
+
+        certificateContentRepository.save(certificateContent);
+        return certificateContent;
     }
 
     /**
