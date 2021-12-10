@@ -1,5 +1,6 @@
 package com.czertainly.core.api.local;
 
+import com.czertainly.api.core.interfaces.local.LocalController;
 import com.czertainly.api.core.modal.AddAdminRequestDto;
 import com.czertainly.api.core.modal.AdminDto;
 import com.czertainly.api.exception.AlreadyExistException;
@@ -19,15 +20,12 @@ import java.net.URI;
 import java.security.cert.CertificateException;
 
 @RestController
-@RequestMapping("/v1/local")
-@Api(tags = {"Local API"}, description = "API only accessible from localhost")
-public class LocalController {
+public class LocalControllerImpl implements LocalController {
 
     @Autowired
     private LocalAdminService localAdminService;
 
-    @ApiOperation(value = "Create Administrator")
-    @RequestMapping(path = "/admins", method = RequestMethod.POST)
+    @Override
     public ResponseEntity<?> addAdmin(@RequestBody AddAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException {
         AdminDto adminDTO = localAdminService.addAdmin(request);
 
