@@ -105,7 +105,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         Admin model = new Admin();
 
         Certificate certificate;
-        if(!requestDTO.getCertificateUuid().isEmpty()) {
+        if(StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
             certificate = certificateRepository
                     .findByUuid(requestDTO.getCertificateUuid())
                     .orElseThrow(() -> new NotFoundException(Certificate.class, requestDTO.getCertificateUuid()));
