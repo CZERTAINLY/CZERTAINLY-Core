@@ -1,10 +1,11 @@
 package com.czertainly.core.api.local;
 
+import com.czertainly.api.core.interfaces.local.LocalController;
 import com.czertainly.api.core.modal.AddAdminRequestDto;
 import com.czertainly.api.core.modal.AdminDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.core.service.AdminService;
+import com.czertainly.core.service.LocalAdminService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,17 +20,14 @@ import java.net.URI;
 import java.security.cert.CertificateException;
 
 @RestController
-@RequestMapping("/v1/local")
-@Api(tags = {"Local API"}, description = "API only accessible from localhost")
-public class LocalController {
+public class LocalControllerImpl implements LocalController {
 
     @Autowired
-    private AdminService adminService;
+    private LocalAdminService localAdminService;
 
-    @ApiOperation(value = "Create Administrator")
-    @RequestMapping(path = "/admins", method = RequestMethod.POST)
+    @Override
     public ResponseEntity<?> addAdmin(@RequestBody AddAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException {
-        AdminDto adminDTO = adminService.addAdmin(request);
+        AdminDto adminDTO = localAdminService.addAdmin(request);
 
         URI location = UriComponentsBuilder
                 .fromPath("/v1/admins")
