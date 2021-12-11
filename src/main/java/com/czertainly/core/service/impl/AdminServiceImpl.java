@@ -233,11 +233,10 @@ public class AdminServiceImpl implements AdminService {
         Admin model = new Admin();
         
         Certificate certificate;
-        if(!requestDTO.getCertificateUuid().isEmpty()) {
+        if (StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
         	certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
         	model.setCertificate(certificate);
-        	
-        }else {
+        } else {
         	X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getAdminCertificate());
         	if (certificateRepository.findBySerialNumberIgnoreCase(x509Cert.getSerialNumber().toString(16)).isPresent()) {
                 throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
