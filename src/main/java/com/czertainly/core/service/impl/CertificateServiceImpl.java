@@ -1,52 +1,36 @@
 package com.czertainly.core.service.impl;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateParsingException;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
 import com.czertainly.api.core.modal.*;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.service.CertValidationService;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-
-import javax.naming.InvalidNameException;
-import javax.naming.ldap.LdapName;
-import javax.naming.ldap.Rdn;
-import javax.transaction.Transactional;
-
-import com.czertainly.core.aop.AuditLogged;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
-import org.springframework.stereotype.Service;
-
-import com.czertainly.core.dao.repository.AdminRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateEntityRepository;
-import com.czertainly.core.dao.repository.CertificateGroupRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ClientRepository;
-import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.KeySizeUtil;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.X509ObjectToString;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.discovery.CertificateDto;
 import com.czertainly.api.model.discovery.CertificateStatus;
-import com.czertainly.api.model.discovery.CertificateType;
+import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.X509ObjectToString;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.stereotype.Service;
+
+import javax.transaction.Transactional;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -309,86 +293,37 @@ public class CertificateServiceImpl implements CertificateService {
 	public Certificate createCertificateEntity(X509Certificate certificate) {
 		logger.debug("Making a new entry for a certificate");
 		Certificate modal = new Certificate();
-		String fingerprint = "";
+		String fingerprint = null;
 		try {
 			fingerprint = CertificateUtil.getThumbprint(certificate.getEncoded());
-			Certificate existingCertificate = certificateRepository.findByFingerprint(fingerprint).orElse(null);
+			Optional<Certificate> existingCertificate = certificateRepository.findByFingerprint(fingerprint);
 
-			if (existingCertificate != null) {
-				return existingCertificate;
+			if (existingCertificate.isPresent()) {
+				return existingCertificate.get();
 			}
-			modal.setFingerprint(fingerprint);
 		} catch (CertificateEncodingException | NoSuchAlgorithmException e) {
 			logger.error("Unable to calculate sha 256 thumbprint");
 		}
-		modal.setSerialNumber(certificate.getSerialNumber().toString(16));
-		setSubjectDNParams(modal, certificate.getSubjectDN().toString());
-		setIssuerDNParams(modal, certificate.getIssuerDN().toString());
-		modal.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
-		modal.setNotAfter(certificate.getNotAfter());
-		modal.setNotBefore(certificate.getNotBefore());
-		modal.setPublicKeyAlgorithm(certificate.getPublicKey().getAlgorithm());
-		modal.setSignatureAlgorithm(certificate.getSigAlgName());
-		modal.setStatus(CertificateStatus.UNKNOWN);
-		modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
-		modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
-		modal.setSubjectAlternativeNames(MetaDefinitions.serialize(CertificateUtil.getSAN(certificate)));
-		try {
-			modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(certificate.getExtendedKeyUsage()));
-		} catch (CertificateParsingException e) {
-			logger.warn("Unable to get the extended key usage. Failed to parse certificate");
-			logger.error(e.getMessage());
-		}
-		modal.setKeyUsage(
-				MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
-		modal.setBasicConstraints(CertificateUtil.getBasicConstraint(certificate.getBasicConstraints()));
+
+        CertificateUtil.prepareCertificate(modal, certificate);
+        modal.setFingerprint(fingerprint);
+        modal.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
+
 		return modal;
 	}
 
 	private CertificateContent checkAddCertificateContent(String fingerprint, String content) {
-
-		CertificateContent certificateContent;
-		certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
+		CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
 		if (certificateContent != null) {
 			return certificateContent;
 		}
+
 		certificateContent = new CertificateContent();
-		certificateContent.setContent(content.replace("-----BEGIN CERTIFICATE-----", "")
-				.replace("-----END CERTIFICATE-----", "").replace("\r", "").replace("\n", ""));
+		certificateContent.setContent(CertificateUtil.normalizeCertificateContent(content));
 		certificateContent.setFingerprint(fingerprint);
-		certificateContentRepository.save(certificateContent);
+
+        certificateContentRepository.save(certificateContent);
 		return certificateContent;
-	}
-
-	private void setIssuerDNParams(Certificate modal, String issuerDN) {
-		modal.setIssuerDn(issuerDN);
-		LdapName ldapName = null;
-		try {
-			ldapName = new LdapName(issuerDN);
-		} catch (InvalidNameException e) {
-			return;
-		}
-		for (Rdn i : ldapName.getRdns()) {
-			if (i.getType().equals("CN")) {
-				modal.setIssuerCommonName(i.getValue().toString());
-			}
-		}
-	}
-
-	private void setSubjectDNParams(Certificate modal, String subjectDN) {
-		modal.setSubjectDn(subjectDN);
-		LdapName ldapName = null;
-
-		try {
-			ldapName = new LdapName(subjectDN);
-		} catch (InvalidNameException e) {
-			return;
-		}
-		for (Rdn i : ldapName.getRdns()) {
-			if (i.getType().equals("CN")) {
-				modal.setCommonName(i.getValue().toString());
-			}
-		}
 	}
 
 	@Override

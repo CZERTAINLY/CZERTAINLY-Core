@@ -1,10 +1,16 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.discovery.CertificateStatus;
+import com.czertainly.api.model.discovery.CertificateType;
 import com.czertainly.core.config.ApplicationConfig;
+import com.czertainly.core.dao.entity.Certificate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.naming.InvalidNameException;
+import javax.naming.ldap.LdapName;
+import javax.naming.ldap.Rdn;
 import javax.xml.bind.DatatypeConverter;
 import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
@@ -135,4 +141,68 @@ public class CertificateUtil {
 		logger.debug("Thumbprint of the certificate is {}", thumbprint);
 		return thumbprint;
 	}
+
+    public static String normalizeCertificateContent(String content) {
+        return content
+                .replace("-----BEGIN CERTIFICATE-----", "")
+                .replace("-----END CERTIFICATE-----", "")
+                .replace("\r", "")
+                .replace("\n", "");
+    }
+
+    public static Certificate prepareCertificate(Certificate modal, X509Certificate certificate) {
+        modal.setSerialNumber(certificate.getSerialNumber().toString(16));
+        setSubjectDNParams(modal, certificate.getSubjectDN().toString());
+        setIssuerDNParams(modal, certificate.getIssuerDN().toString());
+        modal.setNotAfter(certificate.getNotAfter());
+        modal.setNotBefore(certificate.getNotBefore());
+        modal.setPublicKeyAlgorithm(certificate.getPublicKey().getAlgorithm());
+        modal.setSignatureAlgorithm(certificate.getSigAlgName());
+        modal.setStatus(CertificateStatus.UNKNOWN);
+        modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
+        modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
+        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(CertificateUtil.getSAN(certificate)));
+        try {
+            modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(certificate.getExtendedKeyUsage()));
+        } catch (CertificateParsingException e) {
+            logger.warn("Unable to get the extended key usage. Failed to parse certificate");
+            logger.error(e.getMessage());
+        }
+        modal.setKeyUsage(
+                MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
+        modal.setBasicConstraints(CertificateUtil.getBasicConstraint(certificate.getBasicConstraints()));
+
+        return modal;
+    }
+
+    private static void setIssuerDNParams(Certificate modal, String issuerDN) {
+        modal.setIssuerDn(issuerDN);
+        LdapName ldapName = null;
+        try {
+            ldapName = new LdapName(issuerDN);
+        } catch (InvalidNameException e) {
+            return;
+        }
+        for (Rdn i : ldapName.getRdns()) {
+            if (i.getType().equals("CN")) {
+                modal.setIssuerCommonName(i.getValue().toString());
+            }
+        }
+    }
+
+    private static void setSubjectDNParams(Certificate modal, String subjectDN) {
+        modal.setSubjectDn(subjectDN);
+        LdapName ldapName = null;
+
+        try {
+            ldapName = new LdapName(subjectDN);
+        } catch (InvalidNameException e) {
+            return;
+        }
+        for (Rdn i : ldapName.getRdns()) {
+            if (i.getType().equals("CN")) {
+                modal.setCommonName(i.getValue().toString());
+            }
+        }
+    }
 }
