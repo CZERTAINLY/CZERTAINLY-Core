@@ -42,7 +42,7 @@ Interfaces----------------//           \----certificate
 Authorization------------/
 ```
 
-For more information, refer to the CZERTAINLY documentation.
+For more information, refer to the [CZERTAINLY documentation](https://docs.czertainly.com).
 
 ## Certificate inventory
 
@@ -71,7 +71,7 @@ Discovery----------//
 Owner-------------/
 ```
 
-For more information, refer to the CZERTAINLY documentation.
+For more information, refer to the [CZERTAINLY documentation](https://docs.czertainly.com).
 
 ## Monitoring and reporting
 
