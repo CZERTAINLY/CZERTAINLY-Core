@@ -8,6 +8,7 @@ import com.czertainly.api.model.AttributeDefinition;
 import com.czertainly.api.model.HealthDto;
 import com.czertainly.api.model.HealthStatus;
 import com.czertainly.api.model.connector.ConnectorDto;
+import com.czertainly.api.model.connector.ConnectorRequestDto;
 import com.czertainly.api.model.connector.ConnectorStatus;
 import com.czertainly.api.model.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Connector;
@@ -171,9 +172,13 @@ public class ConnectorServiceTest {
 
     @Test
     public void testAddConnector() throws ConnectorException, AlreadyExistException {
-        ConnectorDto request = new ConnectorDto();
+        mockServer.stubFor(WireMock
+                .get("/v1")
+                .willReturn(WireMock.okJson("[]")));
+
+        ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector2");
-        request.setFunctionGroups(List.of());
+        request.setUrl("http://localhost:3665");
 
         ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
@@ -182,24 +187,26 @@ public class ConnectorServiceTest {
 
     @Test
     public void testAddConnector_validationFail() {
-        ConnectorDto request = new ConnectorDto();
+        ConnectorRequestDto request = new ConnectorRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> connectorService.createConnector(request));
     }
 
     @Test
     public void testAddConnector_alreadyExist() {
-        ConnectorDto request = new ConnectorDto();
-        request.setName(CONNECTOR_NAME); // connector with same name exist
-        request.setFunctionGroups(List.of());
-
+        ConnectorRequestDto request = new ConnectorRequestDto();
+        request.setName(CONNECTOR_NAME);
         Assertions.assertThrows(AlreadyExistException.class, () -> connectorService.createConnector(request));
     }
 
     @Test
     public void testEditConnector() throws ConnectorException {
-        ConnectorDto request = new ConnectorDto();
-        request.setName(connector.getName());
-        request.setFunctionGroups(List.of());
+        mockServer.stubFor(WireMock
+                .get("/v1")
+                .willReturn(WireMock.okJson("[]")));
+
+        ConnectorRequestDto request = new ConnectorRequestDto();
+        request.setName("testConnector2");
+        request.setUrl("http://localhost:3665");
 
         ConnectorDto dto = connectorService.updateConnector(connector.getUuid(), request);
         Assertions.assertNotNull(dto);
