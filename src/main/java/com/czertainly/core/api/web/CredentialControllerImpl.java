@@ -6,6 +6,7 @@ import java.util.List;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.credential.CredentialRequestDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,7 +37,7 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public ResponseEntity<?> createCredential(@RequestBody CredentialDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+    public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         CredentialDto credentialDto = credentialService.createCredential(request);
 
         URI location = ServletUriComponentsBuilder
@@ -49,7 +50,7 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public CredentialDto updateCredential(@PathVariable String uuid, @RequestBody CredentialDto request) throws NotFoundException, ConnectorException {
+    public CredentialDto updateCredential(@PathVariable String uuid, @RequestBody CredentialRequestDto request) throws NotFoundException, ConnectorException {
         return credentialService.updateCredential(uuid, request);
     }
 
