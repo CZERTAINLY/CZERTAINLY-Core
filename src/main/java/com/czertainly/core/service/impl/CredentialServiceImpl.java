@@ -7,6 +7,7 @@ import com.czertainly.api.model.*;
 import com.czertainly.api.model.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.connector.FunctionGroupCode;
 import com.czertainly.api.model.credential.CredentialDto;
+import com.czertainly.api.model.credential.CredentialRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Credential;
@@ -75,7 +76,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CREATE)
-    public CredentialDto createCredential(CredentialDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+    public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("name must not be empty");
         }
@@ -96,7 +97,7 @@ public class CredentialServiceImpl implements CredentialService {
         credential.setName(request.getName());
         credential.setType(request.getCredentialType());
         credential.setAttributes(AttributeDefinitionUtils.serialize(request.getAttributes()));
-        credential.setEnabled(request.getEnabled());
+        credential.setEnabled(true);
         credential.setConnector(connector);
         credential.setConnectorName(connector.getName());
         credentialRepository.save(credential);
@@ -106,7 +107,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CHANGE)
-    public CredentialDto updateCredential(String uuid, CredentialDto request) throws NotFoundException, ConnectorException {
+    public CredentialDto updateCredential(String uuid, CredentialRequestDto request) throws NotFoundException, ConnectorException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -126,7 +127,6 @@ public class CredentialServiceImpl implements CredentialService {
         credential.setName(request.getName());
         credential.setType(request.getCredentialType());
         credential.setAttributes(AttributeDefinitionUtils.serialize(request.getAttributes()));
-        credential.setEnabled(request.getEnabled());
         credential.setConnectorName(connector.getName());
         credential.setConnector(connector);
         credentialRepository.save(credential);
