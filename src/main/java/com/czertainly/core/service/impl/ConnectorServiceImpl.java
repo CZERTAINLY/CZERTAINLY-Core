@@ -235,8 +235,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     private Set<Connector2FunctionGroup> setFunctionGroups(List<FunctionGroupDto> functionGroups, Connector connector) throws NotFoundException {
         // adding phase
         for (FunctionGroupDto dto : functionGroups) {
-            FunctionGroup functionGroup = functionGroupRepository.findById(dto.getId())
-                    .orElseThrow(() -> new NotFoundException(FunctionGroup.class, dto.getId()));
+            FunctionGroup functionGroup = functionGroupRepository.findByUuid(dto.getUuid())
+                    .orElseThrow(() -> new NotFoundException(FunctionGroup.class, dto.getUuid()));
 
             Optional<Connector2FunctionGroup> c2fg = connector2FunctionGroupRepository.findByConnectorAndFunctionGroup(connector, functionGroup);
 

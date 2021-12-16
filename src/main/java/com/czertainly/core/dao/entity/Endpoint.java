@@ -37,7 +37,6 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     @Override
     public EndpointDto mapToDto() {
         EndpointDto dto = new EndpointDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setContext(this.context);
