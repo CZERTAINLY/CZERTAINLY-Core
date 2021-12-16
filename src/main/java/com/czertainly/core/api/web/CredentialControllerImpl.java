@@ -3,6 +3,7 @@ package com.czertainly.core.api.web;
 import java.net.URI;
 import java.util.List;
 
+import com.czertainly.api.core.modal.UuidDto;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.connector.ForceDeleteMessageDto;
@@ -46,7 +47,10 @@ public class CredentialControllerImpl implements CredentialController {
                 .buildAndExpand(credentialDto.getUuid())
                 .toUri();
 
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(credentialDto.getUuid());
+
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
