@@ -64,7 +64,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    public ResponseEntity<UuidDto> createConnector(@RequestBody ConnectorRequestDto request)
+    public ResponseEntity<?> createConnector(@RequestBody ConnectorRequestDto request)
             throws AlreadyExistException, ConnectorException {
         ConnectorDto connectorDto = connectorService.createConnector(request);
 

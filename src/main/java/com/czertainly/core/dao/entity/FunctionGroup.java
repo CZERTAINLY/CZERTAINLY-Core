@@ -82,7 +82,6 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
     @Override
     public FunctionGroupDto mapToDto() {
         FunctionGroupDto dto = new FunctionGroupDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setFunctionGroupCode(this.code);
