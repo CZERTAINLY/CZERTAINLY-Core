@@ -139,8 +139,42 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
-    public ConnectorDto createConnector(ConnectorDto request) throws NotFoundException, AlreadyExistException {
-        return createConnector(request, ConnectorStatus.CONNECTED);
+    public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
+        return createNewConnector(request, ConnectorStatus.CONNECTED);
+    }
+
+    public ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException {
+        if (StringUtils.isBlank(request.getName())) {
+            throw new ValidationException("name must not be empty");
+        }
+
+        if (connectorRepository.findByName(request.getName()).isPresent()) {
+            throw new AlreadyExistException(Connector.class, request.getName());
+        }
+
+        ConnectorDto connectorDto = new ConnectorDto();
+        connectorDto.setName(request.getName());
+        connectorDto.setUrl(request.getUrl());
+        connectorDto.setAuthType(request.getAuthType());
+        connectorDto.setAuthAttributes(request.getAuthAttributes());
+
+        List<ConnectDto> connectResponse = validateConnector(connectorDto);
+        List<FunctionGroupDto> functionGroupDtos = new ArrayList<>();
+        for(ConnectDto dto: connectResponse){
+            functionGroupDtos.add(dto.getFunctionGroup());
+        }
+
+        Connector connector = new Connector();
+        connector.setName(request.getName());
+        connector.setUrl(request.getUrl());
+        connector.setAuthType(request.getAuthType());
+        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(request.getAuthAttributes()));
+        connector.setStatus(connectorStatus);
+        connectorRepository.save(connector);
+
+        setFunctionGroups(functionGroupDtos, connector);
+
+        return connector.mapToDto();
     }
 
     @Override
@@ -150,6 +184,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("name must not be empty");
         }
+
         if (request.getFunctionGroups() == null) {
             throw new ValidationException("function groups must not be empty");
         }
@@ -173,17 +208,23 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
-    public ConnectorDto updateConnector(String uuid, ConnectorDto request) throws NotFoundException {
+    public ConnectorDto updateConnector(String uuid, ConnectorRequestDto request) throws ConnectorException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         connector.setUrl(request.getUrl());
         connector.setAuthType(request.getAuthType());
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(request.getAuthAttributes()));
-        connector.setStatus(request.getStatus());
+
         connectorRepository.save(connector);
 
-        setFunctionGroups(request.getFunctionGroups(), connector);
+        List<ConnectDto> connectResponse = validateConnector(connector.mapToDto());
+        List<FunctionGroupDto> functionGroupDtos = new ArrayList<>();
+        for(ConnectDto dto: connectResponse){
+            functionGroupDtos.add(dto.getFunctionGroup());
+        }
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        setFunctionGroups(functionGroupDtos, connector);
         connectorRepository.save(connector);
 
         return connector.mapToDto();

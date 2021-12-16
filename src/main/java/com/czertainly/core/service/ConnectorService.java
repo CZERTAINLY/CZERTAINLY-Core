@@ -25,11 +25,11 @@ public interface ConnectorService {
 
     Connector getConnectorEntity(String uuid) throws NotFoundException;
 
-    ConnectorDto createConnector(ConnectorDto request) throws AlreadyExistException, NotFoundException;
+    ConnectorDto createConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException;
 
     ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException;
 
-    ConnectorDto updateConnector(String uuid, ConnectorDto request) throws NotFoundException;
+    ConnectorDto updateConnector(String uuid, ConnectorRequestDto request) throws ConnectorException;
 
     void removeConnector(String uuid) throws NotFoundException;
 
