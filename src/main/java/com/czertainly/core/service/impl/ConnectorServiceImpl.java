@@ -370,8 +370,8 @@ public class ConnectorServiceImpl implements ConnectorService {
             ConnectDto response = new ConnectDto();
             FunctionGroupDto functionGroupDto = functionGroup.get().mapToDto();
             functionGroupDto.setKinds(f.getKinds());
+            functionGroupDto.setEndPoints(f.getEndPoints());
             response.setFunctionGroup(functionGroupDto);
-            response.setEndpoints(f.getEndPoints());
             responses.add(response);
         }
 
@@ -445,8 +445,8 @@ public class ConnectorServiceImpl implements ConnectorService {
             ConnectDto response = new ConnectDto();
             FunctionGroupDto functionGroupDto = functionGroup.get().mapToDto();
             functionGroupDto.setKinds(f.getKinds());
+            functionGroupDto.setEndPoints(f.getEndPoints());
             response.setFunctionGroup(functionGroupDto);
-            response.setEndpoints(f.getEndPoints());
             responses.add(response);
         }
 
