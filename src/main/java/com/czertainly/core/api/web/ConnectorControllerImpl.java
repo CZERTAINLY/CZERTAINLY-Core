@@ -1,6 +1,5 @@
 package com.czertainly.core.api.web;
 
-import java.net.ConnectException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -8,7 +7,8 @@ import java.util.Map;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.AttributeCallback;
 import com.czertainly.api.model.HealthDto;
-import com.czertainly.api.model.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.UuidDto;
+import com.czertainly.api.model.connector.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,9 +23,6 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.connector.ConnectDto;
-import com.czertainly.api.model.connector.ConnectorDto;
-import com.czertainly.api.model.connector.FunctionGroupCode;
 
 @RestController
 public class ConnectorControllerImpl implements ConnectorController {
@@ -67,19 +64,20 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    public ResponseEntity<?> createConnector(@RequestBody ConnectorDto request)
-            throws AlreadyExistException, NotFoundException {
+    public ResponseEntity<?> createConnector(@RequestBody ConnectorRequestDto request)
+            throws AlreadyExistException, ConnectorException {
         ConnectorDto connectorDto = connectorService.createConnector(request);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(connectorDto.getUuid()).toUri();
-
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(connectorDto.getUuid());
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
-    public ConnectorDto updateConnector(@PathVariable String uuid, @RequestBody ConnectorDto request)
-            throws NotFoundException {
+    public ConnectorDto updateConnector(@PathVariable String uuid, @RequestBody ConnectorRequestDto request)
+            throws ConnectorException {
         return connectorService.updateConnector(uuid, request);
     }
 

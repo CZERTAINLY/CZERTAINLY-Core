@@ -134,7 +134,6 @@ public class Connector extends Audited implements Serializable, DtoMapper<Connec
     @Override
     public ConnectorDto mapToDto() {
         ConnectorDto dto = new ConnectorDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setUrl(this.url);
