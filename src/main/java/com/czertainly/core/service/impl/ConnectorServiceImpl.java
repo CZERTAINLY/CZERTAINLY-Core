@@ -119,6 +119,8 @@ public class ConnectorServiceImpl implements ConnectorService {
                     }
                 }
             }
+            connector.setStatus(ConnectorStatus.CONNECTED);
+            connectorRepository.save(connector);
         } catch (ConnectorCommunicationException e) {
             connector.setStatus(ConnectorStatus.OFFLINE);
             connectorRepository.save(connector);
