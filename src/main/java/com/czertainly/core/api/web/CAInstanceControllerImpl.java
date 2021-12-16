@@ -3,8 +3,10 @@ package com.czertainly.core.api.web;
 import java.net.URI;
 import java.util.List;
 
+import com.czertainly.api.core.modal.UuidDto;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.ca.CAInstanceRequestDto;
 import com.czertainly.api.model.connector.ForceDeleteMessageDto;
 import com.czertainly.core.service.CAInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +41,7 @@ public class CAInstanceControllerImpl implements CAInstanceController{
     }
 
     @Override
-    public ResponseEntity<?> createCAInstance(@RequestBody CAInstanceDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+    public ResponseEntity<?> createCAInstance(@RequestBody CAInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         CAInstanceDto caInstance = caInstanceService.createCAInstance(request);
 
         URI location = ServletUriComponentsBuilder
@@ -47,12 +49,13 @@ public class CAInstanceControllerImpl implements CAInstanceController{
                 .path("/{uuid}")
                 .buildAndExpand(caInstance.getUuid())
                 .toUri();
-
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(caInstance.getUuid());
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
-    public CAInstanceDto updateCAInstance(@PathVariable String uuid, @RequestBody CAInstanceDto request) throws NotFoundException, ConnectorException {
+    public CAInstanceDto updateCAInstance(@PathVariable String uuid, @RequestBody CAInstanceRequestDto request) throws NotFoundException, ConnectorException {
         return caInstanceService.updateCAInstance(uuid, request);
     }
 

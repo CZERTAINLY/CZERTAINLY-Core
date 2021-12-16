@@ -7,6 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.AttributeDefinition;
 import com.czertainly.api.model.NameAndIdDto;
 import com.czertainly.api.model.ca.CAInstanceDto;
+import com.czertainly.api.model.ca.CAInstanceRequestDto;
 import com.czertainly.api.model.connector.ForceDeleteMessageDto;
 
 import java.util.List;
@@ -16,9 +17,9 @@ public interface CAInstanceService {
 
     CAInstanceDto getCAInstance(String uuid) throws NotFoundException, ConnectorException;
 
-    CAInstanceDto createCAInstance(CAInstanceDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
+    CAInstanceDto createCAInstance(CAInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    CAInstanceDto updateCAInstance(String uuid, CAInstanceDto request) throws NotFoundException, ConnectorException;
+    CAInstanceDto updateCAInstance(String uuid, CAInstanceRequestDto request) throws NotFoundException, ConnectorException;
 
     void removeCAInstance(String uuid) throws NotFoundException, ConnectorException;
 
