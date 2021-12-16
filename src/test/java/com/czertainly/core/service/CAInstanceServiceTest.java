@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.ca.CAInstanceDto;
+import com.czertainly.api.model.ca.CAInstanceRequestDto;
 import com.czertainly.api.model.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.CAInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
@@ -131,7 +132,7 @@ public class CAInstanceServiceTest {
                 .post(WireMock.urlPathMatching("/v1/caConnector/authorities"))
                 .willReturn(WireMock.okJson("{ \"id\": 2 }")));
 
-        CAInstanceDto request = new CAInstanceDto();
+        CAInstanceRequestDto request = new CAInstanceRequestDto();
         request.setName("testCAInstance2");
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
@@ -146,14 +147,14 @@ public class CAInstanceServiceTest {
 
     @Test
     public void testAddCAInstance_notFound() {
-        CAInstanceDto request = new CAInstanceDto();
+        CAInstanceRequestDto request = new CAInstanceRequestDto();
         // connector uui not set
         Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.createCAInstance(request));
     }
 
     @Test
     public void testAddCAInstance_alreadyExist() {
-        CAInstanceDto request = new CAInstanceDto();
+        CAInstanceRequestDto request = new CAInstanceRequestDto();
         request.setName(CA_INSTANCE_NAME); // caInstance with same name exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> caInstanceService.createCAInstance(request));
@@ -172,7 +173,7 @@ public class CAInstanceServiceTest {
                 .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+"))
                 .willReturn(WireMock.okJson("{ \"id\": 2 }")));
 
-        CAInstanceDto request = new CAInstanceDto();
+        CAInstanceRequestDto request = new CAInstanceRequestDto();
         request.setName(caInstance.getName());
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());

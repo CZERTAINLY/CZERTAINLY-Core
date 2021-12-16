@@ -9,6 +9,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.AttributeDefinition;
 import com.czertainly.api.model.NameAndIdDto;
 import com.czertainly.api.model.ca.CAInstanceDto;
+import com.czertainly.api.model.ca.CAInstanceRequestDto;
 import com.czertainly.api.model.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.connector.FunctionGroupCode;
 import com.czertainly.core.aop.AuditLogged;
@@ -86,7 +87,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CREATE)
-    public CAInstanceDto createCAInstance(CAInstanceDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+    public CAInstanceDto createCAInstance(CAInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         if (caInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(CAInstanceReference.class, request.getName());
         }
@@ -108,7 +109,13 @@ public class CAInstanceServiceImpl implements CAInstanceService {
         // Load complete credential data
         credentialService.loadFullCredentialData(request.getAttributes());
 
-        CAInstanceDto response = caInstanceApiClient.createCAInstance(connector.mapToDto(), request);
+        CAInstanceDto caInstanceDto = new CAInstanceDto();
+        caInstanceDto.setConnectorName(connector.getName());
+        caInstanceDto.setConnectorUuid(request.getConnectorUuid());
+        caInstanceDto.setAttributes(request.getAttributes());
+        caInstanceDto.setAuthorityType(request.getAuthorityType());
+
+        CAInstanceDto response = caInstanceApiClient.createCAInstance(connector.mapToDto(), caInstanceDto);
 
         CAInstanceReference caInstanceRef = new CAInstanceReference();
         caInstanceRef.setCaInstanceId(response.getId());
@@ -124,7 +131,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
-    public CAInstanceDto updateCAInstance(String uuid, CAInstanceDto request) throws NotFoundException, ConnectorException {
+    public CAInstanceDto updateCAInstance(String uuid, CAInstanceRequestDto request) throws NotFoundException, ConnectorException {
         CAInstanceReference caInstanceRef = caInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, uuid));
 
@@ -146,11 +153,17 @@ public class CAInstanceServiceImpl implements CAInstanceService {
         // Load complete credential data
         credentialService.loadFullCredentialData(request.getAttributes());
 
+        CAInstanceDto caInstanceDto = new CAInstanceDto();
+        caInstanceDto.setConnectorName(connector.getName());
+        caInstanceDto.setConnectorUuid(request.getConnectorUuid());
+        caInstanceDto.setAttributes(request.getAttributes());
+        caInstanceDto.setAuthorityType(request.getAuthorityType());
+        caInstanceDto.setUuid(uuid);
+
         caInstanceApiClient.updateCAInstance(connector.mapToDto(),
-                caInstanceRef.getCaInstanceId(), request);
+                caInstanceRef.getCaInstanceId(), caInstanceDto);
 
         caInstanceRef.setAuthorityType(request.getAuthorityType());
-        caInstanceRef.setStatus(request.getStatus());
         caInstanceRef.setConnector(connector);
         caInstanceRef.setConnectorName(connector.getName());
         caInstanceReferenceRepository.save(caInstanceRef);
