@@ -218,7 +218,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             certValidationService.validateCertificates(certificates);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            modal.setStatus(DiscoveryStatus.FAILED);
+            modal.setMessage(e.getMessage());
+            discoveryRepository.save(modal);
+            logger.error(e.getMessage());
         } catch (Exception e) {
+
             modal.setStatus(DiscoveryStatus.FAILED);
             modal.setMessage(e.getMessage());
             discoveryRepository.save(modal);
