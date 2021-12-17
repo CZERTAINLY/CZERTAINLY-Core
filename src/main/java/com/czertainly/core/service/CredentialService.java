@@ -10,6 +10,7 @@ import com.czertainly.api.model.AttributeCallback;
 import com.czertainly.api.model.AttributeDefinition;
 import com.czertainly.api.model.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.credential.CredentialDto;
+import com.czertainly.api.model.credential.CredentialRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Credential;
 
@@ -24,9 +25,9 @@ public interface CredentialService {
 
     Credential getCredentialEntity(String uuid) throws NotFoundException;
 
-    CredentialDto createCredential(CredentialDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
+    CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    CredentialDto updateCredential(String uuid, CredentialDto request) throws NotFoundException, ConnectorException;
+    CredentialDto updateCredential(String uuid, CredentialRequestDto request) throws NotFoundException, ConnectorException;
 
     void removeCredential(String uuid) throws NotFoundException;
 
