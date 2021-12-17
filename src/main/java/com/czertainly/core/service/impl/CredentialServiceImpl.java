@@ -78,7 +78,7 @@ public class CredentialServiceImpl implements CredentialService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CREATE)
     public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException("name must not be empty");
+            throw new ValidationException("Name must not be empty");
         }
 
         if (credentialRepository.findByName(request.getName()).isPresent()) {
@@ -90,7 +90,7 @@ public class CredentialServiceImpl implements CredentialService {
         if (!connectorService.validateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER, request.getAttributes(), request.getCredentialType())) {
-            throw new ValidationException("Credential attributes validation failed.");
+            throw new ValidationException("Credential Attributes validation failed.");
         }
 
         Credential credential = new Credential();
@@ -121,7 +121,7 @@ public class CredentialServiceImpl implements CredentialService {
         if (!connectorService.validateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER, request.getAttributes(), request.getCredentialType())) {
-            throw new ValidationException(ValidationError.create("Credential attributes validation failed."));
+            throw new ValidationException(ValidationError.create("Credential Attributes validation failed."));
         }
 
         credential.setName(request.getName());
@@ -143,7 +143,7 @@ public class CredentialServiceImpl implements CredentialService {
 
         List<ValidationError> errors = new ArrayList<>();
         if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete credential", errors);
+            throw new ValidationException("Could not delete Credential", errors);
         }
 
         credentialRepository.delete(credential);
@@ -206,7 +206,7 @@ public class CredentialServiceImpl implements CredentialService {
                         .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
                 credentialRepository.delete(credential);
             } catch (NotFoundException e) {
-                logger.warn("Unable to find credentials with uuid {}. It may have deleted", uuid);
+                logger.warn("Unable to find Credential with uuid {}. It may have deleted", uuid);
             }
         }
     }
@@ -215,7 +215,7 @@ public class CredentialServiceImpl implements CredentialService {
     @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     public void loadFullCredentialData(List<AttributeDefinition> attributes) throws NotFoundException {
         if (attributes == null || attributes.isEmpty()) {
-            logger.warn("Given attributes are null or empty");
+            logger.warn("Given Attributes are null or empty");
             return;
         }
 
@@ -228,7 +228,7 @@ public class CredentialServiceImpl implements CredentialService {
             NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidValue(attribute.getName(), attributes);
             Credential credential = getCredentialEntity(credentialId.getUuid());
             attribute.setValue(credential.mapToDto());
-            logger.debug("Value of credential attribute {} updated.", attribute.getName());
+            logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
         }
     }
 
@@ -236,7 +236,7 @@ public class CredentialServiceImpl implements CredentialService {
     @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     public void loadFullCredentialData(AttributeCallback callback) throws NotFoundException {
         if (callback == null) {
-            logger.warn("Given callback is null");
+            logger.warn("Given Callback is null");
             return;
         }
 
@@ -247,11 +247,11 @@ public class CredentialServiceImpl implements CredentialService {
                         switch (target) {
                             case PATH_VARIABLE:
                             case REQUEST_PARAMETER:
-                                logger.warn("Illegal 'from' attribute type {} for target {}",
+                                logger.warn("Illegal 'from' Attribute type {} for target {}",
                                         mapping.getAttributeType(), target);
                                 break;
                             case BODY:
-                                logger.info("Found 'from' attribute type {} for target {}, going to load full credential data",
+                                logger.info("Found 'from' Attribute type {} for target {}, going to load full Credential data",
                                         mapping.getAttributeType(), target);
 
                                 Serializable bodyKeyValue = callback.getRequestBody().get(mapping.getTo());
