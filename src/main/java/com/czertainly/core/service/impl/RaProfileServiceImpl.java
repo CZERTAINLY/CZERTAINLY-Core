@@ -81,7 +81,6 @@ public class RaProfileServiceImpl implements RaProfileService {
                 .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, dto.getCaInstanceUuid()));
 
         List<AttributeDefinition> attributes = mergeAndValidateAttributes(caInstanceRef, dto.getAttributes());
-
         RaProfile raProfile = createRaProfile(dto, attributes, caInstanceRef);
         raProfileRepository.save(raProfile);
 
@@ -124,6 +123,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 caInstanceRef.getConnector().mapToDto(),
                 caInstanceRef.getCaInstanceUuid(),
                 merged))) {
+
             throw new ValidationException("RA profile attributes validation failed.");
         }
 
