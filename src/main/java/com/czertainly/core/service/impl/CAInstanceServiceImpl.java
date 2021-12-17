@@ -105,10 +105,11 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                 codeToSearch = FunctionGroupCode.LEGACY_CA_CONNECTOR;
             }
         }
+
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
                 request.getAttributes(), request.getAuthorityType());
 
-        request.setAttributes(attributes); // todo - after split of CAInstanceDto, use attributes in core -> connector DTO
+        request.setAttributes(attributes);
 
         // Load complete credential data
         credentialService.loadFullCredentialData(request.getAttributes());
