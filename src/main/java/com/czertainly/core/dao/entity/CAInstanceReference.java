@@ -24,8 +24,8 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
     @SequenceGenerator(name = "ca_instance_reference_seq", sequenceName = "ca_instance_reference_id_seq", allocationSize = 1)
     private Long id;
 
-    @Column(name = "ca_instance_id")
-    private Long caInstanceId;
+    @Column(name = "ca_instance_uuid")
+    private String caInstanceUuid;
 
     @Column(name = "name")
     private String name;
@@ -55,12 +55,12 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
         this.id = id;
     }
 
-    public Long getCaInstanceId() {
-        return caInstanceId;
+    public String getCaInstanceUuid() {
+        return caInstanceUuid;
     }
 
-    public void setCaInstanceId(Long caInstanceId) {
-        this.caInstanceId = caInstanceId;
+    public void setCaInstanceUuid(String caInstanceUuid) {
+        this.caInstanceUuid = caInstanceUuid;
     }
 
     public String getName() {
@@ -109,7 +109,6 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
 
     public CAInstanceDto mapToDto() {
         CAInstanceDto dto = new CAInstanceDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setStatus(this.status);
@@ -126,7 +125,7 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("id", id)
                 .append("uuid", uuid)
-                .append("caInstanceId", caInstanceId)
+                .append("caInstanceUuid", caInstanceUuid)
                 .append("name", name)
                 .append("status", status)
                 .append("type", authorityType)

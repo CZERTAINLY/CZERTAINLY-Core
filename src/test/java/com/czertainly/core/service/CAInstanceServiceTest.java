@@ -83,7 +83,7 @@ public class CAInstanceServiceTest {
         caInstance = new CAInstanceReference();
         caInstance.setName(CA_INSTANCE_NAME);
         caInstance.setConnector(connector);
-        caInstance.setCaInstanceId(1l);
+        caInstance.setCaInstanceUuid("1l");
         caInstance = caInstanceRepository.save(caInstance);
     }
 

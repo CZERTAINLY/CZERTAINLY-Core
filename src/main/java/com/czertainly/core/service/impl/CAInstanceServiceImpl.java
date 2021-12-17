@@ -10,6 +10,7 @@ import com.czertainly.api.model.AttributeDefinition;
 import com.czertainly.api.model.NameAndIdDto;
 import com.czertainly.api.model.ca.CAInstanceDto;
 import com.czertainly.api.model.ca.CAInstanceRequestDto;
+import com.czertainly.api.model.ca.ConnectorCAInstanceDto;
 import com.czertainly.api.model.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.connector.FunctionGroupCode;
 import com.czertainly.core.aop.AuditLogged;
@@ -71,12 +72,15 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                 .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, uuid));
 
         if (caInstanceRef.getConnector() == null) {
-            throw new NotFoundException("Connector associated with the authority is not found. Unable to show details");
+            throw new NotFoundException("Connector associated with the Authority is not found. Unable to show details");
         }
 
-        CAInstanceDto caInstanceDto = caInstanceApiClient.getCAInstance(caInstanceRef.getConnector().mapToDto(),
-                caInstanceRef.getCaInstanceId());
+        ConnectorCAInstanceDto connectorCAInstanceDto = caInstanceApiClient.getCAInstance(caInstanceRef.getConnector().mapToDto(),
+                caInstanceRef.getCaInstanceUuid());
 
+        CAInstanceDto caInstanceDto = new CAInstanceDto();
+        caInstanceDto.setAttributes(connectorCAInstanceDto.getAttributes());
+        caInstanceDto.setName(connectorCAInstanceDto.getName());
         caInstanceDto.setUuid(caInstanceRef.getUuid());
         caInstanceDto.setConnectorUuid(caInstanceRef.getConnector().getUuid());
         caInstanceDto.setAuthorityType(caInstanceRef.getAuthorityType());
@@ -114,11 +118,12 @@ public class CAInstanceServiceImpl implements CAInstanceService {
         caInstanceDto.setConnectorUuid(request.getConnectorUuid());
         caInstanceDto.setAttributes(request.getAttributes());
         caInstanceDto.setAuthorityType(request.getAuthorityType());
+        caInstanceDto.setName(request.getName());
 
-        CAInstanceDto response = caInstanceApiClient.createCAInstance(connector.mapToDto(), caInstanceDto);
+        ConnectorCAInstanceDto response = caInstanceApiClient.createCAInstance(connector.mapToDto(), caInstanceDto);
 
         CAInstanceReference caInstanceRef = new CAInstanceReference();
-        caInstanceRef.setCaInstanceId(response.getId());
+        caInstanceRef.setCaInstanceUuid(response.getUuid());
         caInstanceRef.setName(request.getName());
         caInstanceRef.setStatus("connected");
         caInstanceRef.setConnector(connector);
@@ -161,7 +166,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
         caInstanceDto.setUuid(uuid);
 
         caInstanceApiClient.updateCAInstance(connector.mapToDto(),
-                caInstanceRef.getCaInstanceId(), caInstanceDto);
+                caInstanceRef.getCaInstanceUuid(), caInstanceDto);
 
         caInstanceRef.setAuthorityType(request.getAuthorityType());
         caInstanceRef.setConnector(connector);
@@ -188,7 +193,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
             throw new ValidationException("Could not delete CA instance", errors);
         }
 
-        caInstanceApiClient.removeCAInstance(caInstanceRef.getConnector().mapToDto(), caInstanceRef.getCaInstanceId());
+        caInstanceApiClient.removeCAInstance(caInstanceRef.getConnector().mapToDto(), caInstanceRef.getCaInstanceUuid());
 
         caInstanceReferenceRepository.delete(caInstanceRef);
     }
@@ -200,7 +205,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                 .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, uuid));
 
         return endEntityProfileApiClient.listEndEntityProfiles(caInstanceRef.getConnector().mapToDto(),
-                caInstanceRef.getCaInstanceId());
+                caInstanceRef.getCaInstanceUuid());
     }
 
     @Override
@@ -210,7 +215,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                 .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, uuid));
 
         return endEntityProfileApiClient.listCertificateProfiles(caInstanceRef.getConnector().mapToDto(),
-                caInstanceRef.getCaInstanceId(), endEntityProfileId);
+                caInstanceRef.getCaInstanceUuid(), endEntityProfileId);
     }
 
     @Override
@@ -220,7 +225,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                 .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, uuid));
 
         return endEntityProfileApiClient.listCAsInProfile(caInstanceRef.getConnector().mapToDto(),
-                caInstanceRef.getCaInstanceId(), endEntityProfileId);
+                caInstanceRef.getCaInstanceUuid(), endEntityProfileId);
     }
 
     @Override
@@ -230,7 +235,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                 .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, uuid));
         Connector connector = caInstance.getConnector();
 
-        return caInstanceApiClient.listRAProfileAttributes(connector.mapToDto(), caInstance.getCaInstanceId());
+        return caInstanceApiClient.listRAProfileAttributes(connector.mapToDto(), caInstance.getCaInstanceUuid());
     }
 
     @Override
@@ -240,7 +245,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                 .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, uuid));
         Connector connector = caInstance.getConnector();
 
-        return caInstanceApiClient.validateRAProfileAttributes(connector.mapToDto(), caInstance.getCaInstanceId(),
+        return caInstanceApiClient.validateRAProfileAttributes(connector.mapToDto(), caInstance.getCaInstanceUuid(),
                 attributes);
     }
 
@@ -268,7 +273,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
             } else {
                 deletableCredentials.add(caInstanceRef);
                 try {
-                    caInstanceApiClient.removeCAInstance(caInstanceRef.getConnector().mapToDto(), caInstanceRef.getCaInstanceId());
+                    caInstanceApiClient.removeCAInstance(caInstanceRef.getConnector().mapToDto(), caInstanceRef.getCaInstanceUuid());
                 }catch(ConnectorException e){
                     logger.error("Unable to delete authority with name {}", caInstanceRef.getName());
                 }
@@ -294,7 +299,7 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                     raProfileRepository.save(ref);
                 }
             }
-                caInstanceApiClient.removeCAInstance(caInstanceRef.getConnector().mapToDto(), caInstanceRef.getCaInstanceId());
+                caInstanceApiClient.removeCAInstance(caInstanceRef.getConnector().mapToDto(), caInstanceRef.getCaInstanceUuid());
             caInstanceReferenceRepository.delete(caInstanceRef);
         }catch (ConnectorException e){
                 logger.warn("Unable to delete the ca Instance with uuid {}. It may have been deleted", uuid);

@@ -21,6 +21,7 @@ import com.czertainly.core.dao.repository.CAInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.RaProfileService;
+
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -116,12 +117,12 @@ public class RaProfileServiceImpl implements RaProfileService {
     private List<AttributeDefinition> mergeAndValidateAttributes(CAInstanceReference caInstanceRef, List<AttributeDefinition> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = caInstanceApiClient.listRAProfileAttributes(
                 caInstanceRef.getConnector().mapToDto(),
-                caInstanceRef.getCaInstanceId());
+                caInstanceRef.getCaInstanceUuid());
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         if (Boolean.FALSE.equals(caInstanceApiClient.validateRAProfileAttributes(
                 caInstanceRef.getConnector().mapToDto(),
-                caInstanceRef.getCaInstanceId(),
+                caInstanceRef.getCaInstanceUuid(),
                 merged))) {
             throw new ValidationException("RA profile attributes validation failed.");
         }
