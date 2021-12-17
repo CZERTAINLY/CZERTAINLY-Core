@@ -43,7 +43,7 @@ public class CredentialControllerImpl implements CredentialController {
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
-                .path("/{Uuid}")
+                .path("/{uuid}")
                 .buildAndExpand(credentialDto.getUuid())
                 .toUri();
 
@@ -64,12 +64,12 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public void enableClient(@PathVariable String uuid) throws NotFoundException {
+    public void enableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.enableCredential(uuid);
     }
 
     @Override
-    public void disableClient(@PathVariable String uuid) throws NotFoundException {
+    public void disableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.disableCredential(uuid);
     }
 
