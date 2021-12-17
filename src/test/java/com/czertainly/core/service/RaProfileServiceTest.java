@@ -86,7 +86,7 @@ public class RaProfileServiceTest {
         connector = connectorRepository.save(connector);
 
         caInstance = new CAInstanceReference();
-        caInstance.setCaInstanceId(1l);
+        caInstance.setCaInstanceUuid("1l");
         caInstance.setConnector(connector);
         caInstance = caInstanceReferenceRepository.save(caInstance);
 

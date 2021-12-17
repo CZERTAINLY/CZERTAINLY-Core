@@ -72,7 +72,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         return certificateApiClient.listIssueCertificateAttributes(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId());
+                raProfile.getCaInstanceReference().getCaInstanceUuid());
     }
 
     @Override
@@ -86,7 +86,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         return certificateApiClient.validateIssueCertificateAttributes(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 attributes);
     }
 
@@ -127,7 +127,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         CertificateDataResponseDto caResponse = certificateApiClient.issueCertificate(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 caRequest);
 
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
@@ -166,7 +166,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         CertificateDataResponseDto caResponse = certificateApiClient.renewCertificate(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 certificateId,
                 caRequest);
 
@@ -199,7 +199,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         return certificateApiClient.listRevokeCertificateAttributes(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId());
+                raProfile.getCaInstanceReference().getCaInstanceUuid());
     }
 
     @Override
@@ -211,7 +211,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         return certificateApiClient.validateRevokeCertificateAttributes(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 attributes);
     }
 
@@ -254,7 +254,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         certificateApiClient.revokeCertificate(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 certificateId,
                 caRequest);
         try {

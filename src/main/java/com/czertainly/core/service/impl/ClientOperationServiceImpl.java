@@ -59,7 +59,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         CertificateSignResponseDto caResponse = certificateApiClient.issueCertificate(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
 
@@ -96,7 +96,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         certificateApiClient.revokeCertificate(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
 
@@ -112,7 +112,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         List<EndEntityDto> endEntities = endEntityApiClient.listEntities(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 getEndEntityProfileName(raProfile));
 
         return endEntities == null ? null : endEntities.stream()
@@ -138,7 +138,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         endEntityApiClient.createEndEntity(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
     }
@@ -152,7 +152,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         EndEntityDto endEntity = endEntityApiClient.getEndEntity(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);
 
@@ -176,7 +176,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         endEntityApiClient.updateEndEntity(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username,
                 caRequest);
@@ -191,7 +191,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         endEntityApiClient.revokeAndDeleteEndEntity(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);
     }
@@ -205,7 +205,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         endEntityApiClient.resetPassword(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);
     }
