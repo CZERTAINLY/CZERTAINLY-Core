@@ -167,6 +167,12 @@ public class ClientOperationServiceV2Test {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/issue"))
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/issue/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/issue/attributes/validate"))
+                .willReturn(WireMock.okJson("true")));
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(RA_PROFILE_NAME, request);
@@ -234,6 +240,12 @@ public class ClientOperationServiceV2Test {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/[^/]+/revoke"))
                 .willReturn(WireMock.ok()));
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/revoke/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/revoke/attributes/validate"))
+                .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         clientOperationService.revokeCertificate(RA_PROFILE_NAME, certificate.getSerialNumber(), request);
