@@ -96,7 +96,6 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
 
     public CredentialDto mapToDtoSimple() {
         CredentialDto dto = new CredentialDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setCredentialType(this.type);
@@ -111,7 +110,6 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
     @Override
     public CredentialDto mapToDto() {
         CredentialDto dto = new CredentialDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setCredentialType(this.type);

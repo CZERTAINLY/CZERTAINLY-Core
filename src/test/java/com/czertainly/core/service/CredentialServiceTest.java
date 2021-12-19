@@ -7,6 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.*;
 import com.czertainly.api.model.connector.FunctionGroupCode;
 import com.czertainly.api.model.credential.CredentialDto;
+import com.czertainly.api.model.credential.CredentialRequestDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.Credential;
@@ -128,7 +129,7 @@ public class CredentialServiceTest {
                 .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        CredentialDto request = new CredentialDto();
+        CredentialRequestDto request = new CredentialRequestDto();
         request.setName("testCredential2");
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
@@ -143,13 +144,13 @@ public class CredentialServiceTest {
 
     @Test
     public void testAddCredential_validationFail() {
-        CredentialDto request = new CredentialDto();
+        CredentialRequestDto request = new CredentialRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> credentialService.createCredential(request));
     }
 
     @Test
     public void testAddCredential_alreadyExist() {
-        CredentialDto request = new CredentialDto();
+        CredentialRequestDto request = new CredentialRequestDto();
         request.setName(CREDENTIAL_NAME); // credential with same name exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> credentialService.createCredential(request));
@@ -164,7 +165,7 @@ public class CredentialServiceTest {
                 .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        CredentialDto request = new CredentialDto();
+        CredentialRequestDto request = new CredentialRequestDto();
         request.setName(credential.getName());
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
