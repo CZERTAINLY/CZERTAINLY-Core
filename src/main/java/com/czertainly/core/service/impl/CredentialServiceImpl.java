@@ -86,16 +86,15 @@ public class CredentialServiceImpl implements CredentialService {
 
         Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
 
-        if (!connectorService.validateAttributes(
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
-                FunctionGroupCode.CREDENTIAL_PROVIDER, request.getAttributes(), request.getCredentialType())) {
-            throw new ValidationException("Credential attributes validation failed.");
-        }
+                FunctionGroupCode.CREDENTIAL_PROVIDER,
+                request.getAttributes(), request.getCredentialType());
 
         Credential credential = new Credential();
         credential.setName(request.getName());
         credential.setType(request.getCredentialType());
-        credential.setAttributes(AttributeDefinitionUtils.serialize(request.getAttributes()));
+        credential.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         credential.setEnabled(request.getEnabled());
         credential.setConnector(connector);
         credential.setConnectorName(connector.getName());
@@ -117,15 +116,14 @@ public class CredentialServiceImpl implements CredentialService {
             throw new ValidationException(ValidationError.create("Credential provider id not matched."));
         }
 
-        if (!connectorService.validateAttributes(
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
-                FunctionGroupCode.CREDENTIAL_PROVIDER, request.getAttributes(), request.getCredentialType())) {
-            throw new ValidationException(ValidationError.create("Credential attributes validation failed."));
-        }
+                FunctionGroupCode.CREDENTIAL_PROVIDER,
+                request.getAttributes(), request.getCredentialType());
 
         credential.setName(request.getName());
         credential.setType(request.getCredentialType());
-        credential.setAttributes(AttributeDefinitionUtils.serialize(request.getAttributes()));
+        credential.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         credential.setEnabled(request.getEnabled());
         credential.setConnectorName(connector.getName());
         credential.setConnector(connector);

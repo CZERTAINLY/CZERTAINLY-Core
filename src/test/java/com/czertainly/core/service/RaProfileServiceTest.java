@@ -125,6 +125,9 @@ public class RaProfileServiceTest {
     @Test
     public void testAddRaProfile() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
@@ -154,6 +157,9 @@ public class RaProfileServiceTest {
 
     @Test
     public void testEditRaProfile() throws ConnectorException {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes"))
+                .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));

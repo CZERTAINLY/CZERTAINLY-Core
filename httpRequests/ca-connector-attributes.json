@@ -1,43 +1,13 @@
 [
   {
-    "id": "87e968ca-9404-4128-8b58-3ab5db2ba06e",
     "name": "url",
-    "label": "EJBCA URL",
-    "type": "STRING",
-    "required": true,
-    "readOnly": false,
-    "editable": true,
-    "visible": true,
-    "multiValue": false,
-    "description": "URL of EJBCA web service",
     "value": "https://localhost/ejbca/ejbcaws/ejbcaws?wsdl"
   },
   {
-    "id": "9379ca2c-aa51-42c8-8afd-2a2d16c99c57",
     "name": "credential",
-    "label": "Credential",
-    "type": "CREDENTIAL",
-    "required": true,
-    "readOnly": false,
-    "editable": true,
-    "visible": true,
-    "multiValue": false,
-    "description": "Credential for the communication",
-    "attributeCallback": {
-      "callbackContext": "core/getCredentials",
-      "callbackMethod": "GET",
-      "mappings": [
-        {
-          "to": "credentialKind",
-          "targets": [
-            "PATH_VARIABLE"
-          ],
-          "value": "softKeyStore"
-        }
-      ],
-      "pathVariables": {
-        "credentialKind": "softKeyStore"
-      }
+    "value": {
+      "name": "testName",
+      "uuid": "testUuid"
     }
   }
 ]

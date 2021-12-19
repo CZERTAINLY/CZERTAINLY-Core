@@ -214,7 +214,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testEditConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector("wrong-uuid", new ConnectorRequestDto()));
     }
 
     @Test

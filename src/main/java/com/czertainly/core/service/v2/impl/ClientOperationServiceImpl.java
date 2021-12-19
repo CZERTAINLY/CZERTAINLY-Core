@@ -29,6 +29,7 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.ValidatorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,6 +90,25 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 attributes);
     }
 
+    private List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<AttributeDefinition> attributes) throws ConnectorException {
+        List<AttributeDefinition> definitions = certificateApiClient.listIssueCertificateAttributes(
+                raProfile.getCaInstanceReference().getConnector().mapToDto(),
+                raProfile.getCaInstanceReference().getCaInstanceId());
+
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+
+        boolean isValid = certificateApiClient.validateIssueCertificateAttributes(
+                raProfile.getCaInstanceReference().getConnector().mapToDto(),
+                raProfile.getCaInstanceReference().getCaInstanceId(),
+                merged);
+
+        if (!isValid) {
+            throw new ValidationException("Attributes validation failed.");
+        }
+
+        return merged;
+    }
+
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     public ClientCertificateDataResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
@@ -98,9 +118,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
         validateLegacyConnector(raProfile.getCaInstanceReference().getConnector());
 
+        List<AttributeDefinition> attributes = mergeAndValidateIssueAttributes(raProfile, request.getAttributes());
+
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
         caRequest.setPkcs10(request.getPkcs10());
-        caRequest.setAttributes(request.getAttributes());
+        caRequest.setAttributes(attributes);
         caRequest.setRaProfile(raProfile.mapToDto());
 
         CertificateDataResponseDto caResponse = certificateApiClient.issueCertificate(
@@ -193,6 +215,25 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 attributes);
     }
 
+    private List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<AttributeDefinition> attributes) throws ConnectorException {
+        List<AttributeDefinition> definitions = certificateApiClient.listRevokeCertificateAttributes(
+                raProfile.getCaInstanceReference().getConnector().mapToDto(),
+                raProfile.getCaInstanceReference().getCaInstanceId());
+
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+
+        boolean isValid = certificateApiClient.validateRevokeCertificateAttributes(
+                raProfile.getCaInstanceReference().getConnector().mapToDto(),
+                raProfile.getCaInstanceReference().getCaInstanceId(),
+                merged);
+
+        if (!isValid) {
+            throw new ValidationException("Attributes validation failed.");
+        }
+
+        return merged;
+    }
+
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
     public void revokeCertificate(String raProfileName, String certificateId, ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
@@ -204,9 +245,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         logger.debug("Ra Profile {} set for revoking the certificate", raProfile.getName());
 
+        List<AttributeDefinition> attributes = mergeAndValidateRevokeAttributes(raProfile, request.getAttributes());
+
         CertRevocationDto caRequest = new CertRevocationDto();
         caRequest.setReason(request.getReason());
-        caRequest.setAttributes(request.getAttributes());
+        caRequest.setAttributes(attributes);
         caRequest.setRaProfile(raProfile.mapToDto());
 
         certificateApiClient.revokeCertificate(
