@@ -13,6 +13,7 @@ import com.czertainly.api.model.connector.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CoreCallbackService;
 import com.czertainly.core.service.CredentialService;
@@ -56,6 +57,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     private CredentialRepository credentialRepository;
     @Autowired
     private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    @Autowired
+    private ConnectorAuthService connectorAuthService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
@@ -150,6 +153,8 @@ public class ConnectorServiceImpl implements ConnectorService {
             throw new ValidationException("name must not be empty");
         }
 
+        List<AttributeDefinition> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), request.getAuthAttributes());
+
         if (connectorRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(Connector.class, request.getName());
         }
@@ -158,7 +163,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorDto.setName(request.getName());
         connectorDto.setUrl(request.getUrl());
         connectorDto.setAuthType(request.getAuthType());
-        connectorDto.setAuthAttributes(request.getAuthAttributes());
+        connectorDto.setAuthAttributes(authAttributes);
 
         List<ConnectDto> connectResponse = validateConnector(connectorDto);
         List<FunctionGroupDto> functionGroupDtos = new ArrayList<>();
@@ -170,7 +175,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setName(request.getName());
         connector.setUrl(request.getUrl());
         connector.setAuthType(request.getAuthType());
-        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(request.getAuthAttributes()));
+        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
         connector.setStatus(connectorStatus);
         connectorRepository.save(connector);
 
@@ -195,11 +200,13 @@ public class ConnectorServiceImpl implements ConnectorService {
             throw new AlreadyExistException(Connector.class, request.getName());
         }
 
+        List<AttributeDefinition> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), request.getAuthAttributes());
+
         Connector connector = new Connector();
         connector.setName(request.getName());
         connector.setUrl(request.getUrl());
         connector.setAuthType(request.getAuthType());
-        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(request.getAuthAttributes()));
+        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
         connector.setStatus(connectorStatus);
         connectorRepository.save(connector);
 
@@ -211,12 +218,14 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
     public ConnectorDto updateConnector(String uuid, ConnectorRequestDto request) throws ConnectorException {
+        List<AttributeDefinition> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), request.getAuthAttributes());
+
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         connector.setUrl(request.getUrl());
         connector.setAuthType(request.getAuthType());
-        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(request.getAuthAttributes()));
+        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
 
         connectorRepository.save(connector);
 
@@ -551,9 +560,29 @@ public class ConnectorServiceImpl implements ConnectorService {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-        validateFunctionGroup(connector, functionGroup);
+        return validateAttributes(connector, functionGroup, attributes, functionGroupType);
+    }
 
+    private boolean validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
+        validateFunctionGroup(connector, functionGroup);
         return attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
+    public List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        List<AttributeDefinition> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+
+        boolean isValid = validateAttributes(connector, functionGroup, merged, functionGroupType);
+        if (!isValid) {
+            throw new ValidationException("Attributes validation failed.");
+        }
+
+        return merged;
     }
 
     private void validateFunctionGroup(Connector connector, FunctionGroupCode functionGroup) {

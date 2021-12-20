@@ -100,10 +100,10 @@ public class CAInstanceServiceImpl implements CAInstanceService {
                 codeToSearch = FunctionGroupCode.LEGACY_CA_CONNECTOR;
             }
         }
-        if (!connectorService.validateAttributes(connector.getUuid(), codeToSearch,
-                request.getAttributes(), request.getAuthorityType())) {
-            throw new ValidationException("CA instance attributes validation failed.");
-        }
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
+                request.getAttributes(), request.getAuthorityType());
+
+        request.setAttributes(attributes); // todo - after split of CAInstanceDto, use attributes in core -> connector DTO
 
         // Load complete credential data
         credentialService.loadFullCredentialData(request.getAttributes());
@@ -138,10 +138,10 @@ public class CAInstanceServiceImpl implements CAInstanceService {
             }
         }
 
-        if (!connectorService.validateAttributes(connector.getUuid(), codeToSearch,
-                request.getAttributes(), request.getAuthorityType())) {
-            throw new ValidationException(ValidationError.create("CA instance attributes validation failed."));
-        }
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
+                request.getAttributes(), request.getAuthorityType());
+
+        request.setAttributes(attributes); // todo - after split of CAInstanceDto, use attributes in core -> connector DTO
 
         // Load complete credential data
         credentialService.loadFullCredentialData(request.getAttributes());

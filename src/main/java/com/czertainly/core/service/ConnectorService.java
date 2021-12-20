@@ -1,6 +1,9 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.core.modal.ObjectType;
+import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
@@ -51,7 +54,10 @@ public interface ConnectorService {
 
     List<AttributeDefinition> getAttributes(String uuid, FunctionGroupCode functionGroup, String functionGroupType) throws NotFoundException, ConnectorException;
 
-    boolean validateAttributes(String uuid, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ConnectorException;
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
+    boolean validateAttributes(String uuid, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException;
+
+    List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ConnectorException;
 
     Object callback(String uuid, AttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException;
 

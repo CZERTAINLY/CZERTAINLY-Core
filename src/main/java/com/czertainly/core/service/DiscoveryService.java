@@ -13,7 +13,7 @@ public interface DiscoveryService {
 
     List<DiscoveryHistoryDto> listDiscovery();
     DiscoveryHistoryDto getDiscovery(String uuid) throws NotFoundException;
-    DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, NotFoundException;
+    DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException;
 
     void createDiscovery(DiscoveryDto request, DiscoveryHistory modal) throws AlreadyExistException, NotFoundException, ConnectorException;
 

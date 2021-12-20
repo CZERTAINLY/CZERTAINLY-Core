@@ -6,7 +6,7 @@ import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.AttributeDefinition;
 import com.czertainly.api.model.connector.FunctionGroupCode;
 import com.czertainly.api.model.discovery.*;
 import com.czertainly.core.aop.AuditLogged;
@@ -27,7 +27,6 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -156,18 +155,20 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
             throws NotFoundException, ConnectorException {
 
-        if (!connectorService.validateAttributes(request.getConnectorUuid(), FunctionGroupCode.DISCOVERY_PROVIDER,
-                request.getAttributes(), request.getDiscoveryType())) {
-            throw new ValidationException("Discovery attributes validation failed.");
-        }
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
+                request.getConnectorUuid(),
+                FunctionGroupCode.DISCOVERY_PROVIDER,
+                request.getAttributes(),
+                request.getDiscoveryType());
+
         try {
             DiscoveryProviderDto dtoRequest = new DiscoveryProviderDto();
             dtoRequest.setName(request.getName());
             dtoRequest.setConnectorUuid(request.getConnectorUuid());
 
             // Load complete credential data
-            credentialService.loadFullCredentialData(request.getAttributes());
-            dtoRequest.setAttributes(request.getAttributes());
+            credentialService.loadFullCredentialData(attributes);
+            dtoRequest.setAttributes(attributes);
 
             Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
@@ -233,20 +234,29 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
-    public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, NotFoundException {
+    public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
         }
         Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
+
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
+                request.getConnectorUuid(),
+                FunctionGroupCode.DISCOVERY_PROVIDER,
+                request.getAttributes(),
+                request.getDiscoveryType());
+
         DiscoveryHistory modal = new DiscoveryHistory();
         modal.setName(request.getName());
         modal.setConnectorName(connector.getName());
         modal.setStartTime(new Date());
         modal.setStatus(DiscoveryStatus.IN_PROGRESS);
         modal.setConnectorId(connector.getId());
-        modal.setAttributes(AttributeDefinitionUtils.serialize(request.getAttributes()));
+        modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         modal.setDiscoveryType(request.getDiscoveryType());
+
         discoveryRepository.save(modal);
+
         return modal;
     }
 
