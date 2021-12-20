@@ -93,13 +93,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<AttributeDefinition> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = certificateApiClient.listIssueCertificateAttributes(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId());
+                raProfile.getCaInstanceReference().getCaInstanceUuid());
 
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         boolean isValid = certificateApiClient.validateIssueCertificateAttributes(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 merged);
 
         if (!isValid) {
@@ -218,13 +218,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<AttributeDefinition> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = certificateApiClient.listRevokeCertificateAttributes(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId());
+                raProfile.getCaInstanceReference().getCaInstanceUuid());
 
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         boolean isValid = certificateApiClient.validateRevokeCertificateAttributes(
                 raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceId(),
+                raProfile.getCaInstanceReference().getCaInstanceUuid(),
                 merged);
 
         if (!isValid) {
