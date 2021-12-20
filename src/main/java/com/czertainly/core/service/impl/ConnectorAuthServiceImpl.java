@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.model.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
@@ -13,10 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.security.KeyStore;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.List;
+import java.util.*;
 
 import javax.transaction.Transactional;
 
@@ -27,16 +25,64 @@ import static com.czertainly.api.BaseApiClient.*;
 public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorAuthServiceImpl.class);
 
-    private static final ArrayList<String> SUPPORTED_KEY_STORE_TYPES = new ArrayList<>();
+    private static final ArrayList<String> SUPPORTED_KEY_STORE_TYPES = new ArrayList<>(List.of("PKCS12", "JKS"));
 
-    static {
-        SUPPORTED_KEY_STORE_TYPES.add("PKCS12");
-        SUPPORTED_KEY_STORE_TYPES.add("JKS");
+    @Override
+    public Set<AuthType> getAuthenticationTypes() {
+        return EnumSet.allOf(AuthType.class);
     }
 
     @Override
-    public List<String> getAuthenticationTypes() {
-        return Arrays.asList("NONE","Basic","Certificate","ApiKey","JWT");
+    public List<AttributeDefinition> getAuthAttributes(AuthType authenticationType) {
+        switch (authenticationType) {
+            case NONE:
+                return List.of();
+            case BASIC:
+                return getBasicAuthAttributes();
+            case CERTIFICATE:
+                return getCertificateAttributes();
+            case API_KEY:
+                return getApiKeyAuthAttributes();
+            case JWT:
+                return getJWTAuthAttributes();
+            default:
+                throw new IllegalArgumentException("Unknown auth type: " + authenticationType);
+        }
+    }
+
+    @Override
+    public boolean validateAuthAttributes(AuthType authenticationType, List<AttributeDefinition> attributes) {
+        switch (authenticationType) {
+            case NONE:
+                return true;
+            case BASIC:
+                return validateBasicAuthAttributes(attributes);
+            case CERTIFICATE:
+                return validateCertificateAttributes(attributes);
+            case API_KEY:
+                return validateApiKeyAuthAttributes(attributes);
+            case JWT:
+                return validateJWTAuthAttributes(attributes);
+            default:
+                throw new IllegalArgumentException("Unknown auth type: " + authenticationType);
+        }
+    }
+
+    @Override
+    public List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<AttributeDefinition> attributes) {
+        if (authenticationType == null || attributes == null) {
+            return List.of();
+        }
+
+        List<AttributeDefinition> definitions = getAuthAttributes(authenticationType);
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+
+        boolean isValid = validateAuthAttributes(authenticationType, merged);
+        if (!isValid) {
+            throw new ValidationException("Auth attributes validation failed.");
+        }
+
+        return merged;
     }
 
     @Override

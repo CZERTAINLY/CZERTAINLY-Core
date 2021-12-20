@@ -121,6 +121,9 @@ public class CAInstanceServiceTest {
     @Test
     public void testAddCAInstance() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/caConnector/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/caConnector/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
@@ -158,6 +161,9 @@ public class CAInstanceServiceTest {
 
     @Test
     public void testEditCAInstance() throws ConnectorException {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/caConnector/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/caConnector/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));

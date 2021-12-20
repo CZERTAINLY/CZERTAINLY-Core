@@ -114,6 +114,13 @@ public class DiscoveryServiceTest {
 
     @Test
     public void testAddDiscovery() throws ConnectorException, AlreadyExistException {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
+                .willReturn(WireMock.okJson("true")));
+
         DiscoveryDto request = new DiscoveryDto();
         request.setName("testDiscovery2");
         request.setConnectorUuid(connector.getUuid());

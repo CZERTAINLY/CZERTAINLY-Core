@@ -123,6 +123,9 @@ public class CredentialServiceTest {
     @Test
     public void testAddCredential() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
@@ -155,6 +158,9 @@ public class CredentialServiceTest {
 
     @Test
     public void testEditCredential() throws ConnectorException {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
