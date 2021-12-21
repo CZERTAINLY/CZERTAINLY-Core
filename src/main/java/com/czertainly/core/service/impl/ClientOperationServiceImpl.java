@@ -58,8 +58,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPkcs10(request.getPkcs10());
 
         CertificateSignResponseDto caResponse = certificateApiClient.issueCertificate(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
 
@@ -95,8 +95,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setReason(request.getReason());
 
         certificateApiClient.revokeCertificate(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
 
@@ -111,8 +111,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
         List<EndEntityDto> endEntities = endEntityApiClient.listEntities(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile));
 
         return endEntities == null ? null : endEntities.stream()
@@ -137,8 +137,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setRaProfile(raProfile.mapToDto());
 
         endEntityApiClient.createEndEntity(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 caRequest);
     }
@@ -151,8 +151,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
         EndEntityDto endEntity = endEntityApiClient.getEndEntity(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);
 
@@ -175,8 +175,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setRaProfile(raProfile.mapToDto());
 
         endEntityApiClient.updateEndEntity(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username,
                 caRequest);
@@ -190,8 +190,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
         endEntityApiClient.revokeAndDeleteEndEntity(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);
     }
@@ -204,8 +204,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
         endEntityApiClient.resetPassword(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 getEndEntityProfileName(raProfile),
                 username);
     }

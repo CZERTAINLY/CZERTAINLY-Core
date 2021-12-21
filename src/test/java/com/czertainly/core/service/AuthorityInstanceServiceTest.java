@@ -3,14 +3,14 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.ca.CAInstanceDto;
-import com.czertainly.api.model.ca.CAInstanceRequestDto;
+import com.czertainly.api.model.ca.AuthorityInstanceDto;
+import com.czertainly.api.model.ca.AuthorityInstanceRequestDto;
 import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.core.dao.entity.CAInstanceReference;
+import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.FunctionGroup;
-import com.czertainly.core.dao.repository.CAInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
@@ -33,15 +33,15 @@ import java.util.List;
 @Transactional
 @Rollback
 @WithMockUser(roles="SUPERADMINISTRATOR")
-public class CAInstanceServiceTest {
+public class AuthorityInstanceServiceTest {
 
-    private static final String CA_INSTANCE_NAME = "testCAInstance1";
-
-    @Autowired
-    private CAInstanceService caInstanceService;
+    private static final String AUTHORITY_INSTANCE_NAME = "testAuthorityInstance1";
 
     @Autowired
-    private CAInstanceReferenceRepository caInstanceRepository;
+    private AuthorityInstanceService authorityInstanceService;
+
+    @Autowired
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
@@ -49,7 +49,7 @@ public class CAInstanceServiceTest {
     @Autowired
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
-    private CAInstanceReference caInstance;
+    private AuthorityInstanceReference authorityInstance;
     private Connector connector;
 
     private WireMockServer mockServer;
@@ -62,7 +62,7 @@ public class CAInstanceServiceTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setName("caInstanceConnector");
+        connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
 
@@ -80,11 +80,11 @@ public class CAInstanceServiceTest {
         connector.getFunctionGroups().add(c2fg);
         connectorRepository.save(connector);
 
-        caInstance = new CAInstanceReference();
-        caInstance.setName(CA_INSTANCE_NAME);
-        caInstance.setConnector(connector);
-        caInstance.setCaInstanceUuid("1l");
-        caInstance = caInstanceRepository.save(caInstance);
+        authorityInstance = new AuthorityInstanceReference();
+        authorityInstance.setName(AUTHORITY_INSTANCE_NAME);
+        authorityInstance.setConnector(connector);
+        authorityInstance.setAuthorityInstanceUuid("1l");
+        authorityInstance = authorityInstanceReferenceRepository.save(authorityInstance);
     }
 
     @AfterEach
@@ -93,34 +93,34 @@ public class CAInstanceServiceTest {
     }
 
     @Test
-    public void testListCAInstances() {
-        List<CAInstanceDto> caInstances = caInstanceService.listCAInstances();
-        Assertions.assertNotNull(caInstances);
-        Assertions.assertFalse(caInstances.isEmpty());
-        Assertions.assertEquals(1, caInstances.size());
-        Assertions.assertEquals(caInstance.getUuid(), caInstances.get(0).getUuid());
+    public void testListAuthorityInstances() {
+        List<AuthorityInstanceDto> authorityInstances = authorityInstanceService.listAuthorityInstances();
+        Assertions.assertNotNull(authorityInstances);
+        Assertions.assertFalse(authorityInstances.isEmpty());
+        Assertions.assertEquals(1, authorityInstances.size());
+        Assertions.assertEquals(authorityInstance.getUuid(), authorityInstances.get(0).getUuid());
     }
 
     @Test
-    public void testGetCAInstance() throws ConnectorException {
+    public void testGetAuthorityInstance() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.okJson("{}")));
 
-        CAInstanceDto dto = caInstanceService.getCAInstance(caInstance.getUuid());
+        AuthorityInstanceDto dto = authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(caInstance.getUuid(), dto.getUuid());
+        Assertions.assertEquals(authorityInstance.getUuid(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(caInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
     }
 
     @Test
-    public void testGetCAInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.getCAInstance("wrong-uuid"));
+    public void testGetAuthorityInstance_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance("wrong-uuid"));
     }
 
     @Test
-    public void testAddCAInstance() throws ConnectorException, AlreadyExistException {
+    public void testAddAuthorityInstance() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -132,36 +132,36 @@ public class CAInstanceServiceTest {
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities"))
                 .willReturn(WireMock.okJson("{ \"id\": 2 }")));
 
-        CAInstanceRequestDto request = new CAInstanceRequestDto();
-        request.setName("testCAInstance2");
+        AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
+        request.setName("testAuthorityInstance2");
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
         request.setAuthorityType("Ejbca");
 
-        CAInstanceDto dto = caInstanceService.createCAInstance(request);
+        AuthorityInstanceDto dto = authorityInstanceService.createAuthorityInstance(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(caInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
     }
 
     @Test
-    public void testAddCAInstance_notFound() {
-        CAInstanceRequestDto request = new CAInstanceRequestDto();
+    public void testAddAuthorityInstance_notFound() {
+        AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
         // connector uui not set
-        Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.createCAInstance(request));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.createAuthorityInstance(request));
     }
 
     @Test
-    public void testAddCAInstance_alreadyExist() {
-        CAInstanceRequestDto request = new CAInstanceRequestDto();
-        request.setName(CA_INSTANCE_NAME); // caInstance with same name exist
+    public void testAddAuthorityInstance_alreadyExist() {
+        AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
+        request.setName(AUTHORITY_INSTANCE_NAME); // authorityInstance with same name exist
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> caInstanceService.createCAInstance(request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> authorityInstanceService.createAuthorityInstance(request));
     }
 
     @Test
-    public void testEditCAInstance() throws ConnectorException {
+    public void testEditAuthorityInstance() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -173,70 +173,70 @@ public class CAInstanceServiceTest {
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.okJson("{ \"id\": 2 }")));
 
-        CAInstanceRequestDto request = new CAInstanceRequestDto();
-        request.setName(caInstance.getName());
+        AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
+        request.setName(authorityInstance.getName());
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
         request.setAuthorityType("Ejbca");
 
-        CAInstanceDto dto = caInstanceService.updateCAInstance(caInstance.getUuid(), request);
+        AuthorityInstanceDto dto = authorityInstanceService.updateAuthorityInstance(authorityInstance.getUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getAuthorityType(), dto.getAuthorityType());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(caInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
     }
 
     @Test
-    public void testEditCAInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.updateCAInstance("wrong-uuid", null));
+    public void testEditAuthorityInstance_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.updateAuthorityInstance("wrong-uuid", null));
     }
 
     @Test
-    public void testRemoveCAInstance() throws ConnectorException {
+    public void testRemoveAuthorityInstance() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
-        caInstanceService.removeCAInstance(caInstance.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.getCAInstance(caInstance.getUuid()));
+        authorityInstanceService.removeAuthorityInstance(authorityInstance.getUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid()));
     }
 
     @Test
     public void testGetRaProfileAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfiles/attributes"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.ok()));
 
-        caInstanceService.listRAProfileAttributes(caInstance.getUuid());
+        authorityInstanceService.listRAProfileAttributes(authorityInstance.getUuid());
     }
 
     @Test
     public void testGetRaProfileAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.listRAProfileAttributes("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.listRAProfileAttributes("wrong-uuid"));
     }
 
     @Test
     public void testValidateRaProfileAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfiles/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        caInstanceService.validateRAProfileAttributes(caInstance.getUuid(), List.of());
+        authorityInstanceService.validateRAProfileAttributes(authorityInstance.getUuid(), List.of());
     }
 
     @Test
     public void testValidateRaProfileAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.validateRAProfileAttributes("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.validateRAProfileAttributes("wrong-uuid", null));
     }
 
     @Test
-    public void testRemoveCAInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.removeCAInstance("wrong-uuid"));
+    public void testRemoveAuthorityInstance_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.removeAuthorityInstance("wrong-uuid"));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException, ConnectorException {
-        caInstanceService.bulkRemoveCaInstance(List.of(caInstance.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> caInstanceService.getCAInstance(caInstance.getUuid()));
+        authorityInstanceService.bulkRemoveAuthorityInstance(List.of(authorityInstance.getUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid()));
     }
 }

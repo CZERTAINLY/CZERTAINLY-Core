@@ -56,7 +56,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Autowired
     private CredentialRepository credentialRepository;
     @Autowired
-    private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorAuthService connectorAuthService;
 
@@ -313,11 +313,11 @@ public class ConnectorServiceImpl implements ConnectorService {
                     c -> errors.add(ValidationError.create(c.getName())));
         }
 
-        if (!connector.getCaInstanceReferences().isEmpty()) {
+        if (!connector.getAuthorityInstanceReferences().isEmpty()) {
             errors.add(ValidationError.create(
-                    "Connector {} has {} dependent CA instances",
-                    connector.getName(), connector.getCaInstanceReferences().size()));
-            connector.getCaInstanceReferences().stream().forEach(
+                    "Connector {} has {} dependent Authority instances",
+                    connector.getName(), connector.getAuthorityInstanceReferences().size()));
+            connector.getAuthorityInstanceReferences().stream().forEach(
                     c -> errors.add(ValidationError.create(c.getName())));
         }
 
@@ -649,9 +649,9 @@ public class ConnectorServiceImpl implements ConnectorService {
                         c -> errors.add(c.getName()));
             }
 
-            if (!connector.getCaInstanceReferences().isEmpty()) {
-                errors.add("CA instances: " + connector.getCaInstanceReferences().size() + ". Names: ");
-                connector.getCaInstanceReferences().stream().forEach(
+            if (!connector.getAuthorityInstanceReferences().isEmpty()) {
+                errors.add("Authority instances: " + connector.getAuthorityInstanceReferences().size() + ". Names: ");
+                connector.getAuthorityInstanceReferences().stream().forEach(
                         c -> errors.add(c.getName()));
             }
 
@@ -690,11 +690,11 @@ public class ConnectorServiceImpl implements ConnectorService {
                     }
                 }
 
-                if (!connector.getCaInstanceReferences().isEmpty()) {
-                    for (CAInstanceReference ref : connector.getCaInstanceReferences()) {
+                if (!connector.getAuthorityInstanceReferences().isEmpty()) {
+                    for (AuthorityInstanceReference ref : connector.getAuthorityInstanceReferences()) {
                         ref.setConnector(null);
-                        caInstanceReferenceRepository.save(ref);
-                        connector.getCaInstanceReferences().remove(ref);
+                        authorityInstanceReferenceRepository.save(ref);
+                        connector.getAuthorityInstanceReferences().remove(ref);
                         connectorRepository.save(connector);
                     }
                 }

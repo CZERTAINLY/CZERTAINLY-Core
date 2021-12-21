@@ -45,7 +45,7 @@ public class ClientOperationServiceV1Test {
     @Autowired
     private RaProfileRepository raProfileRepository;
     @Autowired
-    private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
@@ -56,7 +56,7 @@ public class ClientOperationServiceV1Test {
     private ClientRepository clientRepository;
 
     private RaProfile raProfile;
-    private CAInstanceReference caInstance;
+    private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
     private Certificate certificate;
     private CertificateContent certificateContent;
@@ -77,14 +77,14 @@ public class ClientOperationServiceV1Test {
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
 
-        caInstance = new CAInstanceReference();
-        caInstance.setCaInstanceUuid("1l");
-        caInstance.setConnector(connector);
-        caInstance = caInstanceReferenceRepository.save(caInstance);
+        authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setAuthorityInstanceUuid("1l");
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
-        raProfile.setCaInstanceReference(caInstance);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile.setEnabled(true);
 
         raProfile.setAttributes(AttributeDefinitionUtils.serialize(
