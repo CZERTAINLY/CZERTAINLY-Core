@@ -68,11 +68,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
-        validateLegacyConnector(raProfile.getCaInstanceReference().getConnector());
+        validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.listIssueCertificateAttributes(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid());
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
     }
 
     @Override
@@ -82,24 +82,24 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
-        validateLegacyConnector(raProfile.getCaInstanceReference().getConnector());
+        validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.validateIssueCertificateAttributes(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 attributes);
     }
 
     private List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<AttributeDefinition> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = certificateApiClient.listIssueCertificateAttributes(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid());
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
 
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         boolean isValid = certificateApiClient.validateIssueCertificateAttributes(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 merged);
 
         if (!isValid) {
@@ -116,7 +116,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
-        validateLegacyConnector(raProfile.getCaInstanceReference().getConnector());
+        validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         List<AttributeDefinition> attributes = mergeAndValidateIssueAttributes(raProfile, request.getAttributes());
 
@@ -126,8 +126,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setRaProfile(raProfile.mapToDto());
 
         CertificateDataResponseDto caResponse = certificateApiClient.issueCertificate(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 caRequest);
 
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
@@ -158,15 +158,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
-        validateLegacyConnector(raProfile.getCaInstanceReference().getConnector());
+        validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
         caRequest.setPkcs10(request.getPkcs10());
         caRequest.setRaProfile(raProfile.mapToDto());
 
         CertificateDataResponseDto caResponse = certificateApiClient.renewCertificate(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 certificateId,
                 caRequest);
 
@@ -198,8 +198,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
         return certificateApiClient.listRevokeCertificateAttributes(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid());
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
     }
 
     @Override
@@ -210,21 +210,21 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
         return certificateApiClient.validateRevokeCertificateAttributes(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 attributes);
     }
 
     private List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<AttributeDefinition> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = certificateApiClient.listRevokeCertificateAttributes(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid());
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
 
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         boolean isValid = certificateApiClient.validateRevokeCertificateAttributes(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 merged);
 
         if (!isValid) {
@@ -241,7 +241,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
-        validateLegacyConnector(raProfile.getCaInstanceReference().getConnector());
+        validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         logger.debug("Ra Profile {} set for revoking the certificate", raProfile.getName());
 
@@ -253,8 +253,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setRaProfile(raProfile.mapToDto());
 
         certificateApiClient.revokeCertificate(
-                raProfile.getCaInstanceReference().getConnector().mapToDto(),
-                raProfile.getCaInstanceReference().getCaInstanceUuid(),
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 certificateId,
                 caRequest);
         try {

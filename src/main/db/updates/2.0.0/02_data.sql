@@ -70,7 +70,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'listCAInstances',
+    'listAuthorityInstances',
     '/v1/authorityProvider/authorities',
     'GET',
     true,
@@ -78,7 +78,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'getCAInstance',
+    'getAuthorityInstance',
     '/v1/authorityProvider/authorities/{uuid}',
     'GET',
     true,
@@ -86,7 +86,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'createCAInstance',
+    'createAuthorityInstance',
     '/v1/authorityProvider/authorities',
     'POST',
     true,
@@ -94,7 +94,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'updateCAInstance',
+    'updateAuthorityInstance',
     '/v1/authorityProvider/authorities/{uuid}',
     'POST',
     true,
@@ -102,7 +102,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'deleteCAInstance',
+    'deleteAuthorityInstance',
     '/v1/authorityProvider/authorities/{uuid}',
     'DELETE',
     true,
@@ -223,7 +223,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'listCAInstances',
+    'listAuthorityInstances',
     '/v1/authorityProvider/authorities',
     'GET',
     true,
@@ -231,7 +231,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'getCAInstance',
+    'getAuthorityInstance',
     '/v1/authorityProvider/authorities/{uuid}',
     'GET',
     true,
@@ -239,7 +239,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'createCAInstance',
+    'createAuthorityInstance',
     '/v1/authorityProvider/authorities',
     'POST',
     true,
@@ -247,7 +247,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'updateCAInstance',
+    'updateAuthorityInstance',
     '/v1/authorityProvider/authorities/{uuid}',
     'POST',
     true,
@@ -255,7 +255,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'deleteCAInstance',
+    'deleteAuthorityInstance',
     '/v1/authorityProvider/authorities/{uuid}',
     'DELETE',
     true,
@@ -263,7 +263,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'deleteCAInstance',
+    'deleteAuthorityInstance',
     '/v1/authorityProvider/authorities/{uuid}',
     'DELETE',
     true,
@@ -273,7 +273,7 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listRAProfileAttributes',
-    '/v1/authorityProvider/authorities/{uuid}/raProfiles/attributes',
+    '/v1/authorityProvider/authorities/{uuid}/raProfile/attributes',
     'GET',
     true,
     (select id from function_group where code = 'AUTHORITY_PROVIDER'));

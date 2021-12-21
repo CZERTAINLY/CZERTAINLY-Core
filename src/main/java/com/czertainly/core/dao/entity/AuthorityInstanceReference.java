@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.api.model.ca.CAInstanceDto;
+import com.czertainly.api.model.ca.AuthorityInstanceDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -14,8 +14,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "ca_instance_reference")
-public class CAInstanceReference extends Audited implements Serializable, DtoMapper<CAInstanceDto> {
+@Table(name = "authority_instance_reference")
+public class AuthorityInstanceReference extends Audited implements Serializable, DtoMapper<AuthorityInstanceDto> {
     private static final long serialVersionUID = -2377655450967447704L;
 
     @Id
@@ -24,8 +24,8 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
     @SequenceGenerator(name = "ca_instance_reference_seq", sequenceName = "ca_instance_reference_id_seq", allocationSize = 1)
     private Long id;
 
-    @Column(name = "ca_instance_uuid")
-    private String caInstanceUuid;
+    @Column(name = "authority_instance_uuid")
+    private String authorityInstanceUuid;
 
     @Column(name = "name")
     private String name;
@@ -43,7 +43,7 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
     @Column(name="connector_name")
     private String connectorName;
 
-    @OneToMany(mappedBy = "caInstanceReference")
+    @OneToMany(mappedBy = "authorityInstanceReference")
     @JsonIgnore
     private Set<RaProfile> raProfiles = new HashSet<>();
 
@@ -55,12 +55,12 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
         this.id = id;
     }
 
-    public String getCaInstanceUuid() {
-        return caInstanceUuid;
+    public String getAuthorityInstanceUuid() {
+        return authorityInstanceUuid;
     }
 
-    public void setCaInstanceUuid(String caInstanceUuid) {
-        this.caInstanceUuid = caInstanceUuid;
+    public void setAuthorityInstanceUuid(String authorityInstanceUuid) {
+        this.authorityInstanceUuid = authorityInstanceUuid;
     }
 
     public String getName() {
@@ -107,8 +107,8 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
 
     public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
 
-    public CAInstanceDto mapToDto() {
-        CAInstanceDto dto = new CAInstanceDto();
+    public AuthorityInstanceDto mapToDto() {
+        AuthorityInstanceDto dto = new AuthorityInstanceDto();
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setStatus(this.status);
@@ -125,7 +125,7 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("id", id)
                 .append("uuid", uuid)
-                .append("caInstanceUuid", caInstanceUuid)
+                .append("authorityInstanceUuid", authorityInstanceUuid)
                 .append("name", name)
                 .append("status", status)
                 .append("type", authorityType)
@@ -137,7 +137,7 @@ public class CAInstanceReference extends Audited implements Serializable, DtoMap
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        CAInstanceReference that = (CAInstanceReference) o;
+        AuthorityInstanceReference that = (AuthorityInstanceReference) o;
         return new EqualsBuilder().append(id, that.id).isEquals();
     }
 
