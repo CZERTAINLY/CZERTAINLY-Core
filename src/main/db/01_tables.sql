@@ -1,6 +1,6 @@
 create sequence admin_id_seq start 1 increment 1;
 create sequence audit_log_id_seq start 1 increment 1;
-create sequence ca_instance_reference_id_seq start 1 increment 1;
+create sequence authority_instance_reference_id_seq start 1 increment 1;
 create sequence certificate_content_id_seq start 1 increment 1;
 create sequence certificate_group_id_seq start 1 increment 1;
 create sequence certificate_entity_id_seq start 1 increment 1;
