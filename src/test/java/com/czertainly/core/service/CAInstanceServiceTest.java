@@ -67,8 +67,8 @@ public class CAInstanceServiceTest {
         connector = connectorRepository.save(connector);
 
         FunctionGroup functionGroup = new FunctionGroup();
-        functionGroup.setCode(FunctionGroupCode.CA_CONNECTOR);
-        functionGroup.setName(FunctionGroupCode.CA_CONNECTOR.getCode());
+        functionGroup.setCode(FunctionGroupCode.AUTHORITY_PROVIDER);
+        functionGroup.setName(FunctionGroupCode.AUTHORITY_PROVIDER.getCode());
         functionGroupRepository.save(functionGroup);
 
         Connector2FunctionGroup c2fg = new Connector2FunctionGroup();
@@ -104,7 +104,7 @@ public class CAInstanceServiceTest {
     @Test
     public void testGetCAInstance() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.okJson("{}")));
 
         CAInstanceDto dto = caInstanceService.getCAInstance(caInstance.getUuid());
@@ -122,14 +122,14 @@ public class CAInstanceServiceTest {
     @Test
     public void testAddCAInstance() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/[^/]+/attributes"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/[^/]+/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities"))
                 .willReturn(WireMock.okJson("{ \"id\": 2 }")));
 
         CAInstanceRequestDto request = new CAInstanceRequestDto();
@@ -163,14 +163,14 @@ public class CAInstanceServiceTest {
     @Test
     public void testEditCAInstance() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/[^/]+/attributes"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/[^/]+/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.okJson("{ \"id\": 2 }")));
 
         CAInstanceRequestDto request = new CAInstanceRequestDto();
@@ -194,7 +194,7 @@ public class CAInstanceServiceTest {
     @Test
     public void testRemoveCAInstance() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .delete(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+"))
+                .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
         caInstanceService.removeCAInstance(caInstance.getUuid());
@@ -204,7 +204,7 @@ public class CAInstanceServiceTest {
     @Test
     public void testGetRaProfileAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfiles/attributes"))
                 .willReturn(WireMock.ok()));
 
         caInstanceService.listRAProfileAttributes(caInstance.getUuid());
@@ -218,7 +218,7 @@ public class CAInstanceServiceTest {
     @Test
     public void testValidateRaProfileAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfiles/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         caInstanceService.validateRAProfileAttributes(caInstance.getUuid(), List.of());

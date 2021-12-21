@@ -98,11 +98,11 @@ public class CAInstanceServiceImpl implements CAInstanceService {
 
         Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
 
-        FunctionGroupCode codeToSearch = FunctionGroupCode.CA_CONNECTOR;
+        FunctionGroupCode codeToSearch = FunctionGroupCode.AUTHORITY_PROVIDER;
 
         for (Connector2FunctionGroup function : connector.getFunctionGroups()) {
-            if (function.getFunctionGroup().getCode() == FunctionGroupCode.LEGACY_CA_CONNECTOR) {
-                codeToSearch = FunctionGroupCode.LEGACY_CA_CONNECTOR;
+            if (function.getFunctionGroup().getCode() == FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER) {
+                codeToSearch = FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER;
             }
         }
 
@@ -143,11 +143,11 @@ public class CAInstanceServiceImpl implements CAInstanceService {
 
         Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
 
-        FunctionGroupCode codeToSearch = FunctionGroupCode.CA_CONNECTOR;
+        FunctionGroupCode codeToSearch = FunctionGroupCode.AUTHORITY_PROVIDER;
 
         for (Connector2FunctionGroup function : connector.getFunctionGroups()) {
-            if (function.getFunctionGroup().getCode() == FunctionGroupCode.LEGACY_CA_CONNECTOR) {
-                codeToSearch = FunctionGroupCode.LEGACY_CA_CONNECTOR;
+            if (function.getFunctionGroup().getCode() == FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER) {
+                codeToSearch = FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER;
             }
         }
 

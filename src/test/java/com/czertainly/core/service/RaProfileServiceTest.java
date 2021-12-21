@@ -125,10 +125,10 @@ public class RaProfileServiceTest {
     @Test
     public void testAddRaProfile() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfiles/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfiles/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
@@ -158,10 +158,10 @@ public class RaProfileServiceTest {
     @Test
     public void testEditRaProfile() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfiles/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfiles/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
