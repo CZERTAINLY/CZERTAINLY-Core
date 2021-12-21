@@ -108,7 +108,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testListConnectorsByFunctionGroup_notFound() {
-        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(FunctionGroupCode.LEGACY_CA_CONNECTOR);
+        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER);
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
@@ -125,7 +125,7 @@ public class ConnectorServiceTest {
     @Test
     public void testListConnectorsByFunctionGroupAndKind_notFound() {
         Assertions.assertThrows(NotFoundException.class, () ->
-                connectorService.listConnectors(FunctionGroupCode.LEGACY_CA_CONNECTOR, "wrong-kind"));
+                connectorService.listConnectors(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, "wrong-kind"));
 
     }
 
@@ -287,7 +287,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testGetAttributes_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> connectorService.getAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_CA_CONNECTOR, null));
+        Assertions.assertThrows(ValidationException.class, () -> connectorService.getAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, null));
     }
 
     @Test
@@ -311,7 +311,7 @@ public class ConnectorServiceTest {
     @Test
     public void testValidateAttributes_validationFail() {
         Assertions.assertThrows(ValidationException.class,
-                () -> connectorService.validateAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_CA_CONNECTOR, null, null));
+                () -> connectorService.validateAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, null, null));
     }
 
     @Test

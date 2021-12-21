@@ -46,7 +46,7 @@ public class RaProfileServiceTest {
     @Autowired
     private ClientRepository clientRepository;
     @Autowired
-    private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
 
@@ -54,7 +54,7 @@ public class RaProfileServiceTest {
     private Certificate certificate;
     private CertificateContent certificateContent;
     private Client client;
-    private CAInstanceReference caInstance;
+    private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
 
     private WireMockServer mockServer;
@@ -85,14 +85,14 @@ public class RaProfileServiceTest {
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
 
-        caInstance = new CAInstanceReference();
-        caInstance.setCaInstanceId(1l);
-        caInstance.setConnector(connector);
-        caInstance = caInstanceReferenceRepository.save(caInstance);
+        authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setAuthorityInstanceUuid("1l");
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
-        raProfile.setCaInstanceReference(caInstance);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile = raProfileRepository.save(raProfile);
     }
 
@@ -125,16 +125,16 @@ public class RaProfileServiceTest {
     @Test
     public void testAddRaProfile() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName("testRaProfile2");
         request.setAttributes(List.of());
-        request.setCaInstanceUuid(caInstance.getUuid());
+        request.setAuthorityInstanceUuid(authorityInstanceReference.getUuid());
 
         RaProfileDto dto = raProfileService.addRaProfile(request);
         Assertions.assertNotNull(dto);
@@ -158,16 +158,16 @@ public class RaProfileServiceTest {
     @Test
     public void testEditRaProfile() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
         request.setDescription("some description");
         request.setAttributes(List.of());
-        request.setCaInstanceUuid(caInstance.getUuid());
+        request.setAuthorityInstanceUuid(authorityInstanceReference.getUuid());
 
         RaProfileDto dto = raProfileService.editRaProfile(raProfile.getUuid(), request);
         Assertions.assertNotNull(dto);

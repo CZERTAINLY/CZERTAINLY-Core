@@ -1,6 +1,5 @@
 package com.czertainly.core.service;
 
-import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -11,8 +10,6 @@ import com.czertainly.core.dao.entity.Endpoint;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
 import com.czertainly.core.service.impl.ConnectorServiceImpl;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,7 +78,7 @@ public class ConnectorServiceMockTest {
 
         List<InfoResponse> connectorFunctions = new ArrayList<>();
         List<String> types = List.of("default");
-        connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.CA_CONNECTOR, Collections.singletonList(endpoint1.mapToDto())));
+        connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.AUTHORITY_PROVIDER, Collections.singletonList(endpoint1.mapToDto())));
         Mockito.when(connectorApiClient.listSupportedFunctions(Mockito.any())).thenReturn(connectorFunctions);
 
         ConnectorDto request = new ConnectorDto();

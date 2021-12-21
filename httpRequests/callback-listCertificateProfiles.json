@@ -1,5 +1,5 @@
 {
-  "callbackContext": "/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileId}/certificateprofiles",
+  "callbackContext": "/v1/authorityProvider/authorities/{authorityId}/endEntityProfiles/{endEntityProfileId}/certificateprofiles",
   "callbackMethod": "GET",
   "mappings": [
     {

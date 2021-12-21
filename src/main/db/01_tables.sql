@@ -1,6 +1,6 @@
 create sequence admin_id_seq start 1 increment 1;
 create sequence audit_log_id_seq start 1 increment 1;
-create sequence ca_instance_reference_id_seq start 1 increment 1;
+create sequence authority_instance_reference_id_seq start 1 increment 1;
 create sequence certificate_content_id_seq start 1 increment 1;
 create sequence certificate_group_id_seq start 1 increment 1;
 create sequence certificate_entity_id_seq start 1 increment 1;
@@ -55,7 +55,7 @@ create sequence ra_profile_id_seq start 1 increment 1;
         i_cre timestamp not null,
         i_upd timestamp not null,
         type varchar(255),
-        ca_instance_id int8,
+        authority_instance_uuid varchar(255),
         connector_name varchar(255),
         name varchar(255),
         status varchar(255),
