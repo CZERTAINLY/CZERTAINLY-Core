@@ -20,8 +20,8 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
 
     @Id
     @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "ca_instance_reference_seq")
-    @SequenceGenerator(name = "ca_instance_reference_seq", sequenceName = "ca_instance_reference_id_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "authority_instance_reference_seq")
+    @SequenceGenerator(name = "authority_instance_reference_seq", sequenceName = "authority_instance_reference_id_seq", allocationSize = 1)
     private Long id;
 
     @Column(name = "authority_instance_uuid")
