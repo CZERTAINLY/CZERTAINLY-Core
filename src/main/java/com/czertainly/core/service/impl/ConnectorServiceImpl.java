@@ -78,8 +78,8 @@ public class ConnectorServiceImpl implements ConnectorService {
         for (Connector connector : connectorRepository.findByStatus(ConnectorStatus.CONNECTED)) {
             ConnectorDto connectorDto = connector.mapToDto();
             for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
-                if(functionGroup == FunctionGroupCode.CA_CONNECTOR){
-                    if (Arrays.asList(FunctionGroupCode.CA_CONNECTOR, FunctionGroupCode.LEGACY_CA_CONNECTOR).contains(fg.getFunctionGroupCode())) {
+                if(functionGroup == FunctionGroupCode.AUTHORITY_PROVIDER){
+                    if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
                         connectorDto.setFunctionGroups(Arrays.asList(fg));
                         connectors.add(connectorDto);
                     }

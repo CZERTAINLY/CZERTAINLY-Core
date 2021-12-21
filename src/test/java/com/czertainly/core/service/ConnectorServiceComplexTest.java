@@ -22,7 +22,6 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.ConnectException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -173,8 +172,8 @@ public class ConnectorServiceComplexTest {
         String kindName = "testKind";
 
         FunctionGroup caFunctionGroup = new FunctionGroup();
-        caFunctionGroup.setCode(FunctionGroupCode.CA_CONNECTOR);
-        caFunctionGroup.setName(FunctionGroupCode.CA_CONNECTOR.getCode());
+        caFunctionGroup.setCode(FunctionGroupCode.AUTHORITY_PROVIDER);
+        caFunctionGroup.setName(FunctionGroupCode.AUTHORITY_PROVIDER.getCode());
         functionGroupRepository.save(caFunctionGroup);
 
         FunctionGroup discoveryFunctionGroup = new FunctionGroup();
@@ -225,8 +224,8 @@ public class ConnectorServiceComplexTest {
         String kindName = "testKind";
 
         FunctionGroup caFunctionGroup = new FunctionGroup();
-        caFunctionGroup.setCode(FunctionGroupCode.CA_CONNECTOR);
-        caFunctionGroup.setName(FunctionGroupCode.CA_CONNECTOR.getCode());
+        caFunctionGroup.setCode(FunctionGroupCode.AUTHORITY_PROVIDER);
+        caFunctionGroup.setName(FunctionGroupCode.AUTHORITY_PROVIDER.getCode());
         functionGroupRepository.save(caFunctionGroup);
 
         FunctionGroup discoveryFunctionGroup = new FunctionGroup();
