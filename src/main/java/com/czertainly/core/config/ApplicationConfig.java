@@ -63,8 +63,8 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public CAInstanceApiClient caInstanceApiClient(WebClient webClient) {
-        return new CAInstanceApiClient(webClient);
+    public AuthorityInstanceApiClient authorityInstanceApiClient(WebClient webClient) {
+        return new AuthorityInstanceApiClient(webClient);
     }
 
     @Bean

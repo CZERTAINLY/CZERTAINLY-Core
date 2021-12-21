@@ -11,7 +11,7 @@ import com.czertainly.api.model.credential.CredentialRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Credential;
-import com.czertainly.core.dao.repository.CAInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
@@ -43,7 +43,7 @@ public class CredentialServiceImpl implements CredentialService {
     @Autowired
     private ConnectorService connectorService;
     @Autowired
-    private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
 
 
     @Override

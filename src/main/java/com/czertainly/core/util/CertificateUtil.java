@@ -128,8 +128,13 @@ public class CertificateUtil {
 		cert = cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", "")
 				.replace("\r", "").replace("\n", "");
 		byte[] decoded = Base64.getDecoder().decode(cert);
-		return (X509Certificate) CertificateFactory.getInstance("X.509")
-				.generateCertificate(new ByteArrayInputStream(decoded));
+		try {
+			return (X509Certificate) CertificateFactory.getInstance("X.509")
+					.generateCertificate(new ByteArrayInputStream(decoded));
+		}catch (Exception e){
+			return (X509Certificate) CertificateFactory.getInstance("X.509")
+					.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
+		}
 	}
 
 	public static String getThumbprint(byte[] encodedContent)

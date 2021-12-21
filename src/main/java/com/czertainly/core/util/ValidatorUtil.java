@@ -13,7 +13,7 @@ public class ValidatorUtil {
                 .anyMatch(r -> r.getAuthority().equals("ROLE_" + raProfileName));
         if (!hasUserRole) {
             throw new ValidationException(ValidationError.create(
-                    "Client identified by id {} does not have access to the RA Profile '{}'", authentication.getName(), raProfileName));
+                    "Client identified by name {} does not have access to the RA Profile '{}'", authentication.getName(), raProfileName));
         }
     }
 }

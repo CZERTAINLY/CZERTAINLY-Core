@@ -49,7 +49,7 @@ public class ClientOperationServiceV2Test {
     @Autowired
     private RaProfileRepository raProfileRepository;
     @Autowired
-    private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
@@ -60,7 +60,7 @@ public class ClientOperationServiceV2Test {
     private ClientRepository clientRepository;
 
     private RaProfile raProfile;
-    private CAInstanceReference caInstance;
+    private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
     private Certificate certificate;
     private CertificateContent certificateContent;
@@ -81,14 +81,14 @@ public class ClientOperationServiceV2Test {
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
 
-        caInstance = new CAInstanceReference();
-        caInstance.setCaInstanceId(1l);
-        caInstance.setConnector(connector);
-        caInstance = caInstanceReferenceRepository.save(caInstance);
+        authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setAuthorityInstanceUuid("1l");
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
-        raProfile.setCaInstanceReference(caInstance);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile.setEnabled(true);
 
         raProfile.setAttributes(AttributeDefinitionUtils.serialize(
@@ -132,7 +132,7 @@ public class ClientOperationServiceV2Test {
     @Test
     public void testListIssueCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/issue/attributes"))
+                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
         List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes(RA_PROFILE_NAME);
@@ -147,7 +147,7 @@ public class ClientOperationServiceV2Test {
     @Test
     public void testValidateIssueCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/issue/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         boolean result  = clientOperationService.validateIssueCertificateAttributes(RA_PROFILE_NAME, List.of());
@@ -165,13 +165,13 @@ public class ClientOperationServiceV2Test {
     public void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/issue"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/issue/attributes"))
+                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/issue/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
@@ -192,7 +192,7 @@ public class ClientOperationServiceV2Test {
     public void testRenewCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/[^/]+/renew"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/[^/]+/renew"))
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
@@ -207,7 +207,7 @@ public class ClientOperationServiceV2Test {
     @Test
     public void testListRevokeCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/revoke/attributes"))
+                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
         List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes(RA_PROFILE_NAME);
@@ -222,7 +222,7 @@ public class ClientOperationServiceV2Test {
     @Test
     public void testValidateRevokeCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/revoke/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         boolean result  = clientOperationService.validateRevokeCertificateAttributes(RA_PROFILE_NAME, List.of());
@@ -238,13 +238,13 @@ public class ClientOperationServiceV2Test {
     @Test
     public void testRevokeCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/[^/]+/revoke"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/[^/]+/revoke"))
                 .willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/revoke/attributes"))
+                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/caConnector/authorities/[^/]+/certificates/revoke/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();

@@ -57,7 +57,7 @@ public class Connector extends Audited implements Serializable, DtoMapper<Connec
 
     @OneToMany(mappedBy = "connector")
     @JsonIgnore
-    private Set<CAInstanceReference> caInstanceReferences = new HashSet<>();
+    private Set<AuthorityInstanceReference> authorityInstanceReferences = new HashSet<>();
 
     public Long getId() {
         return id;
@@ -123,12 +123,12 @@ public class Connector extends Audited implements Serializable, DtoMapper<Connec
         this.credentials = credentials;
     }
 
-    public Set<CAInstanceReference> getCaInstanceReferences() {
-        return caInstanceReferences;
+    public Set<AuthorityInstanceReference> getAuthorityInstanceReferences() {
+        return authorityInstanceReferences;
     }
 
-    public void setCaInstanceReferences(Set<CAInstanceReference> caInstanceReferences) {
-        this.caInstanceReferences = caInstanceReferences;
+    public void setAuthorityInstanceReferences(Set<AuthorityInstanceReference> authorityInstanceReferences) {
+        this.authorityInstanceReferences = authorityInstanceReferences;
     }
 
     @Override

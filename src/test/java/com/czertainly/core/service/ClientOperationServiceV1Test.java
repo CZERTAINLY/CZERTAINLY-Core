@@ -45,7 +45,7 @@ public class ClientOperationServiceV1Test {
     @Autowired
     private RaProfileRepository raProfileRepository;
     @Autowired
-    private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
@@ -56,7 +56,7 @@ public class ClientOperationServiceV1Test {
     private ClientRepository clientRepository;
 
     private RaProfile raProfile;
-    private CAInstanceReference caInstance;
+    private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
     private Certificate certificate;
     private CertificateContent certificateContent;
@@ -77,14 +77,14 @@ public class ClientOperationServiceV1Test {
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
 
-        caInstance = new CAInstanceReference();
-        caInstance.setCaInstanceId(1l);
-        caInstance.setConnector(connector);
-        caInstance = caInstanceReferenceRepository.save(caInstance);
+        authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setAuthorityInstanceUuid("1l");
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
-        raProfile.setCaInstanceReference(caInstance);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile.setEnabled(true);
 
         raProfile.setAttributes(AttributeDefinitionUtils.serialize(
@@ -129,7 +129,7 @@ public class ClientOperationServiceV1Test {
     public void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/issue"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/issue"))
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
@@ -144,7 +144,7 @@ public class ClientOperationServiceV1Test {
     @Test
     public void testRevokeCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/revoke"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/revoke"))
                 .willReturn(WireMock.ok()));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
@@ -159,7 +159,7 @@ public class ClientOperationServiceV1Test {
     @Test
     public void testListEntities() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
                 .willReturn(WireMock.ok()));
 
         clientOperationService.listEntities(RA_PROFILE_NAME);
@@ -173,7 +173,7 @@ public class ClientOperationServiceV1Test {
     @Test
     public void testAddEntity() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
                 .willReturn(WireMock.ok()));
 
         clientOperationService.addEndEntity(RA_PROFILE_NAME, new ClientAddEndEntityRequestDto());
@@ -187,7 +187,7 @@ public class ClientOperationServiceV1Test {
     @Test
     public void testGetEntity() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
         clientOperationService.getEndEntity(RA_PROFILE_NAME, "testEndEntity");
@@ -201,7 +201,7 @@ public class ClientOperationServiceV1Test {
     @Test
     public void testEditEntity() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
         ClientEditEndEntityRequestDto request = new ClientEditEndEntityRequestDto();
@@ -216,7 +216,7 @@ public class ClientOperationServiceV1Test {
     @Test
     public void testRevokeAndDeleteEndEntity() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .delete(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
+                .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
         clientOperationService.revokeAndDeleteEndEntity(RA_PROFILE_NAME, "testEndEntity");
@@ -230,7 +230,7 @@ public class ClientOperationServiceV1Test {
     @Test
     public void testResetPassword() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .put(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+/resetPassword"))
+                .put(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+/resetPassword"))
                 .willReturn(WireMock.ok()));
 
         clientOperationService.resetPassword(RA_PROFILE_NAME, "testEndEntity");
