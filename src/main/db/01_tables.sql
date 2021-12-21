@@ -55,7 +55,7 @@ create sequence ra_profile_id_seq start 1 increment 1;
         i_cre timestamp not null,
         i_upd timestamp not null,
         type varchar(255),
-        ca_instance_uuid varchar(255),
+        authority_instance_uuid varchar(255),
         connector_name varchar(255),
         name varchar(255),
         status varchar(255),

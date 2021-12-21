@@ -5,13 +5,13 @@ insert into function_group (id, name, code) values (
 
 insert into function_group (id, name, code) values (
     nextval('function_group_id_seq'),
-    'authorityProvider',
-    'AUTHORITY_PROVIDER');
+    'caConnector',
+    'CA_CONNECTOR');
 
 insert into function_group (id, name, code) values (
     nextval('function_group_id_seq'),
-    'legacyAuthorityProvider',
-    'LEGACY_AUTHORITY_PROVIDER');
+    'legacyCaConnector',
+    'LEGACY_CA_CONNECTOR');
 
 insert into function_group (id, name, code) values (
     nextval('function_group_id_seq'),
@@ -45,18 +45,18 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listAttributeDefinitions',
-    '/v1/authorityProvider/{kind/}attributes',
+    '/v1/caConnector/{kind/}attributes',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'validateAttributes',
-    '/v1/authorityProvider/{kind}/attributes/validate',
+    '/v1/caConnector/{kind}/attributes/validate',
     'POST',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
@@ -64,140 +64,140 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
     '/v1',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'listAuthorityInstances',
-    '/v1/authorityProvider/authorities',
+    'listCAInstances',
+    '/v1/caConnector/authorities',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'getAuthorityInstance',
-    '/v1/authorityProvider/authorities/{uuid}',
+    'getCAInstance',
+    '/v1/caConnector/authorities/{authorityId}',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'createAuthorityInstance',
-    '/v1/authorityProvider/authorities',
+    'createCAInstance',
+    '/v1/caConnector/authorities',
     'POST',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'updateAuthorityInstance',
-    '/v1/authorityProvider/authorities/{uuid}',
+    'updateCAInstance',
+    '/v1/caConnector/authorities/{authorityId}',
     'POST',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'deleteAuthorityInstance',
-    '/v1/authorityProvider/authorities/{uuid}',
+    'deleteCAInstance',
+    '/v1/caConnector/authorities/{authorityId}',
     'DELETE',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'issueCertificate',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/certificates/issue',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileName}/certificates/issue',
     'POST',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'revokeCertificate',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/certificates/revoke',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileName}/certificates/revoke',
     'POST',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listEndEntities',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileName}/endEntities',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'getEndEntity',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'createEndEntity',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileName}/endEntities',
     'POST',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'updateEndEntity',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}',
     'POST',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'removeEndEntity',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}',
     'DELETE',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'resetPassword',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}/resetPassword',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}/resetPassword',
     'PUT',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listEntityProfiles',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listCertificateProfiles',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileId}/certificateprofiles',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileId}/certificateprofiles',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listCAsInProfile',
-    '/v1/authorityProvider/authorities/{uuid}/endEntityProfiles/{endEntityProfileId}/cas',
+    '/v1/caConnector/authorities/{authorityId}/endEntityProfiles/{endEntityProfileId}/cas',
     'GET',
     true,
-    (select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'LEGACY_CA_CONNECTOR'));
 
 
 
@@ -206,142 +206,142 @@ insert into endpoint (id, name, context, method, required, function_group_id) va
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listAttributeDefinitions',
-    '/v1/authorityProvider/{kind/}attributes',
+    '/v1/caConnector/{kind/}attributes',
     'GET',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'validateAttributes',
-    '/v1/authorityProvider/{kind}/attributes/validate',
+    '/v1/caConnector/{kind}/attributes/validate',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'listAuthorityInstances',
-    '/v1/authorityProvider/authorities',
+    'listCAInstances',
+    '/v1/caConnector/authorities',
     'GET',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'getAuthorityInstance',
-    '/v1/authorityProvider/authorities/{uuid}',
+    'getCAInstance',
+    '/v1/caConnector/authorities/{authorityId}',
     'GET',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'createAuthorityInstance',
-    '/v1/authorityProvider/authorities',
+    'createCAInstance',
+    '/v1/caConnector/authorities',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'updateAuthorityInstance',
-    '/v1/authorityProvider/authorities/{uuid}',
+    'updateCAInstance',
+    '/v1/caConnector/authorities/{authorityId}',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'deleteAuthorityInstance',
-    '/v1/authorityProvider/authorities/{uuid}',
+    'deleteCAInstance',
+    '/v1/caConnector/authorities/{authorityId}',
     'DELETE',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
-    'deleteAuthorityInstance',
-    '/v1/authorityProvider/authorities/{uuid}',
+    'deleteCAInstance',
+    '/v1/caConnector/authorities/{authorityId}',
     'DELETE',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listRAProfileAttributes',
-    '/v1/authorityProvider/authorities/{uuid}/raProfile/attributes',
+    '/v1/caConnector/authorities/{authorityId}/raProfiles/attributes',
     'GET',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'issueCertificate',
-    '/v2/authorityProvider/authorities/{uuid}/certificates/issue',
+    '/v2/caConnector/authorities/{authorityId}/certificates/issue',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listIssueCertificateAttributes',
-    '/v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes',
+    '/v2/caConnector/authorities/{authorityId}/certificates/issue/attributes',
     'GET',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'validateIssueCertificateAttributes',
-    '/v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes/validate',
+    '/v2/caConnector/authorities/{authorityId}/certificates/issue/attributes/validate',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'renewCertificate',
-    '/v2/authorityProvider/authorities/{uuid}/certificates/{certificateId}/renew',
+    '/v2/caConnector/authorities/{authorityId}/certificates/{certificateId}/renew',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'listRevokeCertificateAttributes',
-    '/v2/authorityProvider/authorities/{uuid}/certificates/revoke/attributes',
+    '/v2/caConnector/authorities/{authorityId}/certificates/revoke/attributes',
     'GET',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'validateRevokeCertificateAttributes',
-    '/v2/authorityProvider/authorities/{uuid}/certificates/revoke/attributes/validate',
+    '/v2/caConnector/authorities/{authorityId}/certificates/revoke/attributes/validate',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'revokeCertificate',
-    '/v2/authorityProvider/authorities/{uuid}/certificates/{certificateId}/revoke',
+    '/v2/caConnector/authorities/{authorityId}/certificates/{certificateId}/revoke',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 insert into endpoint (id, name, context, method, required, function_group_id) values (
     nextval('endpoint_id_seq'),
     'revokeCertificate',
-    '/v2/authorityProvider/authorities/{uuid}/certificates/{certificateId}/revoke',
+    '/v2/caConnector/authorities/{authorityId}/certificates/{certificateId}/revoke',
     'POST',
     true,
-    (select id from function_group where code = 'AUTHORITY_PROVIDER'));
+    (select id from function_group where code = 'CA_CONNECTOR'));
 
 
 
