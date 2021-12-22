@@ -16,7 +16,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import com.czertainly.api.model.discovery.CertificateGroupDto;
+import com.czertainly.api.model.certificate.group.CertificateGroupDto;
 
 @Entity
 @Table(name = "certificate_group")
@@ -66,7 +66,6 @@ public class CertificateGroup extends Audited implements Serializable, DtoMapper
     @Override
     public CertificateGroupDto mapToDto() {
         CertificateGroupDto dto = new CertificateGroupDto();
-        dto.setId(this.id);
         dto.setName(this.name);
         dto.setUuid(uuid);
         dto.setDescription(description);

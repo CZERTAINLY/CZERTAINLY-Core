@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import javax.transaction.Transactional;
 
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.certificate.group.CertificateGroupRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateRepository;
@@ -22,7 +23,7 @@ import com.czertainly.api.core.modal.ObjectType;
 import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.CertificateGroupDto;
+import com.czertainly.api.model.certificate.group.CertificateGroupDto;
 
 @Service
 @Transactional
@@ -49,12 +50,12 @@ public class CertificateGroupServiceImpl implements CertificateGroupService {
     }
 
     public CertificateGroup getGroupEntity(String uuid) throws NotFoundException {
-        return certificateGroupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+        return certificateGroupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CREATE)
-    public CertificateGroupDto createCertificateGroup(CertificateGroupDto request) throws ValidationException, AlreadyExistException {
+    public CertificateGroupDto createCertificateGroup(CertificateGroupRequestDto request) throws ValidationException, AlreadyExistException {
 
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("Name must not be empty");
@@ -97,14 +98,14 @@ public class CertificateGroupServiceImpl implements CertificateGroupService {
                 }
                 certificateGroupRepository.delete(group);
             }catch(NotFoundException e){
-                logger.warn("Unable to find the group with id {}. It may have been deleted", uuid);
+                logger.warn("Unable to find the group with uuid {}. It may have been deleted", uuid);
             }
         }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CHANGE)
-    public CertificateGroupDto updateCertificateGroup(String uuid, CertificateGroupDto request) throws NotFoundException {
+    public CertificateGroupDto updateCertificateGroup(String uuid, CertificateGroupRequestDto request) throws NotFoundException {
         CertificateGroup group = certificateGroupRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
 

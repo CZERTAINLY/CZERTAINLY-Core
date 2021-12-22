@@ -5,15 +5,16 @@ import java.util.List;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.discovery.CertificateEntityDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityRequestDto;
 
 public interface CertificateEntityService {
 
     List<CertificateEntityDto> listCertificateEntity();
     CertificateEntityDto getCertificateEntity(String uuid) throws NotFoundException;
 
-    CertificateEntityDto createCertificateEntity(CertificateEntityDto request) throws ValidationException, AlreadyExistException;
-    CertificateEntityDto updateCertificateEntity(String uuid, CertificateEntityDto request) throws NotFoundException;
+    CertificateEntityDto createCertificateEntity(CertificateEntityRequestDto request) throws ValidationException, AlreadyExistException;
+    CertificateEntityDto updateCertificateEntity(String uuid, CertificateEntityRequestDto request) throws NotFoundException;
 
     void removeCertificateEntity(String uuid) throws NotFoundException;
     void bulkRemoveCertificateEntity(List<String> entityUuids);
