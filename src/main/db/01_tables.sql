@@ -198,7 +198,7 @@ CREATE TABLE "discovery_history" (
         "i_upd" TIMESTAMP NULL DEFAULT NULL,
         "id" BIGINT NOT NULL,
         "uuid" VARCHAR NOT NULL,
-        "connector_id" BIGINT NOT NULL,
+        "connector_uuid" VARCHAR NOT NULL,
         "name" VARCHAR NOT NULL,
         "attributes" TEXT NULL DEFAULT NULL,
         "meta" TEXT NULL DEFAULT NULL,

@@ -80,7 +80,7 @@ public class DiscoveryServiceTest {
 
         discovery = new DiscoveryHistory();
         discovery.setName(DISCOVERY_NAME);
-        discovery.setConnectorId(connector.getId());
+        discovery.setConnectorUuid(connector.getUuid());
         discovery.setConnectorName(connector.getName());
         discovery = discoveryRepository.save(discovery);
     }
@@ -104,7 +104,7 @@ public class DiscoveryServiceTest {
         DiscoveryHistoryDto dto = discoveryService.getDiscovery(discovery.getUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(discovery.getUuid(), dto.getUuid());
-        Assertions.assertEquals(discovery.getConnectorId(), dto.getConnectorId());
+        Assertions.assertEquals(discovery.getConnectorUuid(), dto.getConnectorUuid());
     }
 
     @Test
@@ -130,7 +130,7 @@ public class DiscoveryServiceTest {
         DiscoveryHistory dto = discoveryService.createDiscoveryModal(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
-        Assertions.assertEquals(discovery.getConnectorId(), dto.getConnectorId());
+        Assertions.assertEquals(discovery.getConnectorUuid(), dto.getConnectorUuid());
     }
 
     @Test

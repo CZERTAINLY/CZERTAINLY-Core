@@ -68,8 +68,8 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
     @Column(name = "meta")
     private String meta;
 
-    @Column(name = "connector_id")
-    private Long connectorId;
+    @Column(name = "connector_uuid")
+    private String connectorUuid;
     
     @Column(name = "connector_name")
     private String connectorName;
@@ -144,12 +144,12 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         this.certificate = certificate;
     }
 
-    public Long getConnectorId() {
-        return connectorId;
+    public String getConnectorUuid() {
+        return connectorUuid;
     }
 
-    public void setConnectorId(Long connectorId) {
-        this.connectorId = connectorId;
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = connectorUuid;
     }
 
     public String getAttributes() {
@@ -195,7 +195,6 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
 	@Override
     public DiscoveryHistoryDto mapToDto() {
         DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
-        dto.setId(id);
         dto.setUuid(uuid);
         dto.setName(name);
         dto.setEndTime(endTime);
@@ -204,7 +203,7 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
-        dto.setConnectorId(connectorId);
+        dto.setConnectorUuid(connectorUuid);
         dto.setAttributes(AttributeDefinitionUtils.deserialize(attributes));
         dto.setDiscoveryType(discoveryType);
         dto.setMessage(message);
