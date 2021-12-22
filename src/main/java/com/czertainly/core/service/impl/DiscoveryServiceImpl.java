@@ -173,7 +173,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
 
-            dtoRequest.setId(response.getId());
+            dtoRequest.setUuid(response.getUuid());
             Boolean waitForCompletion = checkForCompletion(response);
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
@@ -251,7 +251,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         modal.setConnectorName(connector.getName());
         modal.setStartTime(new Date());
         modal.setStatus(DiscoveryStatus.IN_PROGRESS);
-        modal.setConnectorId(connector.getId());
+        modal.setConnectorUuid(connector.getUuid());
         modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         modal.setDiscoveryType(request.getDiscoveryType());
 
@@ -314,19 +314,19 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             for (Map.Entry<String, Object> entry : MetaDefinitions.deserialize(modal.getMeta()).entrySet()) {
                 if (entry.getKey().equals("discoverySource")) {
-                    if (entry.getValue().equals(certificate.getDiscoverySource())) {
+                    if (entry.getValue().equals(certificate.getMeta().getOrDefault("discoverySource", ""))) {
                         meta.put("discoverySource", entry.getValue());
                     } else {
-                        meta.put("discoverySource", entry.getValue() + "," + certificate.getDiscoverySource());
+                        meta.put("discoverySource", entry.getValue() + "," + certificate.getMeta().getOrDefault("discoverySource", ""));
                     }
                 }
             }
         } catch (NullPointerException | IllegalStateException e) {
-            logger.debug("Meta data is null for the certificate");
+            logger.debug("Metadata is null for the certificate");
         }
 
         if (modal.getMeta() == null) {
-            meta.put("discoverySource", certificate.getDiscoverySource());
+            meta.put("discoverySource", certificate.getMeta().getOrDefault("discoverySource", ""));
         }
         modal.setMeta(MetaDefinitions.serialize(meta));
 
