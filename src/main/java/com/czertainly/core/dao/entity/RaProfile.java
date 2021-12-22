@@ -69,7 +69,6 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
 
     public RaProfileDto mapToDtoSimple() {
         RaProfileDto dto = new RaProfileDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setDescription(this.description);
@@ -88,7 +87,6 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
     @Transient
     public RaProfileDto mapToDto() {
         RaProfileDto dto = new RaProfileDto();
-        dto.setId(id);
         dto.setUuid(uuid);
         dto.setName(name);
         dto.setDescription(this.description);
