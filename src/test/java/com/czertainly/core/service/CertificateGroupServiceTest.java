@@ -3,13 +3,10 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.discovery.CertificateGroupDto;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.api.model.certificate.group.CertificateGroupDto;
+import com.czertainly.api.model.certificate.group.CertificateGroupRequestDto;
 import com.czertainly.core.dao.entity.CertificateGroup;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateGroupRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,7 +65,7 @@ public class CertificateGroupServiceTest {
 
     @Test
     public void testAddCertificateGroup() throws ValidationException, AlreadyExistException {
-        CertificateGroupDto request = new CertificateGroupDto();
+        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
         request.setName("test");
 
         CertificateGroupDto dto = certificateGroupService.createCertificateGroup(request);
@@ -78,13 +75,13 @@ public class CertificateGroupServiceTest {
 
     @Test
     public void testAddCertificateGroup_validationFail() {
-        CertificateGroupDto request = new CertificateGroupDto();
+        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> certificateGroupService.createCertificateGroup(request));
     }
 
     @Test
     public void testAddCertificateGroup_alreadyExist() {
-        CertificateGroupDto request = new CertificateGroupDto();
+        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
         request.setName(CERTIFICATE_GROUP_NAME); // certificateGroup with same name exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> certificateGroupService.createCertificateGroup(request));
@@ -92,7 +89,7 @@ public class CertificateGroupServiceTest {
 
     @Test
     public void testEditCertificateGroup() throws NotFoundException {
-        CertificateGroupDto request = new CertificateGroupDto();
+        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
         request.setName("Test");
         request.setDescription("some description");
 
@@ -103,7 +100,7 @@ public class CertificateGroupServiceTest {
 
     @Test
     public void testEditCertificateGroup_notFound() {
-        CertificateGroupDto request = new CertificateGroupDto();
+        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
         Assertions.assertThrows(NotFoundException.class, () -> certificateGroupService.updateCertificateGroup("wrong-uuid", request));
     }
 
