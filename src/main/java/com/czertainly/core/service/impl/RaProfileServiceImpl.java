@@ -243,6 +243,9 @@ public class RaProfileServiceImpl implements RaProfileService {
         entity.setDescription(dto.getDescription());
         entity.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         entity.setAuthorityInstanceReference(authorityInstanceRef);
+        if(dto.isEnabled() != null) {
+            entity.setEnabled(dto.isEnabled() != null && dto.isEnabled());
+        }
         entity.setAuthorityInstanceName(authorityInstanceRef.getName());
         return entity;
     }

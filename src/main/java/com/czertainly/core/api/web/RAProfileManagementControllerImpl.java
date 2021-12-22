@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.List;
 
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.model.UuidDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,9 +43,11 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     public ResponseEntity<?> addRaProfile(@RequestBody AddRaProfileRequestDto request)
             throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException {
         RaProfileDto raProfile = raProfileService.addRaProfile(request);
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{raProfileUuid}")
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(raProfile.getUuid()).toUri();
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(raProfile.getUuid());
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
