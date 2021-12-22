@@ -3,7 +3,8 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.discovery.CertificateEntityDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityRequestDto;
 import com.czertainly.core.dao.entity.CertificateEntity;
 import com.czertainly.core.dao.repository.CertificateEntityRepository;
 import org.junit.jupiter.api.Assertions;
@@ -64,7 +65,7 @@ public class CertificateEntityServiceTest {
 
     @Test
     public void testAddCertificateEntity() throws ValidationException, AlreadyExistException {
-        CertificateEntityDto request = new CertificateEntityDto();
+        CertificateEntityRequestDto request = new CertificateEntityRequestDto();
         request.setName("test");
 
         CertificateEntityDto dto = certificateEntityService.createCertificateEntity(request);
@@ -74,13 +75,13 @@ public class CertificateEntityServiceTest {
 
     @Test
     public void testAddCertificateEntity_validationFail() {
-        CertificateEntityDto request = new CertificateEntityDto();
+        CertificateEntityRequestDto request = new CertificateEntityRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> certificateEntityService.createCertificateEntity(request));
     }
 
     @Test
     public void testAddCertificateEntity_alreadyExist() {
-        CertificateEntityDto request = new CertificateEntityDto();
+        CertificateEntityRequestDto request = new CertificateEntityRequestDto();
         request.setName(CERTIFICATE_NAME); // certificateEntity with same name exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> certificateEntityService.createCertificateEntity(request));
@@ -88,7 +89,7 @@ public class CertificateEntityServiceTest {
 
     @Test
     public void testEditCertificateEntity() throws NotFoundException {
-        CertificateEntityDto request = new CertificateEntityDto();
+        CertificateEntityRequestDto request = new CertificateEntityRequestDto();
         request.setName("Test");
         request.setDescription("some description");
 
@@ -99,7 +100,7 @@ public class CertificateEntityServiceTest {
 
     @Test
     public void testEditCertificateEntity_notFound() {
-        CertificateEntityDto request = new CertificateEntityDto();
+        CertificateEntityRequestDto request = new CertificateEntityRequestDto();
         Assertions.assertThrows(NotFoundException.class, () -> certificateEntityService.updateCertificateEntity("wrong-uuid", request));
     }
 
