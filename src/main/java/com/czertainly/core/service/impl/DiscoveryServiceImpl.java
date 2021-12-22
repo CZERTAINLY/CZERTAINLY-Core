@@ -173,7 +173,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
 
-            dtoRequest.setId(response.getId());
+            dtoRequest.setUuid(response.getUuid());
             Boolean waitForCompletion = checkForCompletion(response);
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
@@ -251,7 +251,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         modal.setConnectorName(connector.getName());
         modal.setStartTime(new Date());
         modal.setStatus(DiscoveryStatus.IN_PROGRESS);
-        modal.setConnectorId(connector.getId());
+        modal.setConnectorUuid(connector.getUuid());
         modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         modal.setDiscoveryType(request.getDiscoveryType());
 
