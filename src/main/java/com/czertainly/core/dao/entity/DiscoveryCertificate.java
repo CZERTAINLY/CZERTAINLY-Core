@@ -53,13 +53,12 @@ public class DiscoveryCertificate extends Audited implements Serializable, DtoMa
     private CertificateContent certificateContent;
 
     @OneToOne
-    @JoinColumn(name = "discovery_uuid", nullable = false)
+    @JoinColumn(name = "discovery_id", nullable = false)
     private DiscoveryHistory discovery;
 
     @Override
     public DiscoveryCertificatesDto mapToDto() {
         DiscoveryCertificatesDto dto = new DiscoveryCertificatesDto();
-        dto.setId(id);
         dto.setUuid(uuid);
         dto.setCommonName(commonName);
         dto.setSerialNumber(serialNumber);
