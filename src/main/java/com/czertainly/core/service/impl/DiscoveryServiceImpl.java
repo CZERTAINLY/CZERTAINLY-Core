@@ -314,19 +314,19 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             for (Map.Entry<String, Object> entry : MetaDefinitions.deserialize(modal.getMeta()).entrySet()) {
                 if (entry.getKey().equals("discoverySource")) {
-                    if (entry.getValue().equals(certificate.getDiscoverySource())) {
+                    if (entry.getValue().equals(certificate.getMeta().getOrDefault("discoverySource", ""))) {
                         meta.put("discoverySource", entry.getValue());
                     } else {
-                        meta.put("discoverySource", entry.getValue() + "," + certificate.getDiscoverySource());
+                        meta.put("discoverySource", entry.getValue() + "," + certificate.getMeta().getOrDefault("discoverySource", ""));
                     }
                 }
             }
         } catch (NullPointerException | IllegalStateException e) {
-            logger.debug("Meta data is null for the certificate");
+            logger.debug("Metadata is null for the certificate");
         }
 
         if (modal.getMeta() == null) {
-            meta.put("discoverySource", certificate.getDiscoverySource());
+            meta.put("discoverySource", certificate.getMeta().getOrDefault("discoverySource", ""));
         }
         modal.setMeta(MetaDefinitions.serialize(meta));
 
