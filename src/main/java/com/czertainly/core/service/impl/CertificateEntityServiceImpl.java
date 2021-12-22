@@ -5,11 +5,11 @@ import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.discovery.CertificateEntityDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateEntity;
-import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.repository.CertificateEntityRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.service.CertificateEntityService;
@@ -55,14 +55,14 @@ public class CertificateEntityServiceImpl implements CertificateEntityService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ENTITY, operation = OperationType.CREATE)
-    public CertificateEntityDto createCertificateEntity(CertificateEntityDto request) throws ValidationException, AlreadyExistException {
+    public CertificateEntityDto createCertificateEntity(CertificateEntityRequestDto request) throws ValidationException, AlreadyExistException {
 
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("Name must not be empty");
         }
 
         if (certificateEntityRepository.findByName(request.getName()).isPresent()) {
-            throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
+            throw new AlreadyExistException(CertificateEntity.class, request.getName());
         }
 
         CertificateEntity entity = new CertificateEntity();
@@ -99,14 +99,14 @@ public class CertificateEntityServiceImpl implements CertificateEntityService {
                 }
                 certificateEntityRepository.delete(entity);
             }catch(NotFoundException e){
-                logger.warn("Unable to find the entity with id {}. It may have been deleted", uuid);
+                logger.warn("Unable to find the entity with uuid {}. It may have been deleted", uuid);
             }
         }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ENTITY, operation = OperationType.CHANGE)
-    public CertificateEntityDto updateCertificateEntity(String uuid, CertificateEntityDto request) throws NotFoundException {
+    public CertificateEntityDto updateCertificateEntity(String uuid, CertificateEntityRequestDto request) throws NotFoundException {
         CertificateEntity entity = certificateEntityRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CertificateEntity.class, uuid));
 

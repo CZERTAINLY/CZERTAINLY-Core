@@ -3,6 +3,8 @@ package com.czertainly.core.api.web;
 import java.net.URI;
 import java.util.List;
 
+import com.czertainly.api.model.UuidDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityRequestDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,7 +16,7 @@ import com.czertainly.core.service.CertificateEntityService;
 import com.czertainly.api.core.interfaces.web.CertificateEntityController;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.CertificateEntityDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityDto;
 
 @RestController
 public class CertificateEntityControllerImpl implements CertificateEntityController{
@@ -23,7 +25,7 @@ public class CertificateEntityControllerImpl implements CertificateEntityControl
     private CertificateEntityService certificateEntityService;
 
     @Override
-    public List<CertificateEntityDto> listCertificateEntitys() {
+    public List<CertificateEntityDto> listCertificateEntities() {
         return certificateEntityService.listCertificateEntity();
     }
 
@@ -33,7 +35,7 @@ public class CertificateEntityControllerImpl implements CertificateEntityControl
     }
 
     @Override
-    public ResponseEntity<?> createCertificateEntity(@RequestBody CertificateEntityDto request) throws AlreadyExistException, NotFoundException {
+    public ResponseEntity<?> createCertificateEntity(@RequestBody CertificateEntityRequestDto request) throws AlreadyExistException, NotFoundException {
         CertificateEntityDto entityDto = certificateEntityService.createCertificateEntity(request);
 
         URI location = ServletUriComponentsBuilder
@@ -42,11 +44,13 @@ public class CertificateEntityControllerImpl implements CertificateEntityControl
                 .buildAndExpand(entityDto.getUuid())
                 .toUri();
 
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(entityDto.getUuid());
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
-    public CertificateEntityDto updateCertificateEntity(@PathVariable String uuid, @RequestBody CertificateEntityDto request) throws NotFoundException {
+    public CertificateEntityDto updateCertificateEntity(@PathVariable String uuid, @RequestBody CertificateEntityRequestDto request) throws NotFoundException {
         return certificateEntityService.updateCertificateEntity(uuid, request);
     }
 

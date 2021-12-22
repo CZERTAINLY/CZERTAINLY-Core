@@ -18,8 +18,8 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import com.czertainly.api.model.discovery.CertificateEntityCode;
-import com.czertainly.api.model.discovery.CertificateEntityDto;
+import com.czertainly.api.model.certificate.entity.CertificateEntityCode;
+import com.czertainly.api.model.certificate.entity.CertificateEntityDto;
 
 @Entity
 @Table(name = "certificate_entity")
@@ -81,7 +81,6 @@ public class CertificateEntity extends Audited implements Serializable, DtoMappe
     @Override
     public CertificateEntityDto mapToDto() {
         CertificateEntityDto dto = new CertificateEntityDto();
-        dto.setId(this.id);
         dto.setName(this.name);
         dto.setUuid(uuid);
         dto.setDescription(description);
