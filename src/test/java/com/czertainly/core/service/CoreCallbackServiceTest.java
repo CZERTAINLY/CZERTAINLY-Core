@@ -33,12 +33,12 @@ public class CoreCallbackServiceTest {
     @Test
     public void testCoreGetCredentials() throws NotFoundException {
         Credential credential = new Credential();
-        credential.setType("certificate");
+        credential.setKind("certificate");
         credential.setEnabled(true);
         credential = credentialRepository.save(credential);
 
         AttributeCallback callback = new AttributeCallback();
-        callback.setPathVariables(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, credential.getType())));
+        callback.setPathVariables(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, credential.getKind())));
 
         List<NameAndUuidDto> credentials = coreCallbackService.coreGetCredentials(callback);
         Assertions.assertNotNull(credentials);

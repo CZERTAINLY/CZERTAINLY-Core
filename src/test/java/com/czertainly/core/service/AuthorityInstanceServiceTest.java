@@ -136,7 +136,7 @@ public class AuthorityInstanceServiceTest {
         request.setName("testAuthorityInstance2");
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
-        request.setAuthorityType("Ejbca");
+        request.setKind("Ejbca");
 
         AuthorityInstanceDto dto = authorityInstanceService.createAuthorityInstance(request);
         Assertions.assertNotNull(dto);
@@ -177,11 +177,11 @@ public class AuthorityInstanceServiceTest {
         request.setName(authorityInstance.getName());
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
-        request.setAuthorityType("Ejbca");
+        request.setKind("Ejbca");
 
         AuthorityInstanceDto dto = authorityInstanceService.updateAuthorityInstance(authorityInstance.getUuid(), request);
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(request.getAuthorityType(), dto.getAuthorityType());
+        Assertions.assertEquals(request.getKind(), dto.getKind());
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
     }

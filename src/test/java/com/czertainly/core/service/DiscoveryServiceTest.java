@@ -125,7 +125,7 @@ public class DiscoveryServiceTest {
         request.setName("testDiscovery2");
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
-        request.setDiscoveryType("ApiKey");
+        request.setKind("ApiKey");
 
         DiscoveryHistory dto = discoveryService.createDiscoveryModal(request);
         Assertions.assertNotNull(dto);

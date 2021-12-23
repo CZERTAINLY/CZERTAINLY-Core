@@ -90,11 +90,11 @@ public class CredentialServiceImpl implements CredentialService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
-                request.getAttributes(), request.getCredentialType());
+                request.getAttributes(), request.getKind());
 
         Credential credential = new Credential();
         credential.setName(request.getName());
-        credential.setType(request.getCredentialType());
+        credential.setKind(request.getKind());
         credential.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         credential.setEnabled(true);
         credential.setConnector(connector);
@@ -120,10 +120,10 @@ public class CredentialServiceImpl implements CredentialService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
-                request.getAttributes(), request.getCredentialType());
+                request.getAttributes(), request.getKind());
 
         credential.setName(request.getName());
-        credential.setType(request.getCredentialType());
+        credential.setKind(request.getKind());
         credential.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         credential.setConnectorName(connector.getName());
         credential.setConnector(connector);

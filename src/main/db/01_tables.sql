@@ -54,7 +54,7 @@ create sequence ra_profile_id_seq start 1 increment 1;
         i_author varchar(255),
         i_cre timestamp not null,
         i_upd timestamp not null,
-        type varchar(255),
+        kind varchar(255),
         authority_instance_uuid varchar(255),
         connector_name varchar(255),
         name varchar(255),
@@ -183,7 +183,7 @@ CREATE TABLE "certificate_group" (
         connector_name varchar(255),
         enabled boolean,
         name varchar(255),
-        type varchar(255),
+        kind varchar(255),
         connector_id int8,
         primary key (id)
     );
@@ -203,7 +203,7 @@ CREATE TABLE "discovery_history" (
         "attributes" TEXT NULL DEFAULT NULL,
         "meta" TEXT NULL DEFAULT NULL,
         "message" TEXT NULL DEFAULT NULL,
-        "type" VARCHAR NULL DEFAULT NULL,
+        "kind" VARCHAR NULL DEFAULT NULL,
         "connector_name" VARCHAR NULL DEFAULT NULL,
         PRIMARY KEY ("id")
 )
