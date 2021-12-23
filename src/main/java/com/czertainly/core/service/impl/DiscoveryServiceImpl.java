@@ -158,7 +158,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 request.getConnectorUuid(),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
-                request.getAttributes(),
+                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()),
                 request.getKind());
 
         try {
@@ -243,7 +243,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 request.getConnectorUuid(),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
-                request.getAttributes(),
+                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()),
                 request.getKind());
 
         DiscoveryHistory modal = new DiscoveryHistory();

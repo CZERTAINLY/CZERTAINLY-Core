@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.model.AttributeDefinition;
+import com.czertainly.api.model.ClientAttributeDefinition;
 import com.czertainly.api.model.connector.AuthType;
 
 import java.util.List;
@@ -11,23 +12,23 @@ public interface ConnectorAuthService {
 
     List<AttributeDefinition> getAuthAttributes(AuthType authenticationType);
 
-    boolean validateAuthAttributes(AuthType authenticationType, List<AttributeDefinition> attributes);
+    boolean validateAuthAttributes(AuthType authenticationType, List<ClientAttributeDefinition> attributes);
 
     List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<AttributeDefinition> attributes);
 
     List<AttributeDefinition> getBasicAuthAttributes();
 
-    Boolean validateBasicAuthAttributes(List<AttributeDefinition> attributes);
+    Boolean validateBasicAuthAttributes(List<ClientAttributeDefinition> attributes);
 
     List<AttributeDefinition> getCertificateAttributes();
 
-    Boolean validateCertificateAttributes(List<AttributeDefinition> attributes);
+    Boolean validateCertificateAttributes(List<ClientAttributeDefinition> attributes);
 
     List<AttributeDefinition> getApiKeyAuthAttributes();
 
-    Boolean validateApiKeyAuthAttributes(List<AttributeDefinition> attributes);
+    Boolean validateApiKeyAuthAttributes(List<ClientAttributeDefinition> attributes);
 
     List<AttributeDefinition> getJWTAuthAttributes();
 
-    Boolean validateJWTAuthAttributes(List<AttributeDefinition> attributes);
+    Boolean validateJWTAuthAttributes(List<ClientAttributeDefinition> attributes);
 }
