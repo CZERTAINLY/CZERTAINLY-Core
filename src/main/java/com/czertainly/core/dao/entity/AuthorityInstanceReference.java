@@ -33,8 +33,8 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
     @Column(name = "status")
     private String status;
 
-    @Column(name = "type")
-    private String authorityType;
+    @Column(name = "kind")
+    private String kind;
 
     @ManyToOne
     @JoinColumn(name = "connector_id")
@@ -95,12 +95,12 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
         this.raProfiles = raProfiles;
     }
 
-    public String getAuthorityType() {
-        return authorityType;
+    public String getKind() {
+        return kind;
     }
 
-    public void setAuthorityType(String authorityType) {
-        this.authorityType = authorityType;
+    public void setKind(String kind) {
+        this.kind = kind;
     }
 
     public String getConnectorName() { return connectorName; }
@@ -112,7 +112,7 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setStatus(this.status);
-        dto.setAuthorityType(authorityType);
+        dto.setKind(kind);
         dto.setConnectorName(this.connectorName);
         if (this.connector != null) {
             dto.setConnectorUuid(this.connector.getUuid());
@@ -128,7 +128,7 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
                 .append("authorityInstanceUuid", authorityInstanceUuid)
                 .append("name", name)
                 .append("status", status)
-                .append("type", authorityType)
+                .append("type", kind)
                 .append("connectorName", connectorName)
                 .toString();
     }

@@ -133,7 +133,7 @@ public class CredentialServiceTest {
         request.setName("testCredential2");
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
-        request.setCredentialType("ApiKey");
+        request.setKind("ApiKey");
 
         CredentialDto dto = credentialService.createCredential(request);
         Assertions.assertNotNull(dto);
@@ -169,11 +169,11 @@ public class CredentialServiceTest {
         request.setName(credential.getName());
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
-        request.setCredentialType("Certificate");
+        request.setKind("Certificate");
 
         CredentialDto dto = credentialService.updateCredential(credential.getUuid(), request);
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(request.getCredentialType(), dto.getCredentialType());
+        Assertions.assertEquals(request.getKind(), dto.getKind());
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
     }
