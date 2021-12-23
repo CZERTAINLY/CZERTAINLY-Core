@@ -1,7 +1,7 @@
 {
   "name": "ejbca-ca-instance3",
   "connectorUuid": "24fd52e9-5e2a-480c-b5ff-450d7d8a184a",
-  "authorityType": "Ejbca",
+  "kind": "Ejbca",
   "attributes": [
     {
       "name": "url",

@@ -159,7 +159,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 request.getConnectorUuid(),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),
-                request.getDiscoveryType());
+                request.getKind());
 
         try {
             DiscoveryProviderDto dtoRequest = new DiscoveryProviderDto();
@@ -244,7 +244,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 request.getConnectorUuid(),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),
-                request.getDiscoveryType());
+                request.getKind());
 
         DiscoveryHistory modal = new DiscoveryHistory();
         modal.setName(request.getName());
@@ -253,7 +253,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         modal.setStatus(DiscoveryStatus.IN_PROGRESS);
         modal.setConnectorUuid(connector.getUuid());
         modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
-        modal.setDiscoveryType(request.getDiscoveryType());
+        modal.setKind(request.getKind());
 
         discoveryRepository.save(modal);
 

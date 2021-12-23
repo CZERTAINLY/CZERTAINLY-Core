@@ -46,8 +46,8 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
     @Column(name = "name")
     private String name;
 
-    @Column(name = "type")
-    private String discoveryType;
+    @Column(name = "kind")
+    private String kind;
 
     @Column(name = "status")
     @Enumerated(EnumType.STRING)
@@ -168,12 +168,12 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         this.meta = meta;
     }
 
-    public String getDiscoveryType() {
-        return discoveryType;
+    public String getKind() {
+        return kind;
     }
 
-    public void setDiscoveryType(String discoveryType) {
-        this.discoveryType = discoveryType;
+    public void setKind(String kind) {
+        this.kind = kind;
     }
 
     public String getMessage() {
@@ -205,7 +205,7 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
         dto.setConnectorUuid(connectorUuid);
         dto.setAttributes(AttributeDefinitionUtils.deserialize(attributes));
-        dto.setDiscoveryType(discoveryType);
+        dto.setKind(kind);
         dto.setMessage(message);
         dto.setConnectorName(connectorName);
         return dto;

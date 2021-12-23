@@ -33,7 +33,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
 
         String kind = callback.getPathVariables().get(CREDENTIAL_KIND_PATH_VARIABLE).toString();
 
-        List<Credential> credentials = credentialRepository.findByTypeAndEnabledTrue(kind);
+        List<Credential> credentials = credentialRepository.findByKindAndEnabledTrue(kind);
         if (credentials == null || credentials.isEmpty()) {
             throw new NotFoundException(Credential.class, kind);
         }
