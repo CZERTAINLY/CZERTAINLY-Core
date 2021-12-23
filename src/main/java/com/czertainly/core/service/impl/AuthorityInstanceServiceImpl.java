@@ -83,7 +83,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceDto.setName(connectorAuthorityInstanceDto.getName());
         authorityInstanceDto.setUuid(authorityInstanceReference.getUuid());
         authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid());
-        authorityInstanceDto.setAuthorityType(authorityInstanceReference.getAuthorityType());
+        authorityInstanceDto.setKind(authorityInstanceReference.getKind());
         authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnectorName());
 
         return authorityInstanceDto;
@@ -107,7 +107,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         }
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
-                request.getAttributes(), request.getAuthorityType());
+                request.getAttributes(), request.getKind());
 
         request.setAttributes(attributes);
 
@@ -118,7 +118,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceDto.setConnectorName(connector.getName());
         authorityInstanceDto.setConnectorUuid(request.getConnectorUuid());
         authorityInstanceDto.setAttributes(request.getAttributes());
-        authorityInstanceDto.setAuthorityType(request.getAuthorityType());
+        authorityInstanceDto.setKind(request.getKind());
         authorityInstanceDto.setName(request.getName());
 
         ConnectorAuthorityInstanceDto response = authorityInstanceApiClient.createAuthorityInstance(connector.mapToDto(), authorityInstanceDto);
@@ -128,7 +128,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceRef.setName(request.getName());
         authorityInstanceRef.setStatus("connected");
         authorityInstanceRef.setConnector(connector);
-        authorityInstanceRef.setAuthorityType(request.getAuthorityType());
+        authorityInstanceRef.setKind(request.getKind());
         authorityInstanceRef.setConnectorName(connector.getName());
         authorityInstanceReferenceRepository.save(authorityInstanceRef);
 
@@ -152,7 +152,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         }
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
-                request.getAttributes(), request.getAuthorityType());
+                request.getAttributes(), request.getKind());
 
         request.setAttributes(attributes); // todo - after split of authorityInstanceDto, use attributes in core -> connector DTO
 
@@ -163,13 +163,13 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceDto.setConnectorName(connector.getName());
         authorityInstanceDto.setConnectorUuid(request.getConnectorUuid());
         authorityInstanceDto.setAttributes(request.getAttributes());
-        authorityInstanceDto.setAuthorityType(request.getAuthorityType());
+        authorityInstanceDto.setKind(request.getKind());
         authorityInstanceDto.setUuid(uuid);
 
         authorityInstanceApiClient.updateAuthorityInstance(connector.mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid(), authorityInstanceDto);
 
-        authorityInstanceRef.setAuthorityType(request.getAuthorityType());
+        authorityInstanceRef.setKind(request.getKind());
         authorityInstanceRef.setConnector(connector);
         authorityInstanceRef.setConnectorName(connector.getName());
         authorityInstanceReferenceRepository.save(authorityInstanceRef);

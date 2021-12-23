@@ -17,7 +17,7 @@ public interface CredentialRepository extends JpaRepository<Credential, Long> {
 
     Optional<Credential> findByName(String name);
 
-    List<Credential> findByTypeAndEnabledTrue(String type);
+    List<Credential> findByKindAndEnabledTrue(String kind);
 
 
 }
