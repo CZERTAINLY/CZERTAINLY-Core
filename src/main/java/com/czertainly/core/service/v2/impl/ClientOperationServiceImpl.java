@@ -12,7 +12,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.ClientAttributeDefinition;
+import com.czertainly.api.model.RequestAttributeDto;
 import com.czertainly.api.model.discovery.CertificateStatus;
 import com.czertainly.api.v2.CertificateApiClient;
 import com.czertainly.api.v2.model.ca.CertRevocationDto;
@@ -40,7 +40,6 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service("clientOperationServiceImplV2")
@@ -79,7 +78,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateIssueCertificateAttributes(String raProfileName, List<ClientAttributeDefinition> attributes) throws NotFoundException, ConnectorException, ValidationException {
+    public boolean validateIssueCertificateAttributes(String raProfileName, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
 
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
@@ -206,7 +205,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateRevokeCertificateAttributes(String raProfileName, List<ClientAttributeDefinition> attributes) throws NotFoundException, ConnectorException, ValidationException {
+    public boolean validateRevokeCertificateAttributes(String raProfileName, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));

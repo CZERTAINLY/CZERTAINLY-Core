@@ -3,7 +3,7 @@ package com.czertainly.core.api.web;
 import java.util.List;
 import java.util.Set;
 
-import com.czertainly.api.model.ClientAttributeDefinition;
+import com.czertainly.api.model.RequestAttributeDto;
 import com.czertainly.api.model.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +30,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public Boolean validateBasicAuthAttributes(@RequestBody List<ClientAttributeDefinition> attributes) {
+    public Boolean validateBasicAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
         return connectorAuthService.validateBasicAuthAttributes(attributes);
     }
 
@@ -40,7 +40,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public Boolean validateCertificateAttributes(@RequestBody List<ClientAttributeDefinition> attributes) {
+    public Boolean validateCertificateAttributes(@RequestBody List<RequestAttributeDto> attributes) {
         return connectorAuthService.validateCertificateAttributes(attributes);
     }
 
@@ -50,7 +50,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public Boolean validateApiKeyAuthAttributes(@RequestBody List<ClientAttributeDefinition> attributes) {
+    public Boolean validateApiKeyAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
         return connectorAuthService.validateApiKeyAuthAttributes(attributes);
     }
 
@@ -60,7 +60,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public Boolean validateJWTAuthAttributes(@RequestBody List<ClientAttributeDefinition> attributes) {
+    public Boolean validateJWTAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
         return connectorAuthService.validateJWTAuthAttributes(attributes);
     }
 }
