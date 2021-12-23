@@ -86,7 +86,7 @@ public class JsonSerializationTest {
         CredentialDto credential = new CredentialDto();
         credential.setName("test");
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.createAttributes("credential", credential);
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("credential", credential));
 
         String serialized = AttributeDefinitionUtils.serialize(attrs);
 

@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.model.ClientAttributeDefinition;
 import com.czertainly.api.model.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.api.exception.ValidationError;
@@ -51,7 +52,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public boolean validateAuthAttributes(AuthType authenticationType, List<AttributeDefinition> attributes) {
+    public boolean validateAuthAttributes(AuthType authenticationType, List<ClientAttributeDefinition> attributes) {
         switch (authenticationType) {
             case NONE:
                 return true;
@@ -76,11 +77,6 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
         List<AttributeDefinition> definitions = getAuthAttributes(authenticationType);
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
-
-        boolean isValid = validateAuthAttributes(authenticationType, merged);
-        if (!isValid) {
-            throw new ValidationException("Auth attributes validation failed.");
-        }
 
         return merged;
     }
@@ -111,8 +107,8 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public Boolean validateBasicAuthAttributes(List<AttributeDefinition> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getBasicAuthAttributes(), attributes);
+    public Boolean validateBasicAuthAttributes(List<ClientAttributeDefinition> attributes) {
+        AttributeDefinitionUtils.validateAttributes(getBasicAuthAttributes(), AttributeDefinitionUtils.clientAttributeConverter(attributes));
         return true;
     }
 
@@ -180,7 +176,8 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public Boolean validateCertificateAttributes(List<AttributeDefinition> attributes) {
+    public Boolean validateCertificateAttributes(List<ClientAttributeDefinition> clientAttributes) {
+        List<AttributeDefinition> attributes = AttributeDefinitionUtils.clientAttributeConverter(clientAttributes);
         AttributeDefinitionUtils.validateAttributes(getCertificateAttributes(), attributes);
 
         try {
@@ -245,8 +242,8 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public Boolean validateApiKeyAuthAttributes(List<AttributeDefinition> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getApiKeyAuthAttributes(), attributes);
+    public Boolean validateApiKeyAuthAttributes(List<ClientAttributeDefinition> attributes) {
+        AttributeDefinitionUtils.validateAttributes(getApiKeyAuthAttributes(), AttributeDefinitionUtils.clientAttributeConverter(attributes));
         return true;
     }
 
@@ -256,7 +253,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public Boolean validateJWTAuthAttributes(List<AttributeDefinition> attributes) {
+    public Boolean validateJWTAuthAttributes(List<ClientAttributeDefinition> attributes) {
         throw new ValidationException(ValidationError.create("Auth type JWT not implemented yet"));
     }
 }
