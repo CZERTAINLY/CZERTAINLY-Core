@@ -10,6 +10,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.AttributeDefinition;
+import com.czertainly.api.model.RequestAttributeDto;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,7 +35,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @Override
     public boolean validateIssueCertificateAttributes(
             @PathVariable String raProfileName,
-            @RequestBody List<AttributeDefinition> attributes) throws NotFoundException, ConnectorException, ValidationException {
+            @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
         return clientOperationService.validateIssueCertificateAttributes(raProfileName, attributes);
     }
 
@@ -62,7 +63,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @Override
     public boolean validateRevokeCertificateAttributes(
             @PathVariable String raProfileName,
-            @RequestBody List<AttributeDefinition> attributes) throws NotFoundException, ConnectorException, ValidationException {
+            @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
         return clientOperationService.validateRevokeCertificateAttributes(raProfileName, attributes);
     }
 

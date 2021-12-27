@@ -228,7 +228,7 @@ public class CredentialServiceTest {
         nameAndUuidMap.put("uuid", credential.getUuid());
         nameAndUuidMap.put("name", credential.getName());
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap);
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap));
         attrs.get(0).setType(BaseAttributeDefinitionTypes.CREDENTIAL);
 
         credentialService.loadFullCredentialData(attrs);
@@ -246,7 +246,7 @@ public class CredentialServiceTest {
         nameAndUuidMap.put("uuid", "wrong-uuid");
         nameAndUuidMap.put("name", "wrong-name");
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap);
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap));
         attrs.get(0).setType(BaseAttributeDefinitionTypes.CREDENTIAL);
 
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs));
@@ -262,7 +262,7 @@ public class CredentialServiceTest {
 
     @Test
     public void testLoadFullData_attributesNonCredential() throws NotFoundException {
-        credentialService.loadFullCredentialData(AttributeDefinitionUtils.createAttributes("dummyAttributes", null)); // this should not throw exception
+        credentialService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("dummyAttributes", null))); // this should not throw exception
     }
 
     @Test

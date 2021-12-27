@@ -88,7 +88,7 @@ public class ClientOperationServiceV1Test {
         raProfile.setEnabled(true);
 
         raProfile.setAttributes(AttributeDefinitionUtils.serialize(
-                AttributeDefinitionUtils.createAttributes("endEntityProfile", new NameAndIdDto(1, "profile"))
+                AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("endEntityProfile", new NameAndIdDto(1, "profile")))
         ));
 
         raProfile = raProfileRepository.save(raProfile);
