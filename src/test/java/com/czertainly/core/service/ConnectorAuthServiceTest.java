@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.BaseApiClient;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.AttributeDefinition;
+import com.czertainly.api.model.RequestAttributeDto;
 import com.czertainly.api.model.connector.AuthType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ public class ConnectorAuthServiceTest {
 
     @Test
     public void testValidateBasicAuthAttributes() {
-        List<AttributeDefinition> attrs = new ArrayList<>();
+        List<RequestAttributeDto> attrs = new ArrayList<>();
         attrs.addAll(createAttributes(ATTRIBUTE_USERNAME, "username"));
         attrs.addAll(createAttributes(ATTRIBUTE_PASSWORD, "password"));
 
@@ -68,7 +69,7 @@ public class ConnectorAuthServiceTest {
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         byte[] keyStoreData = keyStoreStream.readAllBytes();
 
-        List<AttributeDefinition> attrs = new ArrayList<>();
+        List<RequestAttributeDto> attrs = new ArrayList<>();
         attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_TYPE, "PKCS12"));
         attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE, Base64.getEncoder().encodeToString(keyStoreData)));
         attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_PASSWORD, "123456"));
@@ -86,7 +87,7 @@ public class ConnectorAuthServiceTest {
 
     @Test
     public void testValidateApiKeyAuthAttributes() {
-        List<AttributeDefinition> attrs = new ArrayList<>();
+        List<RequestAttributeDto> attrs = new ArrayList<>();
         attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY, "apiKeySecret"));
         attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY_HEADER, "X-API-KEY"));
 

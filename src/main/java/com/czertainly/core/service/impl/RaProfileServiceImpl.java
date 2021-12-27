@@ -80,7 +80,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(dto.getAuthorityInstanceUuid())
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, dto.getAuthorityInstanceUuid()));
 
-        List<AttributeDefinition> attributes = mergeAndValidateAttributes(authorityInstanceRef, dto.getAttributes());
+        List<AttributeDefinition> attributes = mergeAndValidateAttributes(authorityInstanceRef, AttributeDefinitionUtils.clientAttributeConverter(dto.getAttributes()));
         RaProfile raProfile = createRaProfile(dto, attributes, authorityInstanceRef);
         raProfileRepository.save(raProfile);
 

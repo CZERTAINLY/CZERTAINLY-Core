@@ -90,7 +90,7 @@ public class CredentialServiceImpl implements CredentialService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
-                request.getAttributes(), request.getKind());
+                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()), request.getKind());
 
         Credential credential = new Credential();
         credential.setName(request.getName());
@@ -120,7 +120,7 @@ public class CredentialServiceImpl implements CredentialService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
-                request.getAttributes(), request.getKind());
+                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()), request.getKind());
 
         credential.setName(request.getName());
         credential.setKind(request.getKind());

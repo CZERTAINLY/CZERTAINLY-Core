@@ -24,6 +24,7 @@ import com.czertainly.core.service.AuthorityInstanceService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CoreCallbackService;
 import com.czertainly.core.service.CredentialService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -107,17 +108,15 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         }
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
-                request.getAttributes(), request.getKind());
-
-        request.setAttributes(attributes);
+                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()), request.getKind());
 
         // Load complete credential data
-        credentialService.loadFullCredentialData(request.getAttributes());
+        credentialService.loadFullCredentialData(attributes);
 
         AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
         authorityInstanceDto.setConnectorName(connector.getName());
         authorityInstanceDto.setConnectorUuid(request.getConnectorUuid());
-        authorityInstanceDto.setAttributes(request.getAttributes());
+        authorityInstanceDto.setAttributes(attributes);
         authorityInstanceDto.setKind(request.getKind());
         authorityInstanceDto.setName(request.getName());
 
@@ -152,17 +151,15 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         }
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
-                request.getAttributes(), request.getKind());
-
-        request.setAttributes(attributes); // todo - after split of authorityInstanceDto, use attributes in core -> connector DTO
+                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()), request.getKind());
 
         // Load complete credential data
-        credentialService.loadFullCredentialData(request.getAttributes());
+        credentialService.loadFullCredentialData(attributes);
 
         AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
         authorityInstanceDto.setConnectorName(connector.getName());
         authorityInstanceDto.setConnectorUuid(request.getConnectorUuid());
-        authorityInstanceDto.setAttributes(request.getAttributes());
+        authorityInstanceDto.setAttributes(attributes);
         authorityInstanceDto.setKind(request.getKind());
         authorityInstanceDto.setUuid(uuid);
 
