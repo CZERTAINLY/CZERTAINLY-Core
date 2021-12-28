@@ -1,8 +1,8 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.RequestAttributeDto;
-import com.czertainly.api.model.connector.AuthType;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.connector.AuthType;
 
 import java.util.List;
 import java.util.Set;

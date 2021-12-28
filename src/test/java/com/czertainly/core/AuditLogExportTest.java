@@ -1,9 +1,8 @@
 package com.czertainly.core;
 
+import com.czertainly.api.model.core.audit.AuditLogFilter;
+import com.czertainly.api.model.core.audit.ExportResultDto;
 import com.czertainly.core.service.AuditLogService;
-import com.czertainly.api.core.modal.AuditLogFilter;
-import com.czertainly.api.core.modal.ExportResultDto;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

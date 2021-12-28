@@ -1,11 +1,10 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.audit.AuditLogDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationStatusEnum;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.api.core.modal.AuditLogDto;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationStatusEnum;
-import com.czertainly.api.core.modal.OperationType;
-
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 

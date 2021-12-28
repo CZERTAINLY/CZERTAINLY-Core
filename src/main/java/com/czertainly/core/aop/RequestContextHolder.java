@@ -1,6 +1,6 @@
 package com.czertainly.core.aop;
 
-import com.czertainly.api.core.modal.ObjectType;
+import com.czertainly.api.model.core.audit.ObjectType;
 
 public class RequestContextHolder {
     private static final ThreadLocal<RequestContext> contextHolder = new ThreadLocal<>();

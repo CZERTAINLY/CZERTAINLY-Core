@@ -1,14 +1,13 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.web.AuthController;
+import com.czertainly.api.model.client.auth.EditAuthProfileDto;
+import com.czertainly.api.model.core.auth.AuthProfileDto;
+import com.czertainly.core.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
-import com.czertainly.core.service.AuthService;
-import com.czertainly.api.core.interfaces.web.AuthController;
-import com.czertainly.api.core.modal.AuthProfileDto;
-import com.czertainly.api.core.modal.EditAuthProfileDto;
-import com.czertainly.api.exception.NotFoundException;
 
 @RestController
 public class AuthControllerImpl implements AuthController{

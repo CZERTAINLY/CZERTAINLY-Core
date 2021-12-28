@@ -1,24 +1,17 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.model.core.audit.*;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.AuditLog;
+import com.czertainly.core.dao.entity.QAuditLog;
+import com.czertainly.core.dao.repository.AuditLogRepository;
+import com.czertainly.core.service.AuditLogService;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Predicate;
-import com.czertainly.core.dao.entity.AuditLog;
-import com.czertainly.core.dao.entity.QAuditLog;
-import com.czertainly.core.dao.repository.AuditLogRepository;
-import com.czertainly.core.service.AuditLogService;
-import com.czertainly.api.core.modal.AuditLogDto;
-import com.czertainly.api.core.modal.AuditLogFilter;
-import com.czertainly.api.core.modal.AuditLogResponseDto;
-import com.czertainly.api.core.modal.ExportResultDto;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationStatusEnum;
-import com.czertainly.api.core.modal.OperationType;
-
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

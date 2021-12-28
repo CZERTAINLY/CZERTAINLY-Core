@@ -1,10 +1,10 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.AddAdminRequestDto;
-import com.czertainly.api.core.modal.AdminDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.admin.AddAdminRequestDto;
+import com.czertainly.api.model.core.admin.AdminDto;
 
 import java.security.cert.CertificateException;
 

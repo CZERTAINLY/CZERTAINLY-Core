@@ -1,13 +1,13 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.core.certificate.CertificateValidationDto;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.czertainly.api.model.certificate.CertificateValidationDto;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class MetaDefinitions {
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();

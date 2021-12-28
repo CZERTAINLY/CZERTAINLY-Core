@@ -1,9 +1,8 @@
 package com.czertainly.core.api.web;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-
+import com.czertainly.api.interfaces.core.web.AuditLogController;
+import com.czertainly.api.model.core.audit.*;
+import com.czertainly.core.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -13,14 +12,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.czertainly.core.service.AuditLogService;
-import com.czertainly.api.core.interfaces.web.AuditLogController;
-import com.czertainly.api.core.modal.AuditLogFilter;
-import com.czertainly.api.core.modal.AuditLogResponseDto;
-import com.czertainly.api.core.modal.ExportResultDto;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationStatusEnum;
-import com.czertainly.api.core.modal.OperationType;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 public class AuditLogControllerImpl implements AuditLogController {

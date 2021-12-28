@@ -1,11 +1,16 @@
 package com.czertainly.core.api.web;
 
-import java.io.IOException;
-import java.net.URI;
-import java.security.cert.CertificateException;
-import java.util.List;
-
-import com.czertainly.api.core.modal.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.web.CertificateController;
+import com.czertainly.api.model.client.certificate.IdAndCertificateIdDto;
+import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
+import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
@@ -18,11 +23,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.api.core.interfaces.web.CertificateController;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.CertificateDto;
-import com.czertainly.api.model.discovery.CertificateStatus;
+import java.io.IOException;
+import java.net.URI;
+import java.security.cert.CertificateException;
+import java.util.List;
 
 @RestController
 public class CertificateControllerImpl implements CertificateController {

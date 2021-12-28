@@ -2,8 +2,8 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeCallback;
-import com.czertainly.api.model.NameAndUuidDto;
+import com.czertainly.api.model.common.AttributeCallback;
+import com.czertainly.api.model.common.NameAndUuidDto;
 
 import java.util.List;
 

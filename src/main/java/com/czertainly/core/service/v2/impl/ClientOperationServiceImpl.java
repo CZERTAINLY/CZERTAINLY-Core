@@ -1,24 +1,24 @@
 package com.czertainly.core.service.v2.impl;
 
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
-import com.czertainly.api.core.modal.UuidDto;
-import com.czertainly.api.core.v2.model.ClientCertificateDataResponseDto;
-import com.czertainly.api.core.v2.model.ClientCertificateRenewRequestDto;
-import com.czertainly.api.core.v2.model.ClientCertificateRevocationDto;
-import com.czertainly.api.core.v2.model.ClientCertificateSignRequestDto;
+import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.RequestAttributeDto;
-import com.czertainly.api.model.discovery.CertificateStatus;
-import com.czertainly.api.v2.CertificateApiClient;
-import com.czertainly.api.v2.model.ca.CertRevocationDto;
-import com.czertainly.api.v2.model.ca.CertificateDataResponseDto;
-import com.czertainly.api.v2.model.ca.CertificateRenewRequestDto;
-import com.czertainly.api.v2.model.ca.CertificateSignRequestDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.connector.v2.CertRevocationDto;
+import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
+import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
+import com.czertainly.api.model.connector.v2.CertificateSignRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
+import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Connector;
@@ -88,10 +88,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         return certificateApiClient.validateIssueCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                AttributeDefinitionUtils.clientAttributeConverter(attributes));
+                attributes);
     }
 
-    private List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<AttributeDefinition> attributes) throws ConnectorException {
+    private List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = certificateApiClient.listIssueCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
@@ -101,7 +101,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         boolean isValid = certificateApiClient.validateIssueCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                merged);
+                attributes);
 
         if (!isValid) {
             throw new ValidationException("Attributes validation failed.");
@@ -119,11 +119,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
-        List<AttributeDefinition> attributes = mergeAndValidateIssueAttributes(raProfile, AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()));
-
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
         caRequest.setPkcs10(request.getPkcs10());
-        caRequest.setAttributes(attributes);
+        caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfile(raProfile.mapToDto());
 
         CertificateDataResponseDto caResponse = certificateApiClient.issueCertificate(
@@ -213,10 +211,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         return certificateApiClient.validateRevokeCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                AttributeDefinitionUtils.clientAttributeConverter(attributes));
+                attributes);
     }
 
-    private List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<AttributeDefinition> attributes) throws ConnectorException {
+    private List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = certificateApiClient.listRevokeCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
@@ -226,7 +224,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         boolean isValid = certificateApiClient.validateRevokeCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                merged);
+                attributes);
 
         if (!isValid) {
             throw new ValidationException("Attributes validation failed.");
@@ -246,11 +244,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         logger.debug("Ra Profile {} set for revoking the certificate", raProfile.getName());
 
-        List<AttributeDefinition> attributes = mergeAndValidateRevokeAttributes(raProfile, AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()));
-
         CertRevocationDto caRequest = new CertRevocationDto();
         caRequest.setReason(request.getReason());
-        caRequest.setAttributes(attributes);
+        caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfile(raProfile.mapToDto());
 
         certificateApiClient.revokeCertificate(

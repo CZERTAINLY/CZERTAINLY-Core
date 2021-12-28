@@ -1,13 +1,13 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.*;
-import com.czertainly.api.model.connector.ForceDeleteMessageDto;
-import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.api.model.credential.CredentialDto;
-import com.czertainly.api.model.credential.CredentialRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.*;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.credential.CredentialDto;
+import com.czertainly.api.model.core.credential.CredentialRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Credential;
@@ -90,7 +90,7 @@ public class CredentialServiceImpl implements CredentialService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
-                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()), request.getKind());
+                request.getAttributes(), request.getKind());
 
         Credential credential = new Credential();
         credential.setName(request.getName());
@@ -120,7 +120,7 @@ public class CredentialServiceImpl implements CredentialService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
-                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()), request.getKind());
+                request.getAttributes(), request.getKind());
 
         credential.setName(request.getName());
         credential.setKind(request.getKind());
@@ -223,7 +223,7 @@ public class CredentialServiceImpl implements CredentialService {
                 continue;
             }
 
-            NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidValue(attribute.getName(), attributes);
+            NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidValue(attribute.getName(), AttributeDefinitionUtils.clientAttributeReverser(attributes));
             Credential credential = getCredentialEntity(credentialId.getUuid());
             attribute.setValue(credential.mapToDto());
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());

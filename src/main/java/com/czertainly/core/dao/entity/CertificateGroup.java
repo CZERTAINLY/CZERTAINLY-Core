@@ -1,22 +1,14 @@
 package com.czertainly.core.dao.entity;
 
-import java.io.Serializable;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
-
+import com.czertainly.api.model.core.certificate.group.CertificateGroupDto;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import com.czertainly.api.model.certificate.group.CertificateGroupDto;
+import javax.persistence.*;
+import java.io.Serializable;
 
 @Entity
 @Table(name = "certificate_group")

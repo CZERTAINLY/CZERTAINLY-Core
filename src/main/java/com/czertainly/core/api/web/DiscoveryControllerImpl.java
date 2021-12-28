@@ -1,9 +1,13 @@
 package com.czertainly.core.api.web;
 
-import java.security.cert.CertificateException;
-import java.util.List;
-
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.web.DiscoveryController;
+import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.service.DiscoveryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,13 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.czertainly.core.dao.entity.DiscoveryHistory;
-import com.czertainly.core.service.DiscoveryService;
-import com.czertainly.api.core.interfaces.web.DiscoveryController;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.DiscoveryDto;
-import com.czertainly.api.model.discovery.DiscoveryHistoryDto;
+import java.util.List;
 
 @RestController
 public class DiscoveryControllerImpl implements DiscoveryController {
