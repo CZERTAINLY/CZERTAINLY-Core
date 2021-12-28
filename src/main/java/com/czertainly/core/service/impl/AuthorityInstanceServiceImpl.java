@@ -8,8 +8,8 @@ import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.RequestAttributeDto;
-import com.czertainly.api.model.connector.authority.AuthorityInstanceDto;
-import com.czertainly.api.model.connector.authority.AuthorityInstanceRequestDto;
+import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
+import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -76,7 +76,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             throw new NotFoundException("Connector associated with the Authority is not found. Unable to show details");
         }
 
-        AuthorityInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
+        AuthorityProviderInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
                 authorityInstanceReference.getAuthorityInstanceUuid());
 
         com.czertainly.api.model.core.authority.AuthorityInstanceDto authorityInstanceDto = new com.czertainly.api.model.core.authority.AuthorityInstanceDto();
@@ -113,12 +113,12 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         // Load complete credential data
         credentialService.loadFullCredentialData(attributes);
 
-        AuthorityInstanceRequestDto authorityInstanceDto = new AuthorityInstanceRequestDto();
+        AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
         authorityInstanceDto.setKind(request.getKind());
         authorityInstanceDto.setName(request.getName());
 
-        AuthorityInstanceDto response = authorityInstanceApiClient.createAuthorityInstance(connector.mapToDto(), authorityInstanceDto);
+        AuthorityProviderInstanceDto response = authorityInstanceApiClient.createAuthorityInstance(connector.mapToDto(), authorityInstanceDto);
 
         AuthorityInstanceReference authorityInstanceRef = new AuthorityInstanceReference();
         authorityInstanceRef.setAuthorityInstanceUuid(response.getUuid());
@@ -154,7 +154,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         // Load complete credential data
         credentialService.loadFullCredentialData(attributes);
 
-        AuthorityInstanceRequestDto authorityInstanceDto = new AuthorityInstanceRequestDto();
+        AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
         authorityInstanceDto.setName(request.getName());
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
         authorityInstanceDto.setKind(request.getKind());
