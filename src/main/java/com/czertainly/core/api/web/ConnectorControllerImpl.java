@@ -123,7 +123,7 @@ public class ConnectorControllerImpl implements ConnectorController {
                                       @PathVariable String functionGroupKind,
                                       @RequestBody List<AttributeDefinition> attributes)
             throws NotFoundException, ConnectorException {
-        return connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), AttributeDefinitionUtils.clientAttributeReverser(attributes),
+        return connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), AttributeDefinitionUtils.getClientAttributes(attributes),
                 functionGroupKind);
     }
 

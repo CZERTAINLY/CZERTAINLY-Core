@@ -173,7 +173,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             // Load complete credential data
             credentialService.loadFullCredentialData(attributes);
-            dtoRequest.setAttributes(AttributeDefinitionUtils.clientAttributeReverser(attributes));
+            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
 
             Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);

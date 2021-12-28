@@ -75,7 +75,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         }
 
         List<AttributeDefinition> definitions = getAuthAttributes(authenticationType);
-        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, AttributeDefinitionUtils.clientAttributeReverser(attributes));
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, AttributeDefinitionUtils.getClientAttributes(attributes));
 
         return merged;
     }

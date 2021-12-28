@@ -223,7 +223,7 @@ public class CredentialServiceImpl implements CredentialService {
                 continue;
             }
 
-            NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidValue(attribute.getName(), AttributeDefinitionUtils.clientAttributeReverser(attributes));
+            NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidValue(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
             Credential credential = getCredentialEntity(credentialId.getUuid());
             attribute.setValue(credential.mapToDto());
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
