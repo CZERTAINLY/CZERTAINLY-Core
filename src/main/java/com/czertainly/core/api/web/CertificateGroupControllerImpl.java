@@ -1,11 +1,13 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.util.List;
-
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.UuidDto;
-import com.czertainly.api.model.certificate.group.CertificateGroupRequestDto;
+import com.czertainly.api.interfaces.core.web.CertificateGroupController;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.certificate.group.CertificateGroupDto;
+import com.czertainly.api.model.core.certificate.group.CertificateGroupRequestDto;
+import com.czertainly.core.service.CertificateGroupService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,11 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.core.service.CertificateGroupService;
-import com.czertainly.api.core.interfaces.web.CertificateGroupController;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.certificate.group.CertificateGroupDto;
+import java.net.URI;
+import java.util.List;
 
 @RestController
 public class CertificateGroupControllerImpl implements CertificateGroupController {

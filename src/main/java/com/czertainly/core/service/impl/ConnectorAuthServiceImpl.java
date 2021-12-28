@@ -1,25 +1,24 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.model.RequestAttributeDto;
-import com.czertainly.api.model.connector.AuthType;
-import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.BaseAttributeDefinitionTypes;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.BaseAttributeDefinitionTypes;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.connector.AuthType;
+import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import javax.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.security.KeyStore;
 import java.util.*;
 
-import javax.transaction.Transactional;
-
-import static com.czertainly.api.BaseApiClient.*;
+import static com.czertainly.api.clients.BaseApiClient.*;
 
 @Service
 @Transactional
@@ -76,7 +75,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         }
 
         List<AttributeDefinition> definitions = getAuthAttributes(authenticationType);
-        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, AttributeDefinitionUtils.clientAttributeReverser(attributes));
 
         return merged;
     }
@@ -108,7 +107,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
     @Override
     public Boolean validateBasicAuthAttributes(List<RequestAttributeDto> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getBasicAuthAttributes(), AttributeDefinitionUtils.clientAttributeConverter(attributes));
+        AttributeDefinitionUtils.validateAttributes(getBasicAuthAttributes(), attributes);
         return true;
     }
 
@@ -176,8 +175,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public Boolean validateCertificateAttributes(List<RequestAttributeDto> clientAttributes) {
-        List<AttributeDefinition> attributes = AttributeDefinitionUtils.clientAttributeConverter(clientAttributes);
+    public Boolean validateCertificateAttributes(List<RequestAttributeDto> attributes) {
         AttributeDefinitionUtils.validateAttributes(getCertificateAttributes(), attributes);
 
         try {
@@ -243,7 +241,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
     @Override
     public Boolean validateApiKeyAuthAttributes(List<RequestAttributeDto> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getApiKeyAuthAttributes(), AttributeDefinitionUtils.clientAttributeConverter(attributes));
+        AttributeDefinitionUtils.validateAttributes(getApiKeyAuthAttributes(), attributes);
         return true;
     }
 

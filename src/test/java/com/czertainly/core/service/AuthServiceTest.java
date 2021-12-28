@@ -1,8 +1,8 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.AuthProfileDto;
-import com.czertainly.api.core.modal.EditAuthProfileDto;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.auth.EditAuthProfileDto;
+import com.czertainly.api.model.core.auth.AuthProfileDto;
 import com.czertainly.core.dao.entity.Admin;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;

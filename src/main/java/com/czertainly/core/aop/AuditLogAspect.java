@@ -1,15 +1,13 @@
 package com.czertainly.core.aop;
 
-import com.czertainly.api.core.modal.OperationStatusEnum;
-import com.czertainly.api.model.Identified;
-import com.czertainly.api.model.Named;
+import com.czertainly.api.model.common.Identified;
+import com.czertainly.api.model.common.Named;
+import com.czertainly.api.model.core.audit.OperationStatusEnum;
 import com.czertainly.core.service.AuditLogService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

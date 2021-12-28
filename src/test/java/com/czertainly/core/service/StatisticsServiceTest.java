@@ -1,6 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.model.discovery.StatisticsDto;
+import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.repository.CertificateGroupRepository;
 import org.junit.jupiter.api.Assertions;

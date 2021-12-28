@@ -1,10 +1,16 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.util.List;
-
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.model.UuidDto;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.interfaces.core.web.RAProfileManagementController;
+import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
+import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.client.ClientDto;
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.core.service.RaProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,15 +19,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.core.service.RaProfileService;
-import com.czertainly.api.core.interfaces.web.RAProfileManagementController;
-import com.czertainly.api.core.modal.ClientDto;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.raprofile.AddRaProfileRequestDto;
-import com.czertainly.api.model.raprofile.EditRaProfileRequestDto;
-import com.czertainly.api.model.raprofile.RaProfileDto;
+import java.net.URI;
+import java.util.List;
 
 @RestController
 public class RAProfileManagementControllerImpl implements RAProfileManagementController {

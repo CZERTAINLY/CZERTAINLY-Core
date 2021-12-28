@@ -1,15 +1,20 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.AttributeApiClient;
-import com.czertainly.api.ConnectorApiClient;
-import com.czertainly.api.HealthApiClient;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
+import com.czertainly.api.clients.AttributeApiClient;
+import com.czertainly.api.clients.ConnectorApiClient;
+import com.czertainly.api.clients.HealthApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.AttributeCallback;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.HealthDto;
-import com.czertainly.api.model.connector.*;
+import com.czertainly.api.model.client.connector.ConnectDto;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.client.connector.InfoResponse;
+import com.czertainly.api.model.common.AttributeCallback;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.HealthDto;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.connector.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -556,28 +561,28 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateAttributes(String uuid, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
+    public boolean validateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         return validateAttributes(connector, functionGroup, attributes, functionGroupType);
     }
 
-    private boolean validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
+    private boolean validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
         validateFunctionGroup(connector, functionGroup);
         return attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
+    public List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         List<AttributeDefinition> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
-        boolean isValid = validateAttributes(connector, functionGroup, merged, functionGroupType);
+        boolean isValid = validateAttributes(connector, functionGroup, attributes, functionGroupType);
         if (!isValid) {
             throw new ValidationException("Attributes validation failed.");
         }

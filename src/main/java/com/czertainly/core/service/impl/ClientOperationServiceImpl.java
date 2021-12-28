@@ -1,12 +1,15 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.CertificateApiClient;
-import com.czertainly.api.EndEntityApiClient;
-import com.czertainly.api.core.modal.*;
+import com.czertainly.api.clients.CertificateApiClient;
+import com.czertainly.api.clients.EndEntityApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.NameAndIdDto;
-import com.czertainly.api.model.ca.*;
+import com.czertainly.api.model.client.authority.*;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.authority.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -218,7 +221,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
 
         try {
-            NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", attributes);
+            NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", AttributeDefinitionUtils.clientAttributeReverser(attributes));
             return endEntityProfile.getName();
         } catch (Exception e) {
             throw new ValidationException(ValidationError.create("EndEntityProfile could not be retrieved from attributes. {}", e.getMessage()));

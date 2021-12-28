@@ -1,13 +1,15 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.util.List;
-
-import com.czertainly.api.core.modal.UuidDto;
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.ForceDeleteMessageDto;
-import com.czertainly.api.model.credential.CredentialRequestDto;
+import com.czertainly.api.interfaces.core.web.CredentialController;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.credential.CredentialDto;
+import com.czertainly.api.model.core.credential.CredentialRequestDto;
+import com.czertainly.core.service.CredentialService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,11 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.api.core.interfaces.web.CredentialController;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.credential.CredentialDto;
+import java.net.URI;
+import java.util.List;
 
 @RestController
 public class CredentialControllerImpl implements CredentialController {

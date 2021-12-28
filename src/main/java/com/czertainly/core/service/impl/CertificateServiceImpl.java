@@ -1,12 +1,19 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.core.modal.*;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.discovery.CertificateDto;
-import com.czertainly.api.model.discovery.CertificateStatus;
+import com.czertainly.api.model.client.certificate.IdAndCertificateIdDto;
+import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
+import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -178,7 +185,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateRaProfile(IdAndCertificateIdDto request) throws NotFoundException {
-        for (String certificateUuid : request.getCertificateIds()) {
+        for (String certificateUuid : request.getCertificateUuids()) {
             Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                     .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
             RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
@@ -191,7 +198,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateCertificateGroup(IdAndCertificateIdDto request) throws NotFoundException {
-        for (String certificateUuid : request.getCertificateIds()) {
+        for (String certificateUuid : request.getCertificateUuids()) {
             Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                     .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
 
@@ -206,7 +213,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateEntity(IdAndCertificateIdDto request) throws NotFoundException {
-        for (String certificateUuid : request.getCertificateIds()) {
+        for (String certificateUuid : request.getCertificateUuids()) {
             Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                     .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
             CertificateEntity entity = certificateEntityRepository.findByUuid(request.getUuid())

@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.connector.EndpointDto;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.api.model.connector.EndpointDto;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 

@@ -1,12 +1,12 @@
 package com.czertainly.core.service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
+import com.czertainly.api.clients.ConnectorApiClient;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.connector.InfoResponse;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Endpoint;
+import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
 import com.czertainly.core.service.impl.ConnectorServiceImpl;
@@ -18,12 +18,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.czertainly.core.dao.entity.FunctionGroup;
-import com.czertainly.api.ConnectorApiClient;
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.ConnectorDto;
-import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.api.model.connector.InfoResponse;
+import java.util.*;
 
 @SpringBootTest
 public class ConnectorServiceMockTest {

@@ -1,9 +1,8 @@
 package com.czertainly.core.aop;
 
+import com.czertainly.api.model.core.audit.ObjectType;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
-import com.czertainly.api.core.modal.ObjectType;
 
 public class RequestContext {
 

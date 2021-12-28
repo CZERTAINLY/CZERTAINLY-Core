@@ -1,12 +1,12 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.connector.AuthType;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.connector.FunctionGroupDto;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.api.model.connector.AuthType;
-import com.czertainly.api.model.connector.ConnectorDto;
-import com.czertainly.api.model.connector.ConnectorStatus;
-import com.czertainly.api.model.connector.FunctionGroupDto;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;

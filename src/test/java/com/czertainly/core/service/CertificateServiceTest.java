@@ -1,13 +1,13 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.CertificateOwnerRequestDto;
-import com.czertainly.api.core.modal.RemoveCertificateDto;
-import com.czertainly.api.core.modal.UploadCertificateRequestDto;
-import com.czertainly.api.core.modal.UuidDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.CertificateDto;
-import com.czertainly.api.model.discovery.CertificateStatus;
+import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import org.junit.jupiter.api.Assertions;

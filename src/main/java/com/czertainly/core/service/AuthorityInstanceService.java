@@ -4,11 +4,12 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.NameAndIdDto;
-import com.czertainly.api.model.ca.AuthorityInstanceDto;
-import com.czertainly.api.model.ca.AuthorityInstanceRequestDto;
-import com.czertainly.api.model.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 
 import java.util.List;
 
@@ -31,7 +32,7 @@ public interface AuthorityInstanceService {
 
     List<AttributeDefinition> listRAProfileAttributes(String uuid) throws NotFoundException, ConnectorException;
 
-    Boolean validateRAProfileAttributes(String uuid, List<AttributeDefinition> attributes) throws NotFoundException, ConnectorException;
+    Boolean validateRAProfileAttributes(String uuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException;
 
     List<ForceDeleteMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException;
 
