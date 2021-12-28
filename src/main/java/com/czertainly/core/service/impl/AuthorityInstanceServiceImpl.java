@@ -26,6 +26,7 @@ import com.czertainly.core.service.AuthorityInstanceService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CoreCallbackService;
 import com.czertainly.core.service.CredentialService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -115,7 +116,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         credentialService.loadFullCredentialData(attributes);
 
         ConnectorAuthorityInstanceRequestDto authorityInstanceDto = new ConnectorAuthorityInstanceRequestDto();
-        authorityInstanceDto.setAttributes(request.getAttributes());
+        authorityInstanceDto.setAttributes(AttributeDefinitionUtils.clientAttributeReverser(attributes));
         authorityInstanceDto.setKind(request.getKind());
         authorityInstanceDto.setName(request.getName());
 
@@ -157,7 +158,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
         ConnectorAuthorityInstanceRequestDto authorityInstanceDto = new ConnectorAuthorityInstanceRequestDto();
         authorityInstanceDto.setName(request.getName());
-        authorityInstanceDto.setAttributes(request.getAttributes());
+        authorityInstanceDto.setAttributes(AttributeDefinitionUtils.clientAttributeReverser(attributes));
         authorityInstanceDto.setKind(request.getKind());
 
         authorityInstanceApiClient.updateAuthorityInstance(connector.mapToDto(),

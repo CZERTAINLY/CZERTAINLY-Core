@@ -173,7 +173,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             // Load complete credential data
             credentialService.loadFullCredentialData(attributes);
-            dtoRequest.setAttributes(request.getAttributes());
+            dtoRequest.setAttributes(AttributeDefinitionUtils.clientAttributeReverser(attributes));
 
             Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
@@ -206,10 +206,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             Integer currentTotal = 0;
             List<DiscoveryProviderCertificateDataDto> certificatesDiscovered = new ArrayList<>();
-            while (currentTotal <= response.getTotalCertificatesDiscovered()) {
+            while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setStartIndex(currentTotal);
-                currentTotal += MAXIMUM_CERTIFICATES_PER_PAGE;
-                getRequest.setStartIndex(currentTotal);
+                getRequest.setEndIndex(currentTotal + MAXIMUM_CERTIFICATES_PER_PAGE);
                 response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
@@ -218,6 +217,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     throw new InterruptedException(
                             "Too many content in response to process. Maximum processable is 100");
                 }
+                currentTotal += MAXIMUM_CERTIFICATES_PER_PAGE;
                 certificatesDiscovered.addAll(response.getCertificateData());
             }
 

@@ -112,7 +112,6 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     @Override
     public CertificateDto mapToDto() {
         CertificateDto dto = new CertificateDto();
-        dto.setId(id);
         dto.setCommonName(commonName);
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
