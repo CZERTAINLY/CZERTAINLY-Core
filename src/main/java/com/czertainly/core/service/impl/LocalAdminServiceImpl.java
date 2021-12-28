@@ -1,9 +1,13 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.core.modal.*;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.admin.AddAdminRequestDto;
+import com.czertainly.api.model.core.admin.AdminDto;
+import com.czertainly.api.model.core.admin.AdminRole;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Admin;
 import com.czertainly.core.dao.entity.Certificate;

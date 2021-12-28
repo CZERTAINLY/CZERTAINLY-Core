@@ -1,8 +1,8 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.CertificateStatus;
-import com.czertainly.api.model.discovery.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.config.ApplicationConfig;
 import com.czertainly.core.dao.entity.Certificate;
 import org.slf4j.Logger;

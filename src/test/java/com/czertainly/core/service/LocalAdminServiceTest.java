@@ -1,11 +1,10 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.AddAdminRequestDto;
-import com.czertainly.api.core.modal.AdminDto;
-import com.czertainly.api.core.modal.EditAdminRequestDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.admin.AddAdminRequestDto;
+import com.czertainly.api.model.core.admin.AdminDto;
 import com.czertainly.core.dao.entity.Admin;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
@@ -17,12 +16,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
-import java.util.List;
 
 @SpringBootTest
 @Transactional

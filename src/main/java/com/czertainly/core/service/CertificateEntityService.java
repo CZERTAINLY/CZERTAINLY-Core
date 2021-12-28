@@ -1,12 +1,12 @@
 package com.czertainly.core.service;
 
-import java.util.List;
-
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.certificate.entity.CertificateEntityDto;
-import com.czertainly.api.model.certificate.entity.CertificateEntityRequestDto;
+import com.czertainly.api.model.core.certificate.entity.CertificateEntityDto;
+import com.czertainly.api.model.core.certificate.entity.CertificateEntityRequestDto;
+
+import java.util.List;
 
 public interface CertificateEntityService {
 

@@ -1,12 +1,12 @@
 package com.czertainly.core.service;
 
-import java.util.List;
-
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.certificate.group.CertificateGroupDto;
-import com.czertainly.api.model.certificate.group.CertificateGroupRequestDto;
+import com.czertainly.api.model.core.certificate.group.CertificateGroupDto;
+import com.czertainly.api.model.core.certificate.group.CertificateGroupRequestDto;
+
+import java.util.List;
 
 public interface CertificateGroupService {
 

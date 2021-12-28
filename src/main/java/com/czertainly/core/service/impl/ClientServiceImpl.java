@@ -1,21 +1,16 @@
 package com.czertainly.core.service.impl;
 
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import javax.transaction.Transactional;
-
-import com.czertainly.api.core.modal.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.client.AddClientRequestDto;
+import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.client.ClientDto;
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
-import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
-import org.springframework.stereotype.Service;
-
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -25,10 +20,18 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ClientService;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.raprofile.RaProfileDto;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.stereotype.Service;
+
+import javax.transaction.Transactional;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional

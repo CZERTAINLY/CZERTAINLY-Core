@@ -1,16 +1,16 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeCallback;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.connector.ForceDeleteMessageDto;
-import com.czertainly.api.model.credential.CredentialDto;
-import com.czertainly.api.model.credential.CredentialRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.AttributeCallback;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.credential.CredentialDto;
+import com.czertainly.api.model.core.credential.CredentialRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Credential;
 

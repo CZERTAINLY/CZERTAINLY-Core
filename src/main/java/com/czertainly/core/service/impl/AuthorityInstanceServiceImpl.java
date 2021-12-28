@@ -1,18 +1,18 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.AttributeApiClient;
-import com.czertainly.api.AuthorityInstanceApiClient;
-import com.czertainly.api.EndEntityProfileApiClient;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
+import com.czertainly.api.clients.AttributeApiClient;
+import com.czertainly.api.clients.AuthorityInstanceApiClient;
+import com.czertainly.api.clients.EndEntityProfileApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.NameAndIdDto;
-import com.czertainly.api.model.ca.AuthorityInstanceDto;
-import com.czertainly.api.model.ca.AuthorityInstanceRequestDto;
-import com.czertainly.api.model.ca.ConnectorAuthorityInstanceDto;
-import com.czertainly.api.model.connector.ForceDeleteMessageDto;
-import com.czertainly.api.model.connector.FunctionGroupCode;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
+import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
@@ -61,14 +61,14 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
-    public List<AuthorityInstanceDto> listAuthorityInstances() {
+    public List<com.czertainly.api.model.core.authority.AuthorityInstanceDto> listAuthorityInstances() {
         return authorityInstanceReferenceRepository.findAll().stream().map(AuthorityInstanceReference::mapToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
-    public AuthorityInstanceDto getAuthorityInstance(String uuid) throws NotFoundException, ConnectorException {
+    public com.czertainly.api.model.core.authority.AuthorityInstanceDto getAuthorityInstance(String uuid) throws NotFoundException, ConnectorException {
         AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
 
@@ -76,12 +76,12 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             throw new NotFoundException("Connector associated with the Authority is not found. Unable to show details");
         }
 
-        ConnectorAuthorityInstanceDto connectorAuthorityInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
+        AuthorityProviderInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
                 authorityInstanceReference.getAuthorityInstanceUuid());
 
-        AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
-        authorityInstanceDto.setAttributes(connectorAuthorityInstanceDto.getAttributes());
-        authorityInstanceDto.setName(connectorAuthorityInstanceDto.getName());
+        com.czertainly.api.model.core.authority.AuthorityInstanceDto authorityInstanceDto = new com.czertainly.api.model.core.authority.AuthorityInstanceDto();
+        authorityInstanceDto.setAttributes(authorityProviderInstanceDto.getAttributes());
+        authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
         authorityInstanceDto.setUuid(authorityInstanceReference.getUuid());
         authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid());
         authorityInstanceDto.setKind(authorityInstanceReference.getKind());
@@ -92,7 +92,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CREATE)
-    public AuthorityInstanceDto createAuthorityInstance(AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+    public com.czertainly.api.model.core.authority.AuthorityInstanceDto createAuthorityInstance(com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         if (authorityInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(AuthorityInstanceReference.class, request.getName());
         }
@@ -108,19 +108,17 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         }
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
-                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()), request.getKind());
+                request.getAttributes(), request.getKind());
 
         // Load complete credential data
         credentialService.loadFullCredentialData(attributes);
 
-        AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
-        authorityInstanceDto.setConnectorName(connector.getName());
-        authorityInstanceDto.setConnectorUuid(request.getConnectorUuid());
-        authorityInstanceDto.setAttributes(attributes);
+        AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
+        authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
         authorityInstanceDto.setKind(request.getKind());
         authorityInstanceDto.setName(request.getName());
 
-        ConnectorAuthorityInstanceDto response = authorityInstanceApiClient.createAuthorityInstance(connector.mapToDto(), authorityInstanceDto);
+        AuthorityProviderInstanceDto response = authorityInstanceApiClient.createAuthorityInstance(connector.mapToDto(), authorityInstanceDto);
 
         AuthorityInstanceReference authorityInstanceRef = new AuthorityInstanceReference();
         authorityInstanceRef.setAuthorityInstanceUuid(response.getUuid());
@@ -136,7 +134,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
-    public AuthorityInstanceDto updateAuthorityInstance(String uuid, AuthorityInstanceRequestDto request) throws NotFoundException, ConnectorException {
+    public com.czertainly.api.model.core.authority.AuthorityInstanceDto updateAuthorityInstance(String uuid, com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto request) throws NotFoundException, ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
 
@@ -151,17 +149,15 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         }
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
-                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()), request.getKind());
+                request.getAttributes(), request.getKind());
 
         // Load complete credential data
         credentialService.loadFullCredentialData(attributes);
 
-        AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
-        authorityInstanceDto.setConnectorName(connector.getName());
-        authorityInstanceDto.setConnectorUuid(request.getConnectorUuid());
-        authorityInstanceDto.setAttributes(attributes);
+        AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
+        authorityInstanceDto.setName(request.getName());
+        authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
         authorityInstanceDto.setKind(request.getKind());
-        authorityInstanceDto.setUuid(uuid);
 
         authorityInstanceApiClient.updateAuthorityInstance(connector.mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid(), authorityInstanceDto);
@@ -238,7 +234,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public Boolean validateRAProfileAttributes(String uuid, List<AttributeDefinition> attributes) throws NotFoundException, ConnectorException {
+    public Boolean validateRAProfileAttributes(String uuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException {
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         Connector connector = authorityInstance.getConnector();

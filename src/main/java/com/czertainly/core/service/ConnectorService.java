@@ -1,15 +1,24 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.*;
-import com.czertainly.api.model.connector.*;
+import com.czertainly.api.model.client.connector.ConnectDto;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.AttributeCallback;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.HealthDto;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.connector.BaseFunctionGroupDto;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.Connector;
 
 import java.util.List;
 import java.util.Map;
@@ -55,9 +64,9 @@ public interface ConnectorService {
     List<AttributeDefinition> getAttributes(String uuid, FunctionGroupCode functionGroup, String functionGroupType) throws NotFoundException, ConnectorException;
 
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    boolean validateAttributes(String uuid, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException;
+    boolean validateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException;
 
-    List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<AttributeDefinition> attributes, String functionGroupType) throws NotFoundException, ConnectorException;
+    List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ConnectorException;
 
     Object callback(String uuid, AttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException;
 

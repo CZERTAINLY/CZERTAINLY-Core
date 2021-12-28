@@ -1,13 +1,17 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.util.List;
-
-import com.czertainly.api.core.modal.UuidDto;
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.ca.AuthorityInstanceRequestDto;
-import com.czertainly.api.model.connector.ForceDeleteMessageDto;
+import com.czertainly.api.interfaces.core.web.AuthorityInstanceController;
+import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.core.service.AuthorityInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -16,12 +20,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.api.core.interfaces.web.AuthorityInstanceController;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.ca.AuthorityInstanceDto;
-import com.czertainly.api.model.NameAndIdDto;
+import java.net.URI;
+import java.util.List;
 
 @RestController
 public class AuthorityInstanceControllerImpl implements AuthorityInstanceController {
@@ -84,7 +84,7 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    public Boolean validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<AttributeDefinition> attributes) throws NotFoundException, ConnectorException {
+    public Boolean validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException {
         return authorityInstanceService.validateRAProfileAttributes(uuid, attributes);
     }
 

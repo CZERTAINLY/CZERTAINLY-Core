@@ -23,11 +23,11 @@ insert into function_group (id, name, code, uuid) values (
     'a6c4042f-9465-4476-9528-1efd6caaf944');
 
 insert into public.endpoint (id,context,"method","name",required,function_group_id,uuid) values
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities','GET','listauthorityInstances',true,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'e3521dd0-e150-4676-a79c-30a33e62889c'),
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','GET','getauthorityInstance',true,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'924ac89a-7376-4ac8-8c15-ecb7d9e8ca16'),
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities','POST','createauthorityInstance',true,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'9bf9cd3b-73de-4c1c-a712-7396e9dc78e5'),
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','POST','updateauthorityInstance',true,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'51c5b673-0e6e-4b8d-a31b-1b35835b4025'),
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','DELETE','removeauthorityInstance',false,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'f83d858a-d63b-48e7-b22c-fdb7f7e3d9b1'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities','GET','listAuthorityInstances',true,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'e3521dd0-e150-4676-a79c-30a33e62889c'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','GET','getAuthorityInstance',true,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'924ac89a-7376-4ac8-8c15-ecb7d9e8ca16'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities','POST','createAuthorityInstance',true,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'9bf9cd3b-73de-4c1c-a712-7396e9dc78e5'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','POST','updateAuthorityInstance',true,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'51c5b673-0e6e-4b8d-a31b-1b35835b4025'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','DELETE','removeAuthorityInstance',false,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'f83d858a-d63b-48e7-b22c-fdb7f7e3d9b1'),
 	 (nextval('endpoint_id_seq'),'/v1','GET','listSupportedFunctions',false,(select id from function_group where code = 'AUTHORITY_PROVIDER'),'ecdf6214-a491-4a0f-9084-7b502a16315e'),
 	 (nextval('endpoint_id_seq'),'/v1/discoveryProvider/discover','POST','discoverCertificate',true,(select id from function_group where code = 'DISCOVERY_PROVIDER'),'784f8681-e3ea-4d8d-938a-ce315752cd80'),
 	 (nextval('endpoint_id_seq'),'/v1','GET','listSupportedFunctions',false,(select id from function_group where code = 'DISCOVERY_PROVIDER'),'eb8645ee-5def-4b77-8c66-f8c85da88132'),
@@ -54,12 +54,12 @@ insert into public.endpoint (id,context,"method","name",required,function_group_
 	 (nextval('endpoint_id_seq'),'/v1/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}','GET','getEndEntity',false,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'a8b1d647-6a8e-46fd-b4e1-844b30df4dcc'),
 	 (nextval('endpoint_id_seq'),'/v1/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities','POST','createEndEntity',false,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'5f61c054-0d68-44b1-b326-2ed28a2a55fa'),
 	 (nextval('endpoint_id_seq'),'/v1/authorities/{uuid}/endEntityProfiles/{endEntityProfileName}/endEntities/{endEntityName}','POST','updateEndEntity',false,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'57320a6d-3763-4a25-bdae-4a2a92a67487'),
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','DELETE','removeauthorityInstance',false,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'b3592167-af2a-44b3-89d2-e4bfd000caa4');
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','DELETE','removeAuthorityInstance',false,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'b3592167-af2a-44b3-89d2-e4bfd000caa4');
 insert into public.endpoint (id,context,"method","name",required,function_group_id,uuid) values
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities','POST','createauthorityInstance',true,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'6350c3bb-57ef-4416-964b-0254df28131e'),
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','GET','getauthorityInstance',true,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'1692cec0-50aa-46a3-be7f-b32e6a752d2a'),
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities','GET','listauthorityInstances',true,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'cb1ae7eb-a97b-44bd-bf76-46ae96e32985'),
-	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','POST','updateauthorityInstance',true,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'06f1f14f-328b-40f7-8f34-f168619e3a3a'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities','POST','createAuthorityInstance',true,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'6350c3bb-57ef-4416-964b-0254df28131e'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','GET','getAuthorityInstance',true,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'1692cec0-50aa-46a3-be7f-b32e6a752d2a'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities','GET','listAuthorityInstances',true,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'cb1ae7eb-a97b-44bd-bf76-46ae96e32985'),
+	 (nextval('endpoint_id_seq'),'/v1/authorityProvider/authorities/{uuid}','POST','updateAuthorityInstance',true,(select id from function_group where code = 'LEGACY_AUTHORITY_PROVIDER'),'06f1f14f-328b-40f7-8f34-f168619e3a3a'),
 	 (nextval('endpoint_id_seq'),'/v1/discoveryProvider/listAvailableReports/{projectId}','POST','listAvailableReports',false,(select id from function_group where code = 'DISCOVERY_PROVIDER'),'e3521dd0-e150-4676-a79c-30a33e62889d'),
 	 (nextval('endpoint_id_seq'),'/v1/discoveryProvider/listAvailableProjects','POST','listAvailableProjects',false,(select id from function_group where code = 'DISCOVERY_PROVIDER'),'e3521dd0-e150-4676-a79c-30a33e62889e'),
 	 (nextval('endpoint_id_seq'),'/v1/discoveryProvider/listCertificates/{reportId}','POST','listCertificates',false,(select id from function_group where code = 'DISCOVERY_PROVIDER'),'e3521dd0-e150-4676-a79c-30a33e62890e'),

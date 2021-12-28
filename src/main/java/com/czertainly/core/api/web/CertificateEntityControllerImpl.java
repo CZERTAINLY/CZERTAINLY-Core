@@ -1,10 +1,12 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.util.List;
-
-import com.czertainly.api.model.UuidDto;
-import com.czertainly.api.model.certificate.entity.CertificateEntityRequestDto;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.web.CertificateEntityController;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.certificate.entity.CertificateEntityDto;
+import com.czertainly.api.model.core.certificate.entity.CertificateEntityRequestDto;
+import com.czertainly.core.service.CertificateEntityService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -12,11 +14,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.core.service.CertificateEntityService;
-import com.czertainly.api.core.interfaces.web.CertificateEntityController;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.certificate.entity.CertificateEntityDto;
+import java.net.URI;
+import java.util.List;
 
 @RestController
 public class CertificateEntityControllerImpl implements CertificateEntityController{

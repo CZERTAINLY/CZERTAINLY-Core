@@ -1,12 +1,12 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.AddClientRequestDto;
-import com.czertainly.api.core.modal.ClientDto;
-import com.czertainly.api.core.modal.EditClientRequestDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.raprofile.RaProfileDto;
+import com.czertainly.api.model.client.client.AddClientRequestDto;
+import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.core.client.ClientDto;
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
 
 import java.security.cert.CertificateException;
 import java.util.List;

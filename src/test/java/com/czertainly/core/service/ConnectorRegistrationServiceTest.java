@@ -2,7 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

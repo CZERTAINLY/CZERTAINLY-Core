@@ -1,10 +1,10 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.BaseApiClient;
+import com.czertainly.api.clients.BaseApiClient;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.RequestAttributeDto;
-import com.czertainly.api.model.connector.AuthType;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.connector.AuthType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,8 +20,8 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 
+import static com.czertainly.api.clients.BaseApiClient.*;
 import static com.czertainly.core.util.AttributeDefinitionUtils.createAttributes;
-import static com.czertainly.api.BaseApiClient.*;
 
 @SpringBootTest
 @Transactional

@@ -1,14 +1,14 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
-import com.czertainly.core.service.ConnectorRegistrationService;
-import com.czertainly.core.service.ConnectorService;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.connector.ConnectorDto;
-import com.czertainly.api.model.connector.ConnectorStatus;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.service.ConnectorRegistrationService;
+import com.czertainly.core.service.ConnectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

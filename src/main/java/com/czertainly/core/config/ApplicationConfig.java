@@ -1,6 +1,6 @@
 package com.czertainly.core.config;
 
-import com.czertainly.api.*;
+import com.czertainly.api.clients.*;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,7 +88,7 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public com.czertainly.api.v2.CertificateApiClient certificateApiClientV2(WebClient webClient) {
-        return new com.czertainly.api.v2.CertificateApiClient(webClient);
+    public com.czertainly.api.clients.v2.CertificateApiClient certificateApiClientV2(WebClient webClient) {
+        return new com.czertainly.api.clients.v2.CertificateApiClient(webClient);
     }
 }

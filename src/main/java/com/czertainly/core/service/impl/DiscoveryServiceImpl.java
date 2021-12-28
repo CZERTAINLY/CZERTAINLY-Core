@@ -1,14 +1,20 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.DiscoveryApiClient;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
+import com.czertainly.api.clients.DiscoveryApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.api.model.discovery.*;
+import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
@@ -158,22 +164,25 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 request.getConnectorUuid(),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
-                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()),
+                request.getAttributes(),
                 request.getKind());
 
         try {
-            DiscoveryProviderDto dtoRequest = new DiscoveryProviderDto();
+            DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
             dtoRequest.setName(request.getName());
-            dtoRequest.setConnectorUuid(request.getConnectorUuid());
 
             // Load complete credential data
             credentialService.loadFullCredentialData(attributes);
-            dtoRequest.setAttributes(attributes);
+            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
 
             Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
-            DiscoveryProviderDto response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
+            DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
-            dtoRequest.setUuid(response.getUuid());
+            DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
+            getRequest.setName(response.getName());
+            getRequest.setStartIndex(0);
+            getRequest.setEndIndex(MAXIMUM_CERTIFICATES_PER_PAGE);
+
             Boolean waitForCompletion = checkForCompletion(response);
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
@@ -181,7 +190,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 logger.debug("Waiting {}ms.", SLEEP_TIME);
                 Thread.sleep(SLEEP_TIME);
 
-                response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
+                response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
 
                 if ((modal.getStartTime().getTime() - new Date().getTime()) / 1000 > MAXIMUM_WAIT_TIME
                         && !isReachedMaxTime && oldCertificateCount == response.getTotalCertificatesDiscovered()) {
@@ -195,14 +204,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 waitForCompletion = checkForCompletion(response);
             }
 
-            Integer currentPage = 0;
-            Integer totalPages = 0;
+            Integer currentTotal = 0;
             List<DiscoveryProviderCertificateDataDto> certificatesDiscovered = new ArrayList<>();
-            while (currentPage <= totalPages) {
-                currentPage += 1;
-                dtoRequest.setPageNumber(currentPage);
-                response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
-                totalPages = response.getTotalPages();
+            while (currentTotal < response.getTotalCertificatesDiscovered()) {
+                getRequest.setStartIndex(currentTotal);
+                getRequest.setEndIndex(currentTotal + MAXIMUM_CERTIFICATES_PER_PAGE);
+                response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
                     updateDiscovery(modal, response);
@@ -210,6 +217,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     throw new InterruptedException(
                             "Too many content in response to process. Maximum processable is 100");
                 }
+                currentTotal += MAXIMUM_CERTIFICATES_PER_PAGE;
                 certificatesDiscovered.addAll(response.getCertificateData());
             }
 
@@ -243,7 +251,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 request.getConnectorUuid(),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
-                AttributeDefinitionUtils.clientAttributeConverter(request.getAttributes()),
+                request.getAttributes(),
                 request.getKind());
 
         DiscoveryHistory modal = new DiscoveryHistory();

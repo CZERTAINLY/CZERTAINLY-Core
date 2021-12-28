@@ -1,7 +1,5 @@
 package com.czertainly.core.api;
 
-import java.util.Arrays;
-
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -10,6 +8,8 @@ import org.aspectj.lang.annotation.Pointcut;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import java.util.Arrays;
 
 @Aspect
 @Component

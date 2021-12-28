@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.repository;
 
-import com.querydsl.core.types.Predicate;
 import com.czertainly.core.dao.entity.AuditLog;
+import com.querydsl.core.types.Predicate;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.querydsl.QuerydslPredicateExecutor;
