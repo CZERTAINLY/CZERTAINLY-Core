@@ -76,12 +76,12 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             throw new NotFoundException("Connector associated with the Authority is not found. Unable to show details");
         }
 
-        AuthorityInstanceDto connectorAuthorityInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
+        AuthorityInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
                 authorityInstanceReference.getAuthorityInstanceUuid());
 
         com.czertainly.api.model.core.authority.AuthorityInstanceDto authorityInstanceDto = new com.czertainly.api.model.core.authority.AuthorityInstanceDto();
-        authorityInstanceDto.setAttributes(connectorAuthorityInstanceDto.getAttributes());
-        authorityInstanceDto.setName(connectorAuthorityInstanceDto.getName());
+        authorityInstanceDto.setAttributes(authorityProviderInstanceDto.getAttributes());
+        authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
         authorityInstanceDto.setUuid(authorityInstanceReference.getUuid());
         authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid());
         authorityInstanceDto.setKind(authorityInstanceReference.getKind());
