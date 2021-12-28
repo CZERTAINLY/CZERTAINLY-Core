@@ -221,7 +221,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
 
         try {
-            NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", AttributeDefinitionUtils.clientAttributeReverser(attributes));
+            NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attributes));
             return endEntityProfile.getName();
         } catch (Exception e) {
             throw new ValidationException(ValidationError.create("EndEntityProfile could not be retrieved from attributes. {}", e.getMessage()));

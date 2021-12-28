@@ -73,7 +73,7 @@ public class JsonSerializationTest {
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals(7, attrs.size());
 
-        NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", AttributeDefinitionUtils.clientAttributeReverser(attrs));
+        NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attrs));
         Assertions.assertNotNull(endEntityProfile);
         Assertions.assertEquals(0, endEntityProfile.getId());
         Assertions.assertEquals("DemoTLSServerEndEntityProfile", endEntityProfile.getName());
@@ -90,7 +90,7 @@ public class JsonSerializationTest {
 
         List<AttributeDefinition> deserialized = AttributeDefinitionUtils.deserialize(serialized);
 
-        Serializable value = AttributeDefinitionUtils.getAttributeValue("credential", AttributeDefinitionUtils.clientAttributeReverser(deserialized));
+        Serializable value = AttributeDefinitionUtils.getAttributeValue("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
         Assertions.assertNotNull(value);
 
         CredentialDto converted = MAPPER.convertValue(value, CredentialDto.class);
