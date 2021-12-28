@@ -1,14 +1,21 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.util.List;
-import java.util.Map;
-
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.model.AttributeCallback;
-import com.czertainly.api.model.HealthDto;
-import com.czertainly.api.model.UuidDto;
-import com.czertainly.api.model.connector.*;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.interfaces.core.web.ConnectorController;
+import com.czertainly.api.model.client.connector.ConnectDto;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.AttributeCallback;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.HealthDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -17,12 +24,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.api.core.interfaces.web.ConnectorController;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
+import java.net.URI;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 public class ConnectorControllerImpl implements ConnectorController {
@@ -119,7 +123,7 @@ public class ConnectorControllerImpl implements ConnectorController {
                                       @PathVariable String functionGroupKind,
                                       @RequestBody List<AttributeDefinition> attributes)
             throws NotFoundException, ConnectorException {
-        return connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), attributes,
+        return connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), AttributeDefinitionUtils.getClientAttributes(attributes),
                 functionGroupKind);
     }
 

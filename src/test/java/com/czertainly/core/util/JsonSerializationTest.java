@@ -1,5 +1,16 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.core.audit.AuditLogFilter;
+import com.czertainly.api.model.core.credential.CredentialDto;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
@@ -8,19 +19,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.czertainly.api.model.credential.CredentialDto;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
-import com.czertainly.api.core.modal.AuditLogFilter;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.NameAndIdDto;
 
 public class JsonSerializationTest {
 
@@ -75,7 +73,7 @@ public class JsonSerializationTest {
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals(7, attrs.size());
 
-        NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", attrs);
+        NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attrs));
         Assertions.assertNotNull(endEntityProfile);
         Assertions.assertEquals(0, endEntityProfile.getId());
         Assertions.assertEquals("DemoTLSServerEndEntityProfile", endEntityProfile.getName());
@@ -92,7 +90,7 @@ public class JsonSerializationTest {
 
         List<AttributeDefinition> deserialized = AttributeDefinitionUtils.deserialize(serialized);
 
-        Serializable value = AttributeDefinitionUtils.getAttributeValue("credential", deserialized);
+        Serializable value = AttributeDefinitionUtils.getAttributeValue("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
         Assertions.assertNotNull(value);
 
         CredentialDto converted = MAPPER.convertValue(value, CredentialDto.class);

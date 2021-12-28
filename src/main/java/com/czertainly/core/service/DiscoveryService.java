@@ -1,13 +1,13 @@
 package com.czertainly.core.service;
 
-import java.util.List;
-
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.DiscoveryDto;
-import com.czertainly.api.model.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.core.dao.entity.DiscoveryHistory;
+
+import java.util.List;
 
 public interface DiscoveryService {
 

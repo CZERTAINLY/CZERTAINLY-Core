@@ -1,10 +1,10 @@
 package com.czertainly.core.auth;
 
-import com.czertainly.api.model.discovery.CertificateStatus;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.ClientRepository;
-import com.czertainly.api.exception.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

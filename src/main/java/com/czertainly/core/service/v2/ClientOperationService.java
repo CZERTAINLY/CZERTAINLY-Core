@@ -1,15 +1,15 @@
 package com.czertainly.core.service.v2;
 
-import com.czertainly.api.core.v2.model.ClientCertificateDataResponseDto;
-import com.czertainly.api.core.v2.model.ClientCertificateRenewRequestDto;
-import com.czertainly.api.core.v2.model.ClientCertificateRevocationDto;
-import com.czertainly.api.core.v2.model.ClientCertificateSignRequestDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.RequestAttributeDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
+import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 
 import java.security.cert.CertificateException;
 import java.util.List;

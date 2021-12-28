@@ -1,17 +1,16 @@
 package com.czertainly.core.api.web;
 
-import java.util.List;
-import java.util.Set;
-
-import com.czertainly.api.model.RequestAttributeDto;
-import com.czertainly.api.model.connector.AuthType;
+import com.czertainly.api.interfaces.core.web.ConnectorAuthController;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.czertainly.api.core.interfaces.web.ConnectorAuthController;
-import com.czertainly.api.model.AttributeDefinition;
+import java.util.List;
+import java.util.Set;
 
 @RestController
 public class ConnectorAuthControllerImpl implements ConnectorAuthController {

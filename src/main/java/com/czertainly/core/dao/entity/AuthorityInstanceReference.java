@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.api.model.ca.AuthorityInstanceDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;

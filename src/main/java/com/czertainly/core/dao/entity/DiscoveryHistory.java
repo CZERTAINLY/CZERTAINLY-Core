@@ -1,32 +1,20 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.MetaDefinitions;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+
+import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.OneToMany;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
-
-import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.MetaDefinitions;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
-
-import com.fasterxml.jackson.annotation.JsonBackReference;
-
-import com.czertainly.api.model.discovery.DiscoveryHistoryDto;
-import com.czertainly.api.model.discovery.DiscoveryStatus;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 
 @Entity
 @Table(name = "discovery_history")

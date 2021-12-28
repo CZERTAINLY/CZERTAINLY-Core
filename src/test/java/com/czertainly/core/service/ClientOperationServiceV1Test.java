@@ -1,13 +1,13 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.ClientAddEndEntityRequestDto;
-import com.czertainly.api.core.modal.ClientCertificateRevocationDto;
-import com.czertainly.api.core.modal.ClientCertificateSignRequestDto;
-import com.czertainly.api.core.modal.ClientEditEndEntityRequestDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.NameAndIdDto;
+import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
+import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
+import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
+import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;

@@ -1,15 +1,19 @@
 package com.czertainly.core.service.impl;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
-import javax.transaction.Transactional;
-
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.certificate.group.CertificateGroupRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.group.CertificateGroupDto;
+import com.czertainly.api.model.core.certificate.group.CertificateGroupRequestDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateEntity;
+import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.repository.CertificateGroupRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.service.CertificateGroupService;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,13 +21,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
-import com.czertainly.core.dao.repository.CertificateGroupRepository;
-import com.czertainly.core.service.CertificateGroupService;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.certificate.group.CertificateGroupDto;
+import javax.transaction.Transactional;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional

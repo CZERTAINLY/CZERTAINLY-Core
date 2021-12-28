@@ -1,9 +1,9 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.*;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.authority.*;
 
 import java.security.cert.CertificateException;
 import java.util.List;

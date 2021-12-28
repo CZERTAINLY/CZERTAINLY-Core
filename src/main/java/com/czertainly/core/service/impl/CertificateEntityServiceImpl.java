@@ -1,12 +1,12 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.certificate.entity.CertificateEntityDto;
-import com.czertainly.api.model.certificate.entity.CertificateEntityRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.entity.CertificateEntityDto;
+import com.czertainly.api.model.core.certificate.entity.CertificateEntityRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateEntity;

@@ -1,14 +1,14 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.v2.model.ClientCertificateDataResponseDto;
-import com.czertainly.api.core.v2.model.ClientCertificateRenewRequestDto;
-import com.czertainly.api.core.v2.model.ClientCertificateRevocationDto;
-import com.czertainly.api.core.v2.model.ClientCertificateSignRequestDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.NameAndIdDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
+import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.v2.ClientOperationService;

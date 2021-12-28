@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.FunctionGroup;
-import com.czertainly.api.model.connector.FunctionGroupCode;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

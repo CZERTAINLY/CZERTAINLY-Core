@@ -1,17 +1,18 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.AuthorityInstanceApiClient;
-import com.czertainly.api.core.modal.ClientDto;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
+import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.raprofile.AddRaProfileRequestDto;
-import com.czertainly.api.model.raprofile.EditRaProfileRequestDto;
-import com.czertainly.api.model.raprofile.RaProfileDto;
+import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
+import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.client.ClientDto;
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
@@ -21,7 +22,6 @@ import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.RaProfileService;
-
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -80,7 +80,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(dto.getAuthorityInstanceUuid())
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, dto.getAuthorityInstanceUuid()));
 
-        List<AttributeDefinition> attributes = mergeAndValidateAttributes(authorityInstanceRef, AttributeDefinitionUtils.clientAttributeConverter(dto.getAttributes()));
+        List<AttributeDefinition> attributes = mergeAndValidateAttributes(authorityInstanceRef, dto.getAttributes());
         RaProfile raProfile = createRaProfile(dto, attributes, authorityInstanceRef);
         raProfileRepository.save(raProfile);
 
@@ -113,7 +113,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         return raProfile.mapToDto();
     }
 
-    private List<AttributeDefinition> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<AttributeDefinition> attributes) throws ConnectorException {
+    private List<AttributeDefinition> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = authorityInstanceApiClient.listRAProfileAttributes(
                 authorityInstanceRef.getConnector().mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid());
@@ -122,7 +122,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         if (Boolean.FALSE.equals(authorityInstanceApiClient.validateRAProfileAttributes(
                 authorityInstanceRef.getConnector().mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid(),
-                merged))) {
+                attributes))) {
 
             throw new ValidationException("RA profile attributes validation failed.");
         }
