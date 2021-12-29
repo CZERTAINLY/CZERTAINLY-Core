@@ -48,7 +48,7 @@ create sequence ra_profile_id_seq start 1 increment 1;
         primary key (id)
     );
 
-    create table ca_instance_reference (
+    create table authority_instance_reference (
        id int8 not null,
         uuid varchar(255),
         i_author varchar(255),
@@ -221,7 +221,7 @@ CREATE TABLE "discovery_certificate" (
 	"i_cre" VARCHAR NULL DEFAULT NULL,
 	"i_upd" VARCHAR NULL DEFAULT NULL,
 	"certificate_content_id" BIGINT NOT NULL,
-	"discovery_uuid" BIGINT NULL DEFAULT NULL,
+	"discovery_id" BIGINT NULL DEFAULT NULL,
         PRIMARY KEY ("id")
 )
 ;
@@ -252,11 +252,11 @@ CREATE TABLE "discovery_certificate" (
         i_cre timestamp not null,
         i_upd timestamp not null,
         attributes text,
-        ca_instance_name varchar(255),
+        authority_instance_name varchar(255),
         description varchar(255),
         enabled boolean,
         name varchar(255),
-        ca_instance_ref_id int8,
+        authority_instance_ref_id int8,
         primary key (id)
     );
 
@@ -337,8 +337,8 @@ CREATE TABLE "discovery_certificate" (
 
     alter table if exists ra_profile
        add constraint FK1ybgp06wf8uoegwfhsg4fev2a
-       foreign key (ca_instance_ref_id)
-       references ca_instance_reference;
+       foreign key (authority_instance_ref_id)
+       references authority_instance_reference;
 
 ALTER TABLE if exists client
     ADD CONSTRAINT client_name_unique
