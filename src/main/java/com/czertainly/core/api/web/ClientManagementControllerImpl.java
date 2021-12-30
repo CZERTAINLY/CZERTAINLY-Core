@@ -6,6 +6,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ClientManagementController;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.service.ClientService;
@@ -43,7 +44,10 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
                 .buildAndExpand(client.getUuid())
                 .toUri();
 
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(client.getUuid());
+
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
