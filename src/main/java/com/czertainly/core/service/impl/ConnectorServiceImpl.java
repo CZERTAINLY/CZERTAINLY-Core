@@ -690,18 +690,18 @@ public class ConnectorServiceImpl implements ConnectorService {
                     for (Credential credential : connector.getCredentials()) {
                         credential.setConnector(null);
                         credentialRepository.save(credential);
-                        connector.getCredentials().remove(credential);
-                        connectorRepository.save(connector);
                     }
+                    connector.getCredentials().removeAll(connector.getCredentials());
+                    connectorRepository.save(connector);
                 }
 
                 if (!connector.getAuthorityInstanceReferences().isEmpty()) {
                     for (AuthorityInstanceReference ref : connector.getAuthorityInstanceReferences()) {
                         ref.setConnector(null);
                         authorityInstanceReferenceRepository.save(ref);
-                        connector.getAuthorityInstanceReferences().remove(ref);
-                        connectorRepository.save(connector);
                     }
+                    connector.getAuthorityInstanceReferences().removeAll(connector.getAuthorityInstanceReferences());
+                    connectorRepository.save(connector);
                 }
                 List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
                 connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
