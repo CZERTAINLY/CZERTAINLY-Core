@@ -6,6 +6,7 @@ import com.czertainly.api.clients.HealthApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.common.AttributeCallback;
@@ -222,15 +223,18 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
-    public ConnectorDto updateConnector(String uuid, ConnectorRequestDto request) throws ConnectorException {
+    public ConnectorDto updateConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
         List<AttributeDefinition> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeDefinitionUtils.clientAttributeConverter(request.getAuthAttributes()));
 
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        connector.setUrl(request.getUrl());
-        connector.setAuthType(request.getAuthType());
-        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        if(request.getUrl() != null){
+            connector.setUrl(request.getUrl());
+        }
+        if(request.getAuthType() != null) {
+            connector.setAuthType(request.getAuthType());
+            connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        }
 
         connectorRepository.save(connector);
 
@@ -690,18 +694,18 @@ public class ConnectorServiceImpl implements ConnectorService {
                     for (Credential credential : connector.getCredentials()) {
                         credential.setConnector(null);
                         credentialRepository.save(credential);
-                        connector.getCredentials().remove(credential);
-                        connectorRepository.save(connector);
                     }
+                    connector.getCredentials().removeAll(connector.getCredentials());
+                    connectorRepository.save(connector);
                 }
 
                 if (!connector.getAuthorityInstanceReferences().isEmpty()) {
                     for (AuthorityInstanceReference ref : connector.getAuthorityInstanceReferences()) {
                         ref.setConnector(null);
                         authorityInstanceReferenceRepository.save(ref);
-                        connector.getAuthorityInstanceReferences().remove(ref);
-                        connectorRepository.save(connector);
                     }
+                    connector.getAuthorityInstanceReferences().removeAll(connector.getAuthorityInstanceReferences());
+                    connectorRepository.save(connector);
                 }
                 List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
                 connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
