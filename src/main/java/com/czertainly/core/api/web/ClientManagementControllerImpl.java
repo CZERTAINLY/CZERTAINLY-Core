@@ -6,6 +6,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ClientManagementController;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
@@ -76,7 +77,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    public List<RaProfileDto> listAuthorizations(
+    public List<SimplifiedRaProfileDto> listAuthorizations(
             @PathVariable String uuid)
             throws NotFoundException {
         return clientService.listAuthorizations(uuid);
