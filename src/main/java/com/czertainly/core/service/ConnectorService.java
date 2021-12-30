@@ -6,7 +6,6 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.common.AttributeCallback;
 import com.czertainly.api.model.common.AttributeDefinition;
@@ -42,7 +41,7 @@ public interface ConnectorService {
 
     ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException;
 
-    ConnectorDto updateConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException;
+    ConnectorDto updateConnector(String uuid, ConnectorRequestDto request) throws ConnectorException;
 
     void removeConnector(String uuid) throws NotFoundException;
 

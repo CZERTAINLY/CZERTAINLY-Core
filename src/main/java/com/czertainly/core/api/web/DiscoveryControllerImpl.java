@@ -5,7 +5,6 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
-import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.service.DiscoveryService;
@@ -15,9 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -41,14 +38,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
             throws NotFoundException, ConnectorException, AlreadyExistException {
 		DiscoveryHistory modal = discoveryService.createDiscoveryModal(request);
 		discoveryService.createDiscovery(request, modal);
-		URI location = ServletUriComponentsBuilder
-				.fromCurrentRequest()
-				.path("/{uuid}")
-				.buildAndExpand(modal.getUuid())
-				.toUri();
-		UuidDto dto = new UuidDto();
-		dto.setUuid(modal.getUuid());
-		return ResponseEntity.created(location).body(dto);
+		return new ResponseEntity<String>("", HttpStatus.CREATED);
 	}
 
 	@Override

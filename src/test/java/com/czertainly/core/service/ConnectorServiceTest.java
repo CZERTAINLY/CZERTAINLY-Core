@@ -5,7 +5,6 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.HealthStatus;
@@ -205,7 +204,8 @@ public class ConnectorServiceTest {
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
 
-        ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
+        ConnectorRequestDto request = new ConnectorRequestDto();
+        request.setName("testConnector2");
         request.setUrl("http://localhost:3665");
 
         ConnectorDto dto = connectorService.updateConnector(connector.getUuid(), request);
@@ -214,7 +214,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testEditConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector("wrong-uuid", new ConnectorUpdateRequestDto()));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector("wrong-uuid", new ConnectorRequestDto()));
     }
 
     @Test

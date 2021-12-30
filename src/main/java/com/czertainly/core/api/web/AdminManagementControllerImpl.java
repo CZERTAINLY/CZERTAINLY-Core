@@ -6,7 +6,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.AdminManagementController;
 import com.czertainly.api.model.client.admin.AddAdminRequestDto;
 import com.czertainly.api.model.client.admin.EditAdminRequestDto;
-import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.admin.AdminDto;
 import com.czertainly.core.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,10 +37,8 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 
 		URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
 				.buildAndExpand(adminDTO.getUuid()).toUri();
-		UuidDto dto = new UuidDto();
-		dto.setUuid(adminDTO.getUuid());
 
-		return ResponseEntity.created(location).body(dto);
+		return ResponseEntity.created(location).build();
 	}
 
 	@Override
