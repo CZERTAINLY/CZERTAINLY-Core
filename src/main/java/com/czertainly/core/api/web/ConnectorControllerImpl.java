@@ -7,7 +7,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ConnectorController;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.common.AttributeCallback;
 import com.czertainly.api.model.common.AttributeDefinition;
@@ -81,7 +80,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    public ConnectorDto updateConnector(@PathVariable String uuid, @RequestBody ConnectorUpdateRequestDto request)
+    public ConnectorDto updateConnector(@PathVariable String uuid, @RequestBody ConnectorRequestDto request)
             throws ConnectorException {
         return connectorService.updateConnector(uuid, request);
     }

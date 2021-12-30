@@ -5,7 +5,6 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.core.connector.*;
 import com.czertainly.core.dao.entity.Connector;
@@ -198,7 +197,8 @@ public class ConnectorServiceComplexTest {
         FunctionGroupDto caFgDto = caFunctionGroup.mapToDto();
         caFgDto.setKinds(Collections.singletonList(kindName));
         mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
-        ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
+        ConnectorRequestDto request = new ConnectorRequestDto();
+        request.setName("testConnector");
         request.setAuthType(AuthType.NONE);
         request.setUrl("http://localhost:3665");
 
