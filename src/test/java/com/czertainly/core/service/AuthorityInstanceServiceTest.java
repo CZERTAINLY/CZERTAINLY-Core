@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
+import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
@@ -62,6 +63,7 @@ public class AuthorityInstanceServiceTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
+        connector.setUuid("123");
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
@@ -83,6 +85,7 @@ public class AuthorityInstanceServiceTest {
         authorityInstance = new AuthorityInstanceReference();
         authorityInstance.setName(AUTHORITY_INSTANCE_NAME);
         authorityInstance.setConnector(connector);
+        authorityInstance.setKind("sample");
         authorityInstance.setAuthorityInstanceUuid("1l");
         authorityInstance = authorityInstanceReferenceRepository.save(authorityInstance);
     }
@@ -158,32 +161,6 @@ public class AuthorityInstanceServiceTest {
         request.setName(AUTHORITY_INSTANCE_NAME); // authorityInstance with same name exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> authorityInstanceService.createAuthorityInstance(request));
-    }
-
-    @Test
-    public void testEditAuthorityInstance() throws ConnectorException {
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes"))
-                .willReturn(WireMock.okJson("[]")));
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
-
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
-                .willReturn(WireMock.okJson("{ \"id\": 2 }")));
-
-        AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
-        request.setName(authorityInstance.getName());
-        request.setConnectorUuid(connector.getUuid());
-        request.setAttributes(List.of());
-        request.setKind("Ejbca");
-
-        AuthorityInstanceDto dto = authorityInstanceService.updateAuthorityInstance(authorityInstance.getUuid(), request);
-        Assertions.assertNotNull(dto);
-        Assertions.assertEquals(request.getKind(), dto.getKind());
-        Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
     }
 
     @Test

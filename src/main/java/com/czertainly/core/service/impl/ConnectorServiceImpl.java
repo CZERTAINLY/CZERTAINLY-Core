@@ -5,7 +5,9 @@ import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.clients.HealthApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.connector.ConnectDto;
+import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.common.AttributeCallback;
@@ -222,15 +224,19 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
-    public ConnectorDto updateConnector(String uuid, ConnectorRequestDto request) throws ConnectorException {
+    public ConnectorDto updateConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
         List<AttributeDefinition> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeDefinitionUtils.clientAttributeConverter(request.getAuthAttributes()));
 
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-        connector.setUrl(request.getUrl());
-        connector.setAuthType(request.getAuthType());
-        connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        if(request.getUrl() != null){
+            connector.setUrl(request.getUrl());
+        }
+        if(request.getAuthType() != null) {
+            connector.setAuthType(request.getAuthType());
+            connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        }
 
         connectorRepository.save(connector);
 
@@ -336,8 +342,12 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CONNECT)
-    public List<ConnectDto> connect(ConnectorDto request) throws ValidationException, ConnectorException {
-        return validateConnector(request);
+    public List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException {
+        ConnectorDto dto = new ConnectorDto();
+        dto.setAuthAttributes(AttributeDefinitionUtils.clientAttributeConverter(request.getAuthAttributes()));
+        dto.setAuthType(request.getAuthType());
+        dto.setUrl(request.getUrl());
+        return validateConnector(dto);
     }
 
     @Override
