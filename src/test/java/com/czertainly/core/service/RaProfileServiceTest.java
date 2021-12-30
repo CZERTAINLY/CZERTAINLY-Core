@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.client.SimplifiedClientDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.core.client.ClientDto;
@@ -219,7 +220,7 @@ public class RaProfileServiceTest {
         raProfile.getClients().add(client);
         raProfileRepository.save(raProfile);
 
-        List<ClientDto> clients = raProfileService.listClients(raProfile.getUuid());
+        List<SimplifiedClientDto> clients = raProfileService.listClients(raProfile.getUuid());
         Assertions.assertNotNull(clients);
         Assertions.assertFalse(clients.isEmpty());
         Assertions.assertEquals(client.getUuid(), clients.get(0).getUuid());
@@ -232,7 +233,7 @@ public class RaProfileServiceTest {
 
     @Test
     public void testListClients_emptyClients() throws NotFoundException {
-        List<ClientDto> auths = raProfileService.listClients(raProfile.getUuid());
+        List<SimplifiedClientDto> auths = raProfileService.listClients(raProfile.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }

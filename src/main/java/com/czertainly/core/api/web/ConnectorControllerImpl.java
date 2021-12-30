@@ -116,18 +116,18 @@ public class ConnectorControllerImpl implements ConnectorController {
     @Override
     public List<AttributeDefinition> getAttributes(@PathVariable String uuid,
                                                    @PathVariable String functionGroup,
-                                                   @PathVariable String functionGroupKind) throws NotFoundException, ConnectorException {
-        return connectorService.getAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), functionGroupKind);
+                                                   @PathVariable String kind) throws NotFoundException, ConnectorException {
+        return connectorService.getAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), kind);
     }
 
     @Override
     public boolean validateAttributes(@PathVariable String uuid,
                                       @PathVariable String functionGroup,
-                                      @PathVariable String functionGroupKind,
+                                      @PathVariable String kind,
                                       @RequestBody List<RequestAttributeDto> attributes)
             throws NotFoundException, ConnectorException {
         return connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), attributes,
-                functionGroupKind);
+                kind);
     }
 
 	@Override
