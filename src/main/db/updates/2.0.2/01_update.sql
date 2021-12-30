@@ -33,3 +33,13 @@ UPDATE endpoint SET context = replace(context, '/caConnector/', '/authorityProvi
 UPDATE endpoint SET name = replace(name, 'CAInstance', 'AuthorityInstance');
 
 UPDATE endpoint SET context = '/v1/authorityProvider/authorities/{uuid}/raProfile/attributes' where uuid = 'e43155b6-51ad-46e0-a60c-176ee5e6dfea';
+
+
+UPDATE credential
+    SET attributes = REPLACE(attributes,'{"id":', '{"uuid":');
+
+UPDATE discovery_history
+    SET attributes = REPLACE(attributes,'{"id":', '{"uuid":');
+
+UPDATE ra_profile
+    SET attributes = REPLACE(attributes,'{"id":', '{"uuid":');
