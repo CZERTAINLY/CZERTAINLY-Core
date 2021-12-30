@@ -226,7 +226,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
-        for (String certificateId : request.getCertificateIds()) {
+        for (String certificateId : request.getCertificateUuids()) {
             Certificate certificate = certificateRepository.findByUuid(certificateId)
                     .orElseThrow(() -> new NotFoundException(Certificate.class, certificateId));
             certificate.setOwner(request.getOwner());

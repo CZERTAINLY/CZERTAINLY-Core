@@ -1,7 +1,9 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
@@ -29,15 +31,11 @@ public class ConnectorRegistrationServiceImpl implements ConnectorRegistrationSe
 
     @Override
     @AuditLogged(originator = ObjectType.CONNECTOR, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
-    public UuidDto registerConnector(ConnectorDto request) throws AlreadyExistException, NotFoundException {
-        connectorService.validateConnector(request.getFunctionGroups(), "uuid");
-        logger.info("Connector {} successfully validated.", request.getName());
-
-        ConnectorDto connector = connectorService.createConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
+    public UuidDto registerConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException {
+        ConnectorDto connectorDto = connectorService.createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
         logger.info("Connector {} registered and is waiting for approval.", request.getName());
-
         UuidDto dto = new UuidDto();
-        dto.setUuid(connector.getUuid());
+        dto.setUuid(connectorDto.getUuid());
         return dto;
     }
 }

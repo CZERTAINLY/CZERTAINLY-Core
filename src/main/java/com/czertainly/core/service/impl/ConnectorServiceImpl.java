@@ -155,6 +155,8 @@ public class ConnectorServiceImpl implements ConnectorService {
         return createNewConnector(request, ConnectorStatus.CONNECTED);
     }
 
+    @Override
+    @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_ANONYMOUS"})
     public ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("name must not be empty");
@@ -192,7 +194,6 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_ANONYMOUS"})
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
     public ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException {
         if (StringUtils.isBlank(request.getName())) {

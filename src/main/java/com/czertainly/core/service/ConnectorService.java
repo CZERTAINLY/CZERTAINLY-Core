@@ -41,6 +41,8 @@ public interface ConnectorService {
 
     ConnectorDto createConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException;
 
+    ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws AlreadyExistException, ConnectorException;
+
     ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException;
 
     ConnectorDto updateConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException;

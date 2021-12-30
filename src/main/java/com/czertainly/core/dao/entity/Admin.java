@@ -143,7 +143,6 @@ public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> 
 	@Override
     public AdminDto mapToDto() {
         AdminDto dto = new AdminDto();
-        dto.setId(id);
         dto.setUuid(uuid);
         dto.setUsername(username);
         dto.setName(name);
