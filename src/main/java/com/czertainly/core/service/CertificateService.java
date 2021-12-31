@@ -2,7 +2,13 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.certificate.CertificateUpdateEntityDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateGroupDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
 import com.czertainly.api.model.client.certificate.IdAndCertificateIdDto;
+import com.czertainly.api.model.client.certificate.MultipleEntityUpdateDto;
+import com.czertainly.api.model.client.certificate.MultipleGroupUpdateDto;
+import com.czertainly.api.model.client.certificate.MultipleRAProfileUpdateDto;
 import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
@@ -39,14 +45,14 @@ public interface CertificateService {
 	
 	void revokeCertificate(String serialNumber);
 	
-	void updateRaProfile(String uuid, UuidDto request) throws NotFoundException;
-    void updateCertificateGroup(String uuid, UuidDto request) throws NotFoundException;
-    void updateEntity(String uuid, UuidDto request) throws NotFoundException;
+	void updateRaProfile(String uuid, CertificateUpdateRAProfileDto request) throws NotFoundException;
+    void updateCertificateGroup(String uuid, CertificateUpdateGroupDto request) throws NotFoundException;
+    void updateEntity(String uuid, CertificateUpdateEntityDto request) throws NotFoundException;
     void updateOwner(String uuid, CertificateOwnerRequestDto request) throws NotFoundException;
     
-    void bulkUpdateRaProfile(IdAndCertificateIdDto request) throws NotFoundException;
-    void bulkUpdateCertificateGroup(IdAndCertificateIdDto request) throws NotFoundException;
-    void bulkUpdateEntity(IdAndCertificateIdDto request) throws NotFoundException;
+    void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException;
+    void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException;
+    void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException;
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
     void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
 }

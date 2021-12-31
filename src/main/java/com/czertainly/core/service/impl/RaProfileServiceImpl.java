@@ -5,6 +5,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.client.SimplifiedClientDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.common.AttributeDefinition;
@@ -31,6 +32,7 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -146,13 +148,18 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
-    public List<ClientDto> listClients(String uuid) throws NotFoundException {
+    public List<SimplifiedClientDto> listClients(String uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
-
-        return raProfile.getClients().stream()
-                .map(Client::mapToDto)
-                .collect(Collectors.toList());
+        List<SimplifiedClientDto> clients = new ArrayList<>();
+        for(Client client : raProfile.getClients()){
+            SimplifiedClientDto dto = new SimplifiedClientDto();
+            dto.setUuid(client.getUuid());
+            dto.setName(client.getName());
+            dto.setEnabled(client.getEnabled());
+            clients.add(dto);
+        }
+        return clients;
     }
 
     @Override

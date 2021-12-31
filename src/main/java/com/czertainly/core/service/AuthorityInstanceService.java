@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
+import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.NameAndIdDto;
@@ -20,7 +21,7 @@ public interface AuthorityInstanceService {
 
     AuthorityInstanceDto createAuthorityInstance(AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    AuthorityInstanceDto updateAuthorityInstance(String uuid, AuthorityInstanceRequestDto request) throws NotFoundException, ConnectorException;
+    AuthorityInstanceDto updateAuthorityInstance(String uuid, AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException;
 
     void removeAuthorityInstance(String uuid) throws NotFoundException, ConnectorException;
 

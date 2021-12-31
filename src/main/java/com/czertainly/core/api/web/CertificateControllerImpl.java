@@ -3,7 +3,13 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
+import com.czertainly.api.model.client.certificate.CertificateUpdateEntityDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateGroupDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
 import com.czertainly.api.model.client.certificate.IdAndCertificateIdDto;
+import com.czertainly.api.model.client.certificate.MultipleEntityUpdateDto;
+import com.czertainly.api.model.client.certificate.MultipleGroupUpdateDto;
+import com.czertainly.api.model.client.certificate.MultipleRAProfileUpdateDto;
 import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
@@ -58,19 +64,19 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public void updateRaProfile(@PathVariable String uuid, @RequestBody UuidDto request)
+	public void updateRaProfile(@PathVariable String uuid, @RequestBody CertificateUpdateRAProfileDto request)
 			throws NotFoundException {
 		certificateService.updateRaProfile(uuid, request);
 	}
 
 	@Override
 	public void updateCertificateGroup(@PathVariable String uuid,
-			@RequestBody UuidDto request) throws NotFoundException {
+			@RequestBody CertificateUpdateGroupDto request) throws NotFoundException {
 		certificateService.updateCertificateGroup(uuid, request);
 	}
 
 	@Override
-	public void updateEntity(@PathVariable String uuid, @RequestBody UuidDto request)
+	public void updateEntity(@PathVariable String uuid, @RequestBody CertificateUpdateEntityDto request)
 			throws NotFoundException {
 		certificateService.updateEntity(uuid, request);
 	}
@@ -82,28 +88,27 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public ResponseEntity<String> check(@PathVariable String uuid)
+	public void check(@PathVariable String uuid)
 			throws CertificateException, IOException, NotFoundException {
 		Certificate crt = certificateService.getCertificateEntity(uuid);
 		certValidationService.validate(crt);
-		return new ResponseEntity<String>("Updated", HttpStatus.OK);
 	}
 
 	// -------------------- BulkUpdate APIs -------------------
 	@Override
-	public void bulkUpdateRaProfile(@RequestBody IdAndCertificateIdDto request)
+	public void bulkUpdateRaProfile(@RequestBody MultipleRAProfileUpdateDto request)
 			throws NotFoundException {
 		certificateService.bulkUpdateRaProfile(request);
 	}
 
 	@Override
-	public void bulkUpdateCertificateGroup(@RequestBody IdAndCertificateIdDto request)
+	public void bulkUpdateCertificateGroup(@RequestBody MultipleGroupUpdateDto request)
 			throws NotFoundException {
 		certificateService.bulkUpdateCertificateGroup(request);
 	}
 
 	@Override
-	public void bulkUpdateEntity(@RequestBody IdAndCertificateIdDto request)
+	public void bulkUpdateEntity(@RequestBody MultipleEntityUpdateDto request)
 			throws NotFoundException {
 		certificateService.bulkUpdateEntity(request);
 	}
@@ -124,7 +129,8 @@ public class CertificateControllerImpl implements CertificateController {
                 .path("/{uuid}")
                 .buildAndExpand(dto.getUuid())
                 .toUri();
-
+		UuidDto responseDto = new UuidDto();
+		responseDto.setUuid(dto.getUuid());
         return ResponseEntity.created(location).build();
 	}
 

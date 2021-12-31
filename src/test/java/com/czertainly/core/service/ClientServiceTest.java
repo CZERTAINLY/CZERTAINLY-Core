@@ -5,6 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -204,7 +205,7 @@ public class ClientServiceTest {
         client.getRaProfiles().add(raProfile);
         clientRepository.save(client);
 
-        List<RaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertFalse(auths.isEmpty());
         Assertions.assertEquals(raProfile.getUuid(), auths.get(0).getUuid());
@@ -217,7 +218,7 @@ public class ClientServiceTest {
 
     @Test
     public void testListAuthorizations_emptyAuthorizations() throws NotFoundException {
-        List<RaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }
@@ -230,7 +231,7 @@ public class ClientServiceTest {
         entityManager.flush();
         entityManager.refresh(client);
 
-        List<RaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertFalse(auths.isEmpty());
         Assertions.assertEquals(raProfile.getUuid(), auths.get(0).getUuid());
@@ -257,7 +258,7 @@ public class ClientServiceTest {
         entityManager.flush();
         entityManager.refresh(client);
 
-        List<RaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }

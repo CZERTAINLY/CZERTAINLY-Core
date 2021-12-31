@@ -5,6 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 
@@ -26,7 +27,7 @@ public interface ClientService {
 
     void removeClient(String uuid) throws NotFoundException;
 
-    List<RaProfileDto> listAuthorizations(String uuid) throws NotFoundException;
+    List<SimplifiedRaProfileDto> listAuthorizations(String uuid) throws NotFoundException;
 
     void authorizeClient(String uuid, String raProfileUuid) throws NotFoundException;
 

@@ -6,11 +6,14 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ConnectorController;
 import com.czertainly.api.model.client.connector.ConnectDto;
+import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.common.AttributeCallback;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.HealthDto;
+import com.czertainly.api.model.common.RequestAttributeDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -80,7 +83,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    public ConnectorDto updateConnector(@PathVariable String uuid, @RequestBody ConnectorRequestDto request)
+    public ConnectorDto updateConnector(@PathVariable String uuid, @RequestBody ConnectorUpdateRequestDto request)
             throws ConnectorException {
         return connectorService.updateConnector(uuid, request);
     }
@@ -91,7 +94,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    public List<ConnectDto> connect(@RequestBody ConnectorDto request) throws ValidationException, ConnectorException {
+    public List<ConnectDto> connect(@RequestBody ConnectRequestDto request) throws ValidationException, ConnectorException {
         return connectorService.connect(request);
     }
 
@@ -113,18 +116,18 @@ public class ConnectorControllerImpl implements ConnectorController {
     @Override
     public List<AttributeDefinition> getAttributes(@PathVariable String uuid,
                                                    @PathVariable String functionGroup,
-                                                   @PathVariable String functionGroupKind) throws NotFoundException, ConnectorException {
-        return connectorService.getAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), functionGroupKind);
+                                                   @PathVariable String kind) throws NotFoundException, ConnectorException {
+        return connectorService.getAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), kind);
     }
 
     @Override
-    public boolean validateAttributes(@PathVariable String uuid,
+    public void validateAttributes(@PathVariable String uuid,
                                       @PathVariable String functionGroup,
-                                      @PathVariable String functionGroupKind,
-                                      @RequestBody List<AttributeDefinition> attributes)
+                                      @PathVariable String kind,
+                                      @RequestBody List<RequestAttributeDto> attributes)
             throws NotFoundException, ConnectorException {
-        return connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), AttributeDefinitionUtils.getClientAttributes(attributes),
-                functionGroupKind);
+        connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), attributes,
+                kind);
     }
 
 	@Override
