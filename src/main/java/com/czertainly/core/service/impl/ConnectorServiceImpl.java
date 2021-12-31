@@ -348,6 +348,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         dto.setAuthAttributes(AttributeDefinitionUtils.clientAttributeConverter(request.getAuthAttributes()));
         dto.setAuthType(request.getAuthType());
         dto.setUrl(request.getUrl());
+        dto.setUuid(request.getUuid());
         return validateConnector(dto);
     }
 
@@ -572,16 +573,16 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
+    public void validateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-        return validateAttributes(connector, functionGroup, attributes, functionGroupType);
+        validateAttributes(connector, functionGroup, attributes, functionGroupType);
     }
 
-    private boolean validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
+    private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException  {
         validateFunctionGroup(connector, functionGroup);
-        return attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
+        attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
     }
 
     @Override
@@ -593,10 +594,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         List<AttributeDefinition> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
-        boolean isValid = validateAttributes(connector, functionGroup, attributes, functionGroupType);
-        if (!isValid) {
-            throw new ValidationException("Attributes validation failed.");
-        }
+        validateAttributes(connector, functionGroup, attributes, functionGroupType);
 
         return merged;
     }

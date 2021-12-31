@@ -35,10 +35,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     private DiscoveryRepository discoveryRepository;
 
     @Autowired
-    private CertificateGroupRepository certificateGroupRepository;
+    private GroupRepository groupRepository;
 
     @Autowired
-    private CertificateEntityRepository certificateEntityRepository;
+    private EntityRepository entityRepository;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -75,11 +75,11 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private long getCertificateGroupCount() {
-        return certificateGroupRepository.count();
+        return groupRepository.count();
     }
 
     private long getCertificateEntityCount() {
-        return certificateEntityRepository.count();
+        return entityRepository.count();
     }
 
     private long getRaProfileCount() {
@@ -89,10 +89,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     private Map<String, Long> getGroupStatByCertificateCount(StatisticsDto dto) {
         Map<String, Long> stat = new HashMap<>();
         long totalStatCount = 0;
-        for (CertificateGroup group : certificateGroupRepository.findAll()) {
-            Integer statSize = certificateRepository.findDistinctByGroupId(group.getId()).size();
+        for (CertificateGroup certificateGroup : groupRepository.findAll()) {
+            Integer statSize = certificateRepository.findDistinctByGroupId(certificateGroup.getId()).size();
             totalStatCount += statSize;
-            stat.put(group.getName(), (long) statSize);
+            stat.put(certificateGroup.getName(), (long) statSize);
         }
         stat.put("Unassigned", dto.getTotalCertificates() - totalStatCount);
         return stat;
@@ -101,10 +101,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     private Map<String, Long> getEntityStatByCertificateCount(StatisticsDto dto) {
         Map<String, Long> stat = new HashMap<>();
         long totalStatCount = 0;
-        for (CertificateEntity entity : certificateEntityRepository.findAll()) {
-            Integer statSize = certificateRepository.findDistinctByEntityId(entity.getId()).size();
+        for (CertificateEntity certificateEntity : entityRepository.findAll()) {
+            Integer statSize = certificateRepository.findDistinctByEntityId(certificateEntity.getId()).size();
             totalStatCount += statSize;
-            stat.put(entity.getName(), (long) statSize);
+            stat.put(certificateEntity.getName(), (long) statSize);
         }
         stat.put("Unassigned", dto.getTotalCertificates() - totalStatCount);
         return stat;

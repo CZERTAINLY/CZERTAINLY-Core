@@ -85,8 +85,8 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    public Boolean validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException {
-        return authorityInstanceService.validateRAProfileAttributes(uuid, attributes);
+    public void validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException {
+        authorityInstanceService.validateRAProfileAttributes(uuid, attributes);
     }
 
     @Override
