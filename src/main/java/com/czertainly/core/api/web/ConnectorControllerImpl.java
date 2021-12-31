@@ -121,12 +121,12 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    public boolean validateAttributes(@PathVariable String uuid,
+    public void validateAttributes(@PathVariable String uuid,
                                       @PathVariable String functionGroup,
                                       @PathVariable String kind,
                                       @RequestBody List<RequestAttributeDto> attributes)
             throws NotFoundException, ConnectorException {
-        return connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), attributes,
+        connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), attributes,
                 kind);
     }
 

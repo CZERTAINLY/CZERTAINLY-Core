@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.certificate.group.CertificateGroupDto;
+import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -8,11 +8,12 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
+import javax.persistence.Entity;
 import java.io.Serializable;
 
 @Entity
 @Table(name = "certificate_group")
-public class CertificateGroup extends Audited implements Serializable, DtoMapper<CertificateGroupDto> {
+public class CertificateGroup extends Audited implements Serializable, DtoMapper<GroupDto> {
 
     /**
      *
@@ -21,8 +22,8 @@ public class CertificateGroup extends Audited implements Serializable, DtoMapper
 
     @Id
     @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_group_seq")
-    @SequenceGenerator(name = "certificate_group_seq", sequenceName = "certificate_group_id_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "group_seq")
+    @SequenceGenerator(name = "group_seq", sequenceName = "group_id_seq", allocationSize = 1)
     protected Long id;
 
     @Column(name = "name")
@@ -56,8 +57,8 @@ public class CertificateGroup extends Audited implements Serializable, DtoMapper
     }
 
     @Override
-    public CertificateGroupDto mapToDto() {
-        CertificateGroupDto dto = new CertificateGroupDto();
+    public GroupDto mapToDto() {
+        GroupDto dto = new GroupDto();
         dto.setName(this.name);
         dto.setUuid(uuid);
         dto.setDescription(description);

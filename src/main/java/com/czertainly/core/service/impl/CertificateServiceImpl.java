@@ -4,12 +4,16 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.certificate.IdAndCertificateIdDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateEntityDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateGroupDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
+import com.czertainly.api.model.client.certificate.MultipleEntityUpdateDto;
+import com.czertainly.api.model.client.certificate.MultipleGroupUpdateDto;
+import com.czertainly.api.model.client.certificate.MultipleRAProfileUpdateDto;
 import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
-import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.CertificateDto;
@@ -53,10 +57,10 @@ public class CertificateServiceImpl implements CertificateService {
     private RaProfileRepository raProfileRepository;
 
     @Autowired
-    private CertificateGroupRepository certificateGroupRepository;
+    private GroupRepository groupRepository;
 
     @Autowired
-    private CertificateEntityRepository certificateEntityRepository;
+    private EntityRepository entityRepository;
 
     @Autowired
     private CertificateContentRepository certificateContentRepository;
@@ -138,36 +142,36 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateRaProfile(String uuid, UuidDto request) throws NotFoundException {
+    public void updateRaProfile(String uuid, CertificateUpdateRAProfileDto request) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
+        RaProfile raProfile = raProfileRepository.findByUuid(request.getRaProfileUuid())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
         certificate.setRaProfile(raProfile);
         certificateRepository.save(certificate);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateCertificateGroup(String uuid, UuidDto request) throws NotFoundException {
+    public void updateCertificateGroup(String uuid, CertificateUpdateGroupDto request) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
 
-        CertificateGroup group = certificateGroupRepository.findByUuid(request.getUuid())
-                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
+        CertificateGroup certificateGroup = groupRepository.findByUuid(request.getGroupUuid())
+                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getGroupUuid()));
 
-        certificate.setGroup(group);
+        certificate.setGroup(certificateGroup);
         certificateRepository.save(certificate);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateEntity(String uuid, UuidDto request) throws NotFoundException {
+    public void updateEntity(String uuid, CertificateUpdateEntityDto request) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        CertificateEntity entity = certificateEntityRepository.findByUuid(request.getUuid())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-        certificate.setEntity(entity);
+        CertificateEntity certificateEntity = entityRepository.findByUuid(request.getEntityUuid())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getEntityUuid()));
+        certificate.setEntity(certificateEntity);
         certificateRepository.save(certificate);
 
     }
@@ -184,7 +188,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void bulkUpdateRaProfile(IdAndCertificateIdDto request) throws NotFoundException {
+    public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
         for (String certificateUuid : request.getCertificateUuids()) {
             Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                     .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
@@ -197,28 +201,28 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void bulkUpdateCertificateGroup(IdAndCertificateIdDto request) throws NotFoundException {
+    public void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException {
         for (String certificateUuid : request.getCertificateUuids()) {
             Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                     .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
 
-            CertificateGroup group = certificateGroupRepository.findByUuid(request.getUuid())
+            CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
                     .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
 
-            certificate.setGroup(group);
+            certificate.setGroup(certificateGroup);
             certificateRepository.save(certificate);
         }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void bulkUpdateEntity(IdAndCertificateIdDto request) throws NotFoundException {
+    public void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException {
         for (String certificateUuid : request.getCertificateUuids()) {
             Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                     .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-            CertificateEntity entity = certificateEntityRepository.findByUuid(request.getUuid())
+            CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
                     .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-            certificate.setEntity(entity);
+            certificate.setEntity(certificateEntity);
             certificateRepository.save(certificate);
         }
     }

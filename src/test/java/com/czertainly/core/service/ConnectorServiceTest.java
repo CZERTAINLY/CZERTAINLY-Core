@@ -304,8 +304,8 @@ public class ConnectorServiceTest {
                 .post(WireMock.urlPathMatching("/v1/"+code.getCode()+"/"+kind+"/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result = connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
-        Assertions.assertTrue(result);
+        connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
+
     }
 
     @Test
@@ -323,8 +323,7 @@ public class ConnectorServiceTest {
                 .post(WireMock.urlPathMatching("/v1/"+code.getCode()+"/"+kind+"/attributes/validate"))
                 .willReturn(WireMock.okJson("false")));
 
-        boolean result = connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
-        Assertions.assertFalse(result);
+        connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
     }
 
     @Test

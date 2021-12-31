@@ -276,17 +276,22 @@ public class ClientServiceImpl implements ClientService {
     private Client updateClient(Client client, EditClientRequestDto requestDTO) throws CertificateException, NotFoundException, AlreadyExistException {
         client.setDescription(requestDTO.getDescription());
         Certificate certificate;
-        if(!requestDTO.getCertificateUuid().isEmpty()) {
-        	certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
-        	client.setCertificate(certificate);
-        	
-        }else {
-            UploadCertificateRequestDto request = new UploadCertificateRequestDto();
-            request.setCertificate(requestDTO.getClientCertificate());
-            certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
-            client.setCertificate(certificate);
+        if((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
+            if (!requestDTO.getCertificateUuid().isEmpty()) {
+                certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
+                client.setCertificate(certificate);
+
+            } else {
+                UploadCertificateRequestDto request = new UploadCertificateRequestDto();
+                request.setCertificate(requestDTO.getClientCertificate());
+                certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
+                client.setCertificate(certificate);
+            }
+            client.setSerialNumber(certificate.getSerialNumber());
         }
-        client.setSerialNumber(certificate.getSerialNumber());
+        if(requestDTO.getDescription() != null) {
+            client.setDescription(requestDTO.getDescription());
+        }
         return client;
     }
 
