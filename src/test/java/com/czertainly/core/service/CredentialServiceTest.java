@@ -4,10 +4,11 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.*;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
-import com.czertainly.api.model.core.credential.CredentialRequestDto;
+import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.Credential;
@@ -68,6 +69,7 @@ public class CredentialServiceTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
+        connector.setUuid("123");
         connector.setName("credentialProviderConnector");
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
@@ -87,6 +89,7 @@ public class CredentialServiceTest {
         connectorRepository.save(connector);
 
         credential = new Credential();
+        credential.setKind("sample");
         credential.setName(CREDENTIAL_NAME);
         credential.setConnector(connector);
         credential = credentialRepository.save(credential);
@@ -165,15 +168,11 @@ public class CredentialServiceTest {
                 .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        CredentialRequestDto request = new CredentialRequestDto();
-        request.setName(credential.getName());
-        request.setConnectorUuid(connector.getUuid());
+        CredentialUpdateRequestDto request = new CredentialUpdateRequestDto();
         request.setAttributes(List.of());
-        request.setKind("Certificate");
 
         CredentialDto dto = credentialService.updateCredential(credential.getUuid(), request);
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(request.getKind(), dto.getKind());
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
     }

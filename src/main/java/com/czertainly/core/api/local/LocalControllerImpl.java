@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.local.LocalController;
 import com.czertainly.api.model.client.admin.AddAdminRequestDto;
+import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.admin.AdminDto;
 import com.czertainly.core.service.LocalAdminService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,10 +28,11 @@ public class LocalControllerImpl implements LocalController {
 
         URI location = UriComponentsBuilder
                 .fromPath("/v1/admins")
-                .path("/{adminId}")
-                .buildAndExpand(adminDTO.getId())
+                .path("/{uuid}")
+                .buildAndExpand(adminDTO.getUuid())
                 .toUri();
-
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(adminDTO.getUuid());
+        return ResponseEntity.created(location).body(dto);
     }
 }

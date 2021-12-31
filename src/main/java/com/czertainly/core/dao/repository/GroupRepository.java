@@ -9,7 +9,7 @@ import java.util.Optional;
 
 @Repository
 @Transactional
-public interface CertificateGroupRepository extends JpaRepository<CertificateGroup, Long> {
+public interface GroupRepository extends JpaRepository<CertificateGroup, Long> {
 
     Optional<CertificateGroup> findByName(String name);
     Optional<CertificateGroup> findByUuid(String uuid);

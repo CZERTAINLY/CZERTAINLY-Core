@@ -7,6 +7,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
+import javax.persistence.Entity;
 import java.io.Serializable;
 
 @Entity
@@ -143,7 +144,6 @@ public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> 
 	@Override
     public AdminDto mapToDto() {
         AdminDto dto = new AdminDto();
-        dto.setId(id);
         dto.setUuid(uuid);
         dto.setUsername(username);
         dto.setName(name);

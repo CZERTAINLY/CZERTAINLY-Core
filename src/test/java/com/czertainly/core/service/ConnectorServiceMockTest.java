@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -76,7 +77,7 @@ public class ConnectorServiceMockTest {
         connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.AUTHORITY_PROVIDER, Collections.singletonList(endpoint1.mapToDto())));
         Mockito.when(connectorApiClient.listSupportedFunctions(Mockito.any())).thenReturn(connectorFunctions);
 
-        ConnectorDto request = new ConnectorDto();
+        ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
 
         Assertions.assertThrows(ValidationException.class, () ->
@@ -92,7 +93,7 @@ public class ConnectorServiceMockTest {
         connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.CREDENTIAL_PROVIDER, Collections.singletonList(endpoint1.mapToDto())));
         Mockito.when(connectorApiClient.listSupportedFunctions(Mockito.any())).thenReturn(connectorFunctions);
 
-        ConnectorDto request = new ConnectorDto();
+        ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
         Assertions.assertThrows(ValidationException.class, () ->
                 connectorService.connect(request)
@@ -107,7 +108,7 @@ public class ConnectorServiceMockTest {
         connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.CREDENTIAL_PROVIDER, Arrays.asList(endpoint1.mapToDto(), endpoint2.mapToDto())));
         Mockito.when(connectorApiClient.listSupportedFunctions(Mockito.any())).thenReturn(connectorFunctions);
 
-        ConnectorDto request = new ConnectorDto();
+        ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
 
         connectorService.connect(request);
