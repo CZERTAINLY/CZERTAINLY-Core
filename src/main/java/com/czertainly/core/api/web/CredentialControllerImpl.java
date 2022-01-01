@@ -6,9 +6,10 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CredentialController;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.credential.CredentialDto;
-import com.czertainly.api.model.core.credential.CredentialRequestDto;
+import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.core.service.CredentialService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -53,7 +54,7 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public CredentialDto updateCredential(@PathVariable String uuid, @RequestBody CredentialRequestDto request) throws NotFoundException, ConnectorException {
+    public CredentialDto updateCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
         return credentialService.updateCredential(uuid, request);
     }
 

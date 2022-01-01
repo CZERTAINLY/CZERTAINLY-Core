@@ -2,12 +2,13 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.*;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
-import com.czertainly.api.model.core.credential.CredentialRequestDto;
+import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Credential;
@@ -106,12 +107,13 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CHANGE)
-    public CredentialDto updateCredential(String uuid, CredentialRequestDto request) throws NotFoundException, ConnectorException {
+    public CredentialDto updateCredential(String uuid, CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
+        Credential requestedCredential = getCredentialEntity(uuid);
 
-        Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
+        Connector connector = requestedCredential.getConnector();
 
         if (!credential.getConnector().equals(connector)) {
             throw new ValidationException(ValidationError.create("Credential provider id not matched."));
@@ -120,13 +122,9 @@ public class CredentialServiceImpl implements CredentialService {
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connector.getUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
-                request.getAttributes(), request.getKind());
+                request.getAttributes(), credential.getKind());
 
-        credential.setName(request.getName());
-        credential.setKind(request.getKind());
         credential.setAttributes(AttributeDefinitionUtils.serialize(attributes));
-        credential.setConnectorName(connector.getName());
-        credential.setConnector(connector);
         credentialRepository.save(credential);
 
         return credential.mapToDto();

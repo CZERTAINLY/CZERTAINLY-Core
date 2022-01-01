@@ -33,10 +33,10 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    public boolean validateIssueCertificateAttributes(
+    public void validateIssueCertificateAttributes(
             @PathVariable String raProfileName,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
-        return clientOperationService.validateIssueCertificateAttributes(raProfileName, attributes);
+        clientOperationService.validateIssueCertificateAttributes(raProfileName, attributes);
     }
 
     @Override
@@ -61,10 +61,10 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    public boolean validateRevokeCertificateAttributes(
+    public void validateRevokeCertificateAttributes(
             @PathVariable String raProfileName,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
-        return clientOperationService.validateRevokeCertificateAttributes(raProfileName, attributes);
+        clientOperationService.validateRevokeCertificateAttributes(raProfileName, attributes);
     }
 
 	@Override

@@ -42,7 +42,6 @@ public class Client extends Audited implements Serializable, DtoMapper<ClientDto
 	@Override
 	public ClientDto mapToDto() {
 		ClientDto dto = new ClientDto();
-		dto.setId(id);
 		dto.setUuid(uuid);
 		dto.setName(name);
 		dto.setDescription(description);

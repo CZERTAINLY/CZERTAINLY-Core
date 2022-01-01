@@ -92,6 +92,6 @@ public class CertValidationServiceTest {
         Object signatureVerification = resultMap.get("Signature Verification");
         Assertions.assertNotNull(signatureVerification);
         Assertions.assertTrue(signatureVerification instanceof Map);
-        Assertions.assertEquals("FAILED", ((Map) signatureVerification).get("status"));
+        Assertions.assertEquals("failed", ((Map) signatureVerification).get("status"));
     }
 }

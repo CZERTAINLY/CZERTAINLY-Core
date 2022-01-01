@@ -4,9 +4,9 @@ import com.czertainly.api.clients.CertificateApiClient;
 import com.czertainly.api.clients.EndEntityApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.authority.*;
+import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.authority.*;
@@ -68,8 +68,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         logger.info("Certificate Created. Adding the certificate to Inventory");
-        UuidDto dto = new UuidDto();
-        dto.setUuid(raProfile.getUuid());
+        CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
+        dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Id of the certificate is {}", certificate.getId());
         logger.debug("Id of the RA Profile is {}", raProfile.getId());
         certificateService.updateRaProfile(certificate.getUuid(), dto);

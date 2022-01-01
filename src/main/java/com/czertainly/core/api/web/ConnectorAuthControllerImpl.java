@@ -29,8 +29,8 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public Boolean validateBasicAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
-        return connectorAuthService.validateBasicAuthAttributes(attributes);
+    public void validateBasicAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
+        connectorAuthService.validateBasicAuthAttributes(attributes);
     }
 
     @Override
@@ -39,8 +39,8 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public Boolean validateCertificateAttributes(@RequestBody List<RequestAttributeDto> attributes) {
-        return connectorAuthService.validateCertificateAttributes(attributes);
+    public void validateCertificateAttributes(@RequestBody List<RequestAttributeDto> attributes) {
+        connectorAuthService.validateCertificateAttributes(attributes);
     }
 
     @Override
@@ -49,8 +49,8 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public Boolean validateApiKeyAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
-        return connectorAuthService.validateApiKeyAuthAttributes(attributes);
+    public void validateApiKeyAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
+        connectorAuthService.validateApiKeyAuthAttributes(attributes);
     }
 
     @Override
@@ -59,7 +59,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public Boolean validateJWTAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
-        return connectorAuthService.validateJWTAuthAttributes(attributes);
+    public void validateJWTAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
+        connectorAuthService.validateJWTAuthAttributes(attributes);
     }
 }

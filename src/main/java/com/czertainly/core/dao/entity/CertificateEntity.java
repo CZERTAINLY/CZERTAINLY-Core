@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.certificate.entity.CertificateEntityCode;
-import com.czertainly.api.model.core.certificate.entity.CertificateEntityDto;
+import com.czertainly.api.model.core.certificate.entity.EntityCode;
+import com.czertainly.api.model.core.certificate.entity.EntityDto;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -13,7 +13,7 @@ import java.io.Serializable;
 
 @Entity
 @Table(name = "certificate_entity")
-public class CertificateEntity extends Audited implements Serializable, DtoMapper<CertificateEntityDto> {
+public class CertificateEntity extends Audited implements Serializable, DtoMapper<EntityDto> {
 
     /**
      *
@@ -22,8 +22,8 @@ public class CertificateEntity extends Audited implements Serializable, DtoMappe
 
     @Id
     @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_entity_seq")
-    @SequenceGenerator(name = "certificate_entity_seq", sequenceName = "certificate_entity_id_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "entity_seq")
+    @SequenceGenerator(name = "entity_seq", sequenceName = "entity_id_seq", allocationSize = 1)
     protected Long id;
 
     @Column(name = "name")
@@ -34,7 +34,7 @@ public class CertificateEntity extends Audited implements Serializable, DtoMappe
 
     @Column(name = "entity_type")
     @Enumerated(EnumType.STRING)
-    protected CertificateEntityCode entityType;
+    protected EntityCode entityType;
 
     public Long getId() {
         return id;
@@ -60,17 +60,17 @@ public class CertificateEntity extends Audited implements Serializable, DtoMappe
         this.description = description;
     }
 
-    public CertificateEntityCode getEntityType() {
+    public EntityCode getEntityType() {
         return entityType;
     }
 
-    public void setEntityType(CertificateEntityCode entityType) {
+    public void setEntityType(EntityCode entityType) {
         this.entityType = entityType;
     }
 
     @Override
-    public CertificateEntityDto mapToDto() {
-        CertificateEntityDto dto = new CertificateEntityDto();
+    public EntityDto mapToDto() {
+        EntityDto dto = new EntityDto();
         dto.setName(this.name);
         dto.setUuid(uuid);
         dto.setDescription(description);

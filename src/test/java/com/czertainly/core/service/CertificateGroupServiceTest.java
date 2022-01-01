@@ -3,10 +3,10 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.core.certificate.group.CertificateGroupDto;
-import com.czertainly.api.model.core.certificate.group.CertificateGroupRequestDto;
+import com.czertainly.api.model.core.certificate.group.GroupDto;
+import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.dao.entity.CertificateGroup;
-import com.czertainly.core.dao.repository.CertificateGroupRepository;
+import com.czertainly.core.dao.repository.GroupRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,10 +27,10 @@ public class CertificateGroupServiceTest {
     private static final String CERTIFICATE_GROUP_NAME = "testCertificateGroup1";
 
     @Autowired
-    private CertificateGroupService certificateGroupService;
+    private GroupService groupService;
 
     @Autowired
-    private CertificateGroupRepository certificateGroupRepository;
+    private GroupRepository groupRepository;
 
     private CertificateGroup certificateGroup;
 
@@ -38,12 +38,12 @@ public class CertificateGroupServiceTest {
     public void setUp() {
         certificateGroup = new CertificateGroup();
         certificateGroup.setName(CERTIFICATE_GROUP_NAME);
-        certificateGroup = certificateGroupRepository.save(certificateGroup);
+        certificateGroup = groupRepository.save(certificateGroup);
     }
 
     @Test
     public void testListCertificateGroups() {
-        List<CertificateGroupDto> certificateGroups = certificateGroupService.listCertificateGroups();
+        List<GroupDto> certificateGroups = groupService.listGroups();
         Assertions.assertNotNull(certificateGroups);
         Assertions.assertFalse(certificateGroups.isEmpty());
         Assertions.assertEquals(1, certificateGroups.size());
@@ -52,7 +52,7 @@ public class CertificateGroupServiceTest {
 
     @Test
     public void testGetCertificateGroup() throws NotFoundException {
-        CertificateGroupDto dto = certificateGroupService.getCertificateGroup(certificateGroup.getUuid());
+        GroupDto dto = groupService.getCertificateGroup(certificateGroup.getUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificateGroup.getUuid(), dto.getUuid());
         Assertions.assertEquals(certificateGroup.getName(), dto.getName());
@@ -60,64 +60,64 @@ public class CertificateGroupServiceTest {
 
     @Test
     public void testGetCertificateGroup_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> certificateGroupService.getCertificateGroup("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getCertificateGroup("wrong-uuid"));
     }
 
     @Test
     public void testAddCertificateGroup() throws ValidationException, AlreadyExistException {
-        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
+        GroupRequestDto request = new GroupRequestDto();
         request.setName("test");
 
-        CertificateGroupDto dto = certificateGroupService.createCertificateGroup(request);
+        GroupDto dto = groupService.createGroup(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }
 
     @Test
     public void testAddCertificateGroup_validationFail() {
-        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
-        Assertions.assertThrows(ValidationException.class, () -> certificateGroupService.createCertificateGroup(request));
+        GroupRequestDto request = new GroupRequestDto();
+        Assertions.assertThrows(ValidationException.class, () -> groupService.createGroup(request));
     }
 
     @Test
     public void testAddCertificateGroup_alreadyExist() {
-        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
+        GroupRequestDto request = new GroupRequestDto();
         request.setName(CERTIFICATE_GROUP_NAME); // certificateGroup with same name exist
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> certificateGroupService.createCertificateGroup(request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> groupService.createGroup(request));
     }
 
     @Test
     public void testEditCertificateGroup() throws NotFoundException {
-        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
+        GroupRequestDto request = new GroupRequestDto();
         request.setName("Test");
         request.setDescription("some description");
 
-        CertificateGroupDto dto = certificateGroupService.updateCertificateGroup(certificateGroup.getUuid(), request);
+        GroupDto dto = groupService.updateGroup(certificateGroup.getUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
 
     @Test
     public void testEditCertificateGroup_notFound() {
-        CertificateGroupRequestDto request = new CertificateGroupRequestDto();
-        Assertions.assertThrows(NotFoundException.class, () -> certificateGroupService.updateCertificateGroup("wrong-uuid", request));
+        GroupRequestDto request = new GroupRequestDto();
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.updateGroup("wrong-uuid", request));
     }
 
     @Test
     public void testRemoveCertificateGroup() throws NotFoundException {
-        certificateGroupService.removeCertificateGroup(certificateGroup.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> certificateGroupService.getCertificateGroup(certificateGroup.getUuid()));
+        groupService.removeGroup(certificateGroup.getUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getCertificateGroup(certificateGroup.getUuid()));
     }
 
     @Test
     public void testRemoveCertificateGroup_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> certificateGroupService.removeCertificateGroup("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.removeGroup("wrong-uuid"));
     }
 
     @Test
     public void testBulkRemove() {
-        certificateGroupService.bulkRemoveCertificateGroup(List.of(certificateGroup.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> certificateGroupService.getCertificateGroup(certificateGroup.getUuid()));
+        groupService.bulkRemoveGroup(List.of(certificateGroup.getUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getCertificateGroup(certificateGroup.getUuid()));
     }
 }

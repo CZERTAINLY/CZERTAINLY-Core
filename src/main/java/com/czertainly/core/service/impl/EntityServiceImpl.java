@@ -5,14 +5,14 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.certificate.entity.CertificateEntityDto;
-import com.czertainly.api.model.core.certificate.entity.CertificateEntityRequestDto;
+import com.czertainly.api.model.core.certificate.entity.EntityDto;
+import com.czertainly.api.model.core.certificate.entity.EntityRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateEntity;
-import com.czertainly.core.dao.repository.CertificateEntityRepository;
+import com.czertainly.core.dao.repository.EntityRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.service.CertificateEntityService;
+import com.czertainly.core.service.EntityService;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,77 +27,77 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
-public class CertificateEntityServiceImpl implements CertificateEntityService {
+public class EntityServiceImpl implements EntityService {
 
-    private static final Logger logger = LoggerFactory.getLogger(CertificateEntityServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EntityServiceImpl.class);
 
     @Autowired
-    private CertificateEntityRepository certificateEntityRepository;
+    private EntityRepository entityRepository;
 
     @Autowired
     private CertificateRepository certificateRepository;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ENTITY, operation = OperationType.REQUEST)
-    public List<CertificateEntityDto> listCertificateEntity() {
-        return certificateEntityRepository.findAll().stream().map(CertificateEntity::mapToDto).collect(Collectors.toList());
+    public List<EntityDto> listEntity() {
+        return entityRepository.findAll().stream().map(CertificateEntity::mapToDto).collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ENTITY, operation = OperationType.REQUEST)
-    public CertificateEntityDto getCertificateEntity(String uuid) throws NotFoundException {
+    public EntityDto getCertificateEntity(String uuid) throws NotFoundException {
         return getEntity(uuid).mapToDto();
     }
 
     public CertificateEntity getEntity(String uuid) throws NotFoundException {
-        return certificateEntityRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CertificateEntity.class, uuid));
+        return entityRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CertificateEntity.class, uuid));
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ENTITY, operation = OperationType.CREATE)
-    public CertificateEntityDto createCertificateEntity(CertificateEntityRequestDto request) throws ValidationException, AlreadyExistException {
+    public EntityDto createEntity(EntityRequestDto request) throws ValidationException, AlreadyExistException {
 
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("Name must not be empty");
         }
 
-        if (certificateEntityRepository.findByName(request.getName()).isPresent()) {
+        if (entityRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(CertificateEntity.class, request.getName());
         }
 
-        CertificateEntity entity = new CertificateEntity();
-        entity.setName(request.getName());
-        entity.setDescription(request.getDescription());
-        entity.setEntityType(request.getEntityType());
-        certificateEntityRepository.save(entity);
+        CertificateEntity certificateEntity = new CertificateEntity();
+        certificateEntity.setName(request.getName());
+        certificateEntity.setDescription(request.getDescription());
+        certificateEntity.setEntityType(request.getEntityType());
+        entityRepository.save(certificateEntity);
 
-        return entity.mapToDto();
+        return certificateEntity.mapToDto();
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ENTITY, operation = OperationType.DELETE)
-    public void removeCertificateEntity(String uuid) throws NotFoundException {
-        CertificateEntity entity = certificateEntityRepository.findByUuid(uuid)
+    public void removeEntity(String uuid) throws NotFoundException {
+        CertificateEntity certificateEntity = entityRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CertificateEntity.class, uuid));
-        for(Certificate certificate: certificateRepository.findByEntity(entity)){
-            certificate.setEntity(entity);
+        for(Certificate certificate: certificateRepository.findByEntity(certificateEntity)){
+            certificate.setEntity(certificateEntity);
             certificateRepository.save(certificate);
         }
-        certificateEntityRepository.delete(entity);
+        entityRepository.delete(certificateEntity);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ENTITY, operation = OperationType.DELETE)
-    public void bulkRemoveCertificateEntity(List<String> entityUuids) {
+    public void bulkRemoveEntity(List<String> entityUuids) {
         for(String uuid: entityUuids){
             try{
-                CertificateEntity entity = certificateEntityRepository.findByUuid(uuid)
+                CertificateEntity certificateEntity = entityRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(CertificateEntity.class, uuid));
-                for(Certificate certificate: certificateRepository.findByEntity(entity)){
-                    certificate.setEntity(entity);
+                for(Certificate certificate: certificateRepository.findByEntity(certificateEntity)){
+                    certificate.setEntity(certificateEntity);
                     certificateRepository.save(certificate);
                 }
-                certificateEntityRepository.delete(entity);
+                entityRepository.delete(certificateEntity);
             }catch(NotFoundException e){
                 logger.warn("Unable to find the entity with uuid {}. It may have been deleted", uuid);
             }
@@ -106,13 +106,13 @@ public class CertificateEntityServiceImpl implements CertificateEntityService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ENTITY, operation = OperationType.CHANGE)
-    public CertificateEntityDto updateCertificateEntity(String uuid, CertificateEntityRequestDto request) throws NotFoundException {
-        CertificateEntity entity = certificateEntityRepository.findByUuid(uuid)
+    public EntityDto updateEntity(String uuid, EntityRequestDto request) throws NotFoundException {
+        CertificateEntity certificateEntity = entityRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CertificateEntity.class, uuid));
 
-        entity.setDescription(request.getDescription());
-        entity.setEntityType(request.getEntityType());
-        certificateEntityRepository.save(entity);
-        return entity.mapToDto();
+        certificateEntity.setDescription(request.getDescription());
+        certificateEntity.setEntityType(request.getEntityType());
+        entityRepository.save(certificateEntity);
+        return certificateEntity.mapToDto();
     }
 }
