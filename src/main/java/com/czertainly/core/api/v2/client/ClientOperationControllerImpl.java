@@ -28,50 +28,50 @@ public class ClientOperationControllerImpl implements ClientOperationController 
 
     @Override
     public List<AttributeDefinition> listIssueCertificateAttributes(
-            @PathVariable String raProfileName) throws NotFoundException, ConnectorException {
-        return clientOperationService.listIssueCertificateAttributes(raProfileName);
+            @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
+        return clientOperationService.listIssueCertificateAttributes(raProfileUuid);
     }
 
     @Override
     public void validateIssueCertificateAttributes(
-            @PathVariable String raProfileName,
+            @PathVariable String raProfileUuid,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
-        clientOperationService.validateIssueCertificateAttributes(raProfileName, attributes);
+        clientOperationService.validateIssueCertificateAttributes(raProfileUuid, attributes);
     }
 
     @Override
     public ClientCertificateDataResponseDto issueCertificate(
-            @PathVariable String raProfileName,
+            @PathVariable String raProfileUuid,
             @RequestBody ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
-        return clientOperationService.issueCertificate(raProfileName, request);
+        return clientOperationService.issueCertificate(raProfileUuid, request);
     }
 
     @Override
     public ClientCertificateDataResponseDto renewCertificate(
-            @PathVariable String raProfileName,
+            @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
             @RequestBody ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
-        return clientOperationService.renewCertificate(raProfileName, certificateUuid, request);
+        return clientOperationService.renewCertificate(raProfileUuid, certificateUuid, request);
     }
 
     @Override
     public List<AttributeDefinition> listRevokeCertificateAttributes(
-            @PathVariable String raProfileName) throws NotFoundException, ConnectorException {
-        return clientOperationService.listRevokeCertificateAttributes(raProfileName);
+            @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
+        return clientOperationService.listRevokeCertificateAttributes(raProfileUuid);
     }
 
     @Override
     public void validateRevokeCertificateAttributes(
-            @PathVariable String raProfileName,
+            @PathVariable String raProfileUuid,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
-        clientOperationService.validateRevokeCertificateAttributes(raProfileName, attributes);
+        clientOperationService.validateRevokeCertificateAttributes(raProfileUuid, attributes);
     }
 
 	@Override
     public void revokeCertificate(
-            @PathVariable String raProfileName,
+            @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
             @RequestBody ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
-        clientOperationService.revokeCertificate(raProfileName, certificateUuid, request);
+        clientOperationService.revokeCertificate(raProfileUuid, certificateUuid, request);
     }
 }

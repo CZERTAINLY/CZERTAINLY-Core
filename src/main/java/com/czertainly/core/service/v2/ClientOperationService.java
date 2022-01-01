@@ -17,30 +17,30 @@ import java.util.List;
 public interface ClientOperationService {
 
     List<AttributeDefinition> listIssueCertificateAttributes(
-            String raProfileName) throws NotFoundException, ConnectorException;
+            String raProfileUuid) throws NotFoundException, ConnectorException;
 
     boolean validateIssueCertificateAttributes(
-            String raProfileName,
+            String raProfileUuid,
             List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException;
 
     ClientCertificateDataResponseDto issueCertificate(
-            String raProfileName,
+            String raProfileUuid,
             ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
 
     ClientCertificateDataResponseDto renewCertificate(
-            String raProfileName,
+            String raProfileUuid,
             String certificateUuid,
             ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
 
     List<AttributeDefinition> listRevokeCertificateAttributes(
-            String raProfileName) throws NotFoundException, ConnectorException;
+            String raProfileUuid) throws NotFoundException, ConnectorException;
 
     boolean validateRevokeCertificateAttributes(
-            String raProfileName,
+            String raProfileUuid,
             List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException;
 
     void revokeCertificate(
-            String raProfileName,
+            String raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException;
 }

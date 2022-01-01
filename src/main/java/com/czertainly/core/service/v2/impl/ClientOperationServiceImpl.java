@@ -64,11 +64,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listIssueCertificateAttributes(String raProfileName) throws NotFoundException, ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+    public List<AttributeDefinition> listIssueCertificateAttributes(String raProfileUuid) throws NotFoundException, ConnectorException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
 
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.listIssueCertificateAttributes(
@@ -78,11 +78,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateIssueCertificateAttributes(String raProfileName, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+    public boolean validateIssueCertificateAttributes(String raProfileUuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
 
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.validateIssueCertificateAttributes(
@@ -112,11 +112,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
-    public ClientCertificateDataResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+    public ClientCertificateDataResponseDto issueCertificate(String raProfileUuid, ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
@@ -152,11 +152,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
-    public ClientCertificateDataResponseDto renewCertificate(String raProfileName, String certificateUuid, ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+    public ClientCertificateDataResponseDto renewCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         Certificate oldCertificate = certificateService.getCertificateEntity(certificateUuid);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
@@ -191,10 +191,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listRevokeCertificateAttributes(String raProfileName) throws NotFoundException, ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+    public List<AttributeDefinition> listRevokeCertificateAttributes(String raProfileUuid) throws NotFoundException, ConnectorException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
 
         return certificateApiClient.listRevokeCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
@@ -203,10 +203,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateRevokeCertificateAttributes(String raProfileName, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+    public boolean validateRevokeCertificateAttributes(String raProfileUuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
 
         return certificateApiClient.validateRevokeCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
@@ -235,11 +235,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
-    public void revokeCertificate(String raProfileName, String certificateUuid, ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+    public void revokeCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         logger.debug("Ra Profile {} set for revoking the certificate", raProfile.getName());
