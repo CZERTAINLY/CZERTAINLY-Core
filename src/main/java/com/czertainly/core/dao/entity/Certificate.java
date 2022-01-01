@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -135,7 +136,11 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
         if (raProfile != null) {
-            dto.setRaProfile(raProfile.mapToDto());
+            SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
+            raDto.setName(raProfile.getName());
+            raDto.setUuid(raProfile.getUuid());
+            raDto.setEnabled(raProfile.getEnabled());
+            dto.setRaProfile(raDto);
         }
         if (group != null) {
             dto.setGroup(group.mapToDto());

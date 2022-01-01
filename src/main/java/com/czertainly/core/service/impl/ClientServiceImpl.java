@@ -6,6 +6,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.client.ClientDto;
@@ -30,6 +31,7 @@ import org.springframework.stereotype.Service;
 import javax.transaction.Transactional;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -136,11 +138,18 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
-    public List<RaProfileDto> listAuthorizations(String uuid) throws NotFoundException {
+    public List<SimplifiedRaProfileDto> listAuthorizations(String uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
-
-        return client.getRaProfiles().stream().map(RaProfile::mapToDto).collect(Collectors.toList());
+        List<SimplifiedRaProfileDto> profiles = new ArrayList<>();
+        for(RaProfile profile: client.getRaProfiles()){
+            SimplifiedRaProfileDto dto = new SimplifiedRaProfileDto();
+            dto.setUuid(profile.getUuid());
+            dto.setEnabled(profile.getEnabled());
+            dto.setName(profile.getName());
+            profiles.add(dto);
+        }
+        return profiles;
     }
 
     @Override
@@ -267,17 +276,22 @@ public class ClientServiceImpl implements ClientService {
     private Client updateClient(Client client, EditClientRequestDto requestDTO) throws CertificateException, NotFoundException, AlreadyExistException {
         client.setDescription(requestDTO.getDescription());
         Certificate certificate;
-        if(!requestDTO.getCertificateUuid().isEmpty()) {
-        	certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
-        	client.setCertificate(certificate);
-        	
-        }else {
-            UploadCertificateRequestDto request = new UploadCertificateRequestDto();
-            request.setCertificate(requestDTO.getClientCertificate());
-            certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
-            client.setCertificate(certificate);
+        if((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
+            if (!requestDTO.getCertificateUuid().isEmpty()) {
+                certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
+                client.setCertificate(certificate);
+
+            } else {
+                UploadCertificateRequestDto request = new UploadCertificateRequestDto();
+                request.setCertificate(requestDTO.getClientCertificate());
+                certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
+                client.setCertificate(certificate);
+            }
+            client.setSerialNumber(certificate.getSerialNumber());
         }
-        client.setSerialNumber(certificate.getSerialNumber());
+        if(requestDTO.getDescription() != null) {
+            client.setDescription(requestDTO.getDescription());
+        }
         return client;
     }
 
