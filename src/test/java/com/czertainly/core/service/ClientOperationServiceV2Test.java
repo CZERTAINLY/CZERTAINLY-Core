@@ -104,7 +104,7 @@ public class ClientOperationServiceV2Test {
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
-        certificate.setUuid("123456789");
+        certificate.setUuid("1065586a-6af6-11ec-90d6-0242ac120003");
         certificate.setCertificateContent(certificateContent);
         certificate = certificateRepository.save(certificate);
 
