@@ -49,9 +49,9 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @Override
     public ClientCertificateDataResponseDto renewCertificate(
             @PathVariable String raProfileName,
-            @PathVariable String certificateId,
+            @PathVariable String certificateUuid,
             @RequestBody ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
-        return clientOperationService.renewCertificate(raProfileName, certificateId, request);
+        return clientOperationService.renewCertificate(raProfileName, certificateUuid, request);
     }
 
     @Override

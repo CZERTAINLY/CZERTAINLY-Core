@@ -29,7 +29,7 @@ public interface ClientOperationService {
 
     ClientCertificateDataResponseDto renewCertificate(
             String raProfileName,
-            String certificateId,
+            String certificateUuid,
             ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
 
     List<AttributeDefinition> listRevokeCertificateAttributes(
@@ -41,6 +41,6 @@ public interface ClientOperationService {
 
     void revokeCertificate(
             String raProfileName,
-            String certificateId,
+            String certificateUuid,
             ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException;
 }
