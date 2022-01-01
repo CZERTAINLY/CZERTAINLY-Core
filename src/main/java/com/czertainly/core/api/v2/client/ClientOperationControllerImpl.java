@@ -70,8 +70,8 @@ public class ClientOperationControllerImpl implements ClientOperationController 
 	@Override
     public void revokeCertificate(
             @PathVariable String raProfileName,
-            @PathVariable String certificateId,
+            @PathVariable String certificateUuid,
             @RequestBody ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
-        clientOperationService.revokeCertificate(raProfileName, certificateId, request);
+        clientOperationService.revokeCertificate(raProfileName, certificateUuid, request);
     }
 }
