@@ -18,5 +18,7 @@ public interface RaProfileRepository extends JpaRepository<RaProfile, Long> {
 
     Optional<RaProfile> findByNameAndEnabledIsTrue(String name);
 
+    Optional<RaProfile> findByUuidAndEnabledIsTrue(String uuid);
+
     List<RaProfile> findByEnabled(Boolean isEnabled);
 }

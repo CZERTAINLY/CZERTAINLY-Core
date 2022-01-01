@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.NameAndIdDto;
@@ -88,6 +89,7 @@ public class ClientOperationServiceV2Test {
 
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
+        raProfile.setUuid("1065586a-6af6-11ec-90d6-0242ac120004");
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile.setEnabled(true);
 
@@ -136,13 +138,13 @@ public class ClientOperationServiceV2Test {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes(RA_PROFILE_NAME);
+        List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004");
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     public void testListIssueCertificateAttributes_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.listIssueCertificateAttributes("wrong-name"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listIssueCertificateAttributes("wrong-name"));
     }
 
     @Test
@@ -151,13 +153,13 @@ public class ClientOperationServiceV2Test {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result  = clientOperationService.validateIssueCertificateAttributes(RA_PROFILE_NAME, List.of());
+        boolean result  = clientOperationService.validateIssueCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004", List.of());
         Assertions.assertTrue(result);
     }
 
     @Test
     public void testValidateIssueCertificateAttributes_validationFail() {
-        Assertions.assertThrows(ValidationException.class,
+        Assertions.assertThrows(NotFoundException.class,
                 () -> clientOperationService.validateIssueCertificateAttributes("wrong-name", null));
     }
 
@@ -176,7 +178,7 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
-        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(RA_PROFILE_NAME, request);
+        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate("1065586a-6af6-11ec-90d6-0242ac120004", request);
         Assertions.assertNotNull(response);
 
         Optional<Certificate> newCertificate = certificateRepository.findBySerialNumberIgnoreCase("177E75F42E95ECB98F831EB57DE27B0BC8C47643");
@@ -186,7 +188,7 @@ public class ClientOperationServiceV2Test {
 
     @Test
     public void testIssueCertificate_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.issueCertificate("wrong-name", null));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate("wrong-name", null));
     }
 
     @Test
@@ -197,12 +199,12 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
-        clientOperationService.renewCertificate(RA_PROFILE_NAME, certificate.getUuid(), request);
+        clientOperationService.renewCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request);
     }
 
     @Test
     public void testRenewCertificate_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificate("wrong-name", null, null));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate("wrong-name", null, null));
     }
 
     @Test
@@ -211,13 +213,13 @@ public class ClientOperationServiceV2Test {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes(RA_PROFILE_NAME);
+        List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004");
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     public void testListRevokeCertificateAttributes_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.listRevokeCertificateAttributes("wrong-name"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listRevokeCertificateAttributes("wrong-name"));
     }
 
     @Test
@@ -226,13 +228,13 @@ public class ClientOperationServiceV2Test {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result  = clientOperationService.validateRevokeCertificateAttributes(RA_PROFILE_NAME, List.of());
+        boolean result  = clientOperationService.validateRevokeCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004", List.of());
         Assertions.assertTrue(result);
     }
 
     @Test
     public void testValidateRevokeCertificateAttributes_validationFail() {
-        Assertions.assertThrows(ValidationException.class,
+        Assertions.assertThrows(NotFoundException.class,
                 () -> clientOperationService.validateRevokeCertificateAttributes("wrong-name", null));
     }
 
@@ -249,11 +251,11 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
-        clientOperationService.revokeCertificate(RA_PROFILE_NAME, certificate.getUuid(), request);
+        clientOperationService.revokeCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request);
     }
 
     @Test
     public void testRevokeCertificate_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.revokeCertificate("wrong-name", "wrong-cert-id", null));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate("wrong-name", "wrong-cert-id", null));
     }
 }
