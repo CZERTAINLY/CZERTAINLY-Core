@@ -104,6 +104,7 @@ public class ClientOperationServiceV2Test {
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
+        certificate.setUuid("1065586a-6af6-11ec-90d6-0242ac120003");
         certificate.setCertificateContent(certificateContent);
         certificate = certificateRepository.save(certificate);
 
@@ -192,11 +193,11 @@ public class ClientOperationServiceV2Test {
     public void testRenewCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/[^/]+/renew"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
-        clientOperationService.renewCertificate(RA_PROFILE_NAME, certificate.getSerialNumber(), request);
+        clientOperationService.renewCertificate(RA_PROFILE_NAME, certificate.getUuid(), request);
     }
 
     @Test
@@ -238,7 +239,7 @@ public class ClientOperationServiceV2Test {
     @Test
     public void testRevokeCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/[^/]+/revoke"))
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
                 .willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
@@ -248,7 +249,7 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
-        clientOperationService.revokeCertificate(RA_PROFILE_NAME, certificate.getSerialNumber(), request);
+        clientOperationService.revokeCertificate(RA_PROFILE_NAME, certificate.getUuid(), request);
     }
 
     @Test
