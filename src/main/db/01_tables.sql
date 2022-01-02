@@ -64,7 +64,7 @@ create sequence ra_profile_id_seq start 1 increment 1;
     );
 
 CREATE TABLE "certificate" (
-	"common_name" VARCHAR NOT NULL,
+	"common_name" VARCHAR,
 	"serial_number" VARCHAR NOT NULL,
 	"i_author" VARCHAR NULL DEFAULT NULL,
 	"i_cre" TIMESTAMP NOT NULL,
@@ -212,7 +212,7 @@ CREATE TABLE "discovery_history" (
 CREATE TABLE "discovery_certificate" (
 	"id" BIGINT NOT NULL,
 	"uuid" VARCHAR NOT NULL,
-	"common_name" VARCHAR NOT NULL,
+	"common_name" VARCHAR NULL,
 	"serial_number" VARCHAR NOT NULL,
 	"issuer_common_name" VARCHAR NULL DEFAULT NULL,
 	"not_before" VARCHAR NOT NULL,
@@ -265,7 +265,7 @@ CREATE TABLE "discovery_certificate" (
        foreign key (certificate_id)
        references certificate;
 
-    alter table if exists ca_instance_reference
+    alter table if exists authority_instance_reference
        add constraint FK2t7xntc30lq9crkgdfntk6hsh
        foreign key (connector_id)
        references connector;
@@ -327,7 +327,7 @@ CREATE TABLE "discovery_certificate" (
 
     alter table if exists discovery_certificate
        add constraint FK4uptmj2ejf9i1cfjnikmesa5p
-       foreign key (discovery_uuid)
+       foreign key (discovery_id)
        references discovery_history;
 
     alter table if exists endpoint
