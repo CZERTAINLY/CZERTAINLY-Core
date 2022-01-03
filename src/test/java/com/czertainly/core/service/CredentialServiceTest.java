@@ -4,11 +4,11 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.*;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
-import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.Credential;
@@ -283,13 +283,15 @@ public class CredentialServiceTest {
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
-        callback.setRequestBody(requestBodyMap);
 
-        credentialService.loadFullCredentialData(callback);
+        RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
+        requestAttributeCallback.setRequestBody(requestBodyMap);
 
-        Assertions.assertTrue(callback.getRequestBody().get(credentialBodyKey) instanceof CredentialDto);
+        credentialService.loadFullCredentialData(callback, requestAttributeCallback);
 
-        CredentialDto credentialDto = (CredentialDto) callback.getRequestBody().get(credentialBodyKey);
+        Assertions.assertTrue(requestAttributeCallback.getRequestBody().get(credentialBodyKey) instanceof CredentialDto);
+
+        CredentialDto credentialDto = (CredentialDto) requestAttributeCallback.getRequestBody().get(credentialBodyKey);
         Assertions.assertEquals(credential.getUuid(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -313,9 +315,11 @@ public class CredentialServiceTest {
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
-        callback.setRequestBody(requestBodyMap);
 
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(callback));
+        RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
+        requestAttributeCallback.setRequestBody(requestBodyMap);
+
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
     }
 
     @Test
@@ -333,8 +337,10 @@ public class CredentialServiceTest {
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
-        callback.setRequestBody(requestBodyMap);
 
-        Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback));
+        RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
+        requestAttributeCallback.setRequestBody(requestBodyMap);
+
+        Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
     }
 }

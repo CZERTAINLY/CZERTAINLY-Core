@@ -2,7 +2,6 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;

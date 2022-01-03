@@ -82,7 +82,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                 authorityInstanceReference.getAuthorityInstanceUuid());
 
         AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
-        authorityInstanceDto.setAttributes(authorityProviderInstanceDto.getAttributes());
+        authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(authorityProviderInstanceDto.getAttributes()));
         authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
         authorityInstanceDto.setUuid(authorityInstanceReference.getUuid());
         authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid());

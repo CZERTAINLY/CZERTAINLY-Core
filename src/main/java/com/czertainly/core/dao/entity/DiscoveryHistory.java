@@ -192,7 +192,7 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         dto.setStatus(status);
         dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
         dto.setConnectorUuid(connectorUuid);
-        dto.setAttributes(AttributeDefinitionUtils.deserialize(attributes));
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(attributes)));
         dto.setKind(kind);
         dto.setMessage(message);
         dto.setConnectorName(connectorName);
