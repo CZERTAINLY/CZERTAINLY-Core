@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.BaseAttributeDefinitionTypes;
 import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.ResponseAttributeDto;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -69,7 +70,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<AttributeDefinition> attributes) {
+    public List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttributeDto> attributes) {
         if (authenticationType == null || attributes == null) {
             return List.of();
         }
