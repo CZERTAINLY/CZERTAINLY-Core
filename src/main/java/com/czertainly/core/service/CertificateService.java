@@ -2,18 +2,9 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.certificate.CertificateUpdateEntityDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateGroupDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
-import com.czertainly.api.model.client.certificate.IdAndCertificateIdDto;
-import com.czertainly.api.model.client.certificate.MultipleEntityUpdateDto;
-import com.czertainly.api.model.client.certificate.MultipleGroupUpdateDto;
-import com.czertainly.api.model.client.certificate.MultipleRAProfileUpdateDto;
-import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
-import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
-import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.core.dao.entity.Certificate;
 

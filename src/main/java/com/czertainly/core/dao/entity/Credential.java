@@ -113,7 +113,7 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setKind(this.kind);
-        dto.setAttributes(AttributeDefinitionUtils.deserialize(this.attributes));
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
         if (this.connector != null) {
