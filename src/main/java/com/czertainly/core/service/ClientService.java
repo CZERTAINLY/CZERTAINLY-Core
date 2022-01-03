@@ -7,7 +7,6 @@ import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.client.ClientDto;
-import com.czertainly.api.model.core.raprofile.RaProfileDto;
 
 import java.security.cert.CertificateException;
 import java.util.List;

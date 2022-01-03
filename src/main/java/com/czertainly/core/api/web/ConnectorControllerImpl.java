@@ -5,12 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ConnectorController;
-import com.czertainly.api.model.client.connector.ConnectDto;
-import com.czertainly.api.model.client.connector.ConnectRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
-import com.czertainly.api.model.common.AttributeCallback;
+import com.czertainly.api.model.client.connector.*;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.RequestAttributeDto;
@@ -18,7 +13,6 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -134,11 +128,6 @@ public class ConnectorControllerImpl implements ConnectorController {
 	public Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAttributesAll(String uuid) throws NotFoundException, ConnectorException {
 		return connectorService.getAllAttributesOfConnector(uuid);
 	}
-
-    @Override
-    public Object callback(@PathVariable String uuid, @RequestBody AttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException {
-        return connectorService.callback(uuid, callback);
-    }
 
     @Override
     public List<ForceDeleteMessageDto> bulkRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException {

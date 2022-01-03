@@ -2,13 +2,13 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.*;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
-import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Credential;
@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 public class CredentialServiceImpl implements CredentialService {
 
     private static final Logger logger = LoggerFactory.getLogger(CredentialServiceImpl.class);
+    private static final List<BaseAttributeDefinitionTypes> TO_BE_MASKED = List.of(BaseAttributeDefinitionTypes.SECRET);
 
     @Autowired
     private CredentialRepository credentialRepository;
@@ -58,7 +59,8 @@ public class CredentialServiceImpl implements CredentialService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     public CredentialDto getCredential(String uuid) throws NotFoundException {
-        return getCredentialEntity(uuid).mapToDto();
+        return maskSecret(getCredentialEntity(uuid).mapToDto());
+
     }
 
     @Override
@@ -230,7 +232,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
-    public void loadFullCredentialData(AttributeCallback callback) throws NotFoundException {
+    public void loadFullCredentialData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback) throws NotFoundException {
         if (callback == null) {
             logger.warn("Given Callback is null");
             return;
@@ -250,7 +252,7 @@ public class CredentialServiceImpl implements CredentialService {
                                 logger.info("Found 'from' Attribute type {} for target {}, going to load full Credential data",
                                         mapping.getAttributeType(), target);
 
-                                Serializable bodyKeyValue = callback.getRequestBody().get(mapping.getTo());
+                                Serializable bodyKeyValue = requestAttributeCallback.getRequestBody().get(mapping.getTo());
 
                                 NameAndUuidDto nameAndUuidDto;
 
@@ -270,12 +272,21 @@ public class CredentialServiceImpl implements CredentialService {
                                 }
 
                                 CredentialDto credential = getCredentialEntity(nameAndUuidDto.getUuid()).mapToDto();
-                                callback.getRequestBody().put(mapping.getTo(), credential);
+                                requestAttributeCallback.getRequestBody().put(mapping.getTo(), credential);
                                 break;
                         }
                     }
                 }
             }
         }
+    }
+
+    private CredentialDto maskSecret(CredentialDto credentialDto){
+        for(ResponseAttributeDto responseAttributeDto: credentialDto.getAttributes()){
+            if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
+                responseAttributeDto.setValue("************");
+            }
+        }
+        return credentialDto;
     }
 }

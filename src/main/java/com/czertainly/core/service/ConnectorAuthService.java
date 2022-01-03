@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.ResponseAttributeDto;
 import com.czertainly.api.model.core.connector.AuthType;
 
 import java.util.List;
@@ -14,7 +15,7 @@ public interface ConnectorAuthService {
 
     boolean validateAuthAttributes(AuthType authenticationType, List<RequestAttributeDto> attributes);
 
-    List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<AttributeDefinition> attributes);
+    List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttributeDto> attributes);
 
     List<AttributeDefinition> getBasicAuthAttributes();
 

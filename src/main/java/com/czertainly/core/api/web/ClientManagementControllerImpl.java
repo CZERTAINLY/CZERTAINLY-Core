@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.client.EditClientRequestDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.client.ClientDto;
-import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

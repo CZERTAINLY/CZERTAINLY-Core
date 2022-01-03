@@ -4,7 +4,6 @@ import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Endpoint;
 import com.czertainly.core.dao.entity.FunctionGroup;
