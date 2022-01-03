@@ -31,7 +31,7 @@ import java.util.List;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT"})
+@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class CallbackServiceImpl implements CallbackService {
     private static final Logger logger = LoggerFactory.getLogger(CallbackServiceImpl.class);
 
@@ -69,6 +69,7 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     @Override
+    @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT"})
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
     public Object raProfileCallback(String authorityUuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException {
         List<AttributeDefinition> definitions;
