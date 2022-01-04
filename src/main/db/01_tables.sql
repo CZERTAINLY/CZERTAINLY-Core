@@ -48,7 +48,7 @@ create sequence ra_profile_id_seq start 1 increment 1;
         primary key (id)
     );
 
-    create table ca_instance_reference (
+    create table authority_instance_reference (
        id int8 not null,
         uuid varchar(255),
         i_author varchar(255),
@@ -64,7 +64,7 @@ create sequence ra_profile_id_seq start 1 increment 1;
     );
 
 CREATE TABLE "certificate" (
-	"common_name" VARCHAR NOT NULL,
+	"common_name" VARCHAR,
 	"serial_number" VARCHAR NOT NULL,
 	"i_author" VARCHAR NULL DEFAULT NULL,
 	"i_cre" TIMESTAMP NOT NULL,
@@ -212,7 +212,7 @@ CREATE TABLE "discovery_history" (
 CREATE TABLE "discovery_certificate" (
 	"id" BIGINT NOT NULL,
 	"uuid" VARCHAR NOT NULL,
-	"common_name" VARCHAR NOT NULL,
+	"common_name" VARCHAR NULL,
 	"serial_number" VARCHAR NOT NULL,
 	"issuer_common_name" VARCHAR NULL DEFAULT NULL,
 	"not_before" VARCHAR NOT NULL,
@@ -221,7 +221,7 @@ CREATE TABLE "discovery_certificate" (
 	"i_cre" VARCHAR NULL DEFAULT NULL,
 	"i_upd" VARCHAR NULL DEFAULT NULL,
 	"certificate_content_id" BIGINT NOT NULL,
-	"discovery_uuid" BIGINT NULL DEFAULT NULL,
+	"discovery_id" BIGINT NULL DEFAULT NULL,
         PRIMARY KEY ("id")
 )
 ;
@@ -252,11 +252,11 @@ CREATE TABLE "discovery_certificate" (
         i_cre timestamp not null,
         i_upd timestamp not null,
         attributes text,
-        ca_instance_name varchar(255),
+        authority_instance_name varchar(255),
         description varchar(255),
         enabled boolean,
         name varchar(255),
-        ca_instance_ref_id int8,
+        authority_instance_ref_id int8,
         primary key (id)
     );
 
@@ -265,7 +265,7 @@ CREATE TABLE "discovery_certificate" (
        foreign key (certificate_id)
        references certificate;
 
-    alter table if exists ca_instance_reference
+    alter table if exists authority_instance_reference
        add constraint FK2t7xntc30lq9crkgdfntk6hsh
        foreign key (connector_id)
        references connector;
@@ -327,7 +327,7 @@ CREATE TABLE "discovery_certificate" (
 
     alter table if exists discovery_certificate
        add constraint FK4uptmj2ejf9i1cfjnikmesa5p
-       foreign key (discovery_uuid)
+       foreign key (discovery_id)
        references discovery_history;
 
     alter table if exists endpoint
@@ -337,8 +337,8 @@ CREATE TABLE "discovery_certificate" (
 
     alter table if exists ra_profile
        add constraint FK1ybgp06wf8uoegwfhsg4fev2a
-       foreign key (ca_instance_ref_id)
-       references ca_instance_reference;
+       foreign key (authority_instance_ref_id)
+       references authority_instance_reference;
 
 ALTER TABLE if exists client
     ADD CONSTRAINT client_name_unique
