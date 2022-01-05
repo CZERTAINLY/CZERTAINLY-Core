@@ -1,22 +1,24 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.CAInstanceApiClient;
-import com.czertainly.api.core.modal.ClientDto;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
+import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.raprofile.AddRaProfileRequestDto;
-import com.czertainly.api.model.raprofile.EditRaProfileRequestDto;
-import com.czertainly.api.model.raprofile.RaProfileDto;
+import com.czertainly.api.model.client.client.SimplifiedClientDto;
+import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
+import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.CAInstanceReference;
+import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.CAInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.RaProfileService;
@@ -29,6 +31,7 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -43,9 +46,9 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Autowired
     private RaProfileRepository raProfileRepository;
     @Autowired
-    private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
-    private CAInstanceApiClient caInstanceApiClient;
+    private AuthorityInstanceApiClient authorityInstanceApiClient;
     @Autowired
     private CertificateRepository certificateRepository;
 
@@ -75,17 +78,11 @@ public class RaProfileServiceImpl implements RaProfileService {
             throw new AlreadyExistException(RaProfile.class, dto.getName());
         }
 
-        CAInstanceReference caInstanceRef = caInstanceReferenceRepository.findByUuid(dto.getCaInstanceUuid())
-                .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, dto.getCaInstanceUuid()));
+        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(dto.getAuthorityInstanceUuid())
+                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, dto.getAuthorityInstanceUuid()));
 
-        if (Boolean.FALSE.equals(caInstanceApiClient.validateRAProfileAttributes(
-                caInstanceRef.getConnector().mapToDto(),
-                caInstanceRef.getCaInstanceId(),
-                dto.getAttributes()))) {
-            throw new ValidationException("RA profile attributes validation failed.");
-        }
-
-        RaProfile raProfile = createRaProfile(dto, caInstanceRef);
+        List<AttributeDefinition> attributes = mergeAndValidateAttributes(authorityInstanceRef, dto.getAttributes());
+        RaProfile raProfile = createRaProfile(dto, attributes, authorityInstanceRef);
         raProfileRepository.save(raProfile);
 
         return raProfile.mapToDto();
@@ -106,20 +103,32 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
 
-        CAInstanceReference caInstanceRef = caInstanceReferenceRepository.findByUuid(dto.getCaInstanceUuid())
-                .orElseThrow(() -> new NotFoundException(CAInstanceReference.class, dto.getCaInstanceUuid()));
+        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(dto.getAuthorityInstanceUuid())
+                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, dto.getAuthorityInstanceUuid()));
 
-        if (Boolean.FALSE.equals(caInstanceApiClient.validateRAProfileAttributes(
-                caInstanceRef.getConnector().mapToDto(),
-                caInstanceRef.getCaInstanceId(),
-                dto.getAttributes()))) {
-            throw new ValidationException("RA profile attributes validation failed.");
-        }
+        List<AttributeDefinition> attributes = mergeAndValidateAttributes(authorityInstanceRef, dto.getAttributes());
 
-        updateRaProfile(raProfile, caInstanceRef, dto);
+        updateRaProfile(raProfile, authorityInstanceRef, dto, attributes);
         raProfileRepository.save(raProfile);
 
         return raProfile.mapToDto();
+    }
+
+    private List<AttributeDefinition> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
+        List<AttributeDefinition> definitions = authorityInstanceApiClient.listRAProfileAttributes(
+                authorityInstanceRef.getConnector().mapToDto(),
+                authorityInstanceRef.getAuthorityInstanceUuid());
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+
+        if (Boolean.FALSE.equals(authorityInstanceApiClient.validateRAProfileAttributes(
+                authorityInstanceRef.getConnector().mapToDto(),
+                authorityInstanceRef.getAuthorityInstanceUuid(),
+                attributes))) {
+
+            throw new ValidationException("RA profile attributes validation failed.");
+        }
+
+        return merged;
     }
 
     @Override
@@ -138,13 +147,18 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
-    public List<ClientDto> listClients(String uuid) throws NotFoundException {
+    public List<SimplifiedClientDto> listClients(String uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
-
-        return raProfile.getClients().stream()
-                .map(Client::mapToDto)
-                .collect(Collectors.toList());
+        List<SimplifiedClientDto> clients = new ArrayList<>();
+        for(Client client : raProfile.getClients()){
+            SimplifiedClientDto dto = new SimplifiedClientDto();
+            dto.setUuid(client.getUuid());
+            dto.setName(client.getName());
+            dto.setEnabled(client.getEnabled());
+            clients.add(dto);
+        }
+        return clients;
     }
 
     @Override
@@ -220,22 +234,25 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
 
-    private RaProfile createRaProfile(AddRaProfileRequestDto dto, CAInstanceReference caInstanceRef) {
+    private RaProfile createRaProfile(AddRaProfileRequestDto dto, List<AttributeDefinition> attributes, AuthorityInstanceReference authorityInstanceRef) {
         RaProfile entity = new RaProfile();
         entity.setName(dto.getName());
         entity.setDescription(dto.getDescription());
-        entity.setAttributes(AttributeDefinitionUtils.serialize(dto.getAttributes()));
-        entity.setCaInstanceReference(caInstanceRef);
+        entity.setAttributes(AttributeDefinitionUtils.serialize(attributes));
+        entity.setAuthorityInstanceReference(authorityInstanceRef);
         entity.setEnabled(dto.isEnabled() != null && dto.isEnabled());
-        entity.setCaInstanceName(caInstanceRef.getName());
+        entity.setAuthorityInstanceName(authorityInstanceRef.getName());
         return entity;
     }
 
-    private RaProfile updateRaProfile(RaProfile entity, CAInstanceReference caInstanceRef, EditRaProfileRequestDto dto) {
+    private RaProfile updateRaProfile(RaProfile entity, AuthorityInstanceReference authorityInstanceRef, EditRaProfileRequestDto dto, List<AttributeDefinition> attributes) {
         entity.setDescription(dto.getDescription());
-        entity.setAttributes(AttributeDefinitionUtils.serialize(dto.getAttributes()));
-        entity.setCaInstanceReference(caInstanceRef);
-        entity.setCaInstanceName(caInstanceRef.getName());
+        entity.setAttributes(AttributeDefinitionUtils.serialize(attributes));
+        entity.setAuthorityInstanceReference(authorityInstanceRef);
+        if(dto.isEnabled() != null) {
+            entity.setEnabled(dto.isEnabled() != null && dto.isEnabled());
+        }
+        entity.setAuthorityInstanceName(authorityInstanceRef.getName());
         return entity;
     }
 }

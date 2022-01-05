@@ -1,25 +1,14 @@
 package com.czertainly.core.dao.entity;
 
-import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Set;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToMany;
-import javax.persistence.OneToOne;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
-
+import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import com.czertainly.api.core.modal.ClientDto;
+import javax.persistence.*;
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "client")
@@ -53,7 +42,6 @@ public class Client extends Audited implements Serializable, DtoMapper<ClientDto
 	@Override
 	public ClientDto mapToDto() {
 		ClientDto dto = new ClientDto();
-		dto.setId(id);
 		dto.setUuid(uuid);
 		dto.setName(name);
 		dto.setDescription(description);

@@ -1,13 +1,13 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.ClientDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.raprofile.AddRaProfileRequestDto;
-import com.czertainly.api.model.raprofile.EditRaProfileRequestDto;
-import com.czertainly.api.model.raprofile.RaProfileDto;
+import com.czertainly.api.model.client.client.SimplifiedClientDto;
+import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
+import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -46,7 +46,7 @@ public class RaProfileServiceTest {
     @Autowired
     private ClientRepository clientRepository;
     @Autowired
-    private CAInstanceReferenceRepository caInstanceReferenceRepository;
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
 
@@ -54,7 +54,7 @@ public class RaProfileServiceTest {
     private Certificate certificate;
     private CertificateContent certificateContent;
     private Client client;
-    private CAInstanceReference caInstance;
+    private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
 
     private WireMockServer mockServer;
@@ -85,14 +85,14 @@ public class RaProfileServiceTest {
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
 
-        caInstance = new CAInstanceReference();
-        caInstance.setCaInstanceId(1l);
-        caInstance.setConnector(connector);
-        caInstance = caInstanceReferenceRepository.save(caInstance);
+        authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setAuthorityInstanceUuid("1l");
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
-        raProfile.setCaInstanceReference(caInstance);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile = raProfileRepository.save(raProfile);
     }
 
@@ -125,13 +125,16 @@ public class RaProfileServiceTest {
     @Test
     public void testAddRaProfile() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName("testRaProfile2");
         request.setAttributes(List.of());
-        request.setCaInstanceUuid(caInstance.getUuid());
+        request.setAuthorityInstanceUuid(authorityInstanceReference.getUuid());
 
         RaProfileDto dto = raProfileService.addRaProfile(request);
         Assertions.assertNotNull(dto);
@@ -155,13 +158,16 @@ public class RaProfileServiceTest {
     @Test
     public void testEditRaProfile() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/caConnector/authorities/[^/]+/raProfiles/attributes/validate"))
+                .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
         request.setDescription("some description");
         request.setAttributes(List.of());
-        request.setCaInstanceUuid(caInstance.getUuid());
+        request.setAuthorityInstanceUuid(authorityInstanceReference.getUuid());
 
         RaProfileDto dto = raProfileService.editRaProfile(raProfile.getUuid(), request);
         Assertions.assertNotNull(dto);
@@ -213,7 +219,7 @@ public class RaProfileServiceTest {
         raProfile.getClients().add(client);
         raProfileRepository.save(raProfile);
 
-        List<ClientDto> clients = raProfileService.listClients(raProfile.getUuid());
+        List<SimplifiedClientDto> clients = raProfileService.listClients(raProfile.getUuid());
         Assertions.assertNotNull(clients);
         Assertions.assertFalse(clients.isEmpty());
         Assertions.assertEquals(client.getUuid(), clients.get(0).getUuid());
@@ -226,7 +232,7 @@ public class RaProfileServiceTest {
 
     @Test
     public void testListClients_emptyClients() throws NotFoundException {
-        List<ClientDto> auths = raProfileService.listClients(raProfile.getUuid());
+        List<SimplifiedClientDto> auths = raProfileService.listClients(raProfile.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }

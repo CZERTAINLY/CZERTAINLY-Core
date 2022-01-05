@@ -1,31 +1,16 @@
 package com.czertainly.core.dao.entity;
 
-import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Set;
-
-import javax.persistence.Basic;
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.JoinTable;
-import javax.persistence.ManyToMany;
-import javax.persistence.ManyToOne;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
-import javax.persistence.Transient;
-
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import com.czertainly.api.model.raprofile.RaProfileDto;
-import com.czertainly.core.util.AttributeDefinitionUtils;
+import javax.persistence.*;
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
 
 
 @Entity
@@ -44,8 +29,8 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
     @Column(name = "description")
     private String description;
 
-    @Column(name = "ca_instance_name")
-    private String caInstanceName;
+    @Column(name = "authority_instance_name")
+    private String authorityInstanceName;
 
     //    @Lob
     @Basic(fetch = FetchType.LAZY)
@@ -53,8 +38,8 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
     private String attributes;
 
     @ManyToOne
-    @JoinColumn(name = "ca_instance_ref_id")
-    private CAInstanceReference caInstanceReference;
+    @JoinColumn(name = "authority_instance_ref_id")
+    private AuthorityInstanceReference authorityInstanceReference;
 
     @Column(name = "enabled")
     private Boolean enabled;
@@ -69,15 +54,14 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
 
     public RaProfileDto mapToDtoSimple() {
         RaProfileDto dto = new RaProfileDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setDescription(this.description);
-        dto.setCaInstanceName(this.caInstanceName);
+        dto.setAuthorityInstanceName(this.authorityInstanceName);
         try {
-            dto.setCaInstanceUuid(this.caInstanceReference.getUuid());
+            dto.setAuthorityInstanceUuid(this.authorityInstanceReference.getUuid());
         }catch (NullPointerException e){
-            dto.setCaInstanceUuid(null);
+            dto.setAuthorityInstanceUuid(null);
         }
         dto.setEnabled(this.enabled);
 
@@ -88,13 +72,12 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
     @Transient
     public RaProfileDto mapToDto() {
         RaProfileDto dto = new RaProfileDto();
-        dto.setId(id);
         dto.setUuid(uuid);
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setAttributes(AttributeDefinitionUtils.deserialize(this.attributes));
-        dto.setCaInstanceUuid(caInstanceReference != null ? caInstanceReference.getUuid() : null);
-        dto.setCaInstanceName(this.caInstanceName);
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
+        dto.setAuthorityInstanceUuid(authorityInstanceReference != null ? authorityInstanceReference.getUuid() : null);
+        dto.setAuthorityInstanceName(this.authorityInstanceName);
         dto.setEnabled(enabled);
         return dto;
     }
@@ -131,14 +114,6 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
         this.attributes = attributes;
     }
 
-    public CAInstanceReference getCaInstanceReference() {
-        return caInstanceReference;
-    }
-
-    public void setCaInstanceReference(CAInstanceReference caInstanceReference) {
-        this.caInstanceReference = caInstanceReference;
-    }
-
     public Boolean getEnabled() {
         return enabled;
     }
@@ -155,12 +130,20 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
         this.clients = clients;
     }
 
-    public String getCaInstanceName() {
-        return caInstanceName;
+    public String getAuthorityInstanceName() {
+        return authorityInstanceName;
     }
 
-    public void setCaInstanceName(String caInstanceName) {
-        this.caInstanceName = caInstanceName;
+    public void setAuthorityInstanceName(String authorityInstanceName) {
+        this.authorityInstanceName = authorityInstanceName;
+    }
+
+    public AuthorityInstanceReference getAuthorityInstanceReference() {
+        return authorityInstanceReference;
+    }
+
+    public void setAuthorityInstanceReference(AuthorityInstanceReference authorityInstanceReference) {
+        this.authorityInstanceReference = authorityInstanceReference;
     }
 
     @Override

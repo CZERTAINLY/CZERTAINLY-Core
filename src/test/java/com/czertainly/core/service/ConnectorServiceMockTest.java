@@ -1,18 +1,15 @@
 package com.czertainly.core.service;
 
-import java.net.ConnectException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
+import com.czertainly.api.clients.ConnectorApiClient;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.connector.ConnectRequestDto;
+import com.czertainly.api.model.client.connector.InfoResponse;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Endpoint;
+import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
 import com.czertainly.core.service.impl.ConnectorServiceImpl;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,12 +18,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import com.czertainly.core.dao.entity.FunctionGroup;
-import com.czertainly.api.ConnectorApiClient;
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.ConnectorDto;
-import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.api.model.connector.InfoResponse;
+import java.util.*;
 
 @SpringBootTest
 public class ConnectorServiceMockTest {
@@ -81,10 +73,10 @@ public class ConnectorServiceMockTest {
 
         List<InfoResponse> connectorFunctions = new ArrayList<>();
         List<String> types = List.of("default");
-        connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.CA_CONNECTOR, Collections.singletonList(endpoint1.mapToDto())));
+        connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.AUTHORITY_PROVIDER, Collections.singletonList(endpoint1.mapToDto())));
         Mockito.when(connectorApiClient.listSupportedFunctions(Mockito.any())).thenReturn(connectorFunctions);
 
-        ConnectorDto request = new ConnectorDto();
+        ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
 
         Assertions.assertThrows(ValidationException.class, () ->
@@ -100,7 +92,7 @@ public class ConnectorServiceMockTest {
         connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.CREDENTIAL_PROVIDER, Collections.singletonList(endpoint1.mapToDto())));
         Mockito.when(connectorApiClient.listSupportedFunctions(Mockito.any())).thenReturn(connectorFunctions);
 
-        ConnectorDto request = new ConnectorDto();
+        ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
         Assertions.assertThrows(ValidationException.class, () ->
                 connectorService.connect(request)
@@ -115,7 +107,7 @@ public class ConnectorServiceMockTest {
         connectorFunctions.add(new InfoResponse(types, FunctionGroupCode.CREDENTIAL_PROVIDER, Arrays.asList(endpoint1.mapToDto(), endpoint2.mapToDto())));
         Mockito.when(connectorApiClient.listSupportedFunctions(Mockito.any())).thenReturn(connectorFunctions);
 
-        ConnectorDto request = new ConnectorDto();
+        ConnectRequestDto request = new ConnectRequestDto();
         request.setUrl("http://localhost");
 
         connectorService.connect(request);

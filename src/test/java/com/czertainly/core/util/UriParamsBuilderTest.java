@@ -1,11 +1,9 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.core.audit.AuditLogDto;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-
-import com.czertainly.api.core.modal.AuditLogDto;
-import com.czertainly.api.core.modal.OperationType;
-
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
@@ -17,11 +15,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class UriParamsBuilderTest {

@@ -1,10 +1,11 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.connector.ConnectorDto;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.common.UuidDto;
 
 public interface ConnectorRegistrationService {
 
-    ConnectorDto registerConnector(ConnectorDto request) throws AlreadyExistException, NotFoundException;
+    UuidDto registerConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException;
 }

@@ -1,10 +1,10 @@
 package com.czertainly.core.api.client;
 
-import com.czertainly.api.core.interfaces.client.ClientOperationController;
-import com.czertainly.api.core.modal.*;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.client.ClientOperationController;
+import com.czertainly.api.model.client.authority.*;
 import com.czertainly.core.service.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;

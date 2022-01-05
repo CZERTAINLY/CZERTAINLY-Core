@@ -3,7 +3,11 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.connector.*;
+import com.czertainly.api.model.client.connector.ConnectDto;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
+import com.czertainly.api.model.client.connector.InfoResponse;
+import com.czertainly.api.model.core.connector.*;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.FunctionGroup;
@@ -15,14 +19,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.net.ConnectException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -96,7 +103,7 @@ public class ConnectorServiceComplexTest {
 
     @Test
     @WithMockUser(roles="SUPERADMINISTRATOR")
-    public void testCreateConnector() throws NotFoundException, AlreadyExistException {
+    public void testCreateConnector() throws ConnectorException, AlreadyExistException {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -109,9 +116,11 @@ public class ConnectorServiceComplexTest {
 
         ConnectorDto request = new ConnectorDto();
         request.setName("testConnector");
-        request.setFunctionGroups(Collections.singletonList(fgDto));
+        request.setFunctionGroups(Arrays.asList(fgDto));
 
-        ConnectorDto dto = connectorService.createConnector(request);
+
+
+        ConnectorDto dto = connectorService.createConnector(request, ConnectorStatus.CONNECTED);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getUuid());
         Assertions.assertNotNull(dto.getFunctionGroups());
@@ -135,12 +144,43 @@ public class ConnectorServiceComplexTest {
 
     @Test
     @WithMockUser(roles="SUPERADMINISTRATOR")
-    public void testUpdateConnector() throws NotFoundException {
+    public void testSimpleCreateConnector() throws ConnectorException, AlreadyExistException {
+        String kindName = "testKind";
+
+        FunctionGroup functionGroup = new FunctionGroup();
+        functionGroup.setCode(FunctionGroupCode.CREDENTIAL_PROVIDER);
+        functionGroup.setName(FunctionGroupCode.CREDENTIAL_PROVIDER.getCode());
+        functionGroupRepository.save(functionGroup);
+
+        FunctionGroupDto fgDto = functionGroup.mapToDto();
+        fgDto.setKinds(Collections.singletonList(kindName));
+
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
+
+        ConnectorRequestDto request = new ConnectorRequestDto();
+        request.setName("testConnector");
+        request.setAuthType(AuthType.NONE);
+        request.setUrl("http://localhost:3665");
+
+        ConnectorDto dto = connectorService.createConnector(request);
+        Assertions.assertNotNull(dto);
+        Assertions.assertNotNull(dto.getUuid());
+
+        // check database
+        List<ConnectorDto> connectors = connectorService.listConnectors();
+        Assertions.assertNotNull(connectors);
+        Assertions.assertFalse(connectors.isEmpty());
+        Assertions.assertEquals(1, connectors.size());
+    }
+
+    @Test
+    @WithMockUser(roles="SUPERADMINISTRATOR")
+    public void testUpdateConnector() throws ConnectorException {
         String kindName = "testKind";
 
         FunctionGroup caFunctionGroup = new FunctionGroup();
-        caFunctionGroup.setCode(FunctionGroupCode.CA_CONNECTOR);
-        caFunctionGroup.setName(FunctionGroupCode.CA_CONNECTOR.getCode());
+        caFunctionGroup.setCode(FunctionGroupCode.AUTHORITY_PROVIDER);
+        caFunctionGroup.setName(FunctionGroupCode.AUTHORITY_PROVIDER.getCode());
         functionGroupRepository.save(caFunctionGroup);
 
         FunctionGroup discoveryFunctionGroup = new FunctionGroup();
@@ -154,30 +194,17 @@ public class ConnectorServiceComplexTest {
 
         addFunctionGroupToConnector(caFunctionGroup, Collections.singletonList(kindName), connector);
         addFunctionGroupToConnector(discoveryFunctionGroup, Collections.singletonList(kindName), connector);
-//        connectorRepository.flush();
-//        connector2FunctionGroupRepository.flush();
 
         FunctionGroupDto caFgDto = caFunctionGroup.mapToDto();
         caFgDto.setKinds(Collections.singletonList(kindName));
-
-        ConnectorDto request = new ConnectorDto();
-        request.setName("testConnector");
-        request.setFunctionGroups(Collections.singletonList(caFgDto));
+        mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
+        ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
+        request.setAuthType(AuthType.NONE);
+        request.setUrl("http://localhost:3665");
 
         ConnectorDto dto = connectorService.updateConnector(connector.getUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getUuid());
-        Assertions.assertNotNull(dto.getFunctionGroups());
-        Assertions.assertFalse(dto.getFunctionGroups().isEmpty());
-        Assertions.assertEquals(1, dto.getFunctionGroups().size());
-
-        FunctionGroupDto loaded = dto.getFunctionGroups().get(0);
-        Assertions.assertEquals(FunctionGroupCode.CA_CONNECTOR, loaded.getFunctionGroupCode());
-
-        Assertions.assertNotNull(loaded.getKinds());
-        Assertions.assertFalse(loaded.getKinds().isEmpty());
-        Assertions.assertEquals(1, loaded.getKinds().size());
-        Assertions.assertEquals(kindName, loaded.getKinds().get(0));
 
         // check database
         List<ConnectorDto> connectors = connectorService.listConnectors();
@@ -203,8 +230,8 @@ public class ConnectorServiceComplexTest {
         String kindName = "testKind";
 
         FunctionGroup caFunctionGroup = new FunctionGroup();
-        caFunctionGroup.setCode(FunctionGroupCode.CA_CONNECTOR);
-        caFunctionGroup.setName(FunctionGroupCode.CA_CONNECTOR.getCode());
+        caFunctionGroup.setCode(FunctionGroupCode.AUTHORITY_PROVIDER);
+        caFunctionGroup.setName(FunctionGroupCode.AUTHORITY_PROVIDER.getCode());
         functionGroupRepository.save(caFunctionGroup);
 
         FunctionGroup discoveryFunctionGroup = new FunctionGroup();

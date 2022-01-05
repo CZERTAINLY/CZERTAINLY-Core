@@ -1,9 +1,9 @@
 package com.czertainly.core.aop;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.core.service.AdminService;
 import com.czertainly.core.service.ClientOperationService;
 import com.czertainly.core.service.ConnectorService;
-import com.czertainly.api.exception.ValidationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

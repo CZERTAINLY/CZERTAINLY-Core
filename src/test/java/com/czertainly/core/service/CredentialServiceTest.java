@@ -4,9 +4,11 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.*;
-import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.api.model.credential.CredentialDto;
+import com.czertainly.api.model.client.credential.CredentialRequestDto;
+import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
+import com.czertainly.api.model.common.*;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.Credential;
@@ -67,6 +69,7 @@ public class CredentialServiceTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
+        connector.setUuid("123");
         connector.setName("credentialProviderConnector");
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
@@ -86,6 +89,7 @@ public class CredentialServiceTest {
         connectorRepository.save(connector);
 
         credential = new Credential();
+        credential.setKind("sample");
         credential.setName(CREDENTIAL_NAME);
         credential.setConnector(connector);
         credential = credentialRepository.save(credential);
@@ -122,14 +126,17 @@ public class CredentialServiceTest {
     @Test
     public void testAddCredential() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        CredentialDto request = new CredentialDto();
+        CredentialRequestDto request = new CredentialRequestDto();
         request.setName("testCredential2");
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
-        request.setCredentialType("ApiKey");
+        request.setKind("ApiKey");
 
         CredentialDto dto = credentialService.createCredential(request);
         Assertions.assertNotNull(dto);
@@ -140,13 +147,13 @@ public class CredentialServiceTest {
 
     @Test
     public void testAddCredential_validationFail() {
-        CredentialDto request = new CredentialDto();
+        CredentialRequestDto request = new CredentialRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> credentialService.createCredential(request));
     }
 
     @Test
     public void testAddCredential_alreadyExist() {
-        CredentialDto request = new CredentialDto();
+        CredentialRequestDto request = new CredentialRequestDto();
         request.setName(CREDENTIAL_NAME); // credential with same name exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> credentialService.createCredential(request));
@@ -155,18 +162,17 @@ public class CredentialServiceTest {
     @Test
     public void testEditCredential() throws ConnectorException {
         mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        CredentialDto request = new CredentialDto();
-        request.setName(credential.getName());
-        request.setConnectorUuid(connector.getUuid());
+        CredentialUpdateRequestDto request = new CredentialUpdateRequestDto();
         request.setAttributes(List.of());
-        request.setCredentialType("Certificate");
 
         CredentialDto dto = credentialService.updateCredential(credential.getUuid(), request);
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(request.getCredentialType(), dto.getCredentialType());
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
     }
@@ -221,7 +227,7 @@ public class CredentialServiceTest {
         nameAndUuidMap.put("uuid", credential.getUuid());
         nameAndUuidMap.put("name", credential.getName());
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap);
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap));
         attrs.get(0).setType(BaseAttributeDefinitionTypes.CREDENTIAL);
 
         credentialService.loadFullCredentialData(attrs);
@@ -239,7 +245,7 @@ public class CredentialServiceTest {
         nameAndUuidMap.put("uuid", "wrong-uuid");
         nameAndUuidMap.put("name", "wrong-name");
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap);
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap));
         attrs.get(0).setType(BaseAttributeDefinitionTypes.CREDENTIAL);
 
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs));
@@ -255,7 +261,7 @@ public class CredentialServiceTest {
 
     @Test
     public void testLoadFullData_attributesNonCredential() throws NotFoundException {
-        credentialService.loadFullCredentialData(AttributeDefinitionUtils.createAttributes("dummyAttributes", null)); // this should not throw exception
+        credentialService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("dummyAttributes", null))); // this should not throw exception
     }
 
     @Test
@@ -277,13 +283,15 @@ public class CredentialServiceTest {
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
-        callback.setRequestBody(requestBodyMap);
 
-        credentialService.loadFullCredentialData(callback);
+        RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
+        requestAttributeCallback.setRequestBody(requestBodyMap);
 
-        Assertions.assertTrue(callback.getRequestBody().get(credentialBodyKey) instanceof CredentialDto);
+        credentialService.loadFullCredentialData(callback, requestAttributeCallback);
 
-        CredentialDto credentialDto = (CredentialDto) callback.getRequestBody().get(credentialBodyKey);
+        Assertions.assertTrue(requestAttributeCallback.getRequestBody().get(credentialBodyKey) instanceof CredentialDto);
+
+        CredentialDto credentialDto = (CredentialDto) requestAttributeCallback.getRequestBody().get(credentialBodyKey);
         Assertions.assertEquals(credential.getUuid(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -307,9 +315,11 @@ public class CredentialServiceTest {
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
-        callback.setRequestBody(requestBodyMap);
 
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(callback));
+        RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
+        requestAttributeCallback.setRequestBody(requestBodyMap);
+
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
     }
 
     @Test
@@ -327,8 +337,10 @@ public class CredentialServiceTest {
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
-        callback.setRequestBody(requestBodyMap);
 
-        Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback));
+        RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
+        requestAttributeCallback.setRequestBody(requestBodyMap);
+
+        Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
     }
 }

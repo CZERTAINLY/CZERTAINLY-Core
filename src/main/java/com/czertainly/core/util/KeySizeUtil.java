@@ -1,11 +1,11 @@
 package com.czertainly.core.util;
 
+import org.bouncycastle.jce.provider.JCEECPublicKey;
+
 import java.security.PublicKey;
 import java.security.interfaces.DSAPublicKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
-
-import org.bouncycastle.jce.provider.JCEECPublicKey;
 
 public class KeySizeUtil {
 	public static int getKeyLength(final PublicKey pk) {

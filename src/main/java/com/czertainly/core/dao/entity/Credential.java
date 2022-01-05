@@ -1,8 +1,8 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.core.util.DtoMapper;
-import com.czertainly.api.model.credential.CredentialDto;
+import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -24,8 +24,8 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
     @Column(name = "name")
     private String name;
 
-    @Column(name = "type")
-    private String type;
+    @Column(name = "kind")
+    private String kind;
 
     //    @Lob
     @Basic(fetch = FetchType.LAZY)
@@ -58,12 +58,12 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
         this.name = name;
     }
 
-    public String getType() {
-        return type;
+    public String getKind() {
+        return kind;
     }
 
-    public void setType(String type) {
-        this.type = type;
+    public void setKind(String kind) {
+        this.kind = kind;
     }
 
     public String getAttributes() {
@@ -96,10 +96,9 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
 
     public CredentialDto mapToDtoSimple() {
         CredentialDto dto = new CredentialDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
-        dto.setCredentialType(this.type);
+        dto.setKind(this.kind);
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
         if (this.connector != null) {
@@ -111,11 +110,10 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
     @Override
     public CredentialDto mapToDto() {
         CredentialDto dto = new CredentialDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
-        dto.setCredentialType(this.type);
-        dto.setAttributes(AttributeDefinitionUtils.deserialize(this.attributes));
+        dto.setKind(this.kind);
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
         if (this.connector != null) {
@@ -129,7 +127,7 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("id", id)
                 .append("name", name)
-                .append("type", type)
+                .append("type", kind)
                 .toString();
     }
 

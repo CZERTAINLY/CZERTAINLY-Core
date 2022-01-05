@@ -1,12 +1,12 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.AddClientRequestDto;
-import com.czertainly.api.core.modal.ClientDto;
-import com.czertainly.api.core.modal.EditClientRequestDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.raprofile.RaProfileDto;
+import com.czertainly.api.model.client.client.AddClientRequestDto;
+import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.core.client.ClientDto;
 
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -26,7 +26,7 @@ public interface ClientService {
 
     void removeClient(String uuid) throws NotFoundException;
 
-    List<RaProfileDto> listAuthorizations(String uuid) throws NotFoundException;
+    List<SimplifiedRaProfileDto> listAuthorizations(String uuid) throws NotFoundException;
 
     void authorizeClient(String uuid, String raProfileUuid) throws NotFoundException;
 

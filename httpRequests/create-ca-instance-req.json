@@ -1,38 +1,16 @@
 {
-  "name": "ejbca-ca-instance1",
-  "connectorId": 59,
+  "name": "ejbca-ca-instance3",
+  "connectorUuid": "24fd52e9-5e2a-480c-b5ff-450d7d8a184a",
+  "kind": "Ejbca",
   "attributes": [
     {
       "name": "url",
-      "type": "string",
       "value": "https://lab01.3key.company:8453/ejbca/ejbcaws/ejbcaws?wsdl"
     },
     {
-      "id": "9379ca2c-aa51-42c8-8afd-2a2d16c99c57",
       "name": "credential",
-      "label": "Credential Kind",
-      "type": "CREDENTIAL",
-      "required": true,
-      "readOnly": false,
-      "editable": true,
-      "visible": true,
-      "multiValue": false,
-      "description": "Credential for the communication",
-      "validationRegex": null,
-      "dependsOn": null,
-      "attributeCallback": {
-        "callbackMethod": "coreGetCredentials",
-        "mappings": {
-          "credentialKind": "credentialKind"
-        },
-        "pathVariables": {
-          "credentialKind": "softKeyStore"
-        },
-        "queryParameters": null,
-        "requestBody": null
-      },
       "value": {
-        "id": 39,
+        "uuid": "c8f3654b-3a9b-4701-b011-a5858b1e10d4",
         "name": "dš-credential-ejbca"
       }
     }

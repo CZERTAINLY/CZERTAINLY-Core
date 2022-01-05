@@ -1,35 +1,25 @@
 package com.czertainly.core.service.impl;
 
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.transaction.Transactional;
-
+import com.czertainly.api.model.client.dashboard.StatisticsDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateEntity;
+import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.service.StatisticsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateEntity;
-import com.czertainly.core.dao.entity.CertificateGroup;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.CertificateEntityRepository;
-import com.czertainly.core.dao.repository.CertificateGroupRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.DiscoveryRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.service.StatisticsService;
-import com.czertainly.api.model.discovery.CertificateStatus;
-import com.czertainly.api.model.discovery.CertificateType;
-import com.czertainly.api.model.discovery.StatisticsDto;
+import javax.transaction.Transactional;
+import java.util.*;
 
 @Service
 @Transactional
@@ -45,10 +35,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     private DiscoveryRepository discoveryRepository;
 
     @Autowired
-    private CertificateGroupRepository certificateGroupRepository;
+    private GroupRepository groupRepository;
 
     @Autowired
-    private CertificateEntityRepository certificateEntityRepository;
+    private EntityRepository entityRepository;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -85,11 +75,11 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private long getCertificateGroupCount() {
-        return certificateGroupRepository.count();
+        return groupRepository.count();
     }
 
     private long getCertificateEntityCount() {
-        return certificateEntityRepository.count();
+        return entityRepository.count();
     }
 
     private long getRaProfileCount() {
@@ -99,10 +89,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     private Map<String, Long> getGroupStatByCertificateCount(StatisticsDto dto) {
         Map<String, Long> stat = new HashMap<>();
         long totalStatCount = 0;
-        for (CertificateGroup group : certificateGroupRepository.findAll()) {
-            Integer statSize = certificateRepository.findDistinctByGroupId(group.getId()).size();
+        for (CertificateGroup certificateGroup : groupRepository.findAll()) {
+            Integer statSize = certificateRepository.findDistinctByGroupId(certificateGroup.getId()).size();
             totalStatCount += statSize;
-            stat.put(group.getName(), (long) statSize);
+            stat.put(certificateGroup.getName(), (long) statSize);
         }
         stat.put("Unassigned", dto.getTotalCertificates() - totalStatCount);
         return stat;
@@ -111,10 +101,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     private Map<String, Long> getEntityStatByCertificateCount(StatisticsDto dto) {
         Map<String, Long> stat = new HashMap<>();
         long totalStatCount = 0;
-        for (CertificateEntity entity : certificateEntityRepository.findAll()) {
-            Integer statSize = certificateRepository.findDistinctByEntityId(entity.getId()).size();
+        for (CertificateEntity certificateEntity : entityRepository.findAll()) {
+            Integer statSize = certificateRepository.findDistinctByEntityId(certificateEntity.getId()).size();
             totalStatCount += statSize;
-            stat.put(entity.getName(), (long) statSize);
+            stat.put(certificateEntity.getName(), (long) statSize);
         }
         stat.put("Unassigned", dto.getTotalCertificates() - totalStatCount);
         return stat;

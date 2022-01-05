@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.connector.EndpointDto;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.api.model.connector.EndpointDto;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -37,7 +37,6 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     @Override
     public EndpointDto mapToDto() {
         EndpointDto dto = new EndpointDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setContext(this.context);

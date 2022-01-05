@@ -1,5 +1,7 @@
 package com.czertainly.core.config;
 
+import com.czertainly.core.auth.AdminDetailsService;
+import com.czertainly.core.auth.ClientDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -14,10 +16,6 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
-
-import com.czertainly.core.auth.AdminDetailsService;
-import com.czertainly.core.auth.ClientDetailsService;
-import com.czertainly.api.core.modal.AdminRole;
 
 
 @Configuration

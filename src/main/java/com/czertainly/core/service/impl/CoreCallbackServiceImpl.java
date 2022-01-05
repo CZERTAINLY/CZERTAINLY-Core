@@ -3,8 +3,8 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeCallback;
-import com.czertainly.api.model.NameAndUuidDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.RequestAttributeCallback;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.service.CoreCallbackService;
@@ -25,7 +25,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
     private CredentialRepository credentialRepository;
 
     @Override
-    public List<NameAndUuidDto> coreGetCredentials(AttributeCallback callback) throws NotFoundException, ValidationException {
+    public List<NameAndUuidDto> coreGetCredentials(RequestAttributeCallback callback) throws NotFoundException, ValidationException {
         if (callback.getPathVariables() == null ||
             callback.getPathVariables().get(CREDENTIAL_KIND_PATH_VARIABLE) == null) {
             throw new ValidationException(ValidationError.create("Required path variable credentialKind not found in backhook."));
@@ -33,7 +33,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
 
         String kind = callback.getPathVariables().get(CREDENTIAL_KIND_PATH_VARIABLE).toString();
 
-        List<Credential> credentials = credentialRepository.findByTypeAndEnabledTrue(kind);
+        List<Credential> credentials = credentialRepository.findByKindAndEnabledTrue(kind);
         if (credentials == null || credentials.isEmpty()) {
             throw new NotFoundException(Credential.class, kind);
         }

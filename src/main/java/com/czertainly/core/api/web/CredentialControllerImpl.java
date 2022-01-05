@@ -1,11 +1,16 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.util.List;
-
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.ForceDeleteMessageDto;
+import com.czertainly.api.interfaces.core.web.CredentialController;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.client.credential.CredentialRequestDto;
+import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.credential.CredentialDto;
+import com.czertainly.core.service.CredentialService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,11 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.api.core.interfaces.web.CredentialController;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.credential.CredentialDto;
+import java.net.URI;
+import java.util.List;
 
 @RestController
 public class CredentialControllerImpl implements CredentialController {
@@ -36,20 +38,23 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public ResponseEntity<?> createCredential(@RequestBody CredentialDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+    public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         CredentialDto credentialDto = credentialService.createCredential(request);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
-                .path("/{Uuid}")
+                .path("/{uuid}")
                 .buildAndExpand(credentialDto.getUuid())
                 .toUri();
 
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(credentialDto.getUuid());
+
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
-    public CredentialDto updateCredential(@PathVariable String uuid, @RequestBody CredentialDto request) throws NotFoundException, ConnectorException {
+    public CredentialDto updateCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
         return credentialService.updateCredential(uuid, request);
     }
 
@@ -59,12 +64,12 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public void enableClient(@PathVariable String uuid) throws NotFoundException {
+    public void enableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.enableCredential(uuid);
     }
 
     @Override
-    public void disableClient(@PathVariable String uuid) throws NotFoundException {
+    public void disableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.disableCredential(uuid);
     }
 

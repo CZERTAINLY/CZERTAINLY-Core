@@ -1,16 +1,15 @@
 package com.czertainly.core.api.local;
 
-import com.czertainly.api.core.interfaces.local.LocalController;
-import com.czertainly.api.core.modal.AddAdminRequestDto;
-import com.czertainly.api.core.modal.AdminDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.local.LocalController;
+import com.czertainly.api.model.client.admin.AddAdminRequestDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.admin.AdminDto;
 import com.czertainly.core.service.LocalAdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -29,10 +28,11 @@ public class LocalControllerImpl implements LocalController {
 
         URI location = UriComponentsBuilder
                 .fromPath("/v1/admins")
-                .path("/{adminId}")
-                .buildAndExpand(adminDTO.getId())
+                .path("/{uuid}")
+                .buildAndExpand(adminDTO.getUuid())
                 .toUri();
-
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(adminDTO.getUuid());
+        return ResponseEntity.created(location).body(dto);
     }
 }

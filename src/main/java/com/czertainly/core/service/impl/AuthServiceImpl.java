@@ -1,17 +1,15 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.auth.EditAuthProfileDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.AuthProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Admin;
 import com.czertainly.core.dao.repository.AdminRepository;
 import com.czertainly.core.service.AuthService;
-import com.czertainly.api.core.modal.AuthProfileDto;
-import com.czertainly.api.core.modal.EditAuthProfileDto;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
-import com.czertainly.api.exception.NotFoundException;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
