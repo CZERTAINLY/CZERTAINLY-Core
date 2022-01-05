@@ -1,13 +1,11 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.CertificateOwnerRequestDto;
-import com.czertainly.api.core.modal.RemoveCertificateDto;
-import com.czertainly.api.core.modal.UploadCertificateRequestDto;
-import com.czertainly.api.core.modal.UuidDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.CertificateDto;
-import com.czertainly.api.model.discovery.CertificateStatus;
+import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import org.junit.jupiter.api.Assertions;
@@ -45,9 +43,9 @@ public class CertificateServiceTest {
     @Autowired
     private RaProfileRepository raProfileRepository;
     @Autowired
-    private CertificateGroupRepository certificateGroupRepository;
+    private GroupRepository groupRepository;
     @Autowired
-    private CertificateEntityRepository certificateEntityRepository;
+    private EntityRepository entityRepository;
 
     private Certificate certificate;
     private CertificateContent certificateContent;
@@ -73,10 +71,10 @@ public class CertificateServiceTest {
         raProfile = raProfileRepository.save(raProfile);
 
         certificateGroup = new CertificateGroup();
-        certificateGroup = certificateGroupRepository.save(certificateGroup);
+        certificateGroup = groupRepository.save(certificateGroup);
 
         certificateEntity = new CertificateEntity();
-        certificateEntity = certificateEntityRepository.save(certificateEntity);
+        certificateEntity = entityRepository.save(certificateEntity);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
@@ -178,8 +176,8 @@ public class CertificateServiceTest {
 
     @Test
     public void testUpdateRaProfile() throws NotFoundException {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid(raProfile.getUuid());
+        CertificateUpdateRAProfileDto uuidDto = new CertificateUpdateRAProfileDto();
+        uuidDto.setRaProfileUuid(raProfile.getUuid());
 
         certificateService.updateRaProfile(certificate.getUuid(), uuidDto);
 
@@ -188,22 +186,22 @@ public class CertificateServiceTest {
 
     @Test
     public void testUpdateRaProfile_certificateNotFound() {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid(raProfile.getUuid());
+        CertificateUpdateRAProfileDto uuidDto = new CertificateUpdateRAProfileDto();
+        uuidDto.setRaProfileUuid(raProfile.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateRaProfile("wrong-uuid", uuidDto));
     }
 
     @Test
     public void testUpdateRaProfile_raProfileNotFound() {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid("wrong-uuid");
+        CertificateUpdateRAProfileDto uuidDto = new CertificateUpdateRAProfileDto();
+        uuidDto.setRaProfileUuid("wrong-uuid");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateRaProfile(certificate.getUuid(), uuidDto));
     }
 
     @Test
     public void testUpdateCertificateGroup() throws NotFoundException {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid(certificateGroup.getUuid());
+        CertificateUpdateGroupDto uuidDto = new CertificateUpdateGroupDto();
+        uuidDto.setGroupUuid(certificateGroup.getUuid());
 
         certificateService.updateCertificateGroup(certificate.getUuid(), uuidDto);
 
@@ -212,22 +210,22 @@ public class CertificateServiceTest {
 
     @Test
     public void testUpdateCertificateGroup_certificateNotFound() {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid(certificateGroup.getUuid());
+        CertificateUpdateGroupDto uuidDto = new CertificateUpdateGroupDto();
+        uuidDto.setGroupUuid(certificateGroup.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateGroup("wrong-uuid", uuidDto));
     }
 
     @Test
     public void testUpdateCertificateGroup_groupNotFound() {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid("wrong-uuid");
+        CertificateUpdateGroupDto uuidDto = new CertificateUpdateGroupDto();
+        uuidDto.setGroupUuid("wrong-uuid");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateGroup(certificate.getUuid(), uuidDto));
     }
 
     @Test
     public void testUpdateCertificateEntity() throws NotFoundException {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid(certificateEntity.getUuid());
+        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
+        uuidDto.setEntityUuid(certificateEntity.getUuid());
 
         certificateService.updateEntity(certificate.getUuid(), uuidDto);
 
@@ -236,15 +234,15 @@ public class CertificateServiceTest {
 
     @Test
     public void testUpdateCertificateEntity_certificateNotFound() {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid(certificateEntity.getUuid());
+        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
+        uuidDto.setEntityUuid(certificateEntity.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateEntity("wrong-uuid", uuidDto));
     }
 
     @Test
     public void testUpdateCertificateEntity_entityNotFound() {
-        UuidDto uuidDto = new UuidDto();
-        uuidDto.setUuid("wrong-uuid");
+        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
+        uuidDto.setEntityUuid("wrong-uuid");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateEntity(certificate.getUuid(), uuidDto));
     }
 

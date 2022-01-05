@@ -1,6 +1,7 @@
 package com.czertainly.core.api;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.common.ErrorMessageDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -9,8 +10,6 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import com.czertainly.api.model.ErrorMessageDto;
 
 import java.net.ConnectException;
 import java.util.List;

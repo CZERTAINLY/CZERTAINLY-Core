@@ -1,16 +1,10 @@
 package com.czertainly.core.service;
 
-import java.util.Map;
-
+import com.czertainly.api.model.core.audit.*;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
-import com.czertainly.api.core.modal.AuditLogFilter;
-import com.czertainly.api.core.modal.AuditLogResponseDto;
-import com.czertainly.api.core.modal.ExportResultDto;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationStatusEnum;
-import com.czertainly.api.core.modal.OperationType;
+import java.util.Map;
 
 
 public interface AuditLogService {

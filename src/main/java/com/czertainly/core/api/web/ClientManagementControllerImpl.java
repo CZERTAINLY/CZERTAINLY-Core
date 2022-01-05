@@ -1,9 +1,15 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.security.cert.CertificateException;
-import java.util.List;
-
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.interfaces.core.web.ClientManagementController;
+import com.czertainly.api.model.client.client.AddClientRequestDto;
+import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.client.ClientDto;
+import com.czertainly.core.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,15 +17,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.core.service.ClientService;
-import com.czertainly.api.core.interfaces.web.ClientManagementController;
-import com.czertainly.api.core.modal.AddClientRequestDto;
-import com.czertainly.api.core.modal.ClientDto;
-import com.czertainly.api.core.modal.EditClientRequestDto;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.raprofile.RaProfileDto;
+import java.net.URI;
+import java.security.cert.CertificateException;
+import java.util.List;
 
 @RestController
 public class ClientManagementControllerImpl implements ClientManagementController {
@@ -44,7 +44,10 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
                 .buildAndExpand(client.getUuid())
                 .toUri();
 
-        return ResponseEntity.created(location).build();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(client.getUuid());
+
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
@@ -73,7 +76,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    public List<RaProfileDto> listAuthorizations(
+    public List<SimplifiedRaProfileDto> listAuthorizations(
             @PathVariable String uuid)
             throws NotFoundException {
         return clientService.listAuthorizations(uuid);

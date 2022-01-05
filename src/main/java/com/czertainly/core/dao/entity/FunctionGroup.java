@@ -1,27 +1,16 @@
 package com.czertainly.core.dao.entity;
 
-import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.OneToMany;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
-
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.api.model.connector.FunctionGroupDto;
+import javax.persistence.*;
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "function_group")
@@ -82,7 +71,6 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
     @Override
     public FunctionGroupDto mapToDto() {
         FunctionGroupDto dto = new FunctionGroupDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setFunctionGroupCode(this.code);

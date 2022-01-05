@@ -1,14 +1,16 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
 import com.czertainly.core.service.ConnectorRegistrationService;
 import com.czertainly.core.service.ConnectorService;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.connector.ConnectorDto;
-import com.czertainly.api.model.connector.ConnectorStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,13 +30,11 @@ public class ConnectorRegistrationServiceImpl implements ConnectorRegistrationSe
 
     @Override
     @AuditLogged(originator = ObjectType.CONNECTOR, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
-    public ConnectorDto registerConnector(ConnectorDto request) throws AlreadyExistException, NotFoundException {
-        connectorService.validateConnector(request.getFunctionGroups(), "uuid");
-        logger.info("Connector {} successfully validated.", request.getName());
-
-        ConnectorDto connector = connectorService.createConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
+    public UuidDto registerConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException {
+        ConnectorDto connectorDto = connectorService.createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
         logger.info("Connector {} registered and is waiting for approval.", request.getName());
-
-        return connector;
+        UuidDto dto = new UuidDto();
+        dto.setUuid(connectorDto.getUuid());
+        return dto;
     }
 }

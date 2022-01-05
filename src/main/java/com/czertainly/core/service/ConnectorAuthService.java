@@ -1,25 +1,35 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.model.AttributeDefinition;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.ResponseAttributeDto;
+import com.czertainly.api.model.core.connector.AuthType;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ConnectorAuthService {
-    List<String> getAuthenticationTypes();
+    Set<AuthType> getAuthenticationTypes();
+
+    List<AttributeDefinition> getAuthAttributes(AuthType authenticationType);
+
+    boolean validateAuthAttributes(AuthType authenticationType, List<RequestAttributeDto> attributes);
+
+    List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttributeDto> attributes);
 
     List<AttributeDefinition> getBasicAuthAttributes();
 
-    Boolean validateBasicAuthAttributes(List<AttributeDefinition> attributes);
+    Boolean validateBasicAuthAttributes(List<RequestAttributeDto> attributes);
 
     List<AttributeDefinition> getCertificateAttributes();
 
-    Boolean validateCertificateAttributes(List<AttributeDefinition> attributes);
+    Boolean validateCertificateAttributes(List<RequestAttributeDto> attributes);
 
     List<AttributeDefinition> getApiKeyAuthAttributes();
 
-    Boolean validateApiKeyAuthAttributes(List<AttributeDefinition> attributes);
+    Boolean validateApiKeyAuthAttributes(List<RequestAttributeDto> attributes);
 
     List<AttributeDefinition> getJWTAuthAttributes();
 
-    Boolean validateJWTAuthAttributes(List<AttributeDefinition> attributes);
+    Boolean validateJWTAuthAttributes(List<RequestAttributeDto> attributes);
 }

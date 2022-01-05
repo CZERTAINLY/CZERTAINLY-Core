@@ -1,26 +1,20 @@
 package com.czertainly.core.service.impl;
 
-import java.io.*;
-import java.net.URL;
-import java.net.URLConnection;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import com.czertainly.api.model.certificate.CertificateValidationDto;
-import com.czertainly.api.model.certificate.CertificateValidationStatus;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationDto;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.CrlUtil;
+import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.OcspUtil;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1String;
@@ -33,18 +27,19 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.service.CertValidationService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.CrlUtil;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.OcspUtil;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.CertificateStatus;
+import java.io.*;
+import java.net.URL;
+import java.net.URLConnection;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT"})

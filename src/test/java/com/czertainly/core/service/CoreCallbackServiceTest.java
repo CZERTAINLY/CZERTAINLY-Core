@@ -2,8 +2,8 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeCallback;
-import com.czertainly.api.model.NameAndUuidDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.RequestAttributeCallback;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.service.impl.CoreCallbackServiceImpl;
@@ -33,12 +33,12 @@ public class CoreCallbackServiceTest {
     @Test
     public void testCoreGetCredentials() throws NotFoundException {
         Credential credential = new Credential();
-        credential.setType("certificate");
+        credential.setKind("certificate");
         credential.setEnabled(true);
         credential = credentialRepository.save(credential);
 
-        AttributeCallback callback = new AttributeCallback();
-        callback.setPathVariables(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, credential.getType())));
+        RequestAttributeCallback callback = new RequestAttributeCallback();
+        callback.setPathVariables(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, credential.getKind())));
 
         List<NameAndUuidDto> credentials = coreCallbackService.coreGetCredentials(callback);
         Assertions.assertNotNull(credentials);
@@ -48,12 +48,12 @@ public class CoreCallbackServiceTest {
 
     @Test
     public void testCoreGetCredentials_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> coreCallbackService.coreGetCredentials(new AttributeCallback()));
+        Assertions.assertThrows(ValidationException.class, () -> coreCallbackService.coreGetCredentials(new RequestAttributeCallback()));
     }
 
     @Test
     public void testCoreGetCredentials_notFound() {
-        AttributeCallback callback = new AttributeCallback();
+        RequestAttributeCallback callback = new RequestAttributeCallback();
         callback.setPathVariables(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, "")));
 
         Assertions.assertThrows(NotFoundException.class, () -> coreCallbackService.coreGetCredentials(callback));

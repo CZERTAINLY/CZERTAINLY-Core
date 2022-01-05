@@ -1,14 +1,20 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.DiscoveryApiClient;
-import com.czertainly.api.core.modal.ObjectType;
-import com.czertainly.api.core.modal.OperationType;
+import com.czertainly.api.clients.DiscoveryApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.api.model.discovery.*;
+import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
+import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
@@ -27,7 +33,6 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -156,23 +161,28 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
             throws NotFoundException, ConnectorException {
 
-        if (!connectorService.validateAttributes(request.getConnectorUuid(), FunctionGroupCode.DISCOVERY_PROVIDER,
-                request.getAttributes(), request.getDiscoveryType())) {
-            throw new ValidationException("Discovery attributes validation failed.");
-        }
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
+                request.getConnectorUuid(),
+                FunctionGroupCode.DISCOVERY_PROVIDER,
+                request.getAttributes(),
+                request.getKind());
+
         try {
-            DiscoveryProviderDto dtoRequest = new DiscoveryProviderDto();
+            DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
             dtoRequest.setName(request.getName());
-            dtoRequest.setConnectorUuid(request.getConnectorUuid());
 
             // Load complete credential data
-            credentialService.loadFullCredentialData(request.getAttributes());
-            dtoRequest.setAttributes(request.getAttributes());
+            credentialService.loadFullCredentialData(attributes);
+            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
 
             Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
-            DiscoveryProviderDto response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
+            DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
-            dtoRequest.setId(response.getId());
+            DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
+            getRequest.setName(response.getName());
+            getRequest.setStartIndex(0);
+            getRequest.setEndIndex(MAXIMUM_CERTIFICATES_PER_PAGE);
+
             Boolean waitForCompletion = checkForCompletion(response);
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
@@ -180,7 +190,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 logger.debug("Waiting {}ms.", SLEEP_TIME);
                 Thread.sleep(SLEEP_TIME);
 
-                response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
+                response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
 
                 if ((modal.getStartTime().getTime() - new Date().getTime()) / 1000 > MAXIMUM_WAIT_TIME
                         && !isReachedMaxTime && oldCertificateCount == response.getTotalCertificatesDiscovered()) {
@@ -194,14 +204,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 waitForCompletion = checkForCompletion(response);
             }
 
-            Integer currentPage = 0;
-            Integer totalPages = 0;
+            Integer currentTotal = 0;
             List<DiscoveryProviderCertificateDataDto> certificatesDiscovered = new ArrayList<>();
-            while (currentPage <= totalPages) {
-                currentPage += 1;
-                dtoRequest.setPageNumber(currentPage);
-                response = discoveryApiClient.discoverCertificate(connector.mapToDto(), dtoRequest);
-                totalPages = response.getTotalPages();
+            while (currentTotal < response.getTotalCertificatesDiscovered()) {
+                getRequest.setStartIndex(currentTotal);
+                getRequest.setEndIndex(currentTotal + MAXIMUM_CERTIFICATES_PER_PAGE);
+                response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
                     updateDiscovery(modal, response);
@@ -209,6 +217,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     throw new InterruptedException(
                             "Too many content in response to process. Maximum processable is 100");
                 }
+                currentTotal += MAXIMUM_CERTIFICATES_PER_PAGE;
                 certificatesDiscovered.addAll(response.getCertificateData());
             }
 
@@ -218,7 +227,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             certValidationService.validateCertificates(certificates);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            modal.setStatus(DiscoveryStatus.FAILED);
+            modal.setMessage(e.getMessage());
+            discoveryRepository.save(modal);
+            logger.error(e.getMessage());
         } catch (Exception e) {
+
             modal.setStatus(DiscoveryStatus.FAILED);
             modal.setMessage(e.getMessage());
             discoveryRepository.save(modal);
@@ -228,20 +242,29 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
-    public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, NotFoundException {
+    public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
         }
         Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
+
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
+                request.getConnectorUuid(),
+                FunctionGroupCode.DISCOVERY_PROVIDER,
+                request.getAttributes(),
+                request.getKind());
+
         DiscoveryHistory modal = new DiscoveryHistory();
         modal.setName(request.getName());
         modal.setConnectorName(connector.getName());
         modal.setStartTime(new Date());
         modal.setStatus(DiscoveryStatus.IN_PROGRESS);
-        modal.setConnectorId(connector.getId());
-        modal.setAttributes(AttributeDefinitionUtils.serialize(request.getAttributes()));
-        modal.setDiscoveryType(request.getDiscoveryType());
+        modal.setConnectorUuid(connector.getUuid());
+        modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
+        modal.setKind(request.getKind());
+
         discoveryRepository.save(modal);
+
         return modal;
     }
 
@@ -299,19 +322,19 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             for (Map.Entry<String, Object> entry : MetaDefinitions.deserialize(modal.getMeta()).entrySet()) {
                 if (entry.getKey().equals("discoverySource")) {
-                    if (entry.getValue().equals(certificate.getDiscoverySource())) {
+                    if (entry.getValue().equals(certificate.getMeta().getOrDefault("discoverySource", ""))) {
                         meta.put("discoverySource", entry.getValue());
                     } else {
-                        meta.put("discoverySource", entry.getValue() + "," + certificate.getDiscoverySource());
+                        meta.put("discoverySource", entry.getValue() + "," + certificate.getMeta().getOrDefault("discoverySource", ""));
                     }
                 }
             }
         } catch (NullPointerException | IllegalStateException e) {
-            logger.debug("Meta data is null for the certificate");
+            logger.debug("Metadata is null for the certificate");
         }
 
         if (modal.getMeta() == null) {
-            meta.put("discoverySource", certificate.getDiscoverySource());
+            meta.put("discoverySource", certificate.getMeta().getOrDefault("discoverySource", ""));
         }
         modal.setMeta(MetaDefinitions.serialize(meta));
 

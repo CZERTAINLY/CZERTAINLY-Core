@@ -1,18 +1,15 @@
 package com.czertainly.core.service.v2;
 
-import com.czertainly.api.core.v2.model.ClientCertificateDataResponseDto;
-import com.czertainly.api.core.v2.model.ClientCertificateRenewRequestDto;
-import com.czertainly.api.core.v2.model.ClientCertificateRevocationDto;
-import com.czertainly.api.core.v2.model.ClientCertificateSignRequestDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.v2.model.ca.CertRevocationDto;
-import com.czertainly.api.v2.model.ca.CertificateDataResponseDto;
-import com.czertainly.api.v2.model.ca.CertificateRenewRequestDto;
-import com.czertainly.api.v2.model.ca.CertificateSignRequestDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
+import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -20,30 +17,30 @@ import java.util.List;
 public interface ClientOperationService {
 
     List<AttributeDefinition> listIssueCertificateAttributes(
-            String raProfileName) throws NotFoundException, ConnectorException;
+            String raProfileUuid) throws NotFoundException, ConnectorException;
 
     boolean validateIssueCertificateAttributes(
-            String raProfileName,
-            List<AttributeDefinition> attributes) throws NotFoundException, ConnectorException, ValidationException;
+            String raProfileUuid,
+            List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException;
 
     ClientCertificateDataResponseDto issueCertificate(
-            String raProfileName,
+            String raProfileUuid,
             ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
 
     ClientCertificateDataResponseDto renewCertificate(
-            String raProfileName,
-            String certificateId,
+            String raProfileUuid,
+            String certificateUuid,
             ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
 
     List<AttributeDefinition> listRevokeCertificateAttributes(
-            String raProfileName) throws NotFoundException, ConnectorException;
+            String raProfileUuid) throws NotFoundException, ConnectorException;
 
     boolean validateRevokeCertificateAttributes(
-            String raProfileName,
-            List<AttributeDefinition> attributes) throws NotFoundException, ConnectorException, ValidationException;
+            String raProfileUuid,
+            List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException;
 
     void revokeCertificate(
-            String raProfileName,
-            String certificateId,
+            String raProfileUuid,
+            String certificateUuid,
             ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException;
 }

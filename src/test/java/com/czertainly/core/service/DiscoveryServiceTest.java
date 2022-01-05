@@ -4,9 +4,9 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.FunctionGroupCode;
-import com.czertainly.api.model.discovery.DiscoveryDto;
-import com.czertainly.api.model.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
@@ -80,7 +80,7 @@ public class DiscoveryServiceTest {
 
         discovery = new DiscoveryHistory();
         discovery.setName(DISCOVERY_NAME);
-        discovery.setConnectorId(connector.getId());
+        discovery.setConnectorUuid(connector.getUuid());
         discovery.setConnectorName(connector.getName());
         discovery = discoveryRepository.save(discovery);
     }
@@ -104,7 +104,7 @@ public class DiscoveryServiceTest {
         DiscoveryHistoryDto dto = discoveryService.getDiscovery(discovery.getUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(discovery.getUuid(), dto.getUuid());
-        Assertions.assertEquals(discovery.getConnectorId(), dto.getConnectorId());
+        Assertions.assertEquals(discovery.getConnectorUuid(), dto.getConnectorUuid());
     }
 
     @Test
@@ -114,16 +114,23 @@ public class DiscoveryServiceTest {
 
     @Test
     public void testAddDiscovery() throws ConnectorException, AlreadyExistException {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
+                .willReturn(WireMock.okJson("true")));
+
         DiscoveryDto request = new DiscoveryDto();
         request.setName("testDiscovery2");
         request.setConnectorUuid(connector.getUuid());
         request.setAttributes(List.of());
-        request.setDiscoveryType("ApiKey");
+        request.setKind("ApiKey");
 
         DiscoveryHistory dto = discoveryService.createDiscoveryModal(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
-        Assertions.assertEquals(discovery.getConnectorId(), dto.getConnectorId());
+        Assertions.assertEquals(discovery.getConnectorUuid(), dto.getConnectorUuid());
     }
 
     @Test

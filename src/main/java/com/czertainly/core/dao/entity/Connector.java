@@ -1,12 +1,12 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.connector.AuthType;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.connector.FunctionGroupDto;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.api.model.connector.AuthType;
-import com.czertainly.api.model.connector.ConnectorDto;
-import com.czertainly.api.model.connector.ConnectorStatus;
-import com.czertainly.api.model.connector.FunctionGroupDto;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -57,7 +57,7 @@ public class Connector extends Audited implements Serializable, DtoMapper<Connec
 
     @OneToMany(mappedBy = "connector")
     @JsonIgnore
-    private Set<CAInstanceReference> caInstanceReferences = new HashSet<>();
+    private Set<AuthorityInstanceReference> authorityInstanceReferences = new HashSet<>();
 
     public Long getId() {
         return id;
@@ -123,23 +123,22 @@ public class Connector extends Audited implements Serializable, DtoMapper<Connec
         this.credentials = credentials;
     }
 
-    public Set<CAInstanceReference> getCaInstanceReferences() {
-        return caInstanceReferences;
+    public Set<AuthorityInstanceReference> getAuthorityInstanceReferences() {
+        return authorityInstanceReferences;
     }
 
-    public void setCaInstanceReferences(Set<CAInstanceReference> caInstanceReferences) {
-        this.caInstanceReferences = caInstanceReferences;
+    public void setAuthorityInstanceReferences(Set<AuthorityInstanceReference> authorityInstanceReferences) {
+        this.authorityInstanceReferences = authorityInstanceReferences;
     }
 
     @Override
     public ConnectorDto mapToDto() {
         ConnectorDto dto = new ConnectorDto();
-        dto.setId(this.id);
         dto.setUuid(this.uuid);
         dto.setName(this.name);
         dto.setUrl(this.url);
         dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes));
+        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes)));
         dto.setStatus(this.status);
         dto.setFunctionGroups(this.functionGroups.stream().map(f -> {
             FunctionGroupDto functionGroupDto = f.getFunctionGroup().mapToDto();

@@ -4,12 +4,14 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.AttributeDefinition;
-import com.czertainly.api.model.HealthDto;
-import com.czertainly.api.model.HealthStatus;
-import com.czertainly.api.model.connector.ConnectorDto;
-import com.czertainly.api.model.connector.ConnectorStatus;
-import com.czertainly.api.model.connector.FunctionGroupCode;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.HealthDto;
+import com.czertainly.api.model.common.HealthStatus;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.FunctionGroup;
@@ -107,7 +109,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testListConnectorsByFunctionGroup_notFound() {
-        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(FunctionGroupCode.LEGACY_CA_CONNECTOR);
+        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER);
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
@@ -124,7 +126,7 @@ public class ConnectorServiceTest {
     @Test
     public void testListConnectorsByFunctionGroupAndKind_notFound() {
         Assertions.assertThrows(NotFoundException.class, () ->
-                connectorService.listConnectors(FunctionGroupCode.LEGACY_CA_CONNECTOR, "wrong-kind"));
+                connectorService.listConnectors(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, "wrong-kind"));
 
     }
 
@@ -171,9 +173,13 @@ public class ConnectorServiceTest {
 
     @Test
     public void testAddConnector() throws ConnectorException, AlreadyExistException {
-        ConnectorDto request = new ConnectorDto();
+        mockServer.stubFor(WireMock
+                .get("/v1")
+                .willReturn(WireMock.okJson("[]")));
+
+        ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector2");
-        request.setFunctionGroups(List.of());
+        request.setUrl("http://localhost:3665");
 
         ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
@@ -182,24 +188,25 @@ public class ConnectorServiceTest {
 
     @Test
     public void testAddConnector_validationFail() {
-        ConnectorDto request = new ConnectorDto();
+        ConnectorRequestDto request = new ConnectorRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> connectorService.createConnector(request));
     }
 
     @Test
     public void testAddConnector_alreadyExist() {
-        ConnectorDto request = new ConnectorDto();
-        request.setName(CONNECTOR_NAME); // connector with same name exist
-        request.setFunctionGroups(List.of());
-
+        ConnectorRequestDto request = new ConnectorRequestDto();
+        request.setName(CONNECTOR_NAME);
         Assertions.assertThrows(AlreadyExistException.class, () -> connectorService.createConnector(request));
     }
 
     @Test
     public void testEditConnector() throws ConnectorException {
-        ConnectorDto request = new ConnectorDto();
-        request.setName(connector.getName());
-        request.setFunctionGroups(List.of());
+        mockServer.stubFor(WireMock
+                .get("/v1")
+                .willReturn(WireMock.okJson("[]")));
+
+        ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
+        request.setUrl("http://localhost:3665");
 
         ConnectorDto dto = connectorService.updateConnector(connector.getUuid(), request);
         Assertions.assertNotNull(dto);
@@ -207,7 +214,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testEditConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector("wrong-uuid", new ConnectorUpdateRequestDto()));
     }
 
     @Test
@@ -252,7 +259,7 @@ public class ConnectorServiceTest {
     public void testCheckHealth() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get("/v1/health")
-                .willReturn(WireMock.okJson("{ \"status\": \"OK\" }")));
+                .willReturn(WireMock.okJson("{ \"status\": \"ok\" }")));
 
         HealthDto health = connectorService.checkHealth(connector.getUuid());
         Assertions.assertNotNull(health);
@@ -280,7 +287,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testGetAttributes_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> connectorService.getAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_CA_CONNECTOR, null));
+        Assertions.assertThrows(ValidationException.class, () -> connectorService.getAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, null));
     }
 
     @Test
@@ -297,14 +304,14 @@ public class ConnectorServiceTest {
                 .post(WireMock.urlPathMatching("/v1/"+code.getCode()+"/"+kind+"/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result = connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
-        Assertions.assertTrue(result);
+        connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
+
     }
 
     @Test
     public void testValidateAttributes_validationFail() {
         Assertions.assertThrows(ValidationException.class,
-                () -> connectorService.validateAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_CA_CONNECTOR, null, null));
+                () -> connectorService.validateAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, null, null));
     }
 
     @Test
@@ -316,8 +323,7 @@ public class ConnectorServiceTest {
                 .post(WireMock.urlPathMatching("/v1/"+code.getCode()+"/"+kind+"/attributes/validate"))
                 .willReturn(WireMock.okJson("false")));
 
-        boolean result = connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
-        Assertions.assertFalse(result);
+        connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
     }
 
     @Test

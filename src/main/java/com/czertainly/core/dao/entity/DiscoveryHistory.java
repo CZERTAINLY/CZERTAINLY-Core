@@ -1,32 +1,20 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.MetaDefinitions;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+
+import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.OneToMany;
-import javax.persistence.SequenceGenerator;
-import javax.persistence.Table;
-
-import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.MetaDefinitions;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
-
-import com.fasterxml.jackson.annotation.JsonBackReference;
-
-import com.czertainly.api.model.discovery.DiscoveryHistoryDto;
-import com.czertainly.api.model.discovery.DiscoveryStatus;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 
 @Entity
 @Table(name = "discovery_history")
@@ -46,8 +34,8 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
     @Column(name = "name")
     private String name;
 
-    @Column(name = "type")
-    private String discoveryType;
+    @Column(name = "kind")
+    private String kind;
 
     @Column(name = "status")
     @Enumerated(EnumType.STRING)
@@ -68,8 +56,8 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
     @Column(name = "meta")
     private String meta;
 
-    @Column(name = "connector_id")
-    private Long connectorId;
+    @Column(name = "connector_uuid")
+    private String connectorUuid;
     
     @Column(name = "connector_name")
     private String connectorName;
@@ -144,12 +132,12 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         this.certificate = certificate;
     }
 
-    public Long getConnectorId() {
-        return connectorId;
+    public String getConnectorUuid() {
+        return connectorUuid;
     }
 
-    public void setConnectorId(Long connectorId) {
-        this.connectorId = connectorId;
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = connectorUuid;
     }
 
     public String getAttributes() {
@@ -168,12 +156,12 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         this.meta = meta;
     }
 
-    public String getDiscoveryType() {
-        return discoveryType;
+    public String getKind() {
+        return kind;
     }
 
-    public void setDiscoveryType(String discoveryType) {
-        this.discoveryType = discoveryType;
+    public void setKind(String kind) {
+        this.kind = kind;
     }
 
     public String getMessage() {
@@ -195,7 +183,6 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
 	@Override
     public DiscoveryHistoryDto mapToDto() {
         DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
-        dto.setId(id);
         dto.setUuid(uuid);
         dto.setName(name);
         dto.setEndTime(endTime);
@@ -204,9 +191,9 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
-        dto.setConnectorId(connectorId);
-        dto.setAttributes(AttributeDefinitionUtils.deserialize(attributes));
-        dto.setDiscoveryType(discoveryType);
+        dto.setConnectorUuid(connectorUuid);
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(attributes)));
+        dto.setKind(kind);
         dto.setMessage(message);
         dto.setConnectorName(connectorName);
         return dto;

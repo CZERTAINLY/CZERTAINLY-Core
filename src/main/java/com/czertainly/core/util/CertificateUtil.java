@@ -1,8 +1,8 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.discovery.CertificateStatus;
-import com.czertainly.api.model.discovery.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.config.ApplicationConfig;
 import com.czertainly.core.dao.entity.Certificate;
 import org.slf4j.Logger;
@@ -128,8 +128,13 @@ public class CertificateUtil {
 		cert = cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", "")
 				.replace("\r", "").replace("\n", "");
 		byte[] decoded = Base64.getDecoder().decode(cert);
-		return (X509Certificate) CertificateFactory.getInstance("X.509")
-				.generateCertificate(new ByteArrayInputStream(decoded));
+		try {
+			return (X509Certificate) CertificateFactory.getInstance("X.509")
+					.generateCertificate(new ByteArrayInputStream(decoded));
+		}catch (Exception e){
+			return (X509Certificate) CertificateFactory.getInstance("X.509")
+					.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
+		}
 	}
 
 	public static String getThumbprint(byte[] encodedContent)

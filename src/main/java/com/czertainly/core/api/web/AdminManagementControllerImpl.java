@@ -1,9 +1,14 @@
 package com.czertainly.core.api.web;
 
-import java.net.URI;
-import java.security.cert.CertificateException;
-import java.util.List;
-
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.interfaces.core.web.AdminManagementController;
+import com.czertainly.api.model.client.admin.AddAdminRequestDto;
+import com.czertainly.api.model.client.admin.EditAdminRequestDto;
+import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.admin.AdminDto;
+import com.czertainly.core.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,14 +16,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import com.czertainly.core.service.AdminService;
-import com.czertainly.api.core.interfaces.web.AdminManagementController;
-import com.czertainly.api.core.modal.AddAdminRequestDto;
-import com.czertainly.api.core.modal.AdminDto;
-import com.czertainly.api.core.modal.EditAdminRequestDto;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import java.net.URI;
+import java.security.cert.CertificateException;
+import java.util.List;
 
 @RestController
 public class AdminManagementControllerImpl implements AdminManagementController {
@@ -39,7 +39,9 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 		URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
 				.buildAndExpand(adminDTO.getUuid()).toUri();
 
-		return ResponseEntity.created(location).build();
+		UuidDto dto = new UuidDto();
+		dto.setUuid(adminDTO.getUuid());
+		return ResponseEntity.created(location).body(dto);
 	}
 
 	@Override

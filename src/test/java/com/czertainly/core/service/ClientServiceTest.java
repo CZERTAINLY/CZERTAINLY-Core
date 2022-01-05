@@ -1,19 +1,19 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.core.modal.AddClientRequestDto;
-import com.czertainly.api.core.modal.ClientDto;
-import com.czertainly.api.core.modal.EditClientRequestDto;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.raprofile.RaProfileDto;
-import com.czertainly.core.dao.entity.Client;
+import com.czertainly.api.model.client.client.AddClientRequestDto;
+import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.EntityManager;
 import java.security.cert.CertificateException;
 import java.util.List;
-import java.util.Set;
 
 @SpringBootTest
 @Transactional
@@ -205,7 +204,7 @@ public class ClientServiceTest {
         client.getRaProfiles().add(raProfile);
         clientRepository.save(client);
 
-        List<RaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertFalse(auths.isEmpty());
         Assertions.assertEquals(raProfile.getUuid(), auths.get(0).getUuid());
@@ -218,7 +217,7 @@ public class ClientServiceTest {
 
     @Test
     public void testListAuthorizations_emptyAuthorizations() throws NotFoundException {
-        List<RaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }
@@ -231,7 +230,7 @@ public class ClientServiceTest {
         entityManager.flush();
         entityManager.refresh(client);
 
-        List<RaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertFalse(auths.isEmpty());
         Assertions.assertEquals(raProfile.getUuid(), auths.get(0).getUuid());
@@ -258,7 +257,7 @@ public class ClientServiceTest {
         entityManager.flush();
         entityManager.refresh(client);
 
-        List<RaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }

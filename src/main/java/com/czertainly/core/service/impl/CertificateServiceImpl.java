@@ -1,12 +1,16 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.core.modal.*;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.discovery.CertificateDto;
-import com.czertainly.api.model.discovery.CertificateStatus;
+import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
+import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -34,353 +38,376 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({ "ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR" , "ROLE_CLIENT"})
+@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT"})
 public class CertificateServiceImpl implements CertificateService {
 
-	private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
-	@Autowired
-	private CertificateRepository certificateRepository;
+    @Autowired
+    private CertificateRepository certificateRepository;
 
-	@Autowired
-	private RaProfileRepository raProfileRepository;
+    @Autowired
+    private RaProfileRepository raProfileRepository;
 
-	@Autowired
-	private CertificateGroupRepository certificateGroupRepository;
+    @Autowired
+    private GroupRepository groupRepository;
 
-	@Autowired
-	private CertificateEntityRepository certificateEntityRepository;
+    @Autowired
+    private EntityRepository entityRepository;
 
-	@Autowired
-	private CertificateContentRepository certificateContentRepository;
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
 
-	@Autowired
-	private DiscoveryCertificateRepository discoveryCertificateRepository;
+    @Autowired
+    private DiscoveryCertificateRepository discoveryCertificateRepository;
 
-	@Autowired
-	private ClientRepository clientRepository;
-	
-	@Autowired
-	private AdminRepository adminRepository;
+    @Autowired
+    private ClientRepository clientRepository;
 
-	@Autowired
-	private CertValidationService certValidationService;
+    @Autowired
+    private AdminRepository adminRepository;
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-	public List<CertificateDto> listCertificates(Integer start, Integer end) {
-		if(start!=null && end!=null){
-			if(start >1){
-				start = start -1;
-			}
-			Pageable page = PageRequest.of(start, end +1);
-			return certificateRepository.findAll(page).stream().map(Certificate::mapToDto).collect(Collectors.toList());
+    @Autowired
+    private CertValidationService certValidationService;
 
-		}
-		return certificateRepository.findAll().stream().map(Certificate::mapToDto).collect(Collectors.toList());
-	}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    public List<CertificateDto> listCertificates(Integer start, Integer end) {
+        if (start != null && end != null) {
+            if (start > 1) {
+                start = start - 1;
+            }
+            Pageable page = PageRequest.of(start, end + 1);
+            return certificateRepository.findAll(page).stream().map(Certificate::mapToDto).collect(Collectors.toList());
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-	public CertificateDto getCertificate(String uuid) throws NotFoundException {
-		return getCertificateEntity(uuid).mapToDto();
-	}
+        }
+        return certificateRepository.findAll().stream().map(Certificate::mapToDto).collect(Collectors.toList());
+    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-	public Certificate getCertificateEntity(String uuid) throws NotFoundException {
-		return certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-	}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    public CertificateDto getCertificate(String uuid) throws NotFoundException {
+        return getCertificateEntity(uuid).mapToDto();
+    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-	public Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException {
-		return certificateRepository.findBySerialNumberIgnoreCase(serialNumber)
-				.orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
-	}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    public Certificate getCertificateEntity(String uuid) throws NotFoundException {
+        return certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
-	public void removeCertificate(String uuid) throws NotFoundException {
-		Certificate certificate = certificateRepository.findByUuid(uuid)
-				.orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    public Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException {
+        return certificateRepository.findBySerialNumberIgnoreCase(serialNumber)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
+    }
 
-		List<ValidationError> errors = new ArrayList<>();
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
+    public void removeCertificate(String uuid) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
 
-		for (Client client: clientRepository.findByCertificate(certificate)) {
-			errors.add(ValidationError.create("Certificate has Client " + client.getName()+ " associated to it"));
-		}
-		
-		for (Admin admin: adminRepository.findByCertificate(certificate)) {
-			errors.add(ValidationError.create("Certificate has Admin " + admin.getName()+ " associated to it"));
-		}
+        List<ValidationError> errors = new ArrayList<>();
 
-		if (!errors.isEmpty()) {
-			throw new ValidationException("Could not delete certificate", errors);
-		}
-		if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
-			CertificateContent content = certificateContentRepository
-					.findById(certificate.getCertificateContent().getId()).orElse(null);
-			if (content != null) {
-				certificateContentRepository.delete(content);
-			}
-		}
+        for (Client client : clientRepository.findByCertificate(certificate)) {
+            errors.add(ValidationError.create("Certificate has Client " + client.getName() + " associated to it"));
+        }
 
-		certificateRepository.delete(certificate);
-	}
+        for (Admin admin : adminRepository.findByCertificate(certificate)) {
+            errors.add(ValidationError.create("Certificate has Admin " + admin.getName() + " associated to it"));
+        }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void updateRaProfile(String uuid, UuidDto request) throws NotFoundException {
-		Certificate certificate = certificateRepository.findByUuid(uuid)
-				.orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-		RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
-				.orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-		certificate.setRaProfile(raProfile);
-		certificateRepository.save(certificate);
-	}
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Could not delete certificate", errors);
+        }
+        if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
+            CertificateContent content = certificateContentRepository
+                    .findById(certificate.getCertificateContent().getId()).orElse(null);
+            if (content != null) {
+                certificateContentRepository.delete(content);
+            }
+        }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void updateCertificateGroup(String uuid, UuidDto request) throws NotFoundException {
-		Certificate certificate = certificateRepository.findByUuid(uuid)
-				.orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        certificateRepository.delete(certificate);
+    }
 
-		CertificateGroup group = certificateGroupRepository.findByUuid(request.getUuid())
-				.orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void updateRaProfile(String uuid, CertificateUpdateRAProfileDto request) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        RaProfile raProfile = raProfileRepository.findByUuid(request.getRaProfileUuid())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
+        certificate.setRaProfile(raProfile);
+        certificateRepository.save(certificate);
+    }
 
-		certificate.setGroup(group);
-		certificateRepository.save(certificate);
-	}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void updateCertificateGroup(String uuid, CertificateUpdateGroupDto request) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void updateEntity(String uuid, UuidDto request) throws NotFoundException {
-		Certificate certificate = certificateRepository.findByUuid(uuid)
-				.orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-		CertificateEntity entity = certificateEntityRepository.findByUuid(request.getUuid())
-				.orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-		certificate.setEntity(entity);
-		certificateRepository.save(certificate);
+        CertificateGroup certificateGroup = groupRepository.findByUuid(request.getGroupUuid())
+                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getGroupUuid()));
 
-	}
+        certificate.setGroup(certificateGroup);
+        certificateRepository.save(certificate);
+    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void updateOwner(String uuid, CertificateOwnerRequestDto request) throws NotFoundException {
-		Certificate certificate = certificateRepository.findByUuid(uuid)
-				.orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-		certificate.setOwner(request.getOwner());
-		certificateRepository.save(certificate);
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void updateEntity(String uuid, CertificateUpdateEntityDto request) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        CertificateEntity certificateEntity = entityRepository.findByUuid(request.getEntityUuid())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getEntityUuid()));
+        certificate.setEntity(certificateEntity);
+        certificateRepository.save(certificate);
 
-	}
+    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void bulkUpdateRaProfile(IdAndCertificateIdDto request) throws NotFoundException {
-		for (String certificateUuid : request.getCertificateIds()) {
-			Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-					.orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-			RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
-					.orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-			certificate.setRaProfile(raProfile);
-			certificateRepository.save(certificate);
-		}
-	}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void updateOwner(String uuid, CertificateOwnerRequestDto request) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        certificate.setOwner(request.getOwner());
+        certificateRepository.save(certificate);
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void bulkUpdateCertificateGroup(IdAndCertificateIdDto request) throws NotFoundException {
-		for (String certificateUuid : request.getCertificateIds()) {
-			Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-					.orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+    }
 
-			CertificateGroup group = certificateGroupRepository.findByUuid(request.getUuid())
-					.orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
+        for (String certificateUuid : request.getCertificateUuids()) {
+            Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                    .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+            RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
+                    .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
+            certificate.setRaProfile(raProfile);
+            certificateRepository.save(certificate);
+        }
+    }
 
-			certificate.setGroup(group);
-			certificateRepository.save(certificate);
-		}
-	}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException {
+        for (String certificateUuid : request.getCertificateUuids()) {
+            Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                    .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void bulkUpdateEntity(IdAndCertificateIdDto request) throws NotFoundException {
-		for (String certificateUuid : request.getCertificateIds()) {
-			Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-					.orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-			CertificateEntity entity = certificateEntityRepository.findByUuid(request.getUuid())
-					.orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-			certificate.setEntity(entity);
-			certificateRepository.save(certificate);
-		}
-	}
+            CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
+                    .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
-		for (String certificateId : request.getCertificateIds()) {
-			Certificate certificate = certificateRepository.findByUuid(certificateId)
-					.orElseThrow(() -> new NotFoundException(Certificate.class, certificateId));
-			certificate.setOwner(request.getOwner());
-			certificateRepository.save(certificate);
-		}
-	}
+            certificate.setGroup(certificateGroup);
+            certificateRepository.save(certificate);
+        }
+    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
-	public void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
-		for (String uuid : request.getUuids()) {
-			Certificate certificate = certificateRepository.findByUuid(uuid)
-					.orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-			if(!adminRepository.findByCertificate(certificate).isEmpty()){
-				logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
-				continue;
-			}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException {
+        for (String certificateUuid : request.getCertificateUuids()) {
+            Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                    .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+            CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
+                    .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
+            certificate.setEntity(certificateEntity);
+            certificateRepository.save(certificate);
+        }
+    }
 
-			if(!clientRepository.findByCertificate(certificate).isEmpty()){
-				logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
-				continue;
-			}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
+        for (String certificateId : request.getCertificateUuids()) {
+            Certificate certificate = certificateRepository.findByUuid(certificateId)
+                    .orElseThrow(() -> new NotFoundException(Certificate.class, certificateId));
+            certificate.setOwner(request.getOwner());
+            certificateRepository.save(certificate);
+        }
+    }
 
-			if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
-				CertificateContent content = certificateContentRepository
-						.findById(certificate.getCertificateContent().getId()).orElse(null);
-				if (content != null) {
-					certificateContentRepository.delete(content);
-				}
-			}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
+    public void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
+        for (String uuid : request.getUuids()) {
+            Certificate certificate = certificateRepository.findByUuid(uuid)
+                    .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+            if (!adminRepository.findByCertificate(certificate).isEmpty()) {
+                logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
+                continue;
+            }
 
-			certificateRepository.delete(certificate);
-		}
-	}
+            if (!clientRepository.findByCertificate(certificate).isEmpty()) {
+                logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
+                continue;
+            }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-	public void updateIssuer() {
-		for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
-			if (certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
-				logger.debug("Certificate with UUID {} is self signed / CA", certificate.getUuid());
-			} else {
-				Certificate issuer = certificateRepository.findBySubjectDn(certificate.getIssuerDn()).orElse(null);
-				if (issuer != null) {
-					try {
-						X509Certificate issuerCert = CertificateUtil
-								.parseCertificate(issuer.getCertificateContent().getContent());
-						X509Certificate subjectCert = CertificateUtil
-								.parseCertificate(certificate.getCertificateContent().getContent());
+            if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
+                CertificateContent content = certificateContentRepository
+                        .findById(certificate.getCertificateContent().getId()).orElse(null);
+                if (content != null) {
+                    certificateContentRepository.delete(content);
+                }
+            }
 
-						try {
-							subjectCert.verify(issuerCert.getPublicKey());
-							certificate.setIssuerSerialNumber(issuer.getSerialNumber());
-							certificateRepository.save(certificate);
-						} catch (Exception e) {
-							logger.debug("Error when getting the issuer");
-						}
+            certificateRepository.delete(certificate);
+        }
+    }
 
-					} catch (CertificateException e) {
-						logger.warn("Unable to parse the issuer with subject {}", certificate.getIssuerDn());
-					}
-				} else {
-					logger.warn("Unable to find the issuer with subject {}", certificate.getIssuerDn());
-				}
-			}
-		}
-	}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    public void updateIssuer() {
+        for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
+            if (certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
+                logger.debug("Certificate with UUID {} is self signed / CA", certificate.getUuid());
+            } else {
+                for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
+                    X509Certificate subCert;
+                    X509Certificate issCert;
+                    try {
+                        subCert = getX509(certificate.getCertificateContent().getContent());
+                        issCert = getX509(issuer.getCertificateContent().getContent());
+                    } catch (Exception e) {
+                        continue;
+                    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
-	public Certificate createCertificateEntity(X509Certificate certificate) {
-		logger.debug("Making a new entry for a certificate");
-		Certificate modal = new Certificate();
-		String fingerprint = null;
-		try {
-			fingerprint = CertificateUtil.getThumbprint(certificate.getEncoded());
-			Optional<Certificate> existingCertificate = certificateRepository.findByFingerprint(fingerprint);
+                    if (verifySignature(subCert, issCert)) {
+                        try {
+                            X509Certificate issuerCert = CertificateUtil
+                                    .parseCertificate(issuer.getCertificateContent().getContent());
+                            X509Certificate subjectCert = CertificateUtil
+                                    .parseCertificate(certificate.getCertificateContent().getContent());
 
-			if (existingCertificate.isPresent()) {
-				return existingCertificate.get();
-			}
-		} catch (CertificateEncodingException | NoSuchAlgorithmException e) {
-			logger.error("Unable to calculate sha 256 thumbprint");
-		}
+                            try {
+                                subjectCert.verify(issuerCert.getPublicKey());
+                                certificate.setIssuerSerialNumber(issuer.getSerialNumber());
+                                certificateRepository.save(certificate);
+                            } catch (Exception e) {
+                                logger.debug("Error when getting the issuer");
+                            }
+
+                        } catch (CertificateException e) {
+                            logger.warn("Unable to parse the issuer with subject {}", certificate.getIssuerDn());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
+        try {
+            subjectCertificate.verify(issuerCertificate.getPublicKey());
+            return true;
+        } catch (Exception e) {
+            logger.warn("Unable to verify certificate for signature.", e);
+            return false;
+        }
+    }
+
+    private X509Certificate getX509(String certificate) throws CertificateException {
+        return CertificateUtil.getX509Certificate(certificate.replace("-----BEGIN CERTIFICATE-----", "")
+                .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", ""));
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+    public Certificate createCertificateEntity(X509Certificate certificate) {
+        logger.debug("Making a new entry for a certificate");
+        Certificate modal = new Certificate();
+        String fingerprint = null;
+        try {
+            fingerprint = CertificateUtil.getThumbprint(certificate.getEncoded());
+            Optional<Certificate> existingCertificate = certificateRepository.findByFingerprint(fingerprint);
+
+            if (existingCertificate.isPresent()) {
+                return existingCertificate.get();
+            }
+        } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
+            logger.error("Unable to calculate sha 256 thumbprint");
+        }
 
         CertificateUtil.prepareCertificate(modal, certificate);
         modal.setFingerprint(fingerprint);
         modal.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
 
-		return modal;
-	}
+        return modal;
+    }
 
-	private CertificateContent checkAddCertificateContent(String fingerprint, String content) {
-		CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
-		if (certificateContent != null) {
-			return certificateContent;
-		}
+    private CertificateContent checkAddCertificateContent(String fingerprint, String content) {
+        CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
+        if (certificateContent != null) {
+            return certificateContent;
+        }
 
-		certificateContent = new CertificateContent();
-		certificateContent.setContent(CertificateUtil.normalizeCertificateContent(content));
-		certificateContent.setFingerprint(fingerprint);
+        certificateContent = new CertificateContent();
+        certificateContent.setContent(CertificateUtil.normalizeCertificateContent(content));
+        certificateContent.setFingerprint(fingerprint);
 
         certificateContentRepository.save(certificateContent);
-		return certificateContent;
-	}
+        return certificateContent;
+    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
-	public Certificate saveCertificateEntity(String cert) throws CertificateException {
-		X509Certificate certificate = CertificateUtil.parseCertificate(cert);
-		Certificate entity = createCertificateEntity(certificate);
-		certificateRepository.save(entity);
-		return entity;
-	}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+    public Certificate saveCertificateEntity(String cert) throws CertificateException {
+        X509Certificate certificate = CertificateUtil.parseCertificate(cert);
+        Certificate entity = createCertificateEntity(certificate);
+        certificateRepository.save(entity);
+        return entity;
+    }
 
-	@Override
-	@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
-	public CertificateDto upload(UploadCertificateRequestDto request)
-			throws AlreadyExistException, CertificateException {
-		X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
-		String certificateSerialNumber = certificate.getSerialNumber().toString(16);
-		if (!certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isEmpty()) {
-			throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
-		}
-		Certificate entity = createCertificateEntity(certificate);
-		certificateRepository.save(entity);
-		updateIssuer();
-		try {
-			certValidationService.validate(entity);
-		} catch (Exception e){
-			logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
-		}
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+    public CertificateDto upload(UploadCertificateRequestDto request)
+            throws AlreadyExistException, CertificateException {
+        X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
+        String certificateSerialNumber = certificate.getSerialNumber().toString(16);
+        if (!certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isEmpty()) {
+            throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
+        }
+        Certificate entity = createCertificateEntity(certificate);
+        certificateRepository.save(entity);
+        updateIssuer();
+        try {
+            certValidationService.validate(entity);
+        } catch (Exception e) {
+            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
+        }
 
-		return entity.mapToDto();
-	}
+        return entity.mapToDto();
+    }
 
-	@Override
-	public Certificate checkCreateCertificate(X509Certificate certificate) throws AlreadyExistException {
-		String certificateSerialNumber = certificate.getSerialNumber().toString(16);
-		if (!certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isEmpty()) {
-			throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
-		}
-		Certificate entity = createCertificateEntity(certificate);
-		certificateRepository.save(entity);
-		return entity;
-	}
+    @Override
+    public Certificate checkCreateCertificate(X509Certificate certificate) throws AlreadyExistException {
+        String certificateSerialNumber = certificate.getSerialNumber().toString(16);
+        if (!certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isEmpty()) {
+            throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
+        }
+        Certificate entity = createCertificateEntity(certificate);
+        certificateRepository.save(entity);
+        return entity;
+    }
 
-	@Override
-	public Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException {
-		X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
-		String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
-		if (!certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isEmpty()) {
-			throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
-		}
-		Certificate entity = createCertificateEntity(x509Cert);
-		certificateRepository.save(entity);
-		return entity;
-	}
+    @Override
+    public Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException {
+        X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
+        String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
+        if (!certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isEmpty()) {
+            throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
+        }
+        Certificate entity = createCertificateEntity(x509Cert);
+        certificateRepository.save(entity);
+        return entity;
+    }
 
-	@Override
-	public void revokeCertificate(String serialNumber) {
+    @Override
+    public void revokeCertificate(String serialNumber) {
         try {
             Certificate certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
             certificate.setStatus(CertificateStatus.REVOKED);
