@@ -1,0 +1,157 @@
+package com.czertainly.core.dao.entity.acme;
+
+import com.czertainly.api.model.core.acme.*;
+import com.czertainly.core.dao.entity.Audited;
+import com.czertainly.core.util.AcmeSerializationUtil;
+import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Entity
+@Table(name = "acme_authorization")
+public class AcmeAuthorization  extends Audited implements Serializable, DtoMapper<Authorization> {
+
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_new_authorization_seq")
+    @SequenceGenerator(name = "acme_new_authorization_seq", sequenceName = "acme_new_authorization_id_seq", allocationSize = 1)
+    private Long id;
+
+    @Column(name="authorization_id")
+    private String authorizationId;
+
+    @Column(name="url")
+    private String url;
+
+    @Column(name="identifier")
+    private String identifier;
+
+    @Column(name="status")
+    @Enumerated(EnumType.STRING)
+    private AuthorizationStatus status;
+
+    @Column(name = "expires")
+    private Date expires;
+
+    @JsonBackReference
+    @OneToMany(mappedBy = "authorization")
+    private Set<AcmeChallenge> challenges = new HashSet<>();
+
+    @Column(name="wildcard")
+    private Boolean wildcard;
+
+    @OneToOne
+    @JoinColumn(name = "order_id", nullable = false)
+    private AcmeOrder order;
+
+    @Override
+    public Authorization mapToDto() {
+        DateTimeFormatter formatter = DateTimeFormatter
+                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
+                .withZone(ZoneId.of("UTC"));
+        Authorization authorization = new Authorization();
+        authorization.setStatus(status);
+        if(expires != null) {
+            authorization.setExpires(formatter.format(expires.toInstant()));
+        }
+        authorization.setWildcard(wildcard);
+        authorization.setIdentifier(AcmeSerializationUtil.deserializeIdentifier(identifier));
+        authorization.setChallenges(challenges.stream().map(AcmeChallenge::mapToDto).collect(Collectors.toList()));
+        return authorization;
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
+                .append("id", id)
+                .append("authorizationId", authorizationId)
+                .append("status", status)
+                .append("expires", expires)
+                .append("wildcard", wildcard)
+                .append("challenges", challenges)
+                .append("url", url)
+                .toString();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getUrl() {
+        return url;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
+
+    public AcmeOrder getOrder() {
+        return order;
+    }
+
+    public void setOrder(AcmeOrder order) {
+        this.order = order;
+    }
+
+    public String getAuthorizationId() {
+        return authorizationId;
+    }
+
+    public void setAuthorizationId(String authorizationId) {
+        this.authorizationId = authorizationId;
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public void setIdentifier(String identifier) {
+        this.identifier = identifier;
+    }
+
+    public AuthorizationStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(AuthorizationStatus status) {
+        this.status = status;
+    }
+
+    public Date getExpires() {
+        return expires;
+    }
+
+    public void setExpires(Date expires) {
+        this.expires = expires;
+    }
+
+    public Boolean getWildcard() {
+        return wildcard;
+    }
+
+    public void setWildcard(Boolean wildcard) {
+        this.wildcard = wildcard;
+    }
+
+    public Set<AcmeChallenge> getChallenges() {
+        return challenges;
+    }
+
+    public void setChallenges(Set<AcmeChallenge> challenges) {
+        this.challenges = challenges;
+    }
+}
