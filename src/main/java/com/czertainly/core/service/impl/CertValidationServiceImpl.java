@@ -310,7 +310,8 @@ public class CertValidationServiceImpl implements CertValidationService {
         }
     }
 
-    private List<Certificate> getCertificateChain(Certificate certificate) {
+    @Override
+    public List<Certificate> getCertificateChain(Certificate certificate) {
         List<Certificate> chainCerts = new ArrayList<>();
         chainCerts.add(certificate);
         int previousLength = 1;

@@ -7,6 +7,7 @@ import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -29,9 +30,6 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
 
     @Column(name="authorization_id")
     private String authorizationId;
-
-    @Column(name="url")
-    private String url;
 
     @Column(name="identifier")
     private String identifier;
@@ -79,7 +77,6 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
                 .append("expires", expires)
                 .append("wildcard", wildcard)
                 .append("challenges", challenges)
-                .append("url", url)
                 .toString();
     }
 
@@ -89,14 +86,6 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
 
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public String getUrl() {
-        return url;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
     }
 
     public AcmeOrder getOrder() {
@@ -153,5 +142,13 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
 
     public void setChallenges(Set<AcmeChallenge> challenges) {
         this.challenges = challenges;
+    }
+
+    private String getBaseUrl() {
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/test";
+    }
+    // Customer Getter for Authorization URL
+    public String getUrl() {
+        return getBaseUrl() + "/authz/" + authorizationId;
     }
 }

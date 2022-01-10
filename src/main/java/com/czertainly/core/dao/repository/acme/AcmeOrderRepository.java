@@ -13,4 +13,5 @@ import java.util.Optional;
 public interface AcmeOrderRepository extends JpaRepository<AcmeOrder, Long> {
     Optional<AcmeOrder> findByUuid(String uuid);
     Optional<AcmeOrder> findByOrderId(String orderId);
+    Optional<AcmeOrder> findByCertificateId(String certificateId);
 }

@@ -6,6 +6,7 @@ import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -27,9 +28,6 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
 
     @Column(name="type")
     private String type;
-
-    @Column(name = "url")
-    private String url;
 
     @Column(name="token")
     private String token;
@@ -54,7 +52,7 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
         challenge.setStatus(status);
         challenge.setToken(token);
         challenge.setType(type);
-        challenge.setUrl(url);
+        challenge.setUrl(getUrl());
         if(validated != null) {
             challenge.setValidated(formatter.format(validated.toInstant()));
         }
@@ -68,7 +66,6 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
                 .append("challengeId", challengeId)
                 .append("type", type)
                 .append("status", status)
-                .append("url", url)
                 .append("validated", validated)
                 .toString();
 
@@ -106,14 +103,6 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
         this.type = type;
     }
 
-    public String getUrl() {
-        return url;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
-    }
-
     public String getToken() {
         return token;
     }
@@ -136,5 +125,15 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
 
     public void setValidated(Date validated) {
         this.validated = validated;
+    }
+
+    // Customer Getter for Challenge URL
+
+    private String getBaseUrl() {
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/test";
+    }
+
+    public String getUrl() {
+        return getBaseUrl() + "/chall/" + challengeId;
     }
 }

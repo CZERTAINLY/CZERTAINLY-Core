@@ -26,6 +26,7 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     List<Certificate> findByKeySize(Integer keySize);
     List<Certificate> findByBasicConstraints(String basicConstraints);
     List<Certificate> findByNotAfterLessThan(Date notAfter);
+    Optional<Certificate> findByIssuerSerialNumberIgnoreCase(String issuerSerialNumber);
     Optional <Certificate> findByCommonName(String commonName);
     Certificate findByCertificateContent(CertificateContent certificateContent);
 	Optional<Certificate> findByFingerprint(String fingerprint);

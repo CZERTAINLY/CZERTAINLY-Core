@@ -1,6 +1,7 @@
 package com.czertainly.core.util;
 
 import com.czertainly.core.service.acme.impl.AcmeServiceImpl;
+import com.nimbusds.jose.util.Base64URL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +28,7 @@ public class AcmeRandomGeneratorAndValidator {
         SecureRandom secureRandom = new SecureRandom();
         byte[] nonceArray = new byte[NONCE_SIZE];
         secureRandom.nextBytes(nonceArray);
-        String nonce = Base64.getEncoder().encodeToString(nonceArray);
+        String nonce = Base64URL.encode(nonceArray).toString();
         return nonce;
     }
 
@@ -35,7 +36,7 @@ public class AcmeRandomGeneratorAndValidator {
         SecureRandom secureRandom = new SecureRandom();
         byte[] randomArray = new byte[RANDOM_ID_SIZE];
         secureRandom.nextBytes(randomArray);
-        String randomId = Base64.getEncoder().encodeToString(randomArray);
+        String randomId = Base64URL.encode(randomArray).toString();
         return randomId.replace("/", "-");
     }
 
@@ -43,7 +44,7 @@ public class AcmeRandomGeneratorAndValidator {
         SecureRandom secureRandom = new SecureRandom();
         byte[] randomArray = new byte[RANDOM_CHALLANGE_TOKEN_SIZE];
         secureRandom.nextBytes(randomArray);
-        String randomId = Base64.getEncoder().encodeToString(randomArray);
+        String randomId = Base64URL.encode(randomArray).toString();
         return randomId.replace("/","0");
     }
 }

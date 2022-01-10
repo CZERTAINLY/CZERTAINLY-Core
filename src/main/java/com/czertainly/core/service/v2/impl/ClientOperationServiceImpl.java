@@ -44,7 +44,7 @@ import java.util.List;
 
 @Service("clientOperationServiceImplV2")
 @Transactional
-@Secured({"ROLE_CLIENT"})
+//@Secured({"ROLE_CLIENT"})
 public class ClientOperationServiceImpl implements ClientOperationService {
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
 
