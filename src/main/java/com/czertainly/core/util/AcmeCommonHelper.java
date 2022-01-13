@@ -11,7 +11,11 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,6 +23,13 @@ import java.util.Map;
  * Class contains the common operations and helper functions to process the acme request
  */
 public class AcmeCommonHelper {
+
+    private static final Integer COMMON_EXPIRES_IN_SECONDS = 10 * 60 * 60 * 1000;
+
+    public static Date getDefaultExpires(){
+        return new Date(new Date().getTime() + COMMON_EXPIRES_IN_SECONDS);
+    }
+
     public static String keyAuthorizationGenerator(String token, String publicKey) throws NoSuchAlgorithmException {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hash = digest.digest(publicKey.getBytes(StandardCharsets.UTF_8));
@@ -50,5 +61,25 @@ public class AcmeCommonHelper {
         values.put("n",Base64.getUrlEncoder().encodeToString(rsa.getModulus().toByteArray()));
         values.put("e",Base64.getUrlEncoder().encodeToString(rsa.getPublicExponent().toByteArray()));
         return values;
+    }
+
+    public static String getStringFromDate(Date date){
+        if(date == null){
+            return null;
+        }
+        DateTimeFormatter formatter = DateTimeFormatter
+                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
+                .withZone(ZoneId.of("UTC"));
+        return formatter.format(date.toInstant());
+    }
+
+    public static Date getDateFromString(String date){
+        if(date == null || date.isEmpty()){
+            return null;
+        }
+        DateTimeFormatter formatter = DateTimeFormatter
+                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
+                .withZone(ZoneId.of("UTC"));
+        return new Date(Instant.from(formatter.parse(date)).getEpochSecond());
     }
 }

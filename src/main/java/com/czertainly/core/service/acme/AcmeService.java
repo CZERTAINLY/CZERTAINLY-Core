@@ -6,12 +6,14 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.acme.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.nimbusds.jose.JOSEException;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.List;
 
 /**
  * Acme service class for method implementations. This service will be used by
@@ -22,9 +24,15 @@ public interface AcmeService {
 
     ResponseEntity<Account> newAccount(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 
-    ResponseEntity<Order> newOrder(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException;
+    ResponseEntity<Account> updateAccount(String acmeProfileName, String accountId, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 
-    ResponseEntity<Authorization> getAuthorization(String acmeProfileName, String authorizationId) throws NotFoundException;
+    ResponseEntity<?> keyRollover(String acmeProfileName, String jwsBody) throws NotFoundException, AcmeProblemDocumentException;
+
+    ResponseEntity<Order> newOrder(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
+
+    ResponseEntity<List<Order>> listOrders(String acmeProfileName, String accountId) throws NotFoundException;
+
+    ResponseEntity<Authorization> getAuthorization(String acmeProfileName, String authorizationId, String jwsBody) throws NotFoundException, AcmeProblemDocumentException;
 
     ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException;
 
@@ -33,4 +41,6 @@ public interface AcmeService {
     ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException;
 
     ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId) throws NotFoundException, CertificateException;
+
+    ResponseEntity<?> revokeCertificate(String acmeProfileName, String jwsBody) throws AcmeProblemDocumentException, ConnectorException, CertificateException;
 }

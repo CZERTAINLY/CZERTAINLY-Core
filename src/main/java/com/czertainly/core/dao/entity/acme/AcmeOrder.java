@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.acme;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.AcmeSerializationUtil;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -65,9 +66,6 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
 
     @Override
     public Order mapToDto(){
-        DateTimeFormatter formatter = DateTimeFormatter
-                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
-                .withZone(ZoneId.of("UTC"));
         Order order = new Order();
         order.setAuthorizations(authorizations.stream().map(AcmeAuthorization::getUrl).collect(Collectors.toList()));
         order.setFinalize(getFinalizeUrl());
@@ -75,15 +73,9 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
             order.setCertificate(getCertificateUrl());
         }
         order.setStatus(status);
-        if(expires != null) {
-            order.setExpires(formatter.format(expires.toInstant()));
-        }
-        if(notAfter!= null) {
-            order.setNotAfter(formatter.format(notAfter.toInstant()));
-        }
-        if(notBefore != null) {
-            order.setNotBefore(formatter.format(notBefore.toInstant()));
-        }
+        order.setExpires(AcmeCommonHelper.getStringFromDate(expires));
+        order.setNotAfter(AcmeCommonHelper.getStringFromDate(notAfter));
+        order.setNotBefore(AcmeCommonHelper.getStringFromDate(notBefore));
         order.setIdentifiers(AcmeSerializationUtil.deserializeIdentifiers(identifiers));
         return order;
     }

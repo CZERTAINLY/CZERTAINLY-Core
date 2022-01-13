@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity.acme;
 
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.core.dao.entity.Audited;
+import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.AcmeSerializationUtil;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -54,14 +55,10 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
 
     @Override
     public Authorization mapToDto() {
-        DateTimeFormatter formatter = DateTimeFormatter
-                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
-                .withZone(ZoneId.of("UTC"));
+
         Authorization authorization = new Authorization();
         authorization.setStatus(status);
-        if(expires != null) {
-            authorization.setExpires(formatter.format(expires.toInstant()));
-        }
+        authorization.setExpires(AcmeCommonHelper.getStringFromDate(expires));
         authorization.setWildcard(wildcard);
         authorization.setIdentifier(AcmeSerializationUtil.deserializeIdentifier(identifier));
         authorization.setChallenges(challenges.stream().map(AcmeChallenge::mapToDto).collect(Collectors.toList()));

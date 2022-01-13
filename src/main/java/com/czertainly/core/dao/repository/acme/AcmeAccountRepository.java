@@ -12,4 +12,5 @@ import java.util.Optional;
 public interface AcmeAccountRepository extends JpaRepository<AcmeAccount, Long> {
     Optional<AcmeAccount> findByUuid(String uuid);
     Optional<AcmeAccount> findByAccountId(String accountId);
+    AcmeAccount findByPublicKey(String publicKey);
 }

@@ -2,7 +2,9 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.core.acme.Identifier;
 import com.czertainly.api.model.core.certificate.CertificateValidationDto;
+import com.czertainly.core.dao.entity.acme.AcmeOrder;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
@@ -53,13 +55,14 @@ public class AcmeSerializationUtil {
 		}
 	}
 
-	public static Object deserialize(String object) {
+	public static Object deserialize(String object, Class returnType) {
+		OBJECT_MAPPER.configure(
+				DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 		if (object == null || object.isEmpty()) {
 			return new ArrayList<>();
 		}
 		try {
-			return OBJECT_MAPPER.readValue(object, new TypeReference<>() {
-			});
+			return OBJECT_MAPPER.readValue(object, returnType);
 		} catch (Exception e) {
 			throw new IllegalStateException(e);
 		}

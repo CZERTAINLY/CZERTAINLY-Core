@@ -5,10 +5,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.acme.AcmeController;
-import com.czertainly.api.model.core.acme.Authorization;
-import com.czertainly.api.model.core.acme.Challenge;
-import com.czertainly.api.model.core.acme.Directory;
-import com.czertainly.api.model.core.acme.Order;
+import com.czertainly.api.model.core.acme.*;
 import com.czertainly.core.service.acme.AcmeService;
 import com.czertainly.core.util.AcmeRandomGeneratorAndValidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -22,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.List;
 
 /**
  * This class contains the methods for ACME Implementation. The calss implements
@@ -58,28 +56,28 @@ public class AcmeControllerImpl implements AcmeController {
     }
 
     @Override
-    public void updateAccount(String acmeProfileName, String jwsBody) {
-
+    public ResponseEntity<Account> updateAccount(String acmeProfileName, String accountId, String jwsBody) throws AcmeProblemDocumentException, NotFoundException {
+        return acmeService.updateAccount(acmeProfileName, accountId, jwsBody);
     }
 
     @Override
-    public void keyRollover(String acmeProfileName) {
-
+    public ResponseEntity<?> keyRollover(String acmeProfileName, String jwsBody) throws NotFoundException, AcmeProblemDocumentException {
+        return acmeService.keyRollover(acmeProfileName, jwsBody);
     }
 
     @Override
-    public ResponseEntity<Order> newOrder(String acmeProfileName, String jwsBody) throws AcmeProblemDocumentException {
+    public ResponseEntity<Order> newOrder(String acmeProfileName, String jwsBody) throws AcmeProblemDocumentException, NotFoundException {
         return acmeService.newOrder(acmeProfileName, jwsBody);
     }
 
     @Override
-    public void listOrders(String acmeProfileName, String accountId) {
-
+    public ResponseEntity<List<Order>> listOrders(String acmeProfileName, String accountId) throws NotFoundException {
+        return acmeService.listOrders(acmeProfileName, accountId);
     }
 
     @Override
-    public ResponseEntity<Authorization> getAuthorizations(String acmeProfileName, String authorizationId) throws NotFoundException {
-        return acmeService.getAuthorization(acmeProfileName, authorizationId);
+    public ResponseEntity<Authorization> getAuthorizations(String acmeProfileName, String authorizationId, String jwsBody) throws NotFoundException, AcmeProblemDocumentException {
+        return acmeService.getAuthorization(acmeProfileName, authorizationId, jwsBody);
     }
 
     @Override
@@ -100,5 +98,10 @@ public class AcmeControllerImpl implements AcmeController {
     @Override
     public ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId) throws NotFoundException, CertificateException {
         return acmeService.downloadCertificate(acmeProfileName, certificateId);
+    }
+
+    @Override
+    public ResponseEntity<?> revokeCertificate(String acmeProfileName, String jwsBody) throws AcmeProblemDocumentException, ConnectorException, CertificateException {
+        return acmeService.revokeCertificate(acmeProfileName, jwsBody);
     }
 }

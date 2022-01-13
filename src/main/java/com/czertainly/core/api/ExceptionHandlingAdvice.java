@@ -2,9 +2,11 @@ package com.czertainly.core.api;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.ErrorMessageDto;
+import com.czertainly.api.model.core.acme.ProblemDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -209,6 +211,17 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link AcmeProblemDocumentException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(AcmeProblemDocumentException.class)
+    public ResponseEntity<ProblemDocument>  handleAcmeProblemDocumentException(AcmeProblemDocumentException ex){
+        LOG.warn("ACME Error: {}", ex.getProblemDocument().toString());
+        return ResponseEntity.status(ex.getHttpStatusCode()).body(ex.getProblemDocument());
+    }
+
+    /**
      * Handler for {@link Exception}.
      *
      * @return
@@ -219,4 +232,6 @@ public class ExceptionHandlingAdvice {
         LOG.error("General error occurred: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("Internal server error.");
     }
+
+
 }

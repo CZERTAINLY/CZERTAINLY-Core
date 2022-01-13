@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.acme;
 import com.czertainly.api.model.core.acme.Challenge;
 import com.czertainly.api.model.core.acme.ChallengeStatus;
 import com.czertainly.core.dao.entity.Audited;
+import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -45,17 +46,12 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
 
     @Override
     public Challenge mapToDto(){
-        DateTimeFormatter formatter = DateTimeFormatter
-                .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
-                .withZone(ZoneId.of("UTC"));
         Challenge challenge = new Challenge();
         challenge.setStatus(status);
         challenge.setToken(token);
         challenge.setType(type);
         challenge.setUrl(getUrl());
-        if(validated != null) {
-            challenge.setValidated(formatter.format(validated.toInstant()));
-        }
+        challenge.setValidated(AcmeCommonHelper.getStringFromDate(validated));
         return challenge;
     }
 

@@ -98,6 +98,13 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    public Certificate getCertificateEntityByContent(String content) {
+        CertificateContent certificateContent = certificateContentRepository.findByContent(content);
+        return certificateRepository.findByCertificateContent(certificateContent);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     public Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException {
         return certificateRepository.findBySerialNumberIgnoreCase(serialNumber)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));

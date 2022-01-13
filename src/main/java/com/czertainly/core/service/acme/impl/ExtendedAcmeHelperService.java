@@ -4,39 +4,40 @@ import com.czertainly.api.exception.AcmeProblemDocumentException;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.connector.v2.CertificateSignRequestDto;
 import com.czertainly.api.model.core.acme.*;
+import com.czertainly.api.model.core.authority.RevocationReason;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
 import com.czertainly.core.dao.entity.acme.AcmeChallenge;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
+import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
+import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
-import com.nimbusds.jose.jwk.Curve;
-import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.shaded.json.JSONObject;
 import com.nimbusds.jose.util.Base64URL;
-import org.hibernate.type.StringNVarcharType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.util.SerializationUtils;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.naming.Context;
@@ -46,23 +47,19 @@ import javax.naming.directory.Attribute;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
-import javax.transaction.Transactional;
-import java.io.BufferedReader;
-import java.io.DataInput;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.CertificateException;
-import java.security.interfaces.ECPublicKey;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -81,7 +78,10 @@ public class ExtendedAcmeHelperService {
     private PublicKey publicKey;
 
     private static final Logger logger = LoggerFactory.getLogger(ExtendedAcmeHelperService.class);
+    private static final String NONCE_HEADER_NAME = "Replay-Nonce";
 
+    @Autowired
+    private AcmeAccountRepository acmeAccountRepository;
     @Autowired
     private AcmeOrderRepository acmeOrderRepository;
     @Autowired
@@ -92,6 +92,10 @@ public class ExtendedAcmeHelperService {
     private ClientOperationService clientOperationService;
     @Autowired
     private CertificateService certificateService;
+    @Autowired
+    private RaProfileRepository raProfileRepository;
+    @Autowired
+    private CertValidationService certValidationService;
 
     public ExtendedAcmeHelperService() {
     }
@@ -144,11 +148,7 @@ public class ExtendedAcmeHelperService {
             this.setPublicKey();
             this.setIsValidSignature();
         } catch (Exception e) {
-            ProblemDocument problemDocument = new ProblemDocument();
-            problemDocument.setTitle("Invalid Request Body");
-            problemDocument.setDetail("Request JWS is invalid and the server is unable to process");
-            problemDocument.setType("urn:ietf:params:acme:error:malformed");
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, problemDocument);
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
     }
 
@@ -159,28 +159,141 @@ public class ExtendedAcmeHelperService {
             this.acmeJwsBody = AcmeJsonProcessor.generalBodyJsonParser(rawJwsBody, AcmeJwsBody.class);
             this.setJwsObject();
         } catch (Exception e) {
-            ProblemDocument problemDocument = new ProblemDocument();
-            problemDocument.setTitle("Invalid Request Body");
-            problemDocument.setDetail("Request JWS is invalid and the server is unable to process");
-            problemDocument.setType("urn:ietf:params:acme:error:malformed");
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, problemDocument);
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
+    }
+
+    public Directory frameDirectory(String acmeProfileName) {
+        Directory directory = new Directory();
+        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        directory.setNewNonce(String.format("%s/acme/%s/new-nonce", baseUri, acmeProfileName));
+        directory.setNewAccount(String.format("%s/acme/%s/new-account", baseUri, acmeProfileName));
+        directory.setNewOrder(String.format("%s/acme/%s/new-order", baseUri, acmeProfileName));
+        directory.setNewAuthz(String.format("%s/acme/%s/new-authz", baseUri, acmeProfileName));
+        directory.setRevokeCert(String.format("%s/acme/%s/revoke-cert", baseUri, acmeProfileName));
+        directory.setKeyChange(String.format("%s/acme/%s/ey-change", baseUri, acmeProfileName));
+        directory.setMeta(frameDirectoryMeta());
+        return directory;
+    }
+
+    private DirectoryMeta frameDirectoryMeta() {
+        DirectoryMeta meta = new DirectoryMeta();
+        meta.setCaaIdentities(Arrays.asList("example.com"));
+        meta.setTermsOfService("https://example.com/tos");
+        meta.setExternalAccountRequired(false);
+        meta.setWebsite("https://czertainly.com");
+        return meta;
+    }
+
+    protected ResponseEntity<Account> processNewAccount(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException {
+        newAccountValidator(acmeProfileName, requestJson);
+        Account accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
+        AcmeAccount account = addNewAccount(acmeProfileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(getPublicKey()), accountRequest);
+        Account accountDto = account.mapToDto();
+        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        accountDto.setOrders(String.format("%s/acme/%s/acct/%s/orders", baseUri, acmeProfileName, account.getAccountId()));
+        return ResponseEntity
+                .created(URI.create(String.format("%s/acme/%s/acct/%s", baseUri, acmeProfileName, account.getAccountId())))
+                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                .body(accountDto);
+    }
+
+    private void newAccountValidator(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException {
+        if (requestJson.isEmpty()) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
+        }
+        initialize(requestJson);
+        newAccountProcess();
+        //TODO Add main to validation
+        //TODO Terms of Service validation
+    }
+
+    private AcmeAccount addNewAccount(String acmeProfileName, String publicKey, Account accountRequest) throws NotFoundException, AcmeProblemDocumentException {
+        String accountId = AcmeRandomGeneratorAndValidator.generateRandomId();
+        RaProfile raProfile = raProfileRepository.findByUuid("883ef2c3-c9e3-460f-b55b-e00e19fea7a8")
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, "883ef2c3-c9e3-460f-b55b-e00e19fea7a8"));
+        AcmeAccount oldAccount = acmeAccountRepository.findByPublicKey(publicKey);
+        if(oldAccount == null){
+            if(accountRequest.isOnlyReturnExisting()){
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
+            }
+        }else{
+            return oldAccount;
+        }
+        AcmeAccount account = new AcmeAccount();
+        //TODO set RA Profile and Set ACME Profile
+        account.setStatus(AccountStatus.VALID);
+        account.setTermsOfServiceAgreed(true);
+        account.setRaProfile(raProfile);
+        account.setPublicKey(publicKey);
+        account.setDefaultRaProfile(true);
+        account.setAccountId(accountId);
+        account.setContact(AcmeSerializationUtil.serialize(accountRequest.getContact()));
+        account.setRaProfile(raProfile);
+        acmeAccountRepository.save(account);
+        return account;
+    }
+
+    protected ResponseEntity<Order> processNewOrder(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException {
+        initialize(requestJson);
+        String[] acmeAccountKeyIdSegment = getJwsObject().getHeader().getKeyID().split("/");
+        String acmeAccountId = acmeAccountKeyIdSegment[acmeAccountKeyIdSegment.length - 1];
+        AcmeAccount acmeAccount = getAcmeAccountEntity(acmeAccountId);
+        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        String baseUrl = String.format("%s/acme/%s", baseUri, acmeProfileName);
+        try {
+            setPublicKey(AcmePublicKeyProcessor.publicKeyObjectFromString(acmeAccount.getPublicKey()));
+            IsValidSignature();
+            AcmeOrder order = generateOrder(baseUrl, acmeAccount);
+            return ResponseEntity
+                    .ok()
+                    .location(URI.create(order.getUrl()))
+                    .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                    .body(order.mapToDto());
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+            return null;
+        }
+    }
+
+    protected AcmeOrder getAcmeOrderEntity(String orderId) throws NotFoundException {
+        return acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
+    }
+
+    private X509Certificate getX509(String certificate) throws CertificateException {
+        return CertificateUtil.getX509Certificate(certificate.replace("-----BEGIN CERTIFICATE-----", "")
+                .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", ""));
+    }
+
+    protected String frameCertChainString(List<Certificate> certificates) throws CertificateException {
+        List<String> chain = new ArrayList<>();
+        for(Certificate certificate: certificates){
+            chain.add(X509ObjectToString.toPem(getX509(certificate.getCertificateContent().getContent())));
+        }
+        return String.join("\r\n", chain);
+    }
+
+    protected ByteArrayResource getCertificateResource(String certificateId) throws NotFoundException, CertificateException {
+        AcmeOrder order = acmeOrderRepository.findByCertificateId(certificateId).orElseThrow(() -> new NotFoundException(Order.class, certificateId));
+        Certificate certificate = order.getCertificateReference();
+        List<Certificate> chain = certValidationService.getCertificateChain(certificate);
+        String chainString = frameCertChainString(chain);
+        return new ByteArrayResource(chainString.getBytes(StandardCharsets.UTF_8));
     }
 
     public AcmeOrder generateOrder(String baseUrl, AcmeAccount acmeAccount) {
 
-        Map<String, Object> data = getJwsObject().getPayload().toJSONObject();
+        Order orderRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Order.class);
         AcmeOrder order = new AcmeOrder();
         order.setAcmeAccount(acmeAccount);
         order.setOrderId(AcmeRandomGeneratorAndValidator.generateRandomId());
         order.setStatus(OrderStatus.PENDING);
-        order.setNotAfter((Date) data.get("notAfter"));
-        order.setNotBefore((Date) data.get("notBefore"));
-        List<Identifier> identifiers = getIdentifiers(data.get("identifiers").toString());
-        order.setIdentifiers(AcmeSerializationUtil.serializeIdentifiers(identifiers));
-        //TODO certificate, expires
+        order.setNotAfter(AcmeCommonHelper.getDateFromString(orderRequest.getNotAfter()));
+        order.setNotBefore(AcmeCommonHelper.getDateFromString(orderRequest.getNotBefore()));
+        order.setIdentifiers(AcmeSerializationUtil.serializeIdentifiers(orderRequest.getIdentifiers()));
+        order.setExpires(AcmeCommonHelper.getDefaultExpires());
         acmeOrderRepository.save(order);
-        Set<AcmeAuthorization> authorizations = generateValidations(baseUrl, order, identifiers);
+        Set<AcmeAuthorization> authorizations = generateValidations(baseUrl, order, orderRequest.getIdentifiers());
         order.setAuthorizations(authorizations);
         return order;
     }
@@ -209,11 +322,11 @@ public class ExtendedAcmeHelperService {
     }
 
     public AcmeOrder finalizeOrder(String orderId) throws JsonProcessingException, ConnectorException, CertificateException, AlreadyExistException {
-        String csr = jwsObject.getPayload().toJSONObject().get("csr").toString();
+        CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateFinalizeRequest.class);
         AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
         ClientCertificateSignRequestDto certificateSignRequestDto = new ClientCertificateSignRequestDto();
         certificateSignRequestDto.setAttributes(new ArrayList<>());
-        certificateSignRequestDto.setPkcs10(csr);
+        certificateSignRequestDto.setPkcs10(request.getCsr());
         order.setStatus(OrderStatus.PROCESSING);
         acmeOrderRepository.save(order);
         try {
@@ -221,7 +334,7 @@ public class ExtendedAcmeHelperService {
             order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
             order.setCertificateReference(certificateService.getCertificateEntity(certificateOutput.getUuid()));
             order.setStatus(OrderStatus.VALID);
-            order.setExpires(new Date(new Date().getTime() + 10 * 60 * 60 * 1000));
+            order.setExpires(AcmeCommonHelper.getDefaultExpires());
         } catch (Exception e) {
             logger.error("Failed while issuing certificate. Exception is ");
             logger.error(e.getMessage());
@@ -229,6 +342,111 @@ public class ExtendedAcmeHelperService {
         }
         acmeOrderRepository.save(order);
         return order;
+    }
+
+    public ResponseEntity<List<Order>> listOrders(String accountId) throws NotFoundException {
+
+        List<Order> orders = getAcmeAccountEntity(accountId)
+                .getOrders()
+                .stream()
+                .map(AcmeOrder::mapToDto)
+                .collect(Collectors.toList());
+        return ResponseEntity
+                .ok()
+                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                .body(orders);
+    }
+
+    public Authorization checkDeactivateAuthorization(String authorizationId) throws NotFoundException {
+        boolean isDeactivateRequest = false;
+        if(getJwsObject().getPayload().toJSONObject() != null) {
+            isDeactivateRequest = getJwsObject().getPayload().toJSONObject().getOrDefault("status", "") == "deactivated";
+        }
+        AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId).orElseThrow(() -> new NotFoundException(Authorization.class, authorizationId));
+
+        if(isDeactivateRequest){
+            authorization.setStatus(AuthorizationStatus.DEACTIVATED);
+            acmeAuthorizationRepository.save(authorization);
+        }
+        return authorization.mapToDto();
+    }
+
+    public ResponseEntity<Account> updateAccount(String accountId) throws NotFoundException, AcmeProblemDocumentException {
+        AcmeAccount account = getAcmeAccountEntity(accountId);
+        Account request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
+        if(request.getContact() != null){
+            account.setContact(AcmeSerializationUtil.serialize(request.getContact()));
+        }
+        if(request.getStatus().equals(AccountStatus.DEACTIVATED)){
+            deactivateOrders(account.getOrders());
+            account.setStatus(AccountStatus.DEACTIVATED);
+        }
+        acmeAccountRepository.save(account);
+        return ResponseEntity
+                .ok()
+                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                .body(account.mapToDto());
+    }
+
+    public ResponseEntity<?> revokeCertificate() throws ConnectorException, CertificateException {
+        CertificateRevocationRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateRevocationRequest.class);
+        X509Certificate x509Certificate = (X509Certificate) CertificateFactory.getInstance("X.509")
+                .generateCertificate(new ByteArrayInputStream(Base64.getUrlDecoder().decode(request.getCertificate())));
+        String decodedCertificate = X509ObjectToString.toPem(x509Certificate).replace("-----BEGIN CERTIFICATE-----", "")
+                .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", "");
+        ClientCertificateRevocationDto revokeRequest = new ClientCertificateRevocationDto();
+        Certificate cert = certificateService.getCertificateEntityByContent(decodedCertificate);
+
+        revokeRequest.setReason(RevocationReason.fromCode(request.getReason().getCode()));
+        revokeRequest.setAttributes(List.of());
+        try {
+            clientOperationService.revokeCertificate(cert.getRaProfile().getUuid(), cert.getUuid(), revokeRequest);
+            return ResponseEntity
+                    .ok()
+                    .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                    .build();
+        } catch (Exception e) {
+            return ResponseEntity
+                    .badRequest()
+                    .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                    .build();
+        }
+    }
+
+    public ResponseEntity<?> keyRollover() {
+        JWSObject innerJws = getJwsObject().getPayload().toJWSObject();
+        try {
+            PublicKey newKey = ((RSAKey) innerJws.getHeader().getJWK()).toPublicKey();
+            PublicKey oldKey = ((RSAKey) ((JWK)innerJws.getPayload().toJSONObject().get("oldKey"))).toPublicKey();
+        } catch (JOSEException e) {
+            e.printStackTrace();
+        }
+        String account = innerJws.getPayload().toJSONObject().get("account").toString();
+        //TODO All key rollover checks
+        return null;
+    }
+
+    private void deactivateOrders(Set<AcmeOrder> orders){
+        for(AcmeOrder order: orders){
+            order.setStatus(OrderStatus.INVALID);
+            deactivateAuthorizations(order.getAuthorizations());
+            acmeOrderRepository.save(order);
+        }
+    }
+
+    private void deactivateAuthorizations(Set<AcmeAuthorization> authorizations){
+        for(AcmeAuthorization authorization: authorizations){
+            authorization.setStatus(AuthorizationStatus.DEACTIVATED);
+            deactivateChallenges(authorization.getChallenges());
+            acmeAuthorizationRepository.save(authorization);
+        }
+    }
+
+    private void deactivateChallenges(Set<AcmeChallenge> challenges){
+        for(AcmeChallenge challenge: challenges){
+            challenge.setStatus(ChallengeStatus.INVALID);
+            acmeChallengeRepository.save(challenge);
+        }
     }
 
     private Set<AcmeAuthorization> generateValidations(String baseUrl, AcmeOrder acmeOrder, List<Identifier> identifiers) {
@@ -240,7 +458,7 @@ public class ExtendedAcmeHelperService {
         authorization.setAuthorizationId(AcmeRandomGeneratorAndValidator.generateRandomId());
         authorization.setStatus(AuthorizationStatus.PENDING);
         authorization.setOrder(acmeOrder);
-        //TODO expires
+        authorization.setExpires(AcmeCommonHelper.getDefaultExpires());
         authorization.setWildcard(checkWildcard(identifiers));
         authorization.setIdentifier(AcmeSerializationUtil.serialize(identifiers.get(0)));
         acmeAuthorizationRepository.save(authorization);
@@ -261,21 +479,12 @@ public class ExtendedAcmeHelperService {
         return challenge;
     }
 
-    private boolean checkWildcard(List<Identifier> identifiers) {
-        return !identifiers.stream().filter(identifier -> identifier.getValue().contains("*")).collect(Collectors.toList()).isEmpty();
+    private AcmeAccount getAcmeAccountEntity(String accountId) throws NotFoundException {
+        return acmeAccountRepository.findByAccountId(accountId).orElseThrow(() -> new NotFoundException(Account.class, accountId));
     }
 
-    private List<Identifier> getIdentifiers(String identifierJson) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        List<Identifier> identifiers = new ArrayList<>();
-        try {
-            for (LinkedHashMap<String, String> itr : (List<LinkedHashMap>) objectMapper.readValue(identifierJson, identifiers.getClass())) {
-                identifiers.add(objectMapper.convertValue(itr, Identifier.class));
-            }
-        } catch (JsonProcessingException e) {
-            logger.error("Unable to decide Identifiers. JSON parsing exceptions. Value of identifier is ", identifierJson);
-        }
-        return identifiers;
+    private boolean checkWildcard(List<Identifier> identifiers) {
+        return !identifiers.stream().filter(identifier -> identifier.getValue().contains("*")).collect(Collectors.toList()).isEmpty();
     }
 
     private String generateDnsValidationToken(String publicKey, String token) {
@@ -293,19 +502,18 @@ public class ExtendedAcmeHelperService {
     }
 
 
-
     private boolean validateHttpChallenge(AcmeChallenge challenge) throws NoSuchAlgorithmException, InvalidKeySpecException {
         String response = getHttpChallengeResponse(
                 AcmeSerializationUtil.deserializeIdentifier(
-                        challenge
-                                .getAuthorization()
-                                .getIdentifier()
-                )
+                                challenge
+                                        .getAuthorization()
+                                        .getIdentifier()
+                        )
                         .getValue(),
                 challenge.getToken());
         PublicKey pubKey = AcmePublicKeyProcessor.publicKeyObjectFromString(challenge.getAuthorization().getOrder().getAcmeAccount().getPublicKey());
         String expectedResponse = AcmeCommonHelper.createKeyAuthorization(challenge.getToken(), pubKey);
-        if(response.equals(expectedResponse)){
+        if (response.equals(expectedResponse)) {
             return true;
         }
         return false;
@@ -318,7 +526,7 @@ public class ExtendedAcmeHelperService {
         env.setProperty(Context.PROVIDER_URL, "dns://192.168.88.117");
         List<String> txtRecords = new ArrayList<>();
         String expectedKeyAuthorization = generateDnsValidationToken(challenge.getAuthorization().getOrder().getAcmeAccount().getPublicKey(), challenge.getToken());
-        DirContext context = null;
+        DirContext context;
         try {
             context = new InitialDirContext(env);
             Attributes list = context.getAttributes("_acme-challenge.debian06.acme.local",
