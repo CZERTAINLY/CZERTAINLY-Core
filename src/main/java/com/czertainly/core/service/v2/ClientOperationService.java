@@ -10,6 +10,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.dao.entity.RaProfile;
 
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -43,4 +44,9 @@ public interface ClientOperationService {
             String raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException;
+
+
+    List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException;
+
+    List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException;
 }

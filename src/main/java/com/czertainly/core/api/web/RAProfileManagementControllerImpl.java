@@ -6,8 +6,10 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.RAProfileManagementController;
 import com.czertainly.api.model.client.client.SimplifiedClientDto;
+import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponse;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.service.RaProfileService;
@@ -93,5 +95,20 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     public void bulkEnableRaProfile(List<String> uuids) throws NotFoundException {
         raProfileService.bulkEnableRaProfile(uuids);
+    }
+
+    @Override
+    public RaProfileAcmeDetailResponse getAcmeForRaProfile(String uuid) throws NotFoundException {
+        return raProfileService.getAcmeForRaProfile(uuid);
+    }
+
+    @Override
+    public RaProfileAcmeDetailResponse activateAcmeForRaProfile(String uuid, ActivateAcmeForRaProfileRequest request) throws ConnectorException, ValidationException {
+        return raProfileService.activateAcmeForRaProfile(uuid, request);
+    }
+
+    @Override
+    public void deactivateAcmeForRaProfile(String uuid) throws NotFoundException {
+        raProfileService.deactivateAcmeForRaProfile(uuid);
     }
 }

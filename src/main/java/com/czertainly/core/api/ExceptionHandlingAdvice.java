@@ -6,6 +6,7 @@ import com.czertainly.api.model.core.acme.ProblemDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -218,7 +219,7 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(AcmeProblemDocumentException.class)
     public ResponseEntity<ProblemDocument>  handleAcmeProblemDocumentException(AcmeProblemDocumentException ex){
         LOG.warn("ACME Error: {}", ex.getProblemDocument().toString());
-        return ResponseEntity.status(ex.getHttpStatusCode()).body(ex.getProblemDocument());
+        return ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json")).body(ex.getProblemDocument());
     }
 
     /**

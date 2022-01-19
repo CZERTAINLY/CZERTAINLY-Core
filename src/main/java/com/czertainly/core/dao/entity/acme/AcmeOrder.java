@@ -186,7 +186,7 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
     // Customer Getter for Order
 
     private String getBaseUrl() {
-        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/test";
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/" + acmeAccount.getAcmeProfile().getName();
     }
 
     public String getUrl() {

@@ -11,10 +11,8 @@ import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.acme.AcmeAccount;
-import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
-import com.czertainly.core.dao.entity.acme.AcmeChallenge;
-import com.czertainly.core.dao.entity.acme.AcmeOrder;
+import com.czertainly.core.dao.entity.acme.*;
+import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
@@ -31,6 +29,7 @@ import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
+import org.aspectj.weaver.ast.Not;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -96,6 +95,8 @@ public class ExtendedAcmeHelperService {
     private RaProfileRepository raProfileRepository;
     @Autowired
     private CertValidationService certValidationService;
+    @Autowired
+    private AcmeProfileRepository acmeProfileRepository;
 
     public ExtendedAcmeHelperService() {
     }
@@ -163,42 +164,71 @@ public class ExtendedAcmeHelperService {
         }
     }
 
-    public Directory frameDirectory(String acmeProfileName) {
+    public Directory frameDirectory(String profileName) throws NotFoundException {
         Directory directory = new Directory();
         String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        directory.setNewNonce(String.format("%s/acme/%s/new-nonce", baseUri, acmeProfileName));
-        directory.setNewAccount(String.format("%s/acme/%s/new-account", baseUri, acmeProfileName));
-        directory.setNewOrder(String.format("%s/acme/%s/new-order", baseUri, acmeProfileName));
-        directory.setNewAuthz(String.format("%s/acme/%s/new-authz", baseUri, acmeProfileName));
-        directory.setRevokeCert(String.format("%s/acme/%s/revoke-cert", baseUri, acmeProfileName));
-        directory.setKeyChange(String.format("%s/acme/%s/ey-change", baseUri, acmeProfileName));
-        directory.setMeta(frameDirectoryMeta());
+        String replaceUrl;
+        Boolean isRa;
+        if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
+            replaceUrl = "%s/acme/raProfile/%s/";
+            isRa = true;
+        }else{
+            replaceUrl = "%s/acme/%s/";
+            isRa = false;
+        }
+        directory.setNewNonce(String.format(replaceUrl + "new-nonce", baseUri, profileName));
+        directory.setNewAccount(String.format(replaceUrl + "new-account", baseUri, profileName));
+        directory.setNewOrder(String.format(replaceUrl + "new-order", baseUri, profileName));
+        directory.setNewAuthz(String.format(replaceUrl + "new-authz", baseUri, profileName));
+        directory.setRevokeCert(String.format(replaceUrl + "revoke-cert", baseUri, profileName));
+        directory.setKeyChange(String.format(replaceUrl + "key-change", baseUri, profileName));
+        directory.setMeta(frameDirectoryMeta(profileName, isRa));
         return directory;
     }
 
-    private DirectoryMeta frameDirectoryMeta() {
+    private DirectoryMeta frameDirectoryMeta(String profileName, boolean isRa) throws NotFoundException {
+        AcmeProfile acmeProfile;
+        if(isRa){
+            acmeProfile = getRaProfileEntity(profileName).getAcmeProfile();
+        }else {
+            acmeProfile = acmeProfileRepository.findByName(profileName);
+        }
         DirectoryMeta meta = new DirectoryMeta();
-        meta.setCaaIdentities(Arrays.asList("example.com"));
-        meta.setTermsOfService("https://example.com/tos");
+//        meta.setCaaIdentities(Arrays.asList("example.com"));
+        meta.setTermsOfService(acmeProfile.getTermsOfServiceUrl());
         meta.setExternalAccountRequired(false);
-        meta.setWebsite("https://czertainly.com");
+        meta.setWebsite(acmeProfile.getWebsite());
         return meta;
     }
 
-    protected ResponseEntity<Account> processNewAccount(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException {
-        newAccountValidator(acmeProfileName, requestJson);
-        Account accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
-        AcmeAccount account = addNewAccount(acmeProfileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(getPublicKey()), accountRequest);
-        Account accountDto = account.mapToDto();
-        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        accountDto.setOrders(String.format("%s/acme/%s/acct/%s/orders", baseUri, acmeProfileName, account.getAccountId()));
-        return ResponseEntity
-                .created(URI.create(String.format("%s/acme/%s/acct/%s", baseUri, acmeProfileName, account.getAccountId())))
-                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
-                .body(accountDto);
+    private RaProfile getRaProfileEntity(String name) throws NotFoundException {
+        return raProfileRepository.findByName(name).orElseThrow(() -> new NotFoundException(RaProfile.class, name));
     }
 
-    private void newAccountValidator(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException {
+    protected ResponseEntity<Account> processNewAccount(String profileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException {
+        newAccountValidator(profileName, requestJson);
+        Account accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
+        AcmeAccount account = addNewAccount(profileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(getPublicKey()), accountRequest);
+        Account accountDto = account.mapToDto();
+        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
+            accountDto.setOrders(String.format("%s/acme/raProfile/%s/acct/%s/orders", baseUri, profileName, account.getAccountId()));
+            return ResponseEntity
+                    .created(URI.create(String.format("%s/acme/raProfile/%s/acct/%s", baseUri, profileName, account.getAccountId())))
+                    .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                    .body(accountDto);
+        }
+        else{
+            accountDto.setOrders(String.format("%s/acme/%s/acct/%s/orders", baseUri, profileName, account.getAccountId()));
+            return ResponseEntity
+                    .created(URI.create(String.format("%s/acme/%s/acct/%s", baseUri, profileName, account.getAccountId())))
+                    .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                    .body(accountDto);
+        }
+
+    }
+
+    private void newAccountValidator(String profileName, String requestJson) throws AcmeProblemDocumentException {
         if (requestJson.isEmpty()) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
@@ -208,11 +238,32 @@ public class ExtendedAcmeHelperService {
         //TODO Terms of Service validation
     }
 
-    private AcmeAccount addNewAccount(String acmeProfileName, String publicKey, Account accountRequest) throws NotFoundException, AcmeProblemDocumentException {
+    private AcmeAccount addNewAccount(String profileName, String publicKey, Account accountRequest) throws NotFoundException, AcmeProblemDocumentException {
+
+        AcmeProfile acmeProfile = getAcmeProfileEntityByName(profileName);
         String accountId = AcmeRandomGeneratorAndValidator.generateRandomId();
-        RaProfile raProfile = raProfileRepository.findByUuid("883ef2c3-c9e3-460f-b55b-e00e19fea7a8")
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, "883ef2c3-c9e3-460f-b55b-e00e19fea7a8"));
         AcmeAccount oldAccount = acmeAccountRepository.findByPublicKey(publicKey);
+        if(acmeProfile.getInsistContact() && accountRequest.getContact().isEmpty()){
+            {
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("invalidContact",
+                        "Contact Information Not Found",
+                        "Contact information is missing in the Request. It is set as mandatory for this profile"));
+            }
+        }
+
+        if(acmeProfile.getInsistTermsOfService() && accountRequest.isTermsOfServiceAgreed()){
+            {
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("termsOfServiceNotAgreed",
+                        "Terms of Service Not Agreed",
+                        "Terms of Service is not agreed by the client. It is set as mandatory for this profile"));
+            }
+        }
+
+        if(acmeProfile.getRaProfile() == null){
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("invalidRaProfile",
+                    "RA Profile Not Associated",
+                    "RA Profile is not associated for the selected ACME profile"));
+        }
         if(oldAccount == null){
             if(accountRequest.isOnlyReturnExisting()){
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
@@ -221,29 +272,41 @@ public class ExtendedAcmeHelperService {
             return oldAccount;
         }
         AcmeAccount account = new AcmeAccount();
-        //TODO set RA Profile and Set ACME Profile
+        account.setAcmeProfile(acmeProfile);
+        //TODO validate contact url for creating a new account
+        account.setEnabled(false);
         account.setStatus(AccountStatus.VALID);
         account.setTermsOfServiceAgreed(true);
-        account.setRaProfile(raProfile);
+        if(acmeProfile.getRaProfile()!= null) {
+            account.setRaProfile(acmeProfile.getRaProfile());
+        }else{
+            account.setRaProfile(raProfileRepository.findByAcmeProfile(acmeProfile));
+        }
         account.setPublicKey(publicKey);
         account.setDefaultRaProfile(true);
         account.setAccountId(accountId);
         account.setContact(AcmeSerializationUtil.serialize(accountRequest.getContact()));
-        account.setRaProfile(raProfile);
         acmeAccountRepository.save(account);
         return account;
     }
 
-    protected ResponseEntity<Order> processNewOrder(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException {
+    protected ResponseEntity<Order> processNewOrder(String profileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException {
         initialize(requestJson);
         String[] acmeAccountKeyIdSegment = getJwsObject().getHeader().getKeyID().split("/");
         String acmeAccountId = acmeAccountKeyIdSegment[acmeAccountKeyIdSegment.length - 1];
         AcmeAccount acmeAccount = getAcmeAccountEntity(acmeAccountId);
         String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        String baseUrl = String.format("%s/acme/%s", baseUri, acmeProfileName);
+        String baseUrl;
+        if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
+            baseUrl = String.format("%s/acme/raProfile/%s", baseUri, profileName);
+        }else{
+            baseUrl = String.format("%s/acme/%s", baseUri, profileName);
+        }
+
         try {
             setPublicKey(AcmePublicKeyProcessor.publicKeyObjectFromString(acmeAccount.getPublicKey()));
             IsValidSignature();
+
             AcmeOrder order = generateOrder(baseUrl, acmeAccount);
             return ResponseEntity
                     .ok()
@@ -345,7 +408,6 @@ public class ExtendedAcmeHelperService {
     }
 
     public ResponseEntity<List<Order>> listOrders(String accountId) throws NotFoundException {
-
         List<Order> orders = getAcmeAccountEntity(accountId)
                 .getOrders()
                 .stream()
@@ -483,6 +545,14 @@ public class ExtendedAcmeHelperService {
         return acmeAccountRepository.findByAccountId(accountId).orElseThrow(() -> new NotFoundException(Account.class, accountId));
     }
 
+    private AcmeProfile getAcmeProfileEntityByName(String profileName) throws NotFoundException {
+        if(acmeProfileRepository.existsByName(profileName)) {
+            return acmeProfileRepository.findByName(profileName);
+        }else{
+            throw new NotFoundException(AcmeAccount.class, profileName);
+        }
+    }
+
     private boolean checkWildcard(List<Identifier> identifiers) {
         return !identifiers.stream().filter(identifier -> identifier.getValue().contains("*")).collect(Collectors.toList()).isEmpty();
     }
@@ -523,13 +593,21 @@ public class ExtendedAcmeHelperService {
         Properties env = new Properties();
         env.setProperty(Context.INITIAL_CONTEXT_FACTORY,
                 "com.sun.jndi.dns.DnsContextFactory");
-        env.setProperty(Context.PROVIDER_URL, "dns://192.168.88.117");
+        AcmeProfile acmeProfile = challenge.getAuthorization().getOrder().getAcmeAccount().getAcmeProfile();
+        if(acmeProfile.getDnsResolverIp() != null || !acmeProfile.getDnsResolverIp().isEmpty()){
+            env.setProperty(Context.PROVIDER_URL, "dns://");
+        }else {
+            env.setProperty(Context.PROVIDER_URL, "dns://" + acmeProfile.getDnsResolverIp() + ":" + Optional.ofNullable(acmeProfile.getDnsResolverPort())
+                    .orElse("53")).toString();
+        }
         List<String> txtRecords = new ArrayList<>();
         String expectedKeyAuthorization = generateDnsValidationToken(challenge.getAuthorization().getOrder().getAcmeAccount().getPublicKey(), challenge.getToken());
         DirContext context;
         try {
             context = new InitialDirContext(env);
-            Attributes list = context.getAttributes("_acme-challenge.debian06.acme.local",
+            Attributes list = context.getAttributes("_acme-challenge."
+                            + AcmeSerializationUtil.deserializeIdentifier(
+                                    challenge.getAuthorization().getIdentifier()).getValue(),
                     new String[]{"TXT"});
             NamingEnumeration<? extends Attribute> records = list.getAll();
 

@@ -91,21 +91,18 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 attributes);
     }
 
-    private List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
+    @Override
+    public List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = certificateApiClient.listIssueCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
 
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
-        boolean isValid = certificateApiClient.validateIssueCertificateAttributes(
+        certificateApiClient.validateIssueCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 attributes);
-
-        if (!isValid) {
-            throw new ValidationException("Attributes validation failed.");
-        }
 
         return merged;
     }
@@ -214,21 +211,18 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 attributes);
     }
 
-    private List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
+    @Override
+    public List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
         List<AttributeDefinition> definitions = certificateApiClient.listRevokeCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
 
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
-        boolean isValid = certificateApiClient.validateRevokeCertificateAttributes(
+        certificateApiClient.validateRevokeCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 attributes);
-
-        if (!isValid) {
-            throw new ValidationException("Attributes validation failed.");
-        }
 
         return merged;
     }

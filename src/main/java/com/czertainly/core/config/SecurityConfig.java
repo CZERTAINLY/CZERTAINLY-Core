@@ -17,6 +17,7 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 
 @Configuration
@@ -47,6 +48,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     public CertificateHeaderVerificationFilter certificateHeaderVerificationFilter() {
         return new CertificateHeaderVerificationFilter(clientCertHeader, trustStoreType, trustStore, trustStorePassword);
     }
+
+    @Bean
+    public AcmeValidationFilter acmeValidationFilter() {
+        return new AcmeValidationFilter();
+    }
+
 
     @Configuration
     @Order(1)
@@ -96,6 +103,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Configuration
     @Order(3)
     public class AcmeConfigurationAdapter extends WebSecurityConfigurerAdapter {
+        @Autowired
+        private AcmeValidationFilter acmeValidationFilter;
 
         @Override
         protected void configure(HttpSecurity http) throws Exception {
@@ -106,6 +115,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                     .cors().disable()
                     .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                     .and()
+                    .addFilterBefore(acmeValidationFilter, X509AuthenticationFilter.class)
                     .x509()
                     .x509PrincipalExtractor(new SerialNumberX509PrincipalExtractor())
                     .userDetailsService(s -> User.withUsername(s).password("").roles(AdminRole.SUPERADMINISTRATOR.toString()).build());

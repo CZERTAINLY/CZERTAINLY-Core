@@ -1,14 +1,17 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponse;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -54,6 +57,34 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
             inverseJoinColumns = @JoinColumn(name = "client_id"))
     @JsonIgnore
     private Set<Client> clients = new HashSet<>();
+
+    /**
+     * Acme related objects for RA Profile
+     */
+    @OneToOne
+    @JoinColumn(name="acme_profile_id")
+    private AcmeProfile acmeProfile;
+
+    @Column(name="acme_issue_certificate_attributes")
+    private String issueCertificateAttributes;
+
+    @Column(name="acme_revoke_certificate_attributes")
+    private String revokeCertificateAttributes;
+
+    public RaProfileAcmeDetailResponse mapToAcmeDto(){
+        RaProfileAcmeDetailResponse dto = new RaProfileAcmeDetailResponse();
+        if(acmeProfile == null){
+            dto.setAcmeAvailable(false);
+            return dto;
+        }
+        dto.setName(acmeProfile.getName());
+        dto.setUuid(acmeProfile.getUuid());
+        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueCertificateAttributes)));
+        dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(revokeCertificateAttributes)));
+        dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/raProfile/" + name + "/directory");
+        dto.setAcmeAvailable(true);
+        return dto;
+    }
 
     public RaProfileDto mapToDtoSimple() {
         RaProfileDto dto = new RaProfileDto();
@@ -147,6 +178,30 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
 
     public void setAuthorityInstanceReference(AuthorityInstanceReference authorityInstanceReference) {
         this.authorityInstanceReference = authorityInstanceReference;
+    }
+
+    public AcmeProfile getAcmeProfile() {
+        return acmeProfile;
+    }
+
+    public void setAcmeProfile(AcmeProfile acmeProfile) {
+        this.acmeProfile = acmeProfile;
+    }
+
+    public String getIssueCertificateAttributes() {
+        return issueCertificateAttributes;
+    }
+
+    public void setIssueCertificateAttributes(String issueCertificateAttributes) {
+        this.issueCertificateAttributes = issueCertificateAttributes;
+    }
+
+    public String getRevokeCertificateAttributes() {
+        return revokeCertificateAttributes;
+    }
+
+    public void setRevokeCertificateAttributes(String revokeCertificateAttributes) {
+        this.revokeCertificateAttributes = revokeCertificateAttributes;
     }
 
     @Override

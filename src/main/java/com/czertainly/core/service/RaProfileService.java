@@ -5,8 +5,10 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.client.SimplifiedClientDto;
+import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponse;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 
 import java.util.List;
@@ -36,4 +38,10 @@ public interface RaProfileService {
     void bulkDisableRaProfile(List<String> uuids);
 
     void bulkEnableRaProfile(List<String> uuids);
+
+    RaProfileAcmeDetailResponse getAcmeForRaProfile(String uuid) throws NotFoundException;
+
+    RaProfileAcmeDetailResponse activateAcmeForRaProfile(String uuid, ActivateAcmeForRaProfileRequest request) throws ConnectorException, ValidationException;
+
+    void deactivateAcmeForRaProfile(String uuid) throws NotFoundException;
 }

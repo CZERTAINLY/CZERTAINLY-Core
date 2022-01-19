@@ -1,7 +1,10 @@
 package com.czertainly.core.dao.entity.acme;
 
+import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
+import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.api.model.core.acme.Account;
 import com.czertainly.api.model.core.acme.AccountStatus;
+import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.util.DtoMapper;
@@ -14,6 +17,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "acme_account")
@@ -34,6 +38,9 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
     @Column(name="is_default_ra_profile")
     private boolean isDefaultRaProfile;
 
+    @Column(name="is_enabled")
+    private boolean isEnabled;
+
     @Column(name="status")
     @Enumerated(EnumType.STRING)
     private AccountStatus status;
@@ -52,8 +59,9 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
     @JoinColumn(name = "ra_profile_id", nullable = false)
     private RaProfile raProfile;
 
-    @Column(name = "acme_profile_id")
-    private Long acmeProfile;
+    @OneToOne
+    @JoinColumn(name = "acme_profile_id", nullable = false)
+    private AcmeProfile acmeProfile;
 
     @Override
     public Account mapToDto(){
@@ -61,6 +69,63 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
         account.setContact(MetaDefinitions.deserializeArrayString(contact));
         account.setStatus(status);
         account.setTermsOfServiceAgreed(termsOfServiceAgreed);
+        return account;
+    }
+
+    public AcmeAccountResponseDto mapToDtoForUi(){
+        AcmeAccountResponseDto account = new AcmeAccountResponseDto();
+        account.setUuid(uuid);
+        account.setAccountId(accountId);
+        account.setEnabled(isEnabled);
+        account.setContact(MetaDefinitions.deserializeArrayString(contact));
+        if(acmeProfile != null) {
+            account.setAcmeProfileName(acmeProfile.getName());
+            account.setAcmeProfileUuid(acmeProfile.getUuid());
+        }
+        if(raProfile != null) {
+            account.setRaProfileName(raProfile.getName());
+            account.setRaProfileUuid(raProfile.getUuid());
+        }
+        account.setSuccessfulOrders(orders.stream()
+                .filter(acmeOrder -> acmeOrder.getStatus()
+                        .equals(OrderStatus.READY))
+                .collect(Collectors.toList()).size());
+        account.setPendingOrders(orders.stream()
+                .filter(acmeOrder -> acmeOrder.getStatus()
+                        .equals(OrderStatus.PENDING))
+                .collect(Collectors.toList()).size());
+        account.setFailedOrders(orders.stream()
+                .filter(acmeOrder -> acmeOrder.getStatus()
+                        .equals(OrderStatus.INVALID))
+                .collect(Collectors.toList()).size());
+        account.setProcessingOrders(orders.stream()
+                .filter(acmeOrder -> acmeOrder.getStatus()
+                        .equals(OrderStatus.PROCESSING))
+                .collect(Collectors.toList()).size());
+        account.setValidOrders(orders.stream()
+                .filter(acmeOrder -> acmeOrder.getStatus()
+                        .equals(OrderStatus.VALID))
+                .collect(Collectors.toList()).size());
+
+        account.setStatus(status);
+        account.setTermsOfServiceAgreed(termsOfServiceAgreed);
+        account.setTotalOrders(orders.size());
+        return account;
+    }
+
+    public AcmeAccountListResponseDto mapToDtoForUiSimple(){
+        AcmeAccountListResponseDto account = new AcmeAccountListResponseDto();
+        account.setUuid(uuid);
+        account.setAccountId(accountId);
+        account.setEnabled(isEnabled);
+        if(acmeProfile != null) {
+            account.setAcmeProfileName(acmeProfile.getName());
+        }
+        if(raProfile != null) {
+            account.setRaProfileName(raProfile.getName());
+        }
+        account.setStatus(status);
+        account.setTotalOrders(orders.size());
         return account;
     }
 
@@ -144,11 +209,19 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
         this.raProfile = raProfile;
     }
 
-    public Long getAcmeProfile() {
+    public AcmeProfile getAcmeProfile() {
         return acmeProfile;
     }
 
-    public void setAcmeProfile(Long acmeProfile) {
+    public void setAcmeProfile(AcmeProfile acmeProfile) {
         this.acmeProfile = acmeProfile;
+    }
+
+    public boolean isEnabled() {
+        return isEnabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        isEnabled = enabled;
     }
 }

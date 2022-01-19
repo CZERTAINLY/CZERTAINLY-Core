@@ -13,20 +13,31 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.Arrays;
 import java.util.List;
 
 /**
- * This class contains the methods for ACME Implementation. The calss implements
+ * This class contains the methods for ACME Implementation. The class implements
  * AcmeController defined in the interface project
  */
 @RestController
 public class AcmeControllerImpl implements AcmeController {
+
+    @ModelAttribute
+    public void setResponseHeader(HttpServletResponse response) {
+        String linkUrl = String.join("/", Arrays.copyOfRange(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().split("/"), 0, 7));
+        response.addHeader("Link", "<"+linkUrl + ">;rel=\"index\"");
+    }
 
     private static final String NONCE_HEADER_NAME = "Replay-Nonce";
 
@@ -34,7 +45,7 @@ public class AcmeControllerImpl implements AcmeController {
     private AcmeService acmeService;
 
     @Override
-    public ResponseEntity<Directory> getDirectory(@PathVariable String acmeProfileName) {
+    public ResponseEntity<Directory> getDirectory(@PathVariable String acmeProfileName) throws NotFoundException {
         Directory directory = acmeService.getDirectory(acmeProfileName);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce()).body(directory);
     }

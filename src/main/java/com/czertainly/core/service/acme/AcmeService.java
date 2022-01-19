@@ -20,7 +20,7 @@ import java.util.List;
  * ACME Service Impl classes to converge data and perform operations
  */
 public interface AcmeService {
-    Directory getDirectory(String acmeProfileName);
+    Directory getDirectory(String acmeProfileName) throws NotFoundException;
 
     ResponseEntity<Account> newAccount(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 
