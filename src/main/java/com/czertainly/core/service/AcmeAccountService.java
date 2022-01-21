@@ -12,7 +12,7 @@ import java.util.List;
 
 public interface AcmeAccountService {
 
-    void deleteAccount(String uuid) throws NotFoundException;
+    void revokeAccount(String uuid) throws NotFoundException;
 
     void enableAccount(String uuid) throws NotFoundException;
 
@@ -22,7 +22,7 @@ public interface AcmeAccountService {
 
     void bulkDisableAccount(List<String> uuids) throws NotFoundException;
 
-    void bulkDeleteAccount(List<String> uuids) throws NotFoundException;
+    void bulkRevokeAccount(List<String> uuids) throws NotFoundException;
 
     List<AcmeAccountListResponseDto> listAcmeAccounts();
 

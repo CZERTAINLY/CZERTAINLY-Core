@@ -6,7 +6,6 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.acme.*;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.nimbusds.jose.JOSEException;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 
@@ -20,7 +19,9 @@ import java.util.List;
  * ACME Service Impl classes to converge data and perform operations
  */
 public interface AcmeService {
-    Directory getDirectory(String acmeProfileName) throws NotFoundException;
+    ResponseEntity<Directory> getDirectory(String acmeProfileName) throws NotFoundException, AcmeProblemDocumentException;
+
+    ResponseEntity<?> getNonce();
 
     ResponseEntity<Account> newAccount(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 
@@ -30,15 +31,15 @@ public interface AcmeService {
 
     ResponseEntity<Order> newOrder(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 
-    ResponseEntity<List<Order>> listOrders(String acmeProfileName, String accountId) throws NotFoundException;
+    ResponseEntity<List<Order>> listOrders(String acmeProfileName, String accountId) throws NotFoundException, AcmeProblemDocumentException;
 
     ResponseEntity<Authorization> getAuthorization(String acmeProfileName, String authorizationId, String jwsBody) throws NotFoundException, AcmeProblemDocumentException;
 
-    ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException;
+    ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, AcmeProblemDocumentException;
 
     ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException, ConnectorException, JsonProcessingException, CertificateException, AlreadyExistException;
 
-    ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException;
+    ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException;
 
     ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId) throws NotFoundException, CertificateException;
 

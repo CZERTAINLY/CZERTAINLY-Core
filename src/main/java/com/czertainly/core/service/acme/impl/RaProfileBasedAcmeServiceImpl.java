@@ -4,7 +4,6 @@ import com.czertainly.api.exception.AcmeProblemDocumentException;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.interfaces.core.acme.RaProfileBasedAcmeController;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeChallenge;
@@ -15,18 +14,18 @@ import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
-import com.czertainly.core.service.acme.AcmeService;
 import com.czertainly.core.service.acme.RaProfileBasedAcmeService;
-import com.czertainly.core.util.AcmeRandomGeneratorAndValidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -49,11 +48,13 @@ import java.util.Set;
  */
 @Service
 @Transactional
+@Secured({"ROLE_ACME"})
 public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService {
 
     // Nonce Check
     // Url request and inside JWS check
     private static final String NONCE_HEADER_NAME = "Replay-Nonce";
+    private static final String RETRY_HEADER_NAME = "Retry-After";
 
     private static final Logger logger = LoggerFactory.getLogger(RaProfileBasedAcmeServiceImpl.class);
 
@@ -73,12 +74,19 @@ public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService 
     private AcmeProfileRepository acmeProfileRepository;
 
     @Override
-    public Directory getDirectory(String raProfileName) throws NotFoundException {
-        return extendedAcmeHelperService.frameDirectory(raProfileName);
+    public ResponseEntity<Directory> getDirectory(String raProfileName) throws AcmeProblemDocumentException {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
+                extendedAcmeHelperService.generateNonce()).body(extendedAcmeHelperService.frameDirectory(raProfileName));
     }
 
     @Override
-    public ResponseEntity<Account> newAccount(String raProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException {
+    public ResponseEntity<?> getNonce() {
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
+                extendedAcmeHelperService.generateNonce()).build();
+    }
+
+    @Override
+    public ResponseEntity<Account> newAccount(String raProfileName, String requestJson) throws AcmeProblemDocumentException {
         return extendedAcmeHelperService.processNewAccount(raProfileName, requestJson);
     }
 
@@ -89,19 +97,19 @@ public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService 
     }
 
     @Override
-    public ResponseEntity<?> keyRollover(String raProfileName, String jwsBody) throws NotFoundException, AcmeProblemDocumentException {
+    public ResponseEntity<?> keyRollover(String raProfileName, String jwsBody) throws AcmeProblemDocumentException {
         extendedAcmeHelperService.initialize(jwsBody);
         return extendedAcmeHelperService.keyRollover();
 
     }
 
     @Override
-    public ResponseEntity<Order> newOrder(String raProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException {
+    public ResponseEntity<Order> newOrder(String raProfileName, String requestJson) throws AcmeProblemDocumentException {
         return extendedAcmeHelperService.processNewOrder(getAcmeProfileName(raProfileName), requestJson);
     }
 
     @Override
-    public ResponseEntity<List<Order>> listOrders(String raProfileName, String accountId) throws NotFoundException {
+    public ResponseEntity<List<Order>> listOrders(String raProfileName, String accountId) throws AcmeProblemDocumentException {
         return extendedAcmeHelperService.listOrders(accountId);
     }
 
@@ -111,39 +119,45 @@ public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService 
         Authorization authorization = extendedAcmeHelperService.checkDeactivateAuthorization(authorizationId);
         return ResponseEntity
                 .ok()
-                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
                 .body(authorization);
     }
 
     @Override
-    public ResponseEntity<Challenge> validateChallenge(String raProfileName, String challengeId) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException {
+    public ResponseEntity<Challenge> validateChallenge(String raProfileName, String challengeId) throws AcmeProblemDocumentException {
         AcmeChallenge challenge = extendedAcmeHelperService.validateChallenge(challengeId);
         return ResponseEntity
                 .ok()
-                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
                 .header("Link", "<"+challenge.getAuthorization().getUrl() + ">;rel=\"up\"")
                 .body(challenge.mapToDto());
     }
 
     @Override
-    public ResponseEntity<Order> finalizeOrder(String raProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException, ConnectorException, JsonProcessingException, CertificateException, AlreadyExistException {
+    public ResponseEntity<Order> finalizeOrder(String raProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException, ConnectorException {
         elevatePermission();
         extendedAcmeHelperService.initialize(jwsBody);
-        AcmeOrder order = extendedAcmeHelperService.finalizeOrder(orderId);
+        extendedAcmeHelperService.finalizeOrder(orderId);
+        AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
-                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
+                .header(RETRY_HEADER_NAME, order.getAcmeAccount().getAcmeProfile().getRetryInterval().toString())
                 .body(order.mapToDto());
     }
 
     @Override
-    public ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException {
+    public ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
+        if(order.getStatus().equals(OrderStatus.INVALID)){
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
+        }
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
-                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
+                .header(RETRY_HEADER_NAME, order.getAcmeAccount().getAcmeProfile().getRetryInterval().toString())
                 .body(order.mapToDto());
     }
 
@@ -153,7 +167,7 @@ public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService 
         ByteArrayResource byteArrayResource = extendedAcmeHelperService.getCertificateResource(certificateId);
         return ResponseEntity
                 .ok()
-                .header(NONCE_HEADER_NAME, AcmeRandomGeneratorAndValidator.generateNonce())
+                .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
                 .contentType(MediaType.valueOf("application/pem-certificate-chain"))
                 .body(byteArrayResource);
     }
@@ -167,8 +181,8 @@ public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService 
 
     private void elevatePermission(){
         Set<GrantedAuthority> authorities = new HashSet<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_SUPERADMINISTRATOR"));
-        Authentication reAuth = new UsernamePasswordAuthenticationToken(SecurityContextHolder.getContext().getAuthentication().getPrincipal(),"",authorities);
+        authorities.add(new SimpleGrantedAuthority("ROLE_ACME"));
+        Authentication reAuth = new UsernamePasswordAuthenticationToken("ACME_USER","",authorities);
         SecurityContextHolder.getContext().setAuthentication(reAuth);
         Authentication role = SecurityContextHolder.getContext().getAuthentication();
     }

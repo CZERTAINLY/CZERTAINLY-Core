@@ -19,7 +19,9 @@ import java.util.List;
  * ACME Service Impl classes to converge data and perform operations
  */
 public interface RaProfileBasedAcmeService {
-    Directory getDirectory(String raProfileName) throws NotFoundException;
+    ResponseEntity<Directory> getDirectory(String raProfileName) throws NotFoundException, AcmeProblemDocumentException;
+
+    ResponseEntity<?> getNonce();
 
     ResponseEntity<Account> newAccount(String raProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 
@@ -29,15 +31,15 @@ public interface RaProfileBasedAcmeService {
 
     ResponseEntity<Order> newOrder(String raProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 
-    ResponseEntity<List<Order>> listOrders(String raProfileName, String accountId) throws NotFoundException;
+    ResponseEntity<List<Order>> listOrders(String raProfileName, String accountId) throws NotFoundException, AcmeProblemDocumentException;
 
     ResponseEntity<Authorization> getAuthorization(String raProfileName, String authorizationId, String jwsBody) throws NotFoundException, AcmeProblemDocumentException;
 
-    ResponseEntity<Challenge> validateChallenge(String raProfileName, String challengeId) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException;
+    ResponseEntity<Challenge> validateChallenge(String raProfileName, String challengeId) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, AcmeProblemDocumentException;
 
     ResponseEntity<Order> finalizeOrder(String raProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException, ConnectorException, JsonProcessingException, CertificateException, AlreadyExistException;
 
-    ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException;
+    ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException;
 
     ResponseEntity<Resource> downloadCertificate(String raProfileName, String certificateId) throws NotFoundException, CertificateException;
 

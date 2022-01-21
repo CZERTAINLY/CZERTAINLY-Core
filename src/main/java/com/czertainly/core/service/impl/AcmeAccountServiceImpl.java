@@ -6,6 +6,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
+import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
@@ -37,9 +38,10 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     private AcmeAccountRepository acmeAccountRepository;
 
     @Override
-    public void deleteAccount(String uuid) throws NotFoundException {
+    public void revokeAccount(String uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
-        acmeAccountRepository.delete(account);
+        account.setStatus(AccountStatus.REVOKED);
+        acmeAccountRepository.save(account);
     }
 
     @Override
@@ -89,11 +91,12 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
-    public void bulkDeleteAccount(List<String> uuids) throws NotFoundException {
+    public void bulkRevokeAccount(List<String> uuids) throws NotFoundException {
         for (String uuid : uuids) {
             try {
                 AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
-                acmeAccountRepository.delete(acmeAccount);
+                acmeAccount.setStatus(AccountStatus.REVOKED);
+                acmeAccountRepository.save(acmeAccount);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }

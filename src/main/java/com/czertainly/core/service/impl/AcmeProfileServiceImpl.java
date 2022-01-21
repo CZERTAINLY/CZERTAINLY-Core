@@ -64,7 +64,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         }
 
         AcmeProfile acmeProfile = new AcmeProfile();
-        acmeProfile.setEnabled(true);
+        acmeProfile.setEnabled(false);
         acmeProfile.setName(request.getName());
         acmeProfile.setDescription(request.getDescription());
         acmeProfile.setDnsResolverIp(request.getDnsResolverIp());
@@ -75,12 +75,13 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
         acmeProfile.setInsistContact(request.getInsistContact());
         acmeProfile.setInsistTermsOfService(request.getInsistTermsOfService());
-        RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
+
         if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()){
+            RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
             acmeProfile.setRaProfile(raProfile);
+            acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(clientOperationServiceV2.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
+            acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(clientOperationServiceV2.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
         }
-        acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(clientOperationServiceV2.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-        acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(clientOperationServiceV2.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
         acmeProfileRepository.save(acmeProfile);
         return acmeProfile.mapToDto();
     }

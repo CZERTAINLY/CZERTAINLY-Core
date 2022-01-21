@@ -14,10 +14,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Base64;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Class contains the common operations and helper functions to process the acme request
@@ -81,5 +78,12 @@ public class AcmeCommonHelper {
                 .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SS'Z'")
                 .withZone(ZoneId.of("UTC"));
         return new Date(Instant.from(formatter.parse(date)).getEpochSecond());
+    }
+
+    public static Date addSeconds(Date date, int seconds) {
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+        calendar.add(Calendar.SECOND, seconds);
+        return calendar.getTime();
     }
 }

@@ -1,14 +1,21 @@
 package com.czertainly.core;
 
+import com.czertainly.core.config.ContextAwarePoolExecutor;
+import org.slf4j.MDC;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.task.DelegatingSecurityContextAsyncTaskExecutor;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
+import javax.annotation.Nonnull;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 @SpringBootApplication
@@ -23,10 +30,30 @@ public class Application extends SpringBootServletInitializer {
     protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
         return application.sources(Application.class);
     }
-    
+
+	static class ContextCopyingDecorator implements TaskDecorator {
+		@Nonnull
+		@Override
+		public Runnable decorate(@Nonnull Runnable runnable) {
+			RequestAttributes context =
+					RequestContextHolder.currentRequestAttributes();
+			Map<String, String> contextMap = MDC.getCopyOfContextMap();
+			return () -> {
+				try {
+					RequestContextHolder.setRequestAttributes(context);
+					MDC.setContextMap(contextMap);
+					runnable.run();
+				} finally {
+					MDC.clear();
+					RequestContextHolder.resetRequestAttributes();
+				}
+			};
+		}
+	}
+
     @Bean
 	public Executor taskExecutor() {
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		ThreadPoolTaskExecutor executor = new ContextAwarePoolExecutor();
 		executor.setCorePoolSize(2);
 		executor.setMaxPoolSize(2);
 		executor.setQueueCapacity(500);

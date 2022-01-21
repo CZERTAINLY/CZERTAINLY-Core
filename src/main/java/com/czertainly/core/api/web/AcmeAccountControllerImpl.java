@@ -17,8 +17,8 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
     private AcmeAccountService acmeAccountService;
 
     @Override
-    public void deleteAcmeAccount(String uuid) throws NotFoundException {
-        acmeAccountService.deleteAccount(uuid);
+    public void revokeAcmeAccount(String uuid) throws NotFoundException {
+        acmeAccountService.revokeAccount(uuid);
     }
 
     @Override
@@ -32,8 +32,8 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
     }
 
     @Override
-    public void bulkDeleteAcmeAccount(List<String> uuids) throws NotFoundException {
-        acmeAccountService.bulkDeleteAccount(uuids);
+    public void bulkRevokeAcmeAccount(List<String> uuids) throws NotFoundException {
+        acmeAccountService.bulkRevokeAccount(uuids);
     }
 
     @Override
