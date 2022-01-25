@@ -21,7 +21,7 @@ import java.util.*;
  */
 public class AcmeCommonHelper {
 
-    private static final Integer COMMON_EXPIRES_IN_SECONDS = 10 * 60 * 60 * 1000;
+    private static final Integer COMMON_EXPIRES_IN_SECONDS = 10 * 60 * 60;
 
     public static Date getDefaultExpires(){
         return new Date(new Date().getTime() + COMMON_EXPIRES_IN_SECONDS);

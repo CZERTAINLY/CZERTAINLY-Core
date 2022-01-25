@@ -1,7 +1,6 @@
 package com.czertainly.core.service.acme.impl;
 
 import com.czertainly.api.exception.AcmeProblemDocumentException;
-import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.acme.*;
@@ -15,7 +14,6 @@ import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.service.acme.RaProfileBasedAcmeService;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,9 +33,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.net.URI;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.security.spec.InvalidKeySpecException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -48,7 +44,6 @@ import java.util.Set;
  */
 @Service
 @Transactional
-@Secured({"ROLE_ACME"})
 public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService {
 
     // Nonce Check
@@ -184,7 +179,7 @@ public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService 
         authorities.add(new SimpleGrantedAuthority("ROLE_ACME"));
         Authentication reAuth = new UsernamePasswordAuthenticationToken("ACME_USER","",authorities);
         SecurityContextHolder.getContext().setAuthentication(reAuth);
-        Authentication role = SecurityContextHolder.getContext().getAuthentication();
+        SecurityContextHolder.getContext().getAuthentication();
     }
 
     private String getAcmeProfileName(String raProfileName) throws AcmeProblemDocumentException{

@@ -1,15 +1,11 @@
 package com.czertainly.core.util;
 
-import com.czertainly.core.service.acme.impl.AcmeServiceImpl;
 import com.nimbusds.jose.util.Base64URL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.SecureRandom;
-import java.util.Base64;
 
 /**
  * This class contains the methods for generating and validating the nonce

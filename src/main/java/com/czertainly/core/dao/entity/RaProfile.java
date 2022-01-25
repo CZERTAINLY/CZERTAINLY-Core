@@ -2,12 +2,9 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponse;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.core.dao.entity.acme.AcmeAccount;
-import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -16,6 +13,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 
@@ -90,6 +88,9 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
         RaProfileDto dto = new RaProfileDto();
         dto.setUuid(this.uuid);
         dto.setName(this.name);
+        if(acmeProfile != null) {
+            dto.setEnabledProtocols(List.of("ACME"));
+        }
         dto.setDescription(this.description);
         dto.setAuthorityInstanceName(this.authorityInstanceName);
         try {

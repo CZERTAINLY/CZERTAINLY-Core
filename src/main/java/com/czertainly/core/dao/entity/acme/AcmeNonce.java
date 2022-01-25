@@ -1,7 +1,5 @@
 package com.czertainly.core.dao.entity.acme;
 
-import org.springframework.data.annotation.CreatedDate;
-
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;

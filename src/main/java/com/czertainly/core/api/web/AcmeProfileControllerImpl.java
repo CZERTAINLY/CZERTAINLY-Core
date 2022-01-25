@@ -12,7 +12,6 @@ import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.service.AcmeProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -47,8 +46,8 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    public AcmeProfileDto updateAcmeProfile(AcmeProfileDto request) throws NotFoundException {
-        return acmeProfileService.updateAcmeProfile(request);
+    public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileRequestDto request) throws ConnectorException {
+        return acmeProfileService.updateAcmeProfile(uuid, request);
     }
 
     @Override

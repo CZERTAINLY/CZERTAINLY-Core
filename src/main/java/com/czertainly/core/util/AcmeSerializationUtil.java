@@ -1,16 +1,12 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.core.acme.Identifier;
-import com.czertainly.api.model.core.certificate.CertificateValidationDto;
-import com.czertainly.core.dao.entity.acme.AcmeOrder;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class AcmeSerializationUtil {
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();

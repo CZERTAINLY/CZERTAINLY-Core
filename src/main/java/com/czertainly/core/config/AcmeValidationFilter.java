@@ -6,19 +6,19 @@ import com.czertainly.api.model.core.acme.AcmeJwsBody;
 import com.czertainly.api.model.core.acme.Problem;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.acme.AcmeAccount;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.acme.*;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
+import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
+import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
+import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.util.AcmeJsonProcessor;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
 import com.czertainly.core.util.AcmeSerializationUtil;
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSObject;
-import com.nimbusds.jose.Payload;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
@@ -28,14 +28,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.InvalidKeySpecException;
+import java.util.Date;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -47,6 +45,12 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
     private RaProfileRepository raProfileRepository;
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
+    @Autowired
+    private AcmeOrderRepository acmeOrderRepository;
+    @Autowired
+    private AcmeAuthorizationRepository acmeAuthorizationRepository;
+    @Autowired
+    private AcmeChallengeRepository acmeChallengeRepository;
     @Autowired
     private ExtendedAcmeHelperService extendedAcmeHelperService;
 
@@ -93,6 +97,53 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         validateAccount();
     }
 
+    private void validateExpires(AcmeProfile acmeProfile) throws AcmeProblemDocumentException {
+        if(requestUri.contains("/order/")){
+            String orderId;
+            if (getRaProfileBased()) {
+                orderId = requestUri.split("/")[6];
+            } else {
+                orderId = requestUri.split("/")[5];
+            }
+            AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            if(order.getExpires() != null){
+                if(order.getExpires().before(new Date())){
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderExpired", "Order Expired", "Expiry of the order is reached."));
+                }
+            }
+        }
+
+        if(requestUri.contains("/authz/")){
+            String authorizationId;
+            if (getRaProfileBased()) {
+                authorizationId = requestUri.split("/")[6];
+            } else {
+                authorizationId = requestUri.split("/")[5];
+            }
+            AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            if(authorization.getExpires() != null){
+                if(authorization.getExpires().before(new Date())){
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("authorizationExpired", "Authorization Expired", "Expiry of the authorization is reached."));
+                }
+            }
+        }
+
+        if(requestUri.contains("/chall/")){
+            String challengeId;
+            if (getRaProfileBased()) {
+                challengeId = requestUri.split("/")[6];
+            } else {
+                challengeId = requestUri.split("/")[5];
+            }
+            AcmeChallenge challenge = acmeChallengeRepository.findByChallengeId(challengeId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            if(challenge.getAuthorization().getExpires() != null){
+                if(challenge.getAuthorization().getExpires().before(new Date())){
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("authorizationExpired", "Authorization Expired", "Expiry of the authorization is reached."));
+                }
+            }
+        }
+    }
+
     private void validateAccount() throws AcmeProblemDocumentException {
         if (!requestUri.contains("/acct/")) {
             return;
@@ -132,6 +183,13 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     new ProblemDocument("acmeProfileDisabled",
                             "ACME Profile is not enabled",
                             "ACME Profile is not enabled"));
+        }
+        if(acmeProfile.getTermsOfServiceChangeApproval()){
+            ProblemDocument problemDocument = new ProblemDocument(Problem.USER_ACTION_REQUIRED);
+            problemDocument.setInstance(acmeProfile.getTermsOfServiceUrl());
+            problemDocument.setDetail("Terms of service have changed");
+            response.addHeader("Link", "<" + acmeProfile.getTermsOfServiceChangeUrl() +">;rel=\"terms-of-service\"");
+            throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, problemDocument);
         }
     }
 
@@ -229,14 +287,14 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
 
-        if(requestUri.contains("/newAccount") || requestUri.contains("/revokeCert")){
-            if(!jwsHeader.containsKey("jws")){
+        if(requestUri.contains("/new-account")){
+            if(!jwsHeader.containsKey("jwk")){
                 logger.error("New Account and Revocation of Certificate should have JWK in header");
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
             }
             try {
                 PublicKey publicKey = ((RSAKey) jwsObject.getHeader().getJWK()).toPublicKey();
-                validateSignature(publicKey, jwsObject, requestUri.contains("/revokeCert"));
+                validateSignature(publicKey, jwsObject, requestUri.contains("/revoke-cert"));
             } catch (JOSEException e) {
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
             }

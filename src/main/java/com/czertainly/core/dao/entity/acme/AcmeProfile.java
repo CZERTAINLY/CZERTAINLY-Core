@@ -62,6 +62,9 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
     @Column(name= "terms_of_service_change_approval")
     private Boolean termsOfServiceChangeApproval;
 
+    @Column(name = "terms_of_service_change_url")
+    private String termsOfServiceChangeUrl;
+
     @Column(name= "insist_contact")
     private Boolean insistContact;
 
@@ -86,6 +89,8 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
         acmeProfileDto.setValidity(validity);
         acmeProfileDto.setInsistContact(insistContact);
         acmeProfileDto.setInsistTermsOfService(insistTermsOfService);
+        acmeProfileDto.setWebsiteUrl(website);
+        acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
         if(raProfile != null){
             acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/" + name + "/directory");
             }
@@ -121,6 +126,7 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
                 .append("dnsResolverIp", dnsResolverIp)
                 .append("dnsResolverPort", dnsResolverPort)
                 .append("raProfileUuid", raProfile.getUuid())
+                .append("termsOfServiceChangeUrl", termsOfServiceChangeUrl)
                 .append("issueCertificateAttributes", issueCertificateAttributes)
                 .append("revokeCertificateAttributes", revokeCertificateAttributes)
                 .toString();
@@ -253,5 +259,13 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
 
     public void setInsistTermsOfService(Boolean insistTermsOfService) {
         this.insistTermsOfService = insistTermsOfService;
+    }
+
+    public String getTermsOfServiceChangeUrl() {
+        return termsOfServiceChangeUrl;
+    }
+
+    public void setTermsOfServiceChangeUrl(String termsOfServiceChangeUrl) {
+        this.termsOfServiceChangeUrl = termsOfServiceChangeUrl;
     }
 }
