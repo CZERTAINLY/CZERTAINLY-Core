@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -21,4 +22,6 @@ public interface RaProfileRepository extends JpaRepository<RaProfile, Long> {
     Optional<RaProfile> findByUuidAndEnabledIsTrue(String uuid);
 
     List<RaProfile> findByEnabled(Boolean isEnabled);
+
+    RaProfile findByAcmeProfile(AcmeProfile acmeProfile);
 }

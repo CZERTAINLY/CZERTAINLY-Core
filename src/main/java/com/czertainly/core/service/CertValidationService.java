@@ -8,6 +8,8 @@ import java.security.cert.CertificateException;
 import java.util.List;
 
 public interface CertValidationService {
+    List<Certificate> getCertificateChain(Certificate certificate);
+
     void validateAllCertificates();
 
     void validateCertificates(List<Certificate> certificates);

@@ -1,0 +1,271 @@
+package com.czertainly.core.dao.entity.acme;
+
+import com.czertainly.api.model.core.acme.AcmeProfileDto;
+import com.czertainly.api.model.core.acme.AcmeProfileListDto;
+import com.czertainly.core.dao.entity.Audited;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.DtoMapper;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
+import javax.persistence.*;
+import java.io.Serializable;
+
+@Entity
+@Table(name = "acme_profile")
+public class AcmeProfile extends Audited implements Serializable, DtoMapper<AcmeProfileDto> {
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_profile_seq")
+    @SequenceGenerator(name = "acme_profile_seq", sequenceName = "acme_profile_id_seq", allocationSize = 1)
+    private Long id;
+
+    @Column(name="name")
+    private String name;
+
+    @Column(name="description")
+    private String description;
+
+    @Column(name="is_enabled")
+    private Boolean isEnabled;
+
+    @Column(name="terms_of_service_url")
+    private String termsOfServiceUrl;
+
+    @Column(name="dns_resolver_ip")
+    private String dnsResolverIp;
+
+    @Column(name="dns_resolver_port")
+    private String dnsResolverPort;
+
+    @OneToOne
+    @JoinColumn(name = "ra_profile_id")
+    private RaProfile raProfile;
+
+    @Column(name = "issue_certificate_attributes")
+    private String issueCertificateAttributes;
+
+    @Column(name = "revoke_certificate_attributes")
+    private String revokeCertificateAttributes;
+
+    @Column(name = "website_url")
+    private String website;
+
+    @Column(name="validity")
+    private Integer validity;
+
+    @Column(name="retry_interval")
+    private Integer retryInterval;
+
+    @Column(name= "terms_of_service_change_approval")
+    private Boolean termsOfServiceChangeApproval;
+
+    @Column(name = "terms_of_service_change_url")
+    private String termsOfServiceChangeUrl;
+
+    @Column(name= "insist_contact")
+    private Boolean insistContact;
+
+    @Column(name= "insist_terms_of_service")
+    private Boolean insistTermsOfService;
+
+    @Override
+    public AcmeProfileDto mapToDto() {
+        AcmeProfileDto acmeProfileDto = new AcmeProfileDto();
+        if(raProfile != null) {
+            acmeProfileDto.setRaProfile(raProfile.mapToDto());
+        }
+        acmeProfileDto.setDescription(description);
+        acmeProfileDto.setEnabled(isEnabled);
+        acmeProfileDto.setName(name);
+        acmeProfileDto.setUuid(uuid);
+        acmeProfileDto.setDnsResolverIp(dnsResolverIp);
+        acmeProfileDto.setDnsResolverPort(dnsResolverPort);
+        acmeProfileDto.setRetryInterval(retryInterval);
+        acmeProfileDto.setTermsOfServiceChangeDisable(termsOfServiceChangeApproval);
+        acmeProfileDto.setTermsOfServiceUrl(termsOfServiceUrl);
+        acmeProfileDto.setValidity(validity);
+        acmeProfileDto.setRequireContact(insistContact);
+        acmeProfileDto.setRequireTermsOfService(insistTermsOfService);
+        acmeProfileDto.setWebsiteUrl(website);
+        acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
+        if(raProfile != null){
+            acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/" + name + "/directory");
+            }
+        acmeProfileDto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(revokeCertificateAttributes)));
+        acmeProfileDto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueCertificateAttributes)));
+        return acmeProfileDto;
+    }
+
+    public AcmeProfileListDto mapToDtoSimple() {
+        AcmeProfileListDto acmeProfileDto = new AcmeProfileListDto();
+        if(raProfile != null) {
+            acmeProfileDto.setRaProfileName(raProfile.getName());
+            acmeProfileDto.setRaProfileUuid(raProfile.getUuid());
+        }
+        acmeProfileDto.setDescription(description);
+        acmeProfileDto.setEnabled(isEnabled);
+        acmeProfileDto.setName(name);
+        acmeProfileDto.setUuid(uuid);
+        if(raProfile != null) {
+            acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/" + name + "/directory");
+        }
+        return acmeProfileDto;
+    }
+
+    @Override
+    public String toString() {
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
+                .append("id", id)
+                .append("description", description)
+                .append("name", name)
+                .append("isEnabled", isEnabled)
+                .append("termsOfServiceUrl", termsOfServiceUrl)
+                .append("dnsResolverIp", dnsResolverIp)
+                .append("dnsResolverPort", dnsResolverPort)
+                .append("raProfileUuid", raProfile.getUuid())
+                .append("termsOfServiceChangeUrl", termsOfServiceChangeUrl)
+                .append("issueCertificateAttributes", issueCertificateAttributes)
+                .append("revokeCertificateAttributes", revokeCertificateAttributes)
+                .toString();
+    }
+
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Boolean getEnabled() {
+        return isEnabled;
+    }
+
+    public void setEnabled(Boolean enabled) {
+        isEnabled = enabled;
+    }
+
+    public String getTermsOfServiceUrl() {
+        return termsOfServiceUrl;
+    }
+
+    public void setTermsOfServiceUrl(String termsOfServiceUrl) {
+        this.termsOfServiceUrl = termsOfServiceUrl;
+    }
+
+    public String getDnsResolverIp() {
+        return dnsResolverIp;
+    }
+
+    public void setDnsResolverIp(String dnsResolverIp) {
+        this.dnsResolverIp = dnsResolverIp;
+    }
+
+    public String getDnsResolverPort() {
+        return dnsResolverPort;
+    }
+
+    public void setDnsResolverPort(String dnsResolverPort) {
+        this.dnsResolverPort = dnsResolverPort;
+    }
+
+    public RaProfile getRaProfile() {
+        return raProfile;
+    }
+
+    public void setRaProfile(RaProfile raProfile) {
+        this.raProfile = raProfile;
+    }
+
+    public String getIssueCertificateAttributes() {
+        return issueCertificateAttributes;
+    }
+
+    public void setIssueCertificateAttributes(String issueCertificateAttributes) {
+        this.issueCertificateAttributes = issueCertificateAttributes;
+    }
+
+    public String getRevokeCertificateAttributes() {
+        return revokeCertificateAttributes;
+    }
+
+    public void setRevokeCertificateAttributes(String revokeCertificateAttributes) {
+        this.revokeCertificateAttributes = revokeCertificateAttributes;
+    }
+
+    public String getWebsite() {
+        return website;
+    }
+
+    public void setWebsite(String website) {
+        this.website = website;
+    }
+
+    public Integer getValidity() {
+        return validity;
+    }
+
+    public void setValidity(Integer validity) {
+        this.validity = validity;
+    }
+
+    public Integer getRetryInterval() {
+        return retryInterval;
+    }
+
+    public void setRetryInterval(Integer retryInterval) {
+        this.retryInterval = retryInterval;
+    }
+
+    public Boolean getTermsOfServiceChangeApproval() {
+        return termsOfServiceChangeApproval;
+    }
+
+    public void setTermsOfServiceChangeApproval(Boolean termsOfServiceChangeApproval) {
+        this.termsOfServiceChangeApproval = termsOfServiceChangeApproval;
+    }
+
+    public Boolean getInsistContact() {
+        return insistContact;
+    }
+
+    public void setInsistContact(Boolean insistContact) {
+        this.insistContact = insistContact;
+    }
+
+    public Boolean getInsistTermsOfService() {
+        return insistTermsOfService;
+    }
+
+    public void setInsistTermsOfService(Boolean insistTermsOfService) {
+        this.insistTermsOfService = insistTermsOfService;
+    }
+
+    public String getTermsOfServiceChangeUrl() {
+        return termsOfServiceChangeUrl;
+    }
+
+    public void setTermsOfServiceChangeUrl(String termsOfServiceChangeUrl) {
+        this.termsOfServiceChangeUrl = termsOfServiceChangeUrl;
+    }
+}

@@ -1,5 +1,6 @@
 package com.czertainly.core.config;
 
+import com.czertainly.api.model.core.admin.AdminRole;
 import com.czertainly.core.auth.AdminDetailsService;
 import com.czertainly.core.auth.ClientDetailsService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +47,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     public CertificateHeaderVerificationFilter certificateHeaderVerificationFilter() {
         return new CertificateHeaderVerificationFilter(clientCertHeader, trustStoreType, trustStore, trustStorePassword);
     }
+
+    @Bean
+    public AcmeValidationFilter acmeValidationFilter() {
+        return new AcmeValidationFilter();
+    }
+
 
     @Configuration
     @Order(1)
@@ -94,6 +101,28 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Configuration
     @Order(3)
+    public class AcmeConfigurationAdapter extends WebSecurityConfigurerAdapter {
+        @Autowired
+        private AcmeValidationFilter acmeValidationFilter;
+
+        @Override
+        protected void configure(HttpSecurity http) throws Exception {
+            http
+                    .antMatcher("/acme/**")
+                    .authorizeRequests().anyRequest().permitAll().and()
+                    .csrf().disable()
+                    .cors().disable()
+                    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                    .and()
+                    .addFilterBefore(acmeValidationFilter, X509AuthenticationFilter.class)
+                    .x509()
+                    .x509PrincipalExtractor(new SerialNumberX509PrincipalExtractor())
+                    .userDetailsService(s -> User.withUsername(s).password("").roles(AdminRole.SUPERADMINISTRATOR.toString()).build());
+        }
+    }
+
+    @Configuration
+    @Order(4)
     public class ConnectorConfigurationAdapter extends WebSecurityConfigurerAdapter {
 
         @Override
@@ -113,7 +142,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     @Configuration
-    @Order(4)
+    @Order(5)
     public class AdminSecurityConfigurationAdapter extends WebSecurityConfigurerAdapter {
         @Autowired(required = false)
         private CertificateHeaderVerificationFilter certificateHeaderVerificationFilter;
