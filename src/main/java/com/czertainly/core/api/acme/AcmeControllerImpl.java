@@ -23,10 +23,6 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * This class contains the methods for ACME Implementation. The class implements
- * AcmeController defined in the interface project
- */
 @RestController
 public class AcmeControllerImpl implements AcmeController {
 
