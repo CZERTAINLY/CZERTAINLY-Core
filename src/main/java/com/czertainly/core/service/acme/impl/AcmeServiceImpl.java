@@ -35,16 +35,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Acme service implementation class containing the implementation logic for
- * acme implementations
- */
 @Service
 @Transactional
 public class AcmeServiceImpl implements AcmeService {
 
-    // Nonce Check
-    // Url request and inside JWS check
     private static final String NONCE_HEADER_NAME = "Replay-Nonce";
     private static final String RETRY_HEADER_NAME = "Retry-After";
 

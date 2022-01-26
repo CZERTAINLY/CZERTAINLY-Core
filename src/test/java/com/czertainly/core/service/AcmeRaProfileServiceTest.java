@@ -31,7 +31,7 @@ import java.util.List;
 @Transactional
 @Rollback
 @WithMockUser(roles="ACME")
-public class RaProfileBasedAcmeServiceTest {
+public class AcmeRaProfileServiceTest {
     private static final String ADMIN_NAME = "ACME_USER";
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";

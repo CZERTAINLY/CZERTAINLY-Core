@@ -35,6 +35,7 @@ import com.czertainly.core.util.ValidatorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -43,7 +44,7 @@ import java.util.List;
 
 @Service("clientOperationServiceImplV2")
 @Transactional
-//@Secured({"ROLE_CLIENT"})
+@Secured({"ROLE_CLIENT", "ROLE_ACME"})
 public class ClientOperationServiceImpl implements ClientOperationService {
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
 

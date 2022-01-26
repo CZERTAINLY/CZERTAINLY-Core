@@ -70,10 +70,6 @@ import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * Class provides helper service for extended methods and other implementations for acme
- * to be supported by AcmeService
- */
 @Configuration
 public class ExtendedAcmeHelperService {
 

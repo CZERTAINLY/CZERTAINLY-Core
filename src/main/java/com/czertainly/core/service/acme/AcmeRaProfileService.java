@@ -14,10 +14,6 @@ import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.List;
 
-/**
- * Acme service class for method implementations. This service will be used by
- * ACME Service Impl classes to converge data and perform operations
- */
 public interface AcmeRaProfileService {
     ResponseEntity<Directory> getDirectory(String raProfileName) throws NotFoundException, AcmeProblemDocumentException;
 
