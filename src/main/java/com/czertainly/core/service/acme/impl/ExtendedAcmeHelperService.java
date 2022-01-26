@@ -752,7 +752,7 @@ public class ExtendedAcmeHelperService {
             context = new InitialDirContext(env);
             Attributes list = context.getAttributes("_acme-challenge."
                             + AcmeSerializationUtil.deserializeIdentifier(
-                            challenge.getAuthorization().getIdentifier()).getValue().replace("*.",""),
+                            challenge.getAuthorization().getIdentifier()).getValue(),
                     new String[]{"TXT"});
             NamingEnumeration<? extends javax.naming.directory.Attribute> records = list.getAll();
 
