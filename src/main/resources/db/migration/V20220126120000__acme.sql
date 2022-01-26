@@ -19,7 +19,7 @@ CREATE TABLE acme_account (
 	acme_profile_id BIGINT NULL DEFAULT NULL,
 	ra_profile_id BIGINT NULL DEFAULT NULL,
 	is_enabled BOOLEAN NOT NULL,
-	PRIMARY KEY (id),
+	PRIMARY KEY (id)
 );
 
 CREATE TABLE acme_authorization (
