@@ -20,8 +20,7 @@ CREATE TABLE acme_account (
 	ra_profile_id BIGINT NULL DEFAULT NULL,
 	is_enabled BOOLEAN NOT NULL,
 	PRIMARY KEY (id),
-)
-;
+);
 
 CREATE TABLE acme_authorization (
 	id BIGINT NOT NULL,
@@ -35,7 +34,7 @@ CREATE TABLE acme_authorization (
 	expires TIMESTAMP NULL DEFAULT NULL,
 	wildcard BOOLEAN NULL DEFAULT NULL,
 	order_id BIGINT NOT NULL,
-	PRIMARY KEY (id),
+	PRIMARY KEY (id)
 )
 ;
 
@@ -51,8 +50,7 @@ CREATE TABLE acme_challenge (
 	status VARCHAR NOT NULL,
 	authorization_id BIGINT NULL DEFAULT NULL,
 	validated TIMESTAMP NULL DEFAULT NULL,
-	PRIMARY KEY (id),
-	CONSTRAINT "" FOREIGN KEY ("") REFERENCES "public"."" ("id")
+	PRIMARY KEY (id)
 )
 ;
 
@@ -78,7 +76,7 @@ CREATE TABLE acme_order (
 	status VARCHAR NOT NULL,
 	certificate_ref BIGINT NULL DEFAULT NULL,
 	certificate_id VARCHAR NULL DEFAULT NULL,
-	PRIMARY KEY (id),
+	PRIMARY KEY (id)
 )
 ;
 
@@ -104,7 +102,7 @@ CREATE TABLE acme_profile (
     insist_contact BOOLEAN NULL DEFAULT NULL,
     insist_terms_of_service BOOLEAN NULL DEFAULT NULL,
     terms_of_service_change_url VARCHAR NULL DEFAULT NULL,
-    PRIMARY KEY (id),
+    PRIMARY KEY (id)
 )
 ;
 
