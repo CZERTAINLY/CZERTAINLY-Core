@@ -80,6 +80,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
         acmeProfile.setInsistContact(request.getInsistContact());
         acmeProfile.setInsistTermsOfService(request.getInsistTermsOfService());
+        acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
 
         if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()){
             RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
@@ -139,6 +140,9 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         }
         if(request.getTermsOfServiceChangeApproval() != null){
             acmeProfile.setTermsOfServiceChangeApproval(request.getTermsOfServiceChangeApproval());
+        }
+        if(request.getTermsOfServiceChangeUrl() != null){
+            acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
         }
         acmeProfileRepository.save(acmeProfile);
         return acmeProfile.mapToDto();

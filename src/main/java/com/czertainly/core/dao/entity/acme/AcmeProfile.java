@@ -84,11 +84,11 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
         acmeProfileDto.setDnsResolverIp(dnsResolverIp);
         acmeProfileDto.setDnsResolverPort(dnsResolverPort);
         acmeProfileDto.setRetryInterval(retryInterval);
-        acmeProfileDto.setTermsOfServiceChangeApproval(termsOfServiceChangeApproval);
+        acmeProfileDto.setTermsOfServiceChangeDisable(termsOfServiceChangeApproval);
         acmeProfileDto.setTermsOfServiceUrl(termsOfServiceUrl);
         acmeProfileDto.setValidity(validity);
-        acmeProfileDto.setInsistContact(insistContact);
-        acmeProfileDto.setInsistTermsOfService(insistTermsOfService);
+        acmeProfileDto.setRequireContact(insistContact);
+        acmeProfileDto.setRequireTermsOfService(insistTermsOfService);
         acmeProfileDto.setWebsiteUrl(website);
         acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
         if(raProfile != null){

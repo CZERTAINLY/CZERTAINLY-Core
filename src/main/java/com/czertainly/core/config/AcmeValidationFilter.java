@@ -67,6 +67,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
+        logger.info("ACME Request from " + request.getRemoteAddr() + " for " + requestUri);
         CustomHttpServletRequestWrapper requestWrapper = new CustomHttpServletRequestWrapper(request);
         this.filterChain = filterChain;
         this.request = requestWrapper;

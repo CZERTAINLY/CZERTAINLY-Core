@@ -606,6 +606,8 @@ public class ExtendedAcmeHelperService {
             return ResponseEntity.status(HttpStatus.CONFLICT).header("Location",oldAccount.getAccountId()).body(new ProblemDocument("keyExists", "New Key already exists", "New key to replace the old account is already available in the server and is tagged to a different account"));
         }
         validateKey(innerJws);
+        acmeAccount.setPublicKey(AcmePublicKeyProcessor.publicKeyPemStringFromObject(newKey));
+        acmeAccountRepository.save(acmeAccount);
         return null;
     }
 
@@ -717,7 +719,7 @@ public class ExtendedAcmeHelperService {
                                         .getAuthorization()
                                         .getIdentifier()
                         )
-                        .getValue(),
+                        .getValue().replace("*.",""),
                 challenge.getToken());
         PublicKey pubKey = null;
         try {
@@ -750,7 +752,7 @@ public class ExtendedAcmeHelperService {
             context = new InitialDirContext(env);
             Attributes list = context.getAttributes("_acme-challenge."
                             + AcmeSerializationUtil.deserializeIdentifier(
-                            challenge.getAuthorization().getIdentifier()).getValue(),
+                            challenge.getAuthorization().getIdentifier()).getValue().replace("*.",""),
                     new String[]{"TXT"});
             NamingEnumeration<? extends javax.naming.directory.Attribute> records = list.getAll();
 

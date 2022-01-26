@@ -43,10 +43,10 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
     @Column(name="certificate_id")
     private String certificateId;
 
-    @Column(name="notBefore")
+    @Column(name="not_before")
     private Date notBefore;
 
-    @Column(name="notAfter")
+    @Column(name="not_after")
     private Date notAfter;
 
     @Column(name="expires")
