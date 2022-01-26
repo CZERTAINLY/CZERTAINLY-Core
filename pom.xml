@@ -36,7 +36,7 @@
         <dependency>
             <groupId>com.czertainly</groupId>
             <artifactId>interfaces</artifactId>
-            <version>1.0.2-SNAPSHOT</version>
+            <version>1.0.3-SNAPSHOT</version>
         </dependency>
 
         <!-- Spring  -->
