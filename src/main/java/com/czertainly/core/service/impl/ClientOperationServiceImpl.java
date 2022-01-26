@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_CLIENT"})
+@Secured({"ROLE_CLIENT", "ROLE_ACME"})
 public class ClientOperationServiceImpl implements ClientOperationService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);

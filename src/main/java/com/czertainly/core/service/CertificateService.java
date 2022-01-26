@@ -19,7 +19,8 @@ public interface CertificateService {
     CertificateDto getCertificate(String uuid) throws NotFoundException;
     
     Certificate getCertificateEntity(String uuid) throws NotFoundException;
-    
+    Certificate getCertificateEntityByContent(String content);
+
     Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException;
     
     void removeCertificate(String uuid) throws NotFoundException;
