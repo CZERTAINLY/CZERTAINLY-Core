@@ -53,13 +53,13 @@ public class AcmeControllerImpl implements AcmeController {
 
     @Override
     public ResponseEntity<?> getNonce(String acmeProfileName) {
-        return acmeService.getNonce();
+        return acmeService.getNonce(false);
 
     }
 
     @Override
     public ResponseEntity<?> headNonce(String acmeProfileName) {
-        return acmeService.getNonce();
+        return acmeService.getNonce(true);
     }
 
     @Override

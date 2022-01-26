@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity.acme;
 
 import com.czertainly.api.model.core.acme.Challenge;
 import com.czertainly.api.model.core.acme.ChallengeStatus;
+import com.czertainly.api.model.core.acme.ChallengeType;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
@@ -26,7 +27,8 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
     private String challengeId;
 
     @Column(name="type")
-    private String type;
+    @Enumerated(EnumType.STRING)
+    private ChallengeType type;
 
     @Column(name="token")
     private String token;
@@ -81,7 +83,7 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
         this.challengeId = challengeId;
     }
 
-    public String getType() {
+    public ChallengeType getType() {
         return type;
     }
 
@@ -93,7 +95,7 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
         this.authorization = authorization;
     }
 
-    public void setType(String type) {
+    public void setType(ChallengeType type) {
         this.type = type;
     }
 

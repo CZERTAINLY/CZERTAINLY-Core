@@ -2,7 +2,7 @@ package com.czertainly.core.config;
 
 import com.czertainly.api.exception.AcmeProblemDocumentException;
 import com.czertainly.api.model.core.acme.AccountStatus;
-import com.czertainly.api.model.core.acme.AcmeJwsBody;
+import com.czertainly.api.model.common.JwsBody;
 import com.czertainly.api.model.core.acme.Problem;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -236,7 +236,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             return;
         }
         String requestBody = "";
-        AcmeJwsBody acmeData;
+        JwsBody acmeData;
         JWSObject jwsObject;
         try {
             requestBody = request.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
@@ -244,7 +244,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             logger.error("Unable to parse request body", e);
         }
         try {
-            acmeData = AcmeJsonProcessor.generalBodyJsonParser(requestBody, AcmeJwsBody.class);
+            acmeData = AcmeJsonProcessor.generalBodyJsonParser(requestBody, JwsBody.class);
             jwsObject = new JWSObject(new Base64URL(acmeData.getProtected()), new Base64URL(acmeData.getPayload()),
                     new Base64URL(acmeData.getSignature()));
         } catch (Exception e) {

@@ -10,7 +10,7 @@ import java.security.SecureRandom;
 /**
  * This class contains the methods for generating and validating the nonce
  * for all the ACME requests.
- * This class uses SecureRandom class from spring security for nonce generation
+ * This class uses SecureRandom class from spring security for Nonce generation
  */
 public class AcmeRandomGeneratorAndValidator {
 

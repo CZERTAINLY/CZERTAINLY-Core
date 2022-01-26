@@ -3,6 +3,7 @@ package com.czertainly.core.service.acme.impl;
 import com.czertainly.api.exception.AcmeProblemDocumentException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.common.JwsBody;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.authority.RevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
@@ -22,7 +23,6 @@ import com.czertainly.core.util.*;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
-import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
 import org.bouncycastle.asn1.pkcs.Attribute;
@@ -77,7 +77,7 @@ import java.util.stream.Collectors;
 @Configuration
 public class ExtendedAcmeHelperService {
 
-    private AcmeJwsBody acmeJwsBody;
+    private JwsBody acmeJwsBody;
     private String rawJwsBody;
     private JWSObject jwsObject;
     private Boolean isValidSignature;
@@ -113,7 +113,7 @@ public class ExtendedAcmeHelperService {
     public ExtendedAcmeHelperService() {
     }
 
-    public AcmeJwsBody getAcmeJwsBody() {
+    public JwsBody getAcmeJwsBody() {
         return acmeJwsBody;
     }
 
@@ -169,7 +169,7 @@ public class ExtendedAcmeHelperService {
     public void initialize(String rawJwsBody) throws AcmeProblemDocumentException {
         this.rawJwsBody = rawJwsBody;
         try {
-            this.acmeJwsBody = AcmeJsonProcessor.generalBodyJsonParser(rawJwsBody, AcmeJwsBody.class);
+            this.acmeJwsBody = AcmeJsonProcessor.generalBodyJsonParser(rawJwsBody, JwsBody.class);
             this.setJwsObject();
         } catch (Exception e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
@@ -411,7 +411,7 @@ public class ExtendedAcmeHelperService {
         AcmeAuthorization authorization = challenge.getAuthorization();
         AcmeOrder order = authorization.getOrder();
         boolean isValid;
-        if (challenge.getType().equals("http-01")) {
+        if (challenge.getType().equals(ChallengeType.HTTP01)) {
             isValid = validateHttpChallenge(challenge);
         } else {
             isValid = validateDnsChallenge(challenge);
@@ -664,13 +664,13 @@ public class ExtendedAcmeHelperService {
         authorization.setWildcard(checkWildcard(identifiers));
         authorization.setIdentifier(AcmeSerializationUtil.serialize(identifiers.get(0)));
         acmeAuthorizationRepository.save(authorization);
-        AcmeChallenge dnsChallenge = generateChallenge("dns-01", baseUrl, authorization);
-        AcmeChallenge httpChallenge = generateChallenge("http-01", baseUrl, authorization);
+        AcmeChallenge dnsChallenge = generateChallenge(ChallengeType.DNS01, baseUrl, authorization);
+        AcmeChallenge httpChallenge = generateChallenge(ChallengeType.HTTP01, baseUrl, authorization);
         authorization.setChallenges(Set.of(dnsChallenge, httpChallenge));
         return authorization;
     }
 
-    private AcmeChallenge generateChallenge(String challengeType, String baseUrl, AcmeAuthorization authorization) {
+    private AcmeChallenge generateChallenge(ChallengeType challengeType, String baseUrl, AcmeAuthorization authorization) {
         AcmeChallenge challenge = new AcmeChallenge();
         challenge.setChallengeId(AcmeRandomGeneratorAndValidator.generateRandomId());
         challenge.setStatus(ChallengeStatus.PENDING);

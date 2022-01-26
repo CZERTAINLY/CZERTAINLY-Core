@@ -21,7 +21,7 @@ import java.util.List;
 public interface AcmeService {
     ResponseEntity<Directory> getDirectory(String acmeProfileName) throws NotFoundException, AcmeProblemDocumentException;
 
-    ResponseEntity<?> getNonce();
+    ResponseEntity<?> getNonce(Boolean isHead);
 
     ResponseEntity<Account> newAccount(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 

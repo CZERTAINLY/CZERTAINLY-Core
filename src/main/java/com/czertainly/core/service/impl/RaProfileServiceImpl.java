@@ -3,10 +3,10 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.client.SimplifiedClientDto;
-import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest;
+import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponse;
+import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.RequestAttributeDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -240,12 +240,12 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
-    public RaProfileAcmeDetailResponse getAcmeForRaProfile(String uuid) throws NotFoundException {
+    public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(String uuid) throws NotFoundException {
         return getRaProfileEntity(uuid).mapToAcmeDto();
     }
 
     @Override
-    public RaProfileAcmeDetailResponse activateAcmeForRaProfile(String uuid, ActivateAcmeForRaProfileRequest request) throws ConnectorException, ValidationException {
+    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String uuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(request.getAcmeProfileUuid())
                 .orElseThrow(() -> new NotFoundException(AcmeProfile.class, uuid));

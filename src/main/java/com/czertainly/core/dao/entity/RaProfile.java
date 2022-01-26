@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponse;
+import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -69,8 +69,8 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
     @Column(name="acme_revoke_certificate_attributes")
     private String revokeCertificateAttributes;
 
-    public RaProfileAcmeDetailResponse mapToAcmeDto(){
-        RaProfileAcmeDetailResponse dto = new RaProfileAcmeDetailResponse();
+    public RaProfileAcmeDetailResponseDto mapToAcmeDto(){
+        RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
         if(acmeProfile == null){
             dto.setAcmeAvailable(false);
             return dto;

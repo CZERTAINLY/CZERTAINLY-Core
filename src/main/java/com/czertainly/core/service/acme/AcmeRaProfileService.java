@@ -18,10 +18,10 @@ import java.util.List;
  * Acme service class for method implementations. This service will be used by
  * ACME Service Impl classes to converge data and perform operations
  */
-public interface RaProfileBasedAcmeService {
+public interface AcmeRaProfileService {
     ResponseEntity<Directory> getDirectory(String raProfileName) throws NotFoundException, AcmeProblemDocumentException;
 
-    ResponseEntity<?> getNonce();
+    ResponseEntity<?> getNonce(Boolean isHead);
 
     ResponseEntity<Account> newAccount(String raProfileName, String requestJson) throws AcmeProblemDocumentException, NotFoundException;
 

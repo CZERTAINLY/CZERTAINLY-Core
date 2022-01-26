@@ -68,7 +68,11 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<?> getNonce() {
+    public ResponseEntity<?> getNonce(Boolean isHead) {
+        if(isHead){
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
+                    extendedAcmeHelperService.generateNonce()).build();
+        }
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
                 extendedAcmeHelperService.generateNonce()).build();
     }

@@ -12,8 +12,7 @@ import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
-import com.czertainly.core.service.acme.AcmeService;
-import com.czertainly.core.service.acme.RaProfileBasedAcmeService;
+import com.czertainly.core.service.acme.AcmeRaProfileService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,7 +82,7 @@ public class RaProfileBasedAcmeServiceTest {
     private AcmeChallengeRepository acmeChallengeRepository;
 
     @Autowired
-    private RaProfileBasedAcmeService acmeService;
+    private AcmeRaProfileService acmeService;
 
     private AcmeProfile acmeProfile;
 
@@ -161,7 +160,7 @@ public class RaProfileBasedAcmeServiceTest {
         AcmeChallenge challenge2 = new AcmeChallenge();
         challenge2.setChallengeId("challenge123");
         challenge2.setStatus(ChallengeStatus.VALID);
-        challenge2.setType("http-01");
+        challenge2.setType(ChallengeType.HTTP01);
         challenge2.setToken("122324");
         challenge2.setAuthorization(authorization1);
         acmeChallengeRepository.save(challenge2);
@@ -181,7 +180,7 @@ public class RaProfileBasedAcmeServiceTest {
 
     @Test
     public void testGetNonce(){
-        ResponseEntity<?> response = acmeService.getNonce();
+        ResponseEntity<?> response = acmeService.getNonce(true);
         Assertions.assertNotNull(response.getHeaders().get("Replay-Nonce"));
     }
 

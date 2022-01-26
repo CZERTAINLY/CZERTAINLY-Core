@@ -13,7 +13,7 @@ import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
-import com.czertainly.core.service.acme.RaProfileBasedAcmeService;
+import com.czertainly.core.service.acme.AcmeRaProfileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,6 @@ import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -44,14 +43,14 @@ import java.util.Set;
  */
 @Service
 @Transactional
-public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService {
+public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
 
     // Nonce Check
     // Url request and inside JWS check
     private static final String NONCE_HEADER_NAME = "Replay-Nonce";
     private static final String RETRY_HEADER_NAME = "Retry-After";
 
-    private static final Logger logger = LoggerFactory.getLogger(RaProfileBasedAcmeServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(AcmeRaProfileServiceImpl.class);
 
     @Autowired
     private ExtendedAcmeHelperService extendedAcmeHelperService;
@@ -75,7 +74,11 @@ public class RaProfileBasedAcmeServiceImpl implements RaProfileBasedAcmeService 
     }
 
     @Override
-    public ResponseEntity<?> getNonce() {
+    public ResponseEntity<?> getNonce(Boolean isHead) {
+        if(isHead){
+            ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
+                    extendedAcmeHelperService.generateNonce()).build();
+        }
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
                 extendedAcmeHelperService.generateNonce()).build();
     }

@@ -78,8 +78,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setValidity(request.getValidity());
         acmeProfile.setWebsite(request.getWebsiteUrl());
         acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
-        acmeProfile.setInsistContact(request.getInsistContact());
-        acmeProfile.setInsistTermsOfService(request.getInsistTermsOfService());
+        acmeProfile.setInsistContact(request.getRequireContact());
+        acmeProfile.setInsistTermsOfService(request.getRequireTermsOfService());
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
 
         if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()){
@@ -96,14 +96,14 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
     public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileRequestDto request) throws ConnectorException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        if(request.getInsistContact() != null){
-            acmeProfile.setInsistContact(request.getInsistContact());
+        if(request.getRequireContact() != null){
+            acmeProfile.setInsistContact(request.getRequireContact());
         }
-        if(request.getInsistTermsOfService() != null){
-            acmeProfile.setInsistTermsOfService(request.getInsistTermsOfService());
+        if(request.getRequireTermsOfService() != null){
+            acmeProfile.setInsistTermsOfService(request.getRequireTermsOfService());
         }
-        if(request.getTermsOfServiceChangeApproval() != null){
-            acmeProfile.setTermsOfServiceChangeApproval(request.getTermsOfServiceChangeApproval());
+        if(request.getTermsOfServiceChangeDisable() != null){
+            acmeProfile.setTermsOfServiceChangeApproval(request.getTermsOfServiceChangeDisable());
         }
         if(request.getRaProfileUuid() != null){
             if(request.getRaProfileUuid().equals("NONE")){
@@ -138,8 +138,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         if(request.getWebsiteUrl() != null){
             acmeProfile.setWebsite(request.getWebsiteUrl());
         }
-        if(request.getTermsOfServiceChangeApproval() != null){
-            acmeProfile.setTermsOfServiceChangeApproval(request.getTermsOfServiceChangeApproval());
+        if(request.getTermsOfServiceChangeDisable() != null){
+            acmeProfile.setTermsOfServiceChangeApproval(request.getTermsOfServiceChangeDisable());
         }
         if(request.getTermsOfServiceChangeUrl() != null){
             acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
