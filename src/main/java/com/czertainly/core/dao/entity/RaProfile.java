@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -60,6 +61,7 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
      * Acme related objects for RA Profile
      */
     @OneToOne
+    @JsonBackReference
     @JoinColumn(name="acme_profile_id")
     private AcmeProfile acmeProfile;
 

@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -24,6 +25,7 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -150,10 +152,23 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
-    public void deleteAcmeProfile(String uuid) throws NotFoundException {
+    public List<ForceDeleteMessageDto> deleteAcmeProfile(String uuid) throws NotFoundException {
+        List<ForceDeleteMessageDto> messages = new ArrayList<>();
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        acmeProfileRepository.delete(acmeProfile);
-
+        List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
+        if(!raProfiles.isEmpty()){
+            List<String> errors = new ArrayList<>();
+            errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
+            raProfiles.stream().forEach(c -> errors.add(c.getName()));
+            ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
+            forceModal.setUuid(acmeProfile.getUuid());
+            forceModal.setName(acmeProfile.getName());
+            forceModal.setMessage(String.join(", ", errors));
+            messages.add(forceModal);
+        }else {
+            acmeProfileRepository.delete(acmeProfile);
+        }
+        return messages;
     }
 
     @Override
@@ -214,15 +229,31 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
-    public void bulkDeleteAcmeProfile(List<String> uuids) {
+    public List<ForceDeleteMessageDto> bulkDeleteAcmeProfile(List<String> uuids) {
+        List<AcmeProfile> deletableAcmeProfiles = new ArrayList<>();
+        List<ForceDeleteMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                acmeProfileRepository.delete(acmeProfile);
+                List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
+                if(!raProfiles.isEmpty()){
+                    List<String> errors = new ArrayList<>();
+                    errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
+                    raProfiles.stream().forEach(c -> errors.add(c.getName()));
+                    ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
+                    forceModal.setUuid(acmeProfile.getUuid());
+                    forceModal.setName(acmeProfile.getName());
+                    forceModal.setMessage(String.join(",", errors));
+                    messages.add(forceModal);
+                }else {
+                    deletableAcmeProfiles.add(acmeProfile);
+                }
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }
         }
+        acmeProfileRepository.deleteAll(deletableAcmeProfiles);
+        return messages;
     }
 
     @Override
@@ -231,6 +262,25 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         acmeProfile.setRaProfile(getRaProfileEntity(raProfileUuid));
         acmeProfileRepository.save(acmeProfile);
+    }
+
+    @Override
+    public void bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+        List<AcmeProfile> acmeProfiles = new ArrayList<>();
+        for (String uuid : uuids) {
+            try {
+                AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
+                List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
+                for(RaProfile raProfile: raProfiles){
+                    raProfile.setAcmeProfile(null);
+                    raProfileRepository.save(raProfile);
+                }
+                acmeProfiles.add(acmeProfile);
+            } catch (NotFoundException e) {
+                logger.warn(e.getMessage());
+            }
+        }
+        acmeProfileRepository.deleteAll(acmeProfiles);
     }
 
     private RaProfile getRaProfileEntity(String uuid) throws NotFoundException {

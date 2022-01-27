@@ -6,6 +6,7 @@ import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -41,6 +42,7 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
     private String dnsResolverPort;
 
     @OneToOne
+    @JsonBackReference
     @JoinColumn(name = "ra_profile_id")
     private RaProfile raProfile;
 
