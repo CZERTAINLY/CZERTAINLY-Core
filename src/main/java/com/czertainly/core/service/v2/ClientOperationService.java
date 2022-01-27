@@ -44,9 +44,4 @@ public interface ClientOperationService {
             String raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException;
-
-
-    List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException;
-
-    List<AttributeDefinition> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException;
 }
