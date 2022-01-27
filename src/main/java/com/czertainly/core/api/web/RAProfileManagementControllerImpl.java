@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.service.RaProfileService;
@@ -110,5 +111,15 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     public void deactivateAcmeForRaProfile(String uuid) throws NotFoundException {
         raProfileService.deactivateAcmeForRaProfile(uuid);
+    }
+
+    @Override
+    public List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
+        return raProfileService.listRevokeCertificateAttributes(uuid);
+    }
+
+    @Override
+    public List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
+        return raProfileService.listIssueCertificateAttributes(uuid);
     }
 }
