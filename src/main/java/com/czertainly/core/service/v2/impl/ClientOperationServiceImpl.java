@@ -27,7 +27,7 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
-import com.czertainly.core.service.v2.ExtendedAttributeServiceV2;
+import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.ValidatorUtil;
 import org.slf4j.Logger;
@@ -57,7 +57,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Autowired
     private CertValidationService certValidationService;
     @Autowired
-    private ExtendedAttributeServiceV2 extendedAttributeServiceV2;
+    private ExtendedAttributeService extendedAttributeService;
 
 
     @Override
@@ -66,7 +66,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
-        return extendedAttributeServiceV2.listIssueCertificateAttributes(raProfile);
+        return extendedAttributeService.listIssueCertificateAttributes(raProfile);
     }
 
     @Override
@@ -75,7 +75,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
-        return extendedAttributeServiceV2.validateIssueCertificateAttributes(raProfile, attributes);
+        return extendedAttributeService.validateIssueCertificateAttributes(raProfile, attributes);
     }
 
     @Override
@@ -85,7 +85,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
-        extendedAttributeServiceV2.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
+        extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
         caRequest.setPkcs10(request.getPkcs10());
@@ -125,7 +125,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         Certificate oldCertificate = certificateService.getCertificateEntity(certificateUuid);
-        extendedAttributeServiceV2.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
+        extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
         caRequest.setPkcs10(request.getPkcs10());
@@ -163,7 +163,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
-        return extendedAttributeServiceV2.listRevokeCertificateAttributes(raProfile);
+        return extendedAttributeService.listRevokeCertificateAttributes(raProfile);
     }
 
     @Override
@@ -172,7 +172,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
-        return extendedAttributeServiceV2.validateRevokeCertificateAttributes(raProfile, attributes);
+        return extendedAttributeService.validateRevokeCertificateAttributes(raProfile, attributes);
     }
 
     @Override
@@ -182,7 +182,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
-        extendedAttributeServiceV2.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
+        extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         logger.debug("Ra Profile {} set for revoking the certificate", raProfile.getName());
 

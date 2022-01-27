@@ -15,16 +15,15 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.service.v2.ExtendedAttributeServiceV2;
+import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.ValidatorUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service("extendedAcmeServiceImpl")
-public class ExtendedAttributeServiceV2Impl implements ExtendedAttributeServiceV2 {
+public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
 
     @Autowired
     private RaProfileRepository raProfileRepository;

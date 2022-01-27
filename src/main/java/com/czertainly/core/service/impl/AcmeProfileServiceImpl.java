@@ -15,7 +15,7 @@ import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.AcmeProfileService;
-import com.czertainly.core.service.v2.ExtendedAttributeServiceV2;
+import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +40,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @Autowired
     private RaProfileRepository raProfileRepository;
     @Autowired
-    private ExtendedAttributeServiceV2 extendedAttributeServiceV2;
+    private ExtendedAttributeService extendedAttributeService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
@@ -85,8 +85,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals("NONE")){
             RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
             acmeProfile.setRaProfile(raProfile);
-            acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeServiceV2.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-            acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeServiceV2.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
+            acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
+            acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
         }
         acmeProfileRepository.save(acmeProfile);
         return acmeProfile.mapToDto();
@@ -112,8 +112,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
                 if(acmeProfile.getRaProfile() == null || !request.getRaProfileUuid().equals(acmeProfile.getRaProfile().getUuid())) {
                     RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
                     acmeProfile.setRaProfile(raProfile);
-                    acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeServiceV2.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-                    acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeServiceV2.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
+                    acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
+                    acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
                 }
             }
         }

@@ -23,7 +23,7 @@ import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.RaProfileService;
-import com.czertainly.core.service.v2.ExtendedAttributeServiceV2;
+import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -56,7 +56,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
-    private ExtendedAttributeServiceV2 extendedAttributeServiceV2;
+    private ExtendedAttributeService extendedAttributeService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -254,11 +254,11 @@ public class RaProfileServiceImpl implements RaProfileService {
         }
         raProfile.setAcmeProfile(acmeProfile);
         raProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(
-                extendedAttributeServiceV2.mergeAndValidateIssueAttributes
+                extendedAttributeService.mergeAndValidateIssueAttributes
                         (raProfile, request.getIssueCertificateAttributes()
                         )));
         raProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(
-                extendedAttributeServiceV2.mergeAndValidateRevokeAttributes(
+                extendedAttributeService.mergeAndValidateRevokeAttributes(
                         raProfile, request.getIssueCertificateAttributes()
                         )));
         raProfileRepository.save(raProfile);
@@ -277,13 +277,13 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Override
     public List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
         RaProfile raProfile = getRaProfileEntity(uuid);
-        return extendedAttributeServiceV2.listRevokeCertificateAttributes(raProfile);
+        return extendedAttributeService.listRevokeCertificateAttributes(raProfile);
     }
 
     @Override
     public List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
         RaProfile raProfile = getRaProfileEntity(uuid);
-        return extendedAttributeServiceV2.listIssueCertificateAttributes(raProfile);
+        return extendedAttributeService.listIssueCertificateAttributes(raProfile);
     }
 
     private RaProfile getRaProfileEntity(String uuid) throws NotFoundException {

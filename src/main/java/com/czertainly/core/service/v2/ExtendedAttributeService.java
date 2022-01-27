@@ -10,7 +10,7 @@ import com.czertainly.core.dao.entity.RaProfile;
 
 import java.util.List;
 
-public interface ExtendedAttributeServiceV2 {
+public interface ExtendedAttributeService {
     List<AttributeDefinition> listIssueCertificateAttributes(
             RaProfile raProfileUuid) throws NotFoundException, ConnectorException;
 
