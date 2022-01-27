@@ -141,6 +141,10 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     }
 
     private String getBaseUrl() {
+        if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
+            return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/raProfile/"
+                    + order.getAcmeAccount().getRaProfile().getName();
+        }
         return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/"
                 + order.getAcmeAccount().getAcmeProfile().getName();
     }

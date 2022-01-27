@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 
 import java.util.List;
@@ -44,4 +45,8 @@ public interface RaProfileService {
     RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String uuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException;
 
     void deactivateAcmeForRaProfile(String uuid) throws NotFoundException;
+
+    List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException;
+
+    List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException;
 }

@@ -126,8 +126,12 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
     // Customer Getter for Challenge URL
 
     private String getBaseUrl() {
-        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/" +
-                authorization.getOrder().getAcmeAccount().getAcmeProfile().getName();
+        if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
+            return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/raProfile/"
+                    + authorization.getOrder().getAcmeAccount().getRaProfile().getName();
+        }
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/"
+                + authorization.getOrder().getAcmeAccount().getAcmeProfile().getName();
     }
 
     public String getUrl() {

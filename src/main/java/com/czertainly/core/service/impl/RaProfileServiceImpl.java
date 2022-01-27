@@ -23,7 +23,7 @@ import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.RaProfileService;
-import com.czertainly.core.service.v2.ClientOperationService;
+import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -56,7 +56,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
-    private ClientOperationService clientOperationServiceV2;
+    private ExtendedAttributeService extendedAttributeService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -201,7 +201,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 }
 
                 raProfileRepository.delete(raProfile);
-            }catch (NotFoundException e){
+            } catch (NotFoundException e){
                 logger.warn("Unable to find RA Profile with uuid {}. It may have already been deleted", uuid);
             }
         }
@@ -248,17 +248,17 @@ public class RaProfileServiceImpl implements RaProfileService {
     public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String uuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(request.getAcmeProfileUuid())
-                .orElseThrow(() -> new NotFoundException(AcmeProfile.class, uuid));
+                .orElseThrow(() -> new NotFoundException(AcmeProfile.class, request.getAcmeProfileUuid()));
         if(acmeProfile.getRaProfile() != null){
             throw new ValidationException(ValidationError.create("ACME Profile already has a default RA Profile"));
         }
         raProfile.setAcmeProfile(acmeProfile);
         raProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(
-                clientOperationServiceV2.mergeAndValidateIssueAttributes
+                extendedAttributeService.mergeAndValidateIssueAttributes
                         (raProfile, request.getIssueCertificateAttributes()
                         )));
         raProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(
-                clientOperationServiceV2.mergeAndValidateRevokeAttributes(
+                extendedAttributeService.mergeAndValidateRevokeAttributes(
                         raProfile, request.getIssueCertificateAttributes()
                         )));
         raProfileRepository.save(raProfile);
@@ -272,6 +272,18 @@ public class RaProfileServiceImpl implements RaProfileService {
         raProfile.setIssueCertificateAttributes(null);
         raProfile.setRevokeCertificateAttributes(null);
         raProfileRepository.save(raProfile);
+    }
+
+    @Override
+    public List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
+        RaProfile raProfile = getRaProfileEntity(uuid);
+        return extendedAttributeService.listRevokeCertificateAttributes(raProfile);
+    }
+
+    @Override
+    public List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
+        RaProfile raProfile = getRaProfileEntity(uuid);
+        return extendedAttributeService.listIssueCertificateAttributes(raProfile);
     }
 
     private RaProfile getRaProfileEntity(String uuid) throws NotFoundException {
