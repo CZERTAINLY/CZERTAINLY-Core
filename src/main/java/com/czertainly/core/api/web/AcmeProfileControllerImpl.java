@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.AcmeProfileController;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
@@ -51,8 +52,8 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    public void deleteAcmeProfile(String uuid) throws NotFoundException {
-        acmeProfileService.deleteAcmeProfile(uuid);
+    public List<ForceDeleteMessageDto> deleteAcmeProfile(String uuid) throws NotFoundException {
+        return acmeProfileService.deleteAcmeProfile(uuid);
     }
 
     @Override
@@ -76,8 +77,13 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    public void bulkDeleteAcmeProfile(List<String> uuids) {
-        acmeProfileService.bulkDeleteAcmeProfile(uuids);
+    public List<ForceDeleteMessageDto> bulkDeleteAcmeProfile(List<String> uuids) {
+        return acmeProfileService.bulkDeleteAcmeProfile(uuids);
+    }
+
+    @Override
+    public void bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+        acmeProfileService.bulkForceRemoveACMEProfiles(uuids);
     }
 
     @Override

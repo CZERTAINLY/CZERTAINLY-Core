@@ -142,7 +142,11 @@ public class RaProfileServiceImpl implements RaProfileService {
     public void removeRaProfile(String uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
-
+        List<AcmeProfile> acmeProfiles = acmeProfileRepository.findByRaProfile(raProfile);
+        for(AcmeProfile acmeProfile: acmeProfiles){
+            acmeProfile.setRaProfile(null);
+            acmeProfileRepository.save(acmeProfile);
+        }
         for(Certificate certificate: certificateRepository.findByRaProfile(raProfile)){
             certificate.setRaProfile(null);
             certificateRepository.save(certificate);
@@ -194,7 +198,11 @@ public class RaProfileServiceImpl implements RaProfileService {
             try {
                 RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
-
+                List<AcmeProfile> acmeProfiles = acmeProfileRepository.findByRaProfile(raProfile);
+                for(AcmeProfile acmeProfile: acmeProfiles){
+                    acmeProfile.setRaProfile(null);
+                    acmeProfileRepository.save(acmeProfile);
+                }
                 for (Certificate certificate : certificateRepository.findByRaProfile(raProfile)) {
                     certificate.setRaProfile(null);
                     certificateRepository.save(certificate);
@@ -249,9 +257,6 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfile raProfile = getRaProfileEntity(uuid);
         AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(request.getAcmeProfileUuid())
                 .orElseThrow(() -> new NotFoundException(AcmeProfile.class, request.getAcmeProfileUuid()));
-        if(acmeProfile.getRaProfile() != null){
-            throw new ValidationException(ValidationError.create("ACME Profile already has a default RA Profile"));
-        }
         raProfile.setAcmeProfile(acmeProfile);
         raProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(
                 extendedAttributeService.mergeAndValidateIssueAttributes

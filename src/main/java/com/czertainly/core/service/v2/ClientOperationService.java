@@ -10,7 +10,6 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.dao.entity.RaProfile;
 
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -26,7 +25,7 @@ public interface ClientOperationService {
 
     ClientCertificateDataResponseDto issueCertificate(
             String raProfileUuid,
-            ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
+            ClientCertificateSignRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
 
     ClientCertificateDataResponseDto renewCertificate(
             String raProfileUuid,
@@ -43,5 +42,6 @@ public interface ClientOperationService {
     void revokeCertificate(
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException;
+            ClientCertificateRevocationDto request,
+            Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException;
 }
