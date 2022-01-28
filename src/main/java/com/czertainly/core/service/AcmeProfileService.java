@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 
@@ -20,7 +21,7 @@ public interface AcmeProfileService {
 
     AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileRequestDto request) throws ConnectorException;
 
-    void deleteAcmeProfile(String uuid) throws NotFoundException;
+    List<ForceDeleteMessageDto> deleteAcmeProfile(String uuid) throws NotFoundException;
 
     void enableAcmeProfile(String uuid) throws NotFoundException;
 
@@ -30,7 +31,9 @@ public interface AcmeProfileService {
 
     void bulkDisableAcmeProfile(List<String> uuids);
 
-    void bulkDeleteAcmeProfile(List<String> uuids);
+    List<ForceDeleteMessageDto> bulkDeleteAcmeProfile(List<String> uuids);
 
     void updateRaProfile(String uuid, String raProfileUuid) throws NotFoundException;
+
+    void bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException;
 }

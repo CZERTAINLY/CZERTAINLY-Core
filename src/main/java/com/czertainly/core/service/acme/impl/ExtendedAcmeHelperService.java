@@ -262,6 +262,7 @@ public class ExtendedAcmeHelperService {
                 isRa = true;
             } else {
                 acmeProfile = getAcmeProfileEntityByName(profileName);
+                raProfileToUse = acmeProfile.getRaProfile();
                 isRa = false;
             }
         } catch (Exception e) {
@@ -302,11 +303,7 @@ public class ExtendedAcmeHelperService {
         account.setEnabled(true);
         account.setStatus(AccountStatus.VALID);
         account.setTermsOfServiceAgreed(true);
-        if (acmeProfile.getRaProfile() != null) {
-            account.setRaProfile(acmeProfile.getRaProfile());
-        } else {
-            account.setRaProfile(raProfileToUse);
-        }
+        account.setRaProfile(raProfileToUse);
         account.setPublicKey(publicKey);
         account.setDefaultRaProfile(true);
         account.setAccountId(accountId);
@@ -331,6 +328,10 @@ public class ExtendedAcmeHelperService {
             baseUrl = String.format("%s/acme/raProfile/%s", baseUri, profileName);
         } else {
             baseUrl = String.format("%s/acme/%s", baseUri, profileName);
+        }
+
+        if(!acmeAccount.getStatus().equals(AccountStatus.VALID)){
+            throw new AcmeProblemDocumentException(HttpStatus.UNAUTHORIZED, Problem.UNAUTHORIZED, "Account is either deactivated or revoked");
         }
 
         try {
@@ -457,7 +458,7 @@ public class ExtendedAcmeHelperService {
     @Async
     private void createCert(AcmeOrder order, ClientCertificateSignRequestDto certificateSignRequestDto) {
         try {
-            ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(order.getAcmeAccount().getRaProfile().getUuid(), certificateSignRequestDto);
+            ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(order.getAcmeAccount().getRaProfile().getUuid(), certificateSignRequestDto, true);
             order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
             order.setCertificateReference(certificateService.getCertificateEntity(certificateOutput.getUuid()));
             order.setStatus(OrderStatus.VALID);
@@ -568,7 +569,7 @@ public class ExtendedAcmeHelperService {
         revokeRequest.setReason(RevocationReason.fromCode(request.getReason().getCode()));
         revokeRequest.setAttributes(List.of());
         try {
-            clientOperationService.revokeCertificate(cert.getRaProfile().getUuid(), cert.getUuid(), revokeRequest);
+            clientOperationService.revokeCertificate(cert.getRaProfile().getUuid(), cert.getUuid(), revokeRequest, true);
             return ResponseEntity
                     .ok()
                     .header(NONCE_HEADER_NAME, generateNonce())

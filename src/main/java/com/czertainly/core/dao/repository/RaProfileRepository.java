@@ -23,5 +23,5 @@ public interface RaProfileRepository extends JpaRepository<RaProfile, Long> {
 
     List<RaProfile> findByEnabled(Boolean isEnabled);
 
-    RaProfile findByAcmeProfile(AcmeProfile acmeProfile);
+    List<RaProfile> findByAcmeProfile(AcmeProfile acmeProfile);
 }

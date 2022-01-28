@@ -43,7 +43,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateDataResponseDto issueCertificate(
             @PathVariable String raProfileUuid,
             @RequestBody ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
-        return clientOperationService.issueCertificate(raProfileUuid, request);
+        return clientOperationService.issueCertificate(raProfileUuid, request, false);
     }
 
     @Override
@@ -72,6 +72,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
             @RequestBody ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
-        clientOperationService.revokeCertificate(raProfileUuid, certificateUuid, request);
+        clientOperationService.revokeCertificate(raProfileUuid, certificateUuid, request, false);
     }
 }

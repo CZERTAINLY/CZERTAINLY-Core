@@ -72,6 +72,9 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
         for (String uuid : uuids) {
             try {
                 AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
+                if (!acmeAccount.getStatus().equals(AccountStatus.VALID)) {
+                    logger.warn("Incorrect ACME Account status. Cannot enable");
+                }
                 if (acmeAccount.isEnabled()) {
                     logger.warn("ACME Account is already enabled");
                 }
