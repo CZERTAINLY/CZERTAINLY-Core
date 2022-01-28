@@ -83,6 +83,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setInsistContact(request.getRequireContact());
         acmeProfile.setInsistTermsOfService(request.getRequireTermsOfService());
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
+        acmeProfile.setTermsOfServiceChangeApproval(false);
 
         if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals("NONE")){
             RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());

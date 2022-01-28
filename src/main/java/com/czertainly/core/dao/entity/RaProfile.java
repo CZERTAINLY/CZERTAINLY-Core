@@ -61,7 +61,6 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
      * Acme related objects for RA Profile
      */
     @OneToOne
-    @JsonBackReference
     @JoinColumn(name="acme_profile_id")
     private AcmeProfile acmeProfile;
 
