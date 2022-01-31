@@ -62,16 +62,16 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
     private Integer retryInterval;
 
     @Column(name= "terms_of_service_change_approval")
-    private Boolean isTermsOfServiceChangeApproval;
+    private Boolean termsOfServiceChangeApproval;
 
     @Column(name = "terms_of_service_change_url")
     private String termsOfServiceChangeUrl;
 
     @Column(name= "require_contact")
-    private Boolean isRequireContact;
+    private Boolean requireContact;
 
     @Column(name= "require_terms_of_service")
-    private Boolean isRequireTermsOfService;
+    private Boolean requireTermsOfService;
 
     @Override
     public AcmeProfileDto mapToDto() {
@@ -86,11 +86,11 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
         acmeProfileDto.setDnsResolverIp(dnsResolverIp);
         acmeProfileDto.setDnsResolverPort(dnsResolverPort);
         acmeProfileDto.setRetryInterval(retryInterval);
-        acmeProfileDto.setTermsOfServiceChangeDisable(isTermsOfServiceChangeApproval);
+        acmeProfileDto.setTermsOfServiceChangeDisable(termsOfServiceChangeApproval);
         acmeProfileDto.setTermsOfServiceUrl(termsOfServiceUrl);
         acmeProfileDto.setValidity(validity);
-        acmeProfileDto.setRequireContact(isRequireContact);
-        acmeProfileDto.setRequireTermsOfService(isRequireTermsOfService);
+        acmeProfileDto.setRequireContact(requireContact);
+        acmeProfileDto.setRequireTermsOfService(requireTermsOfService);
         acmeProfileDto.setWebsiteUrl(website);
         acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
         if(raProfile != null){
@@ -239,28 +239,28 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
         this.retryInterval = retryInterval;
     }
 
-    public Boolean getTermsOfServiceChangeApproval() {
-        return isTermsOfServiceChangeApproval;
+    public Boolean isTermsOfServiceChangeApproval() {
+        return termsOfServiceChangeApproval;
     }
 
     public void setTermsOfServiceChangeApproval(Boolean isTermsOfServiceChangeApproval) {
-        this.isTermsOfServiceChangeApproval = isTermsOfServiceChangeApproval;
+        this.termsOfServiceChangeApproval = isTermsOfServiceChangeApproval;
     }
 
     public Boolean isRequireContact() {
-        return isRequireContact;
+        return requireContact;
     }
 
     public void setRequireContact(Boolean insistContact) {
-        this.isRequireContact = insistContact;
+        this.requireContact = insistContact;
     }
 
     public Boolean isRequireTermsOfService() {
-        return isRequireTermsOfService;
+        return requireTermsOfService;
     }
 
     public void setRequireTermsOfService(Boolean isRequireTermsOfService) {
-        this.isRequireTermsOfService = isRequireTermsOfService;
+        this.requireTermsOfService = isRequireTermsOfService;
     }
 
     public String getTermsOfServiceChangeUrl() {

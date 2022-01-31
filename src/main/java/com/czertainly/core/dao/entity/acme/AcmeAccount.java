@@ -49,7 +49,7 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
     private String contact;
 
     @Column(name="terms_of_service_agreed")
-    private Boolean isTermsOfServiceAgreed;
+    private Boolean termsOfServiceAgreed;
 
     @JsonBackReference
     @OneToMany(mappedBy = "acmeAccount")
@@ -68,7 +68,7 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
         Account account = new Account();
         account.setContact(MetaDefinitions.deserializeArrayString(contact));
         account.setStatus(status);
-        account.setTermsOfServiceAgreed(isTermsOfServiceAgreed);
+        account.setTermsOfServiceAgreed(termsOfServiceAgreed);
         return account;
     }
 
@@ -108,7 +108,7 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
                 .collect(Collectors.toList()).size());
 
         account.setStatus(status);
-        account.setTermsOfServiceAgreed(isTermsOfServiceAgreed);
+        account.setTermsOfServiceAgreed(termsOfServiceAgreed);
         account.setTotalOrders(orders.size());
         return account;
     }
@@ -170,11 +170,11 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
     }
 
     public Boolean isTermsOfServiceAgreed() {
-        return isTermsOfServiceAgreed;
+        return termsOfServiceAgreed;
     }
 
     public void setTermsOfServiceAgreed(Boolean termsOfServiceAgreed) {
-        isTermsOfServiceAgreed = termsOfServiceAgreed;
+        this.termsOfServiceAgreed = termsOfServiceAgreed;
     }
 
     public String getPublicKey() {

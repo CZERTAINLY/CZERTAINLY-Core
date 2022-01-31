@@ -89,7 +89,6 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
                 .append("notBefore", notBefore)
                 .append("notAfter", notAfter)
                 .append("expires", expires)
-                .append("authorizations", authorizations)
                 .append("certificateId", certificateId)
                 .append("identifiers", identifiers).toString();
     }

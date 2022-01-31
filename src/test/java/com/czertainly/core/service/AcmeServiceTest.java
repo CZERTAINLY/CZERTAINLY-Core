@@ -245,7 +245,7 @@ public class AcmeServiceTest {
         ResponseEntity<Authorization> authorization = acmeService.getAuthorization("sameName", "auth123", requestJson);
         Assertions.assertNotNull(authorization);
         Assertions.assertEquals(0, authorization.getBody().getChallenges().size());
-        Assertions.assertEquals(authorization.getBody().getWildcard(), false);
+        Assertions.assertEquals(authorization.getBody().isWildcard(), false);
     }
 
     @Test

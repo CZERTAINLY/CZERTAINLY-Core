@@ -197,7 +197,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                             "RA Profile is not enabled",
                             "RA Profile is not enabled"));
         }
-        if(acmeProfile.getTermsOfServiceChangeApproval()){
+        if(acmeProfile.isTermsOfServiceChangeApproval()){
             ProblemDocument problemDocument = new ProblemDocument(Problem.USER_ACTION_REQUIRED);
             problemDocument.setInstance(acmeProfile.getTermsOfServiceUrl());
             problemDocument.setDetail("Terms of service have changed");

@@ -58,7 +58,6 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
         Authorization authorization = new Authorization();
         authorization.setStatus(status);
         authorization.setExpires(AcmeCommonHelper.getStringFromDate(expires));
-        authorization.setWildcard(isWildcard);
         authorization.setIdentifier(AcmeSerializationUtil.deserializeIdentifier(identifier));
         authorization.setChallenges(challenges.stream().map(AcmeChallenge::mapToDto).collect(Collectors.toList()));
         return authorization;

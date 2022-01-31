@@ -242,7 +242,7 @@ public class AcmeRaProfileServiceTest {
         ResponseEntity<Authorization> authorization = acmeService.getAuthorization(RA_PROFILE_NAME, "auth123", requestJson);
         Assertions.assertNotNull(authorization);
         Assertions.assertEquals(0, authorization.getBody().getChallenges().size());
-        Assertions.assertEquals(authorization.getBody().getWildcard(), false);
+        Assertions.assertEquals(authorization.getBody().isWildcard(), false);
     }
 
     @Test

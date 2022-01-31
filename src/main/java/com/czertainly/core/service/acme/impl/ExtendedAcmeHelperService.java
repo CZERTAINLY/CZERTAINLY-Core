@@ -894,7 +894,11 @@ public class ExtendedAcmeHelperService {
     }
 
     private void acmeNonceCleanup() {
-        acmeNonceRepository.deleteAll(acmeNonceRepository.findAllByExpiresBefore(new Date()));
+        try {
+            acmeNonceRepository.deleteAll(acmeNonceRepository.findAllByExpiresBefore(new Date()));
+        }catch (Exception e){
+            logger.error(e.getMessage());
+        }
     }
 
     public void isNonceValid(String nonce) throws AcmeProblemDocumentException {

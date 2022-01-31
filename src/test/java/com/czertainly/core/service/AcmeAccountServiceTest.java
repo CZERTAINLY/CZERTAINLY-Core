@@ -163,7 +163,7 @@ public class AcmeAccountServiceTest {
     @Test
     public void testEnableAdmin() throws NotFoundException, CertificateException {
         acmeAccountService.enableAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getEnabled());
+        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
     }
 
     @Test
@@ -174,7 +174,7 @@ public class AcmeAccountServiceTest {
     @Test
     public void testDisableAdmin() throws NotFoundException {
         acmeAccountService.disableAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getEnabled());
+        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
     }
 
     @Test
@@ -191,12 +191,12 @@ public class AcmeAccountServiceTest {
     @Test
     public void testBulkEnable() throws NotFoundException {
         acmeAccountService.bulkEnableAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getEnabled());
+        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
     }
 
     @Test
     public void testBulkDisable() throws NotFoundException {
         acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getEnabled());
+        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
     }
 }
