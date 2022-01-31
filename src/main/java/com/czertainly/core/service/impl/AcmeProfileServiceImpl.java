@@ -80,8 +80,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setValidity(request.getValidity());
         acmeProfile.setWebsite(request.getWebsiteUrl());
         acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
-        acmeProfile.setInsistContact(request.getRequireContact());
-        acmeProfile.setInsistTermsOfService(request.getRequireTermsOfService());
+        acmeProfile.setRequireContact(request.getRequireContact());
+        acmeProfile.setRequireTermsOfService(request.getRequireTermsOfService());
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
         acmeProfile.setTermsOfServiceChangeApproval(false);
 
@@ -100,10 +100,10 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileRequestDto request) throws ConnectorException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if(request.getRequireContact() != null){
-            acmeProfile.setInsistContact(request.getRequireContact());
+            acmeProfile.setRequireContact(request.getRequireContact());
         }
         if(request.getRequireTermsOfService() != null){
-            acmeProfile.setInsistTermsOfService(request.getRequireTermsOfService());
+            acmeProfile.setRequireTermsOfService(request.getRequireTermsOfService());
         }
         if(request.getTermsOfServiceChangeDisable() != null){
             acmeProfile.setTermsOfServiceChangeApproval(request.getTermsOfServiceChangeDisable());
@@ -176,7 +176,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.ENABLE)
     public void enableAcmeProfile(String uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        if (acmeProfile.getEnabled() != null && acmeProfile.getEnabled()) {
+        if (acmeProfile.isEnabled() != null && acmeProfile.isEnabled()) {
             throw new RuntimeException("ACME Profile is already enabled");
         }
         acmeProfile.setEnabled(true);
@@ -187,7 +187,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DISABLE)
     public void disableAcmeProfile(String uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        if (!acmeProfile.getEnabled()) {
+        if (!acmeProfile.isEnabled()) {
             throw new RuntimeException("ACME Profile is already disabled");
         }
         acmeProfile.setEnabled(false);
@@ -200,7 +200,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         for (String uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                if (acmeProfile.getEnabled()) {
+                if (acmeProfile.isEnabled()) {
                     logger.warn("ACME Profile is already enabled");
                 }
                 acmeProfile.setEnabled(true);
@@ -217,7 +217,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         for (String uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                if (acmeProfile.getEnabled() != null && acmeProfile.getEnabled()) {
+                if (acmeProfile.isEnabled() != null && acmeProfile.isEnabled()) {
                     logger.warn("ACME Profile is already disabled");
                 }
                 acmeProfile.setEnabled(false);

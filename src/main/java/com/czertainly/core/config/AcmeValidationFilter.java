@@ -179,7 +179,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                             "Given ACME Profile in the request URL is not found"));
         }
 
-        if (!acmeProfile.getEnabled()) {
+        if (!acmeProfile.isEnabled()) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                     new ProblemDocument("acmeProfileDisabled",
                             "ACME Profile is not enabled",
@@ -226,7 +226,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                             "RA Profile is not enabled"));
         }
 
-        if (!raProfile.getAcmeProfile().getEnabled()) {
+        if (!raProfile.getAcmeProfile().isEnabled()) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                     new ProblemDocument("acmeProfileDisabled",
                             "ACME Profile is not enabled",

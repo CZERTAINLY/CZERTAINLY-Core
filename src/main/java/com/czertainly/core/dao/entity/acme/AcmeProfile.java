@@ -62,16 +62,16 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
     private Integer retryInterval;
 
     @Column(name= "terms_of_service_change_approval")
-    private Boolean termsOfServiceChangeApproval;
+    private Boolean isTermsOfServiceChangeApproval;
 
     @Column(name = "terms_of_service_change_url")
     private String termsOfServiceChangeUrl;
 
-    @Column(name= "insist_contact")
-    private Boolean insistContact;
+    @Column(name= "require_contact")
+    private Boolean isRequireContact;
 
-    @Column(name= "insist_terms_of_service")
-    private Boolean insistTermsOfService;
+    @Column(name= "require_terms_of_service")
+    private Boolean isRequireTermsOfService;
 
     @Override
     public AcmeProfileDto mapToDto() {
@@ -86,11 +86,11 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
         acmeProfileDto.setDnsResolverIp(dnsResolverIp);
         acmeProfileDto.setDnsResolverPort(dnsResolverPort);
         acmeProfileDto.setRetryInterval(retryInterval);
-        acmeProfileDto.setTermsOfServiceChangeDisable(termsOfServiceChangeApproval);
+        acmeProfileDto.setTermsOfServiceChangeDisable(isTermsOfServiceChangeApproval);
         acmeProfileDto.setTermsOfServiceUrl(termsOfServiceUrl);
         acmeProfileDto.setValidity(validity);
-        acmeProfileDto.setRequireContact(insistContact);
-        acmeProfileDto.setRequireTermsOfService(insistTermsOfService);
+        acmeProfileDto.setRequireContact(isRequireContact);
+        acmeProfileDto.setRequireTermsOfService(isRequireTermsOfService);
         acmeProfileDto.setWebsiteUrl(website);
         acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
         if(raProfile != null){
@@ -159,7 +159,7 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
         this.description = description;
     }
 
-    public Boolean getEnabled() {
+    public Boolean isEnabled() {
         return isEnabled;
     }
 
@@ -240,27 +240,27 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
     }
 
     public Boolean getTermsOfServiceChangeApproval() {
-        return termsOfServiceChangeApproval;
+        return isTermsOfServiceChangeApproval;
     }
 
-    public void setTermsOfServiceChangeApproval(Boolean termsOfServiceChangeApproval) {
-        this.termsOfServiceChangeApproval = termsOfServiceChangeApproval;
+    public void setTermsOfServiceChangeApproval(Boolean isTermsOfServiceChangeApproval) {
+        this.isTermsOfServiceChangeApproval = isTermsOfServiceChangeApproval;
     }
 
-    public Boolean getInsistContact() {
-        return insistContact;
+    public Boolean isRequireContact() {
+        return isRequireContact;
     }
 
-    public void setInsistContact(Boolean insistContact) {
-        this.insistContact = insistContact;
+    public void setRequireContact(Boolean insistContact) {
+        this.isRequireContact = insistContact;
     }
 
-    public Boolean getInsistTermsOfService() {
-        return insistTermsOfService;
+    public Boolean isRequireTermsOfService() {
+        return isRequireTermsOfService;
     }
 
-    public void setInsistTermsOfService(Boolean insistTermsOfService) {
-        this.insistTermsOfService = insistTermsOfService;
+    public void setRequireTermsOfService(Boolean isRequireTermsOfService) {
+        this.isRequireTermsOfService = isRequireTermsOfService;
     }
 
     public String getTermsOfServiceChangeUrl() {

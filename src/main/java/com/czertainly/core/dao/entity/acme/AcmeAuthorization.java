@@ -46,7 +46,7 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     private Set<AcmeChallenge> challenges = new HashSet<>();
 
     @Column(name="wildcard")
-    private Boolean wildcard;
+    private Boolean isWildcard;
 
     @OneToOne
     @JoinColumn(name = "order_id", nullable = false)
@@ -58,7 +58,7 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
         Authorization authorization = new Authorization();
         authorization.setStatus(status);
         authorization.setExpires(AcmeCommonHelper.getStringFromDate(expires));
-        authorization.setWildcard(wildcard);
+        authorization.setWildcard(isWildcard);
         authorization.setIdentifier(AcmeSerializationUtil.deserializeIdentifier(identifier));
         authorization.setChallenges(challenges.stream().map(AcmeChallenge::mapToDto).collect(Collectors.toList()));
         return authorization;
@@ -71,7 +71,7 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
                 .append("authorizationId", authorizationId)
                 .append("status", status)
                 .append("expires", expires)
-                .append("wildcard", wildcard)
+                .append("wildcard", isWildcard)
                 .append("challenges", challenges)
                 .toString();
     }
@@ -124,12 +124,12 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
         this.expires = expires;
     }
 
-    public Boolean getWildcard() {
-        return wildcard;
+    public Boolean isWildcard() {
+        return isWildcard;
     }
 
-    public void setWildcard(Boolean wildcard) {
-        this.wildcard = wildcard;
+    public void setWildcard(Boolean isWildcard) {
+        this.isWildcard = isWildcard;
     }
 
     public Set<AcmeChallenge> getChallenges() {

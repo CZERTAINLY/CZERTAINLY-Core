@@ -63,18 +63,24 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
 
     @Override
     public ResponseEntity<Directory> getDirectory(String raProfileName) throws AcmeProblemDocumentException {
+        logger.info("Gathering directory information for RA Profile ACME {}", raProfileName);
+        Directory directory = extendedAcmeHelperService.frameDirectory(raProfileName);
+        logger.debug("Directory information retrieved {}", directory.toString());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
-                extendedAcmeHelperService.generateNonce()).body(extendedAcmeHelperService.frameDirectory(raProfileName));
+                extendedAcmeHelperService.generateNonce()).body(directory);
     }
 
     @Override
     public ResponseEntity<?> getNonce(Boolean isHead) {
+        String nonce = extendedAcmeHelperService.generateNonce();
+        logger.debug("Generating new nonce. New nonce value is {}", nonce);
+
         if(isHead){
             ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
-                    extendedAcmeHelperService.generateNonce()).build();
+                    nonce).build();
         }
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
-                extendedAcmeHelperService.generateNonce()).build();
+                nonce).build();
     }
 
     @Override
@@ -109,6 +115,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     public ResponseEntity<Authorization> getAuthorization(String raProfileName, String authorizationId, String jwsBody) throws NotFoundException, AcmeProblemDocumentException {
         extendedAcmeHelperService.initialize(jwsBody);
         Authorization authorization = extendedAcmeHelperService.checkDeactivateAuthorization(authorizationId);
+        logger.debug("New Authorization created. {}", authorization.toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
@@ -118,6 +125,8 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     @Override
     public ResponseEntity<Challenge> validateChallenge(String raProfileName, String challengeId) throws AcmeProblemDocumentException {
         AcmeChallenge challenge = extendedAcmeHelperService.validateChallenge(challengeId);
+        logger.debug("Validating challenge with id {}", challengeId);
+        logger.debug("Challenge object is {}", challenge.toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
@@ -130,6 +139,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         elevatePermission();
         extendedAcmeHelperService.initialize(jwsBody);
         extendedAcmeHelperService.finalizeOrder(orderId);
+        logger.debug("Finalizing the order for the Order ID {}", orderId);
         AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
         return ResponseEntity
                 .ok()
@@ -142,6 +152,8 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     @Override
     public ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
+        logger.info("Get the Orders details with ID {}", order);
+        logger.debug("Order Object is {}", order.toString());
         if(order.getStatus().equals(OrderStatus.INVALID)){
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
@@ -157,6 +169,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     public ResponseEntity<Resource> downloadCertificate(String raProfileName, String certificateId) throws NotFoundException, CertificateException {
         elevatePermission();
         ByteArrayResource byteArrayResource = extendedAcmeHelperService.getCertificateResource(certificateId);
+        logger.info("Downloading the certificate with ID {}", certificateId);
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
