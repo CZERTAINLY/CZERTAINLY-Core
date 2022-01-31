@@ -84,7 +84,7 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("id", id)
                 .append("orderId", orderId)
-                .append("issuedCertificate", certificateReference.getUuid())
+                .append("issuedCertificate", certificateReference)
                 .append("acmeAccount", acmeAccount)
                 .append("notBefore", notBefore)
                 .append("notAfter", notAfter)
