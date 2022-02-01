@@ -4,7 +4,7 @@ import com.czertainly.api.model.core.acme.Authorization;
 import com.czertainly.api.model.core.acme.AuthorizationStatus;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.util.AcmeCommonHelper;
-import com.czertainly.core.util.AcmeSerializationUtil;
+import com.czertainly.core.util.SerializationUtil;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -58,7 +58,7 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
         Authorization authorization = new Authorization();
         authorization.setStatus(status);
         authorization.setExpires(AcmeCommonHelper.getStringFromDate(expires));
-        authorization.setIdentifier(AcmeSerializationUtil.deserializeIdentifier(identifier));
+        authorization.setIdentifier(SerializationUtil.deserializeIdentifier(identifier));
         authorization.setChallenges(challenges.stream().map(AcmeChallenge::mapToDto).collect(Collectors.toList()));
         return authorization;
     }

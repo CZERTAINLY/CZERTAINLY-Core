@@ -16,7 +16,7 @@ import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.util.AcmeJsonProcessor;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
-import com.czertainly.core.util.AcmeSerializationUtil;
+import com.czertainly.core.util.SerializationUtil;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
@@ -83,7 +83,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         } catch (AcmeProblemDocumentException e) {
             response.setStatus(e.getHttpStatusCode());
             response.setContentType("application/problem+json");
-            response.getWriter().println(AcmeSerializationUtil.serialize(e.getProblemDocument()));
+            response.getWriter().println(SerializationUtil.serialize(e.getProblemDocument()));
         }
 
     }

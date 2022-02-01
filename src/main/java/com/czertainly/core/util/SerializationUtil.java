@@ -8,7 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 
-public class AcmeSerializationUtil {
+public class SerializationUtil {
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
 	public static String serializeIdentifiers(List<Identifier> identifiers) {

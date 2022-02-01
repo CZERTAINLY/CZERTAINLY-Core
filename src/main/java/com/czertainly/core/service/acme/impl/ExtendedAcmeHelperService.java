@@ -337,7 +337,7 @@ public class ExtendedAcmeHelperService {
         account.setPublicKey(publicKey);
         account.setDefaultRaProfile(true);
         account.setAccountId(accountId);
-        account.setContact(AcmeSerializationUtil.serialize(accountRequest.getContact()));
+        account.setContact(SerializationUtil.serialize(accountRequest.getContact()));
         acmeAccountRepository.save(account);
         logger.debug("ACME Account created. Object is {}", account);
         return account;
@@ -425,7 +425,7 @@ public class ExtendedAcmeHelperService {
         order.setStatus(OrderStatus.PENDING);
         order.setNotAfter(AcmeCommonHelper.getDateFromString(orderRequest.getNotAfter()));
         order.setNotBefore(AcmeCommonHelper.getDateFromString(orderRequest.getNotBefore()));
-        order.setIdentifiers(AcmeSerializationUtil.serializeIdentifiers(orderRequest.getIdentifiers()));
+        order.setIdentifiers(SerializationUtil.serializeIdentifiers(orderRequest.getIdentifiers()));
         if(acmeAccount.getAcmeProfile().getValidity() != null) {
             order.setExpires(AcmeCommonHelper.addSeconds(new Date(), acmeAccount.getAcmeProfile().getValidity()));
         }else{
@@ -560,7 +560,7 @@ public class ExtendedAcmeHelperService {
         Account request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
         logger.debug("Account Update request Object is {}", request.toString());
         if (request.getContact() != null) {
-            account.setContact(AcmeSerializationUtil.serialize(request.getContact()));
+            account.setContact(SerializationUtil.serialize(request.getContact()));
         }
         if (request.getStatus().equals(AccountStatus.DEACTIVATED)) {
             logger.info("Deactivating the account with ID {}", accountId);
@@ -731,7 +731,7 @@ public class ExtendedAcmeHelperService {
             authorization.setExpires(AcmeCommonHelper.getDefaultExpires());
         }
         authorization.setWildcard(checkWildcard(identifiers));
-        authorization.setIdentifier(AcmeSerializationUtil.serialize(identifiers.get(0)));
+        authorization.setIdentifier(SerializationUtil.serialize(identifiers.get(0)));
         acmeAuthorizationRepository.save(authorization);
         AcmeChallenge dnsChallenge = generateChallenge(ChallengeType.DNS01, baseUrl, authorization);
         AcmeChallenge httpChallenge = generateChallenge(ChallengeType.HTTP01, baseUrl, authorization);
@@ -786,7 +786,7 @@ public class ExtendedAcmeHelperService {
     private boolean validateHttpChallenge(AcmeChallenge challenge) throws AcmeProblemDocumentException {
         logger.info("Initiating HTTP Challenge validation. {}", challenge.toString());
         String response = getHttpChallengeResponse(
-                AcmeSerializationUtil.deserializeIdentifier(
+                SerializationUtil.deserializeIdentifier(
                                 challenge
                                         .getAuthorization()
                                         .getIdentifier()
@@ -825,7 +825,7 @@ public class ExtendedAcmeHelperService {
         try {
             context = new InitialDirContext(env);
             Attributes list = context.getAttributes("_acme-challenge."
-                            + AcmeSerializationUtil.deserializeIdentifier(
+                            + SerializationUtil.deserializeIdentifier(
                             challenge.getAuthorization().getIdentifier()).getValue(),
                     new String[]{"TXT"});
             NamingEnumeration<? extends javax.naming.directory.Attribute> records = list.getAll();
@@ -942,13 +942,13 @@ public class ExtendedAcmeHelperService {
             }
         }
 
-        List<String> identifiers = AcmeSerializationUtil.deserializeIdentifiers(order.getIdentifiers())
+        List<String> identifiers = SerializationUtil.deserializeIdentifiers(order.getIdentifiers())
                 .stream()
                 .map(Identifier::getValue)
                 .collect(Collectors.toList());
 
         List<String> identifiersDns = new ArrayList<>();
-        for (Identifier iden : AcmeSerializationUtil.deserializeIdentifiers(order.getIdentifiers())) {
+        for (Identifier iden : SerializationUtil.deserializeIdentifiers(order.getIdentifiers())) {
             if (iden.getType().equals("dns")) {
                 identifiersDns.add(iden.getValue());
             }

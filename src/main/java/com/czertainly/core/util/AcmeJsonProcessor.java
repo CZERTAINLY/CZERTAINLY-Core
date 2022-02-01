@@ -25,8 +25,8 @@ public class AcmeJsonProcessor {
 
     public static <T> T getPayloadAsRequestObject(JWSObject jwsObject, Class<T> returnType) {
 
-        String serializedData = AcmeSerializationUtil.serialize(jwsObject.getPayload().toJSONObject());
-        return (T) AcmeSerializationUtil.deserialize(serializedData, returnType);
+        String serializedData = SerializationUtil.serialize(jwsObject.getPayload().toJSONObject());
+        return (T) SerializationUtil.deserialize(serializedData, returnType);
     }
 
 

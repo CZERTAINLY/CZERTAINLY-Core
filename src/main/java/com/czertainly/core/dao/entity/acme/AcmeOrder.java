@@ -5,7 +5,7 @@ import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.util.AcmeCommonHelper;
-import com.czertainly.core.util.AcmeSerializationUtil;
+import com.czertainly.core.util.SerializationUtil;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -75,7 +75,7 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
         order.setExpires(AcmeCommonHelper.getStringFromDate(expires));
         order.setNotAfter(AcmeCommonHelper.getStringFromDate(notAfter));
         order.setNotBefore(AcmeCommonHelper.getStringFromDate(notBefore));
-        order.setIdentifiers(AcmeSerializationUtil.deserializeIdentifiers(identifiers));
+        order.setIdentifiers(SerializationUtil.deserializeIdentifiers(identifiers));
         return order;
     }
 
