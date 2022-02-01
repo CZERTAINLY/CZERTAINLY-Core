@@ -13,6 +13,5 @@ public class RequestResponseInterceptorConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(requestResponseInterceptor);
-
     }
 }

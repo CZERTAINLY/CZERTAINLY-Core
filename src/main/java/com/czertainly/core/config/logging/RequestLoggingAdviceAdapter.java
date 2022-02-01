@@ -18,7 +18,7 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 
 @ControllerAdvice
-public class CustomRequestLoggingAdvice extends RequestBodyAdviceAdapter {
+public class RequestLoggingAdviceAdapter extends RequestBodyAdviceAdapter {
     @Autowired
     HttpServletRequest httpServletRequest;
 
@@ -34,16 +34,17 @@ public class CustomRequestLoggingAdvice extends RequestBodyAdviceAdapter {
     public Object afterBodyRead(Object body, HttpInputMessage inputMessage,
                                 MethodParameter parameter, Type targetType,
                                 Class<? extends HttpMessageConverter<?>> converterType) {
-
-        ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("METHOD", httpServletRequest.getMethod())
-                .append("PATH", httpServletRequest.getRequestURI())
-                .append("FROM", httpServletRequest.getRemoteAddr())
-                .append("REQUEST TYPE", httpServletRequest.getContentType())
-                .append("REQUEST HEADERS", Collections.list(httpServletRequest.getHeaderNames()).stream()
-                        .map(r -> r + " : " + httpServletRequest.getHeader(r)).collect(Collectors.toList()))
-                .append("REQUEST BODY", SerializationUtil.serialize(body));
-        logger.debug("REQUEST DATA: {}", debugMessage);
+        if (logger.isDebugEnabled()) {
+            ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
+                    .append("METHOD", httpServletRequest.getMethod())
+                    .append("PATH", httpServletRequest.getRequestURI())
+                    .append("FROM", httpServletRequest.getRemoteAddr())
+                    .append("REQUEST TYPE", httpServletRequest.getContentType())
+                    .append("REQUEST HEADERS", Collections.list(httpServletRequest.getHeaderNames()).stream()
+                            .map(r -> r + " : " + httpServletRequest.getHeader(r)).collect(Collectors.toList()))
+                    .append("REQUEST BODY", SerializationUtil.serialize(body));
+            logger.debug("REQUEST DATA: {}", debugMessage);
+        }
         return super.afterBodyRead(body, inputMessage, parameter, targetType, converterType);
     }
 }

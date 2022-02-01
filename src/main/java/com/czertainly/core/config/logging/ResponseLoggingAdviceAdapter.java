@@ -21,7 +21,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.stream.Collectors;
 
 @ControllerAdvice
-public class CustomResponseLoggingAdvice implements ResponseBodyAdvice<Object> {
+public class ResponseLoggingAdviceAdapter implements ResponseBodyAdvice<Object> {
     @Autowired
     HttpServletRequest httpServletRequest;
 

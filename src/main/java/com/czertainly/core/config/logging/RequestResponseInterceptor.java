@@ -23,18 +23,20 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
-        if (DispatcherType.REQUEST.name().equals(request.getDispatcherType().name())
-                && request.getMethod().equals(HttpMethod.GET.name())) {
-            ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
-            requestWrapper.getParameterMap();
-            ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                    .append("METHOD", requestWrapper.getMethod())
-                    .append("PATH", requestWrapper.getRequestURI())
-                    .append("FROM", requestWrapper.getRemoteAddr())
-                    .append("REQUEST TYPE", requestWrapper.getContentType())
-                    .append("REQUEST HEADERS", Collections.list(requestWrapper.getHeaderNames()).stream()
-                            .map(r -> r + " : " + requestWrapper.getHeader(r)).collect(Collectors.toList()));
-            logger.debug("REQUEST DATA: {}", debugMessage);
+        if (logger.isDebugEnabled()) {
+            if (DispatcherType.REQUEST.name().equals(request.getDispatcherType().name())
+                    && request.getMethod().equals(HttpMethod.GET.name())) {
+                ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
+                requestWrapper.getParameterMap();
+                ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
+                        .append("METHOD", requestWrapper.getMethod())
+                        .append("PATH", requestWrapper.getRequestURI())
+                        .append("FROM", requestWrapper.getRemoteAddr())
+                        .append("REQUEST TYPE", requestWrapper.getContentType())
+                        .append("REQUEST HEADERS", Collections.list(requestWrapper.getHeaderNames()).stream()
+                                .map(r -> r + " : " + requestWrapper.getHeader(r)).collect(Collectors.toList()));
+                logger.debug("REQUEST DATA: {}", debugMessage);
+            }
         }
         return true;
     }
