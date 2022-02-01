@@ -40,25 +40,26 @@ public class ResponseLoggingAdviceAdapter implements ResponseBodyAdvice<Object> 
                                   Class<? extends HttpMessageConverter<?>> aClass,
                                   ServerHttpRequest serverHttpRequest,
                                   ServerHttpResponse serverHttpResponse) {
-
-        if (serverHttpRequest instanceof ServletServerHttpRequest &&
-                serverHttpResponse instanceof ServletServerHttpResponse) {
-            HttpServletRequest request = ((ServletServerHttpRequest) serverHttpRequest).getServletRequest();
-            HttpServletResponse response = ((ServletServerHttpResponse) serverHttpResponse).getServletResponse();
-            Object printableBody;
-            try {
-                printableBody = SerializationUtil.serialize(body);
-            } catch (Exception e){
-                printableBody = body.toString();
+        if (logger.isDebugEnabled()) {
+            if (serverHttpRequest instanceof ServletServerHttpRequest &&
+                    serverHttpResponse instanceof ServletServerHttpResponse) {
+                HttpServletRequest request = ((ServletServerHttpRequest) serverHttpRequest).getServletRequest();
+                HttpServletResponse response = ((ServletServerHttpResponse) serverHttpResponse).getServletResponse();
+                Object printableBody;
+                try {
+                    printableBody = SerializationUtil.serialize(body);
+                } catch (Exception e) {
+                    printableBody = body.toString();
+                }
+                ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
+                        .append("RESPONSE FOR", request.getRequestURI())
+                        .append("RESPONSE STATUS", response.getStatus())
+                        .append("RESPONSE TYPE", response.getContentType())
+                        .append("RESPONSE HEADERS", response.getHeaderNames().stream()
+                                .map(r -> r + " : " + response.getHeaders(r)).collect(Collectors.toList()))
+                        .append("RESPONSE BODY", printableBody);
+                logger.debug("RESPONSE DATA: {}", debugMessage);
             }
-            ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                    .append("RESPONSE FOR", request.getRequestURI())
-                    .append("RESPONSE STATUS", response.getStatus())
-                    .append("RESPONSE TYPE", response.getContentType())
-                    .append("RESPONSE HEADERS", response.getHeaderNames().stream()
-                            .map(r -> r + " : " + response.getHeaders(r)).collect(Collectors.toList()))
-                    .append("RESPONSE BODY", printableBody);
-            logger.debug("RESPONSE DATA: {}", debugMessage);
         }
         return body;
     }
