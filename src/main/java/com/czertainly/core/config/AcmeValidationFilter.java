@@ -113,7 +113,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                             new ProblemDocument("orderExpired",
                                     "Order Expired",
-                                    "Expiry of the order is reached."));
+                                    "Expiry of the order is reached"));
                 }
             }
         }
@@ -133,7 +133,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                             new ProblemDocument("authorizationExpired",
                                     "Authorization Expired",
-                                    "Expiry of the authorization is reached."));
+                                    "Expiry of the authorization is reached"));
                 }
             }
         }
@@ -153,7 +153,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                             new ProblemDocument("authorizationExpired",
                                     "Authorization Expired",
-                                    "Expiry of the authorization is reached."));
+                                    "Expiry of the authorization is reached"));
                 }
             }
         }
@@ -289,7 +289,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
 
     private void validateNonce(Object nonce) throws AcmeProblemDocumentException {
         if (nonce == null) {
-            logger.error("Nonce is not found in the URL");
+            logger.error("Nonce is not found in the request");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE);
         }
         extendedAcmeHelperService.isNonceValid(nonce.toString());
@@ -353,8 +353,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     return;
                 }
             } catch (JOSEException e) {
-                logger.error(e.getMessage());
-                logger.error("Unable to verify signature");
+                logger.error("Unable to verify signature: {}", e);
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
             }
             logger.error("Unable to verify the signature");

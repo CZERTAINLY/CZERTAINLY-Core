@@ -163,7 +163,7 @@ public class AcmeServiceImpl implements AcmeService {
     @Override
     public ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId) throws NotFoundException, CertificateException {
         elevatePermission();
-        logger.info("Downloading the Certificate with ID {}", certificateId);
+        logger.info("Downloading the Certificate with ID: {}", certificateId);
         ByteArrayResource byteArrayResource = extendedAcmeHelperService.getCertificateResource(certificateId);
         return ResponseEntity
                 .ok()

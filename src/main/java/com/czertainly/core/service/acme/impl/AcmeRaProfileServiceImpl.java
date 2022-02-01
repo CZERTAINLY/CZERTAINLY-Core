@@ -65,7 +65,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     public ResponseEntity<Directory> getDirectory(String raProfileName) throws AcmeProblemDocumentException {
         logger.info("Gathering Directory information for RA Profile ACME: {}", raProfileName);
         Directory directory = extendedAcmeHelperService.frameDirectory(raProfileName);
-        logger.debug("Directory information retrieved {}", directory.toString());
+        logger.debug("Directory information retrieved: {}", directory.toString());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
                 extendedAcmeHelperService.generateNonce()).body(directory);
     }
@@ -151,7 +151,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
 
     @Override
     public ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
-        logger.info("Get the Order detail with ID: {}", orderId);
+        logger.info("Get the Order details with ID: {}", orderId);
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
         logger.debug("Order: {}", order);
         if(order.getStatus().equals(OrderStatus.INVALID)){

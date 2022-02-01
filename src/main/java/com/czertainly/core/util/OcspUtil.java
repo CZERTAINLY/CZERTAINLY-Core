@@ -97,7 +97,7 @@ public class OcspUtil {
 			logger.warn("Error while getting OCSP URL");
 			logger.warn(e.getMessage());
 		}
-		logger.info("OSP Url for the certificate is not available");
+		logger.info("OCSP Url for the certificate is not available");
 		return ocspUrls;
 	}
 	
@@ -171,7 +171,7 @@ public class OcspUtil {
 			}
 		} catch (IOException e) {
 			logger.warn("Failed to connect to OCSP URL.", e);
-			throw new IOException("Cannot get ocspResponse from URL: " + serviceUrl, e);
+			throw new IOException("Cannot get OCSP response from URL: " + serviceUrl, e);
 		}
 	}
 }
