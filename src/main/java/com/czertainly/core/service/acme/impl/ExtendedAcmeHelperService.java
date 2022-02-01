@@ -88,6 +88,11 @@ public class ExtendedAcmeHelperService {
     private static final String MESSAGE_DIGEST_ALGORITHM = "SHA-256";
     private static final String DNS_RECORD_TYPE = "TXT";
     private static final String DNS_ACME_PREFIX = "_acme-challenge.";
+    private static final String DEFAULT_DNS_PORT = "53";
+    private static final String DNS_CONTENT_FACTORY = "com.sun.jndi.dns.DnsContextFactory";
+    private static final String DNS_ENV_PREFIX = "dns://";
+    private static final String HTTP_CHALLENGE_REQUEST_METHOD = "GET";
+    private static final String LOCATION_HEADER_NAME = "Location";
 
 
     @Autowired
@@ -349,7 +354,7 @@ public class ExtendedAcmeHelperService {
     }
 
     protected ResponseEntity<Order> processNewOrder(String profileName, String requestJson) throws AcmeProblemDocumentException {
-        logger.info("Request to process a new Order for the profile: {}", profileName);
+        logger.info("Request to process new Order for profile: {}", profileName);
         initialize(requestJson);
         String[] acmeAccountKeyIdSegment = getJwsObject().getHeader().getKeyID().split("/");
         String acmeAccountId = acmeAccountKeyIdSegment[acmeAccountKeyIdSegment.length - 1];
@@ -808,14 +813,13 @@ public class ExtendedAcmeHelperService {
     private boolean validateDnsChallenge(AcmeChallenge challenge) {
         logger.info("Initiating DNS-01 Validation for challenge: {}", challenge.toString());
         Properties env = new Properties();
-        env.setProperty(Context.INITIAL_CONTEXT_FACTORY,
-                "com.sun.jndi.dns.DnsContextFactory");
+        env.setProperty(Context.INITIAL_CONTEXT_FACTORY, DNS_CONTENT_FACTORY);
         AcmeProfile acmeProfile = challenge.getAuthorization().getOrder().getAcmeAccount().getAcmeProfile();
         if (acmeProfile.getDnsResolverIp() == null || acmeProfile.getDnsResolverIp().isEmpty()) {
-            env.setProperty(Context.PROVIDER_URL, "dns://");
+            env.setProperty(Context.PROVIDER_URL, DNS_ENV_PREFIX);
         } else {
-            env.setProperty(Context.PROVIDER_URL, "dns://" + acmeProfile.getDnsResolverIp() + ":" + Optional.ofNullable(acmeProfile.getDnsResolverPort())
-                    .orElse("53"));
+            env.setProperty(Context.PROVIDER_URL, DNS_ENV_PREFIX + acmeProfile.getDnsResolverIp() + ":" + Optional.ofNullable(acmeProfile.getDnsResolverPort())
+                    .orElse(DEFAULT_DNS_PORT));
         }
         List<String> txtRecords = new ArrayList<>();
         String expectedKeyAuthorization = generateDnsValidationToken(challenge.getAuthorization().getOrder().getAcmeAccount().getPublicKey(), challenge.getToken());
@@ -860,12 +864,15 @@ public class ExtendedAcmeHelperService {
                 redirectFollowCount += 1;
                 URL urlObject = new URL(finalUrl);
                 if (!(urlObject.getPort() == 80 || urlObject.getPort() == 443 || urlObject.getPort() == -1)) {
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("invalidRedirect", "Invalid Redirect", "Only 80 and 443 ports can be followed"));
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            new ProblemDocument("invalidRedirect",
+                                    "Invalid Redirect",
+                                    "Only 80 and 443 ports can be followed"));
                 }
                 connection = (HttpURLConnection) new URL(finalUrl).openConnection();
                 connection.setInstanceFollowRedirects(false);
                 connection.setUseCaches(false);
-                connection.setRequestMethod("GET");
+                connection.setRequestMethod(HTTP_CHALLENGE_REQUEST_METHOD);
                 connection.connect();
                 int responseCode = connection.getResponseCode();
                 if (100 <= connection.getResponseCode() && connection.getResponseCode() <= 399) {
@@ -873,7 +880,7 @@ public class ExtendedAcmeHelperService {
                     acmeChallengeOutput = bufferedReader.lines().collect(Collectors.joining());
                 }
                 if (responseCode >= 300 && responseCode < 400) {
-                    String redirectedUrl = connection.getHeaderField("Location");
+                    String redirectedUrl = connection.getHeaderField(LOCATION_HEADER_NAME);
                     if (null == redirectedUrl) {
                         break;
                     }
