@@ -38,7 +38,6 @@ public class ResponseLoggingFilterConfig implements Filter {
                     .append("RESPONSE HEADERS", responseWrapper.getHeaderNames().stream()
                             .map(r -> r + " : " + responseWrapper.getHeaders(r)).collect(Collectors.toList()))
                     .append("RESPONSE BODY", new String(responseWrapper.getContentAsByteArray()));
-            responseWrapper.copyBodyToResponse();
             logger.debug("RESPONSE DATA: {}", debugMessage);
             responseWrapper.copyBodyToResponse();
         }

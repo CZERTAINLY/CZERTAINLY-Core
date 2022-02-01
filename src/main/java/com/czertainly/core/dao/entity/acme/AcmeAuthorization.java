@@ -46,7 +46,7 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     private Set<AcmeChallenge> challenges = new HashSet<>();
 
     @Column(name="wildcard")
-    private Boolean isWildcard;
+    private Boolean wildcard;
 
     @OneToOne
     @JoinColumn(name = "order_id", nullable = false)
@@ -70,7 +70,7 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
                 .append("authorizationId", authorizationId)
                 .append("status", status)
                 .append("expires", expires)
-                .append("wildcard", isWildcard)
+                .append("wildcard", wildcard)
                 .append("challenges", challenges)
                 .toString();
     }
@@ -124,11 +124,11 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     }
 
     public Boolean isWildcard() {
-        return isWildcard;
+        return wildcard;
     }
 
     public void setWildcard(Boolean isWildcard) {
-        this.isWildcard = isWildcard;
+        this.wildcard = isWildcard;
     }
 
     public Set<AcmeChallenge> getChallenges() {

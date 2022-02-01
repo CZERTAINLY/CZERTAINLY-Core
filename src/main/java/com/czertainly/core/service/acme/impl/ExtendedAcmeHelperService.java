@@ -533,7 +533,7 @@ public class ExtendedAcmeHelperService {
                 .stream()
                 .map(AcmeOrder::mapToDto)
                 .collect(Collectors.toList());
-        logger.debug("List of Orders for the account retrieved. Size is {}", orders.size());
+        logger.debug("List of Orders for the Account retrieved. Size is {}", orders.size());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, generateNonce())
