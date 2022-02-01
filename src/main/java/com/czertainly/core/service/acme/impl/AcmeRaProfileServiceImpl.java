@@ -73,7 +73,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     @Override
     public ResponseEntity<?> getNonce(Boolean isHead) {
         String nonce = extendedAcmeHelperService.generateNonce();
-        logger.debug("New Nonce value: {}", nonce);
+        logger.debug("New Nonce: {}", nonce);
 
         if(isHead){
             ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
@@ -115,7 +115,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     public ResponseEntity<Authorization> getAuthorization(String raProfileName, String authorizationId, String jwsBody) throws NotFoundException, AcmeProblemDocumentException {
         extendedAcmeHelperService.initialize(jwsBody);
         Authorization authorization = extendedAcmeHelperService.checkDeactivateAuthorization(authorizationId);
-        logger.debug("New Authorization created: {}", authorization.toString());
+        logger.debug("New Authorization: {}", authorization.toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
@@ -126,7 +126,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     public ResponseEntity<Challenge> validateChallenge(String raProfileName, String challengeId) throws AcmeProblemDocumentException {
         logger.info("Validating Challenge with ID: {}", challengeId);
         AcmeChallenge challenge = extendedAcmeHelperService.validateChallenge(challengeId);
-        logger.debug("Challenge object: {}", challenge.toString());
+        logger.debug("Challenge: {}", challenge.toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
@@ -153,7 +153,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     public ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
         logger.info("Get the Order detail with ID: {}", orderId);
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
-        logger.debug("Order object is {}", order);
+        logger.debug("Order: {}", order);
         if(order.getStatus().equals(OrderStatus.INVALID)){
             logger.error("Order status is invalid");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);

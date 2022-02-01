@@ -215,7 +215,7 @@ public class ExtendedAcmeHelperService {
         meta.setTermsOfService(acmeProfile.getTermsOfServiceUrl());
         meta.setExternalAccountRequired(false);
         meta.setWebsite(acmeProfile.getWebsite());
-        logger.debug("Directory meta object: {}", meta);
+        logger.debug("Directory meta: {}", meta);
         return meta;
     }
 
@@ -386,9 +386,9 @@ public class ExtendedAcmeHelperService {
     }
 
     protected AcmeOrder getAcmeOrderEntity(String orderId) throws AcmeProblemDocumentException {
-        logger.info("Gathering ACME Order details ID: {}", orderId);
+        logger.info("Gathering ACME Order details with ID: {}", orderId);
         AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound", "Order Not Found", "Specified ACME Order not found")));
-        logger.debug("ACME Order found for the ID {}. {}", orderId, acmeOrder.toString());
+        logger.debug("Order: {}", orderId, acmeOrder.toString());
         return acmeOrder;
     }
 
@@ -416,7 +416,7 @@ public class ExtendedAcmeHelperService {
     public AcmeOrder generateOrder(String baseUrl, AcmeAccount acmeAccount) {
         logger.info("Generating the new Order for the Account: {}", acmeAccount.toString());
         Order orderRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Order.class);
-        logger.debug("Order request is requested: {}", orderRequest.toString());
+        logger.debug("Order requested: {}", orderRequest.toString());
         AcmeOrder order = new AcmeOrder();
         order.setAcmeAccount(acmeAccount);
         order.setOrderId(AcmeRandomGeneratorAndValidator.generateRandomId());
@@ -433,7 +433,7 @@ public class ExtendedAcmeHelperService {
         logger.debug("Order created: {}", order);
         Set<AcmeAuthorization> authorizations = generateValidations(baseUrl, order, orderRequest.getIdentifiers());
         order.setAuthorizations(authorizations);
-        logger.debug("Challenges created and are associated with the Authorization for Order:",order);
+        logger.debug("Challenges created and are associated with the Authorization for Order: ",order);
         return order;
     }
 
@@ -442,16 +442,16 @@ public class ExtendedAcmeHelperService {
         AcmeChallenge challenge;
         try {
             challenge = acmeChallengeRepository.findByChallengeId(challengeId).orElseThrow(() -> new NotFoundException(Challenge.class, challengeId));
-            logger.debug("Challenge found for the ID {}. The value is {}", challengeId, challenge.toString());
+            logger.debug("Challenge: {}", challengeId, challenge.toString());
 
         } catch (NotFoundException e) {
-            logger.error("Challenge not found for ID {}", challengeId);
+            logger.error("Challenge not found for ID: {}", challengeId);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("challengeNotFound","Challenge Not Found","The given challenge is not found"));
         }
         AcmeAuthorization authorization = challenge.getAuthorization();
-        logger.debug("Authorization corresponding to the Order is {}", authorization.toString());
+        logger.debug("Authorization corresponding to the Order: {}", authorization.toString());
         AcmeOrder order = authorization.getOrder();
-        logger.debug("Order corresponding to the Challenge is {}", order.toString());
+        logger.debug("Order corresponding to the Challenge: {}", order.toString());
         boolean isValid;
         if (challenge.getType().equals(ChallengeType.HTTP01)) {
             isValid = validateHttpChallenge(challenge);
@@ -468,21 +468,21 @@ public class ExtendedAcmeHelperService {
         }
         acmeChallengeRepository.save(challenge);
         acmeAuthorizationRepository.save(authorization);
-        logger.info("Validation of the Challenge is completed. Updated Challenge Object is {}", challenge);
+        logger.info("Validation of the Challenge is completed. Updated Challenge: {}", challenge);
         return challenge;
     }
 
     public AcmeOrder checkOrderForFinalize(String orderId) throws AcmeProblemDocumentException {
-        logger.info("Request to finalize the Order with ID {}", orderId);
+        logger.info("Request to finalize the Order with ID: {}", orderId);
         AcmeOrder order;
         try {
             order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
-            logger.debug("Found Order for the finalization request {}", order.toString());
+            logger.debug("Found Order: {}", order.toString());
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound","Order Not Found","The given Order is not found"));
         }
         if ( !order.getStatus().equals(OrderStatus.READY)) {
-            logger.error("Order status is {}", order.getStatus());
+            logger.error("Order status: {}", order.getStatus());
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.ORDER_NOT_READY);
         }
         return order;
@@ -491,7 +491,7 @@ public class ExtendedAcmeHelperService {
     @Async
     public void finalizeOrder(AcmeOrder order) throws AcmeProblemDocumentException {
         CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateFinalizeRequest.class);
-        logger.debug("Finalize Order request with input as {}", request.toString());
+        logger.debug("Finalize Order: {}", request.toString());
         JcaPKCS10CertificationRequest p10Object;
         try {
             p10Object = new JcaPKCS10CertificationRequest(Base64.getUrlDecoder().decode(request.getCsr()));
@@ -512,7 +512,7 @@ public class ExtendedAcmeHelperService {
     @Async
     private void createCert(AcmeOrder order, ClientCertificateSignRequestDto certificateSignRequestDto) {
         if(logger.isDebugEnabled()) {
-            logger.debug("Initiating the issuing Certificate for the Order {} and certificate signing request {}", order.toString(), certificateSignRequestDto.toString());
+            logger.debug("Initiating the issuing Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());
         }
         try {
             ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(order.getAcmeAccount().getRaProfile().getUuid(), certificateSignRequestDto, true);
@@ -528,13 +528,13 @@ public class ExtendedAcmeHelperService {
     }
 
     public ResponseEntity<List<Order>> listOrders(String accountId) throws AcmeProblemDocumentException {
-        logger.info("Request to list of Orders for the Account with ID {}", accountId);
+        logger.info("Request to list of Orders for the Account with ID: {}", accountId);
         List<Order> orders = getAcmeAccountEntity(accountId)
                 .getOrders()
                 .stream()
                 .map(AcmeOrder::mapToDto)
                 .collect(Collectors.toList());
-        logger.debug("List of Orders for the Account retrieved. Size is {}", orders.size());
+        logger.debug("Size of Orders: {}", orders.size());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, generateNonce())
@@ -569,7 +569,7 @@ public class ExtendedAcmeHelperService {
             account.setStatus(AccountStatus.DEACTIVATED);
         }
         acmeAccountRepository.save(account);
-        logger.debug("Updated Account object: {}", account.mapToDto().toString());
+        logger.debug("Updated Account: {}", account.mapToDto().toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, generateNonce())

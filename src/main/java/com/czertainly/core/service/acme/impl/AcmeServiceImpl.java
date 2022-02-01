@@ -66,7 +66,7 @@ public class AcmeServiceImpl implements AcmeService {
     @Override
     public ResponseEntity<?> getNonce(Boolean isHead) {
         String nonce = extendedAcmeHelperService.generateNonce();
-        logger.debug("New Nonce value: {}", nonce);
+        logger.debug("New Nonce: {}", nonce);
         if(isHead){
             ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
                     nonce).build();
@@ -107,7 +107,7 @@ public class AcmeServiceImpl implements AcmeService {
     public ResponseEntity<Authorization> getAuthorization(String acmeProfileName, String authorizationId, String jwsBody) throws NotFoundException, AcmeProblemDocumentException {
         extendedAcmeHelperService.initialize(jwsBody);
         Authorization authorization = extendedAcmeHelperService.checkDeactivateAuthorization(authorizationId);
-        logger.debug("Authorization obtained: {}", authorization.toString());
+        logger.debug("Authorization: {}", authorization.toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
@@ -132,8 +132,8 @@ public class AcmeServiceImpl implements AcmeService {
         elevatePermission();
         extendedAcmeHelperService.initialize(jwsBody);
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
-        extendedAcmeHelperService.finalizeOrder(order);
         logger.debug("Finalizing the Order with ID: {}", orderId);
+        extendedAcmeHelperService.finalizeOrder(order);
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
