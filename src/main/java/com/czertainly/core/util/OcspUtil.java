@@ -167,11 +167,11 @@ public class OcspUtil {
 				InputStream in = (InputStream) con.getContent();
                 return new OCSPResp(in);
 			} else {
-				throw new IllegalArgumentException("Only http is supported for ocsp calls");
+				throw new IllegalArgumentException("Only http is supported for OCSP requests");
 			}
 		} catch (IOException e) {
-			logger.warn("Failed to connect to ocsp url.", e);
-			throw new IOException("Cannot get ocspResponse from url: " + serviceUrl, e);
+			logger.warn("Failed to connect to OCSP URL.", e);
+			throw new IOException("Cannot get ocspResponse from URL: " + serviceUrl, e);
 		}
 	}
 }

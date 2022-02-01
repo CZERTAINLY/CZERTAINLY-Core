@@ -245,7 +245,6 @@ public class AcmeServiceTest {
         ResponseEntity<Authorization> authorization = acmeService.getAuthorization("sameName", "auth123", requestJson);
         Assertions.assertNotNull(authorization);
         Assertions.assertEquals(0, authorization.getBody().getChallenges().size());
-        Assertions.assertEquals(authorization.getBody().isWildcard(), false);
     }
 
     @Test
@@ -255,8 +254,7 @@ public class AcmeServiceTest {
                 "  \"signature\": \"0xnnC2Stx0IJyDvEZ3sDda_50oEocMGZkQvOxniXp8cbk17fpKYS9sRgMqDTeC8uaUWtv7YIRGoCHQvTYs40_Q3bdGmJGtN-ltZte3LM5oJARQPwgB8NIVzXkE6axd_8So1Xsau5yVi23dHO_y0MIYQzUYFpyn_30bCkTfNdiOIrX55qb8EX0E5OwPUrcUXeVtXAkpxLLMew2ZcQF1pHYjTNFQ1ZXtlO9xcTWZikLq5Eg_3FRWuh0ZxqsVw6-8QtYM2W44Zna2ZGbIAm2jveVTEM2O-ZAvYxFxYmNdUR9aNVPpme76OC5v3rjVsnJaBtDjpkJ9ub7EbOk9kvG1oD6w\",\n" +
                 "  \"payload\": \"ewogICJjc3IiOiAiTUlJQ2RqQ0NBVjRDQVFJd0FEQ0NBU0l3RFFZSktvWklodmNOQVFFQkJRQURnZ0VQQURDQ0FRb0NnZ0VCQUxlSnZ4N0pXYnd6b2JXTDc0S3lIejBGalBxdDBSNWlPYU94aVlxcGZNWS1aVmhNQmtTMEZxbkNCUXpNbjVCa0h1a2R4N0hzSU1rSi1zTTAxSFZISmFScGdwZjF6ZVR5UlFqWTdFU0Rpa1JMXzFFa3hpNlNnZjV1bnpCMzVhUDJFQnhpQWFvbUc2MTBIanBxU2ZHdE96RWYxMmh5NGprY0M0NDZUVDhuRTlkbTZDQmY3WEFvcTl2WHhYUmpuQWdka3I2MnlJemFuWGVkRHdkY055azVFaWlSV1FYd1ctTDVQZXg1ODA4aXAyZ21FNUFsNVNQVWl2OGVEQ3EwMlFWREo4TG40VVBZa3hMMWI2Uk1sZkVnS0xzR0VaWDBlLUZDMHdfZmlCTjQ4enJ2SHhxTTJmZFU3QWU4cFJEd1VPQ2xZT3hEa3J2RHY2MFJHaWtMbFFaNDVGY0NBd0VBQWFBeE1DOEdDU3FHU0liM0RRRUpEakVpTUNBd0hnWURWUjBSQkJjd0ZZSVRaR1ZpYVdGdU1UQXVZV050WlM1c2IyTmhiREFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBSGxPMFp1UHVZRXRwbFUwZ0VVajg4WWkxTVdrckVseDBKb1RrN3FvblJzdWZ1X1kyUF91LVJya1dPek0zVkowOGxOejkwTF9tbmM4Tk9PTk1sX1dsWVdCeXdiVU1zR2FyNFlfMXgweVNPRWRwNWZnODdyeFkxYjJqYlNMN3RQZTRPVjd5QWViZENFenpYWEJpM0F5OU5vSkFod05PTmp5UnA5MnZxVDUtTVdNWFF5WnZkY1VNTTM4bDZhTmM5am9mM0VsdU5iZ083bldTbGU2TVFKSnZsRVl3WHg3WlB2dmd4TWZyUmEtWWNfYVdTN3cyNU1TQU9ES0t3dklpdkduNXFfb3dmZDVBb3pZcDBweW1pTExidkFXaFlWV0xfLWJHdkoxM3hweWZOUG5HSklkd2NZOHpnaWtZUHlCZmJSbVB5S0pMUEk0UW5XejhHc1dHaWFVZ2pBIgp9\"\n" +
                 "}";
-        ResponseEntity<Order> order = acmeService.finalizeOrder("sameName", "order123", requestJson);
-        Assertions.assertNotNull(order);
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder("sameName", "order123", requestJson));
     }
 
     @Test

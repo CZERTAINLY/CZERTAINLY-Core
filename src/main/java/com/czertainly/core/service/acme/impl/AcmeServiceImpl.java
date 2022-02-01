@@ -56,7 +56,7 @@ public class AcmeServiceImpl implements AcmeService {
 
     @Override
     public ResponseEntity<Directory> getDirectory(String acmeProfileName) throws AcmeProblemDocumentException {
-        logger.info("Gathering Directory information for ACME {}", acmeProfileName);
+        logger.info("Gathering Directory information for ACME: {}", acmeProfileName);
         Directory directory = extendedAcmeHelperService.frameDirectory(acmeProfileName);
         logger.debug("Directory information retrieved {}", directory.toString());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
@@ -117,7 +117,7 @@ public class AcmeServiceImpl implements AcmeService {
     @Override
     public ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId) throws AcmeProblemDocumentException {
         AcmeChallenge challenge = extendedAcmeHelperService.validateChallenge(challengeId);
-        logger.debug("Validating Challenge with id {}. {}", challengeId, challenge.toString());
+        logger.debug("Validating Challenge with ID {}. {}", challengeId, challenge.toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
@@ -131,7 +131,7 @@ public class AcmeServiceImpl implements AcmeService {
         extendedAcmeHelperService.initialize(jwsBody);
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
         extendedAcmeHelperService.finalizeOrder(order);
-        logger.debug("Finalizing the Order for the Order ID {}", orderId);
+        logger.debug("Finalizing the Order with ID: {}", orderId);
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
@@ -144,7 +144,7 @@ public class AcmeServiceImpl implements AcmeService {
     @Override
     public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
-        logger.info("Get the Orders details with ID {}.", order);
+        logger.info("Get the Order details with ID {}.", order.getOrderId());
         logger.debug("Order details: {}" , order.toString());
         if(order.getStatus().equals(OrderStatus.INVALID)){
             logger.error("Order status is invalid");

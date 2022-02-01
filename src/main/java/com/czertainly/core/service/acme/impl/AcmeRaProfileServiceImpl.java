@@ -63,7 +63,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
 
     @Override
     public ResponseEntity<Directory> getDirectory(String raProfileName) throws AcmeProblemDocumentException {
-        logger.info("Gathering Directory information for RA Profile ACME {}", raProfileName);
+        logger.info("Gathering Directory information for RA Profile ACME: {}", raProfileName);
         Directory directory = extendedAcmeHelperService.frameDirectory(raProfileName);
         logger.debug("Directory information retrieved {}", directory.toString());
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
@@ -140,7 +140,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         extendedAcmeHelperService.initialize(jwsBody);
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
         extendedAcmeHelperService.finalizeOrder(order);
-        logger.debug("Finalizing the Order for the Order ID {}", orderId);
+        logger.debug("Finalizing the Order with ID: {}", orderId);
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
@@ -152,8 +152,8 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     @Override
     public ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
-        logger.info("Get the Orders details with ID {}", order);
-        logger.debug("Order Object is {}", order.toString());
+        logger.info("Get the Order detail with ID {}", order.getOrderId());
+        logger.debug("Order object is {}", order);
         if(order.getStatus().equals(OrderStatus.INVALID)){
             logger.error("Order status is invalid");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
