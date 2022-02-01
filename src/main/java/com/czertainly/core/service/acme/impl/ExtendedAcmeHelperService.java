@@ -83,6 +83,7 @@ public class ExtendedAcmeHelperService {
     private static final String NONCE_HEADER_NAME = "Replay-Nonce";
     private static final String RETRY_HEADER_NAME = "Retry-After";
     private static final Integer NONCE_VALIDITY = 1 * 60 * 60; //1 Hour
+    private static final Integer MAX_REDIRECT_COUNT = 15;
 
 
     @Autowired
@@ -849,16 +850,22 @@ public class ExtendedAcmeHelperService {
         return true;
     }
 
-    private String getHttpChallengeResponse(String domain, String token) {
+    private String getHttpChallengeResponse(String domain, String token) throws AcmeProblemDocumentException {
         return getResponseFollowRedirects(String.format("http://%s/.well-known/acme-challenge/%s", domain, token));
     }
 
-    private String getResponseFollowRedirects(String url) {
+    private String getResponseFollowRedirects(String url) throws AcmeProblemDocumentException {
         String finalUrl = url;
         String acmeChallengeOutput = "";
+        Integer redirectFollowCount = 0;
         try {
             HttpURLConnection connection;
             do {
+                redirectFollowCount += 1;
+                URL urlObject = new URL(finalUrl);
+                if (!(urlObject.getPort() == 80 || urlObject.getPort() == 443 || urlObject.getPort() == -1)) {
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("invalidRedirect", "Invalid Redirect", "Only 80 and 443 ports can be followed"));
+                }
                 connection = (HttpURLConnection) new URL(finalUrl).openConnection();
                 connection.setInstanceFollowRedirects(false);
                 connection.setUseCaches(false);
@@ -877,8 +884,10 @@ public class ExtendedAcmeHelperService {
                     finalUrl = redirectedUrl;
                 } else
                     break;
-            } while (connection.getResponseCode() != HttpURLConnection.HTTP_OK);
+            } while (connection.getResponseCode() != HttpURLConnection.HTTP_OK && redirectFollowCount < MAX_REDIRECT_COUNT);
             connection.disconnect();
+        } catch (AcmeProblemDocumentException e){
+            throw e;
         } catch (Exception e) {
             logger.error(e.getMessage());
         }
