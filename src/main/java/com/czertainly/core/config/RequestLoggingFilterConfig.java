@@ -13,7 +13,8 @@ public class RequestLoggingFilterConfig extends CommonsRequestLoggingFilter {
         filter.setIncludeQueryString(true);
         filter.setIncludePayload(true);
         filter.setMaxPayloadLength(100000);
-        filter.setIncludeHeaders(false);
+        filter.setIncludeHeaders(true);
+        filter.setIncludeClientInfo(true);
         filter.setAfterMessagePrefix("REQUEST DATA : ");
         return filter;
     }
