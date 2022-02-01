@@ -146,7 +146,7 @@ public class AcmeServiceImpl implements AcmeService {
     public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
         logger.info("Get the Orders details with ID {}.", order);
-        logger.debug("Order details: " , order.toString());
+        logger.debug("Order details: {}" , order.toString());
         if(order.getStatus().equals(OrderStatus.INVALID)){
             logger.error("Order status is invalid");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
