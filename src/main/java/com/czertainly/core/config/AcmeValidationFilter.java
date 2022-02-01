@@ -1,8 +1,8 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.exception.AcmeProblemDocumentException;
-import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.common.JwsBody;
+import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.Problem;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.core.dao.entity.RaProfile;

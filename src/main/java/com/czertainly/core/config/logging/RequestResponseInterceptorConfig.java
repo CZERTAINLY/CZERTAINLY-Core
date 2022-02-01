@@ -1,10 +1,9 @@
-package com.czertainly.core.config;
+package com.czertainly.core.config.logging;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 
 @Configuration
 public class RequestResponseInterceptorConfig implements WebMvcConfigurer {
@@ -14,5 +13,6 @@ public class RequestResponseInterceptorConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(requestResponseInterceptor);
+
     }
 }

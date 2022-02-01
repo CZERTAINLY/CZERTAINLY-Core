@@ -1,7 +1,5 @@
 package com.czertainly.core;
 
-import com.czertainly.api.model.core.audit.AuditLogFilter;
-import com.czertainly.api.model.core.audit.ExportResultDto;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
 import com.czertainly.core.util.AcmeRandomGeneratorAndValidator;
@@ -9,13 +7,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.security.test.context.support.WithMockUser;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;

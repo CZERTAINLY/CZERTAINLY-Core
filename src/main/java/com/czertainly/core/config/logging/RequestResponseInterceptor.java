@@ -1,4 +1,4 @@
-package com.czertainly.core.config;
+package com.czertainly.core.config.logging;
 
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -7,9 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.util.ContentCachingRequestWrapper;
-import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import javax.servlet.DispatcherType;
 import javax.servlet.http.HttpServletRequest;
@@ -39,20 +37,5 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
             logger.debug("REQUEST DATA: {}", debugMessage);
         }
         return true;
-    }
-    @Override
-    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
-                           ModelAndView modelAndView) throws Exception {
-        ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
-        ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("RESPONSE FOR", request.getRequestURI())
-                .append("RESPONSE STATUS", responseWrapper.getStatus())
-                .append("RESPONSE TYPE", responseWrapper.getContentType())
-                .append("RESPONSE HEADERS", responseWrapper.getHeaderNames().stream()
-                        .map(r -> r + " : " + responseWrapper.getHeaders(r)).collect(Collectors.toList()))
-                .append("RESPONSE BODY", new String(responseWrapper.getContentAsByteArray()));
-        logger.debug("RESPONSE DATA: {}", debugMessage);
-        responseWrapper.copyBodyToResponse();
-
     }
 }
