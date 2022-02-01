@@ -1,4 +1,4 @@
-package com.czertainly.core.config;
+package com.czertainly.core.config.logging;
 
 import com.czertainly.core.util.SerializationUtil;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -34,6 +34,7 @@ public class CustomRequestLoggingAdvice extends RequestBodyAdviceAdapter {
     public Object afterBodyRead(Object body, HttpInputMessage inputMessage,
                                 MethodParameter parameter, Type targetType,
                                 Class<? extends HttpMessageConverter<?>> converterType) {
+
         ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("METHOD", httpServletRequest.getMethod())
                 .append("PATH", httpServletRequest.getRequestURI())
@@ -45,5 +46,4 @@ public class CustomRequestLoggingAdvice extends RequestBodyAdviceAdapter {
         logger.debug("REQUEST DATA: {}", debugMessage);
         return super.afterBodyRead(body, inputMessage, parameter, targetType, converterType);
     }
-
 }

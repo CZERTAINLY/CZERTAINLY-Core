@@ -484,6 +484,7 @@ public class ExtendedAcmeHelperService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound","Order Not Found","The given Order is not found"));
         }
         if ( !order.getStatus().equals(OrderStatus.READY)) {
+            logger.error("Order status is {}", order.getStatus());
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.ORDER_NOT_READY);
         }
         return order;

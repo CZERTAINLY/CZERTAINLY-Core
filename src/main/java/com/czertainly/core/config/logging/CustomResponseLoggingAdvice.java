@@ -45,13 +45,19 @@ public class CustomResponseLoggingAdvice implements ResponseBodyAdvice<Object> {
                 serverHttpResponse instanceof ServletServerHttpResponse) {
             HttpServletRequest request = ((ServletServerHttpRequest) serverHttpRequest).getServletRequest();
             HttpServletResponse response = ((ServletServerHttpResponse) serverHttpResponse).getServletResponse();
+            Object printableBody;
+            try {
+                printableBody = SerializationUtil.serialize(body);
+            } catch (Exception e){
+                printableBody = body.toString();
+            }
             ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                     .append("RESPONSE FOR", request.getRequestURI())
                     .append("RESPONSE STATUS", response.getStatus())
                     .append("RESPONSE TYPE", response.getContentType())
                     .append("RESPONSE HEADERS", response.getHeaderNames().stream()
                             .map(r -> r + " : " + response.getHeaders(r)).collect(Collectors.toList()))
-                    .append("RESPONSE BODY", SerializationUtil.serialize(body));
+                    .append("RESPONSE BODY", printableBody);
             logger.debug("RESPONSE DATA: {}", debugMessage);
         }
         return body;
