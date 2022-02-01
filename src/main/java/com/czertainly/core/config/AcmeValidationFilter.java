@@ -153,7 +153,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                             new ProblemDocument("authorizationExpired",
                                     "Authorization Expired",
-                                    "Expiry of the Authorization is reached."));
+                                    "Expiry of the authorization is reached."));
                 }
             }
         }
@@ -275,7 +275,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     new Base64URL(acmeData.getSignature()));
         } catch (Exception e) {
             logger.error(e.getMessage());
-            logger.error("Unable to parse jws object");
+            logger.error("Unable to parse JWS object");
             throw new AcmeProblemDocumentException(
                     HttpStatus.BAD_REQUEST, Problem.MALFORMED
             );

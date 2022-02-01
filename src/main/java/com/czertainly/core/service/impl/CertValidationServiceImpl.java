@@ -443,7 +443,7 @@ public class CertValidationServiceImpl implements CertValidationService {
                 }
 
             } catch (Exception e) {
-                logger.error("Not able to check ocsp.");
+                logger.error("Not able to check OCSP.");
                 logger.error(e.getMessage());
                 validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Error while checking OCSP.\nOCSP URL: " + String.join("\n", ocspUrls)));
             }
@@ -619,7 +619,7 @@ public class CertValidationServiceImpl implements CertValidationService {
                 }
 
             } catch (Exception e) {
-                logger.error("Not able to check ocsp.");
+                logger.error("Not able to check OCSP.");
                 logger.error(e.getMessage());
                 validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Error while checking OCSP.\nOCSP URL: " + String.join("\n", ocspUrls)));
             }

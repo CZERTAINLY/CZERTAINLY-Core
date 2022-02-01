@@ -94,7 +94,7 @@ public class OcspUtil {
 				ocspUrls.add(ocspUrl);
 			}
 		} catch (Exception e) {
-			logger.warn("Error while getting ocsp URL");
+			logger.warn("Error while getting OCSP URL");
 			logger.warn(e.getMessage());
 		}
 		logger.info("OSP Url for the certificate is not available");

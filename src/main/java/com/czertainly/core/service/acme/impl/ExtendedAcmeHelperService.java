@@ -158,7 +158,7 @@ public class ExtendedAcmeHelperService {
             this.setPublicKey();
             this.setIsValidSignature();
         } catch (Exception e) {
-            logger.error("Error while parsing the JWS. JWS may be malformed {}", e.getMessage());
+            logger.error("Error while parsing the JWS. JWS may be malformed: {}", e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
     }
@@ -176,7 +176,7 @@ public class ExtendedAcmeHelperService {
     }
 
     public Directory frameDirectory(String profileName) throws AcmeProblemDocumentException {
-        logger.debug("Framing the directory for the profile with name {}", profileName);
+        logger.debug("Framing the directory for the profile with name: {}", profileName);
         Directory directory = new Directory();
         String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
         String replaceUrl;
@@ -199,7 +199,7 @@ public class ExtendedAcmeHelperService {
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("profileNotFound", "Profile Not Found", "Given profile name is not found"));
         }
-        logger.debug("Directory framed. Directory Object is {}", directory);
+        logger.debug("Directory framed: {}", directory);
         return directory;
     }
 
@@ -215,7 +215,7 @@ public class ExtendedAcmeHelperService {
         meta.setTermsOfService(acmeProfile.getTermsOfServiceUrl());
         meta.setExternalAccountRequired(false);
         meta.setWebsite(acmeProfile.getWebsite());
-        logger.debug("Directory meta object is {}", meta);
+        logger.debug("Directory meta object: {}", meta);
         return meta;
     }
 
@@ -226,7 +226,7 @@ public class ExtendedAcmeHelperService {
     protected ResponseEntity<Account> processNewAccount(String profileName, String requestJson) throws AcmeProblemDocumentException {
         newAccountValidator(profileName, requestJson);
         Account accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
-        logger.debug("New Account requested with request body as {}", accountRequest.toString());
+        logger.debug("New Account requested with request body: {}", accountRequest.toString());
         AcmeAccount account;
         account = addNewAccount(profileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(getPublicKey()), accountRequest);
         Account accountDto = account.mapToDto();
@@ -293,7 +293,7 @@ public class ExtendedAcmeHelperService {
         } catch (Exception e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("profileNotFound", "Profile not found", "The given profile is not found"));
         }
-        logger.debug("RA Profile to use for the new Account is {}, ACME Profile is {}", raProfileToUse.toString(), acmeProfile.toString());
+        logger.debug("RA Profile to use for the new Account: {}, ACME Profile: {}", raProfileToUse.toString(), acmeProfile.toString());
         String accountId = AcmeRandomGeneratorAndValidator.generateRandomId();
         AcmeAccount oldAccount = acmeAccountRepository.findByPublicKey(publicKey);
         if (acmeProfile.isRequireContact() != null && acmeProfile.isRequireContact() && accountRequest.getContact().isEmpty()) {
@@ -338,20 +338,20 @@ public class ExtendedAcmeHelperService {
         account.setAccountId(accountId);
         account.setContact(SerializationUtil.serialize(accountRequest.getContact()));
         acmeAccountRepository.save(account);
-        logger.debug("ACME Account created. Object is {}", account);
+        logger.debug("ACME Account created: {}", account);
         return account;
     }
 
     protected ResponseEntity<Order> processNewOrder(String profileName, String requestJson) throws AcmeProblemDocumentException {
-        logger.info("Request to process a new Order for the profile {}", profileName);
+        logger.info("Request to process a new Order for the profile: {}", profileName);
         initialize(requestJson);
         String[] acmeAccountKeyIdSegment = getJwsObject().getHeader().getKeyID().split("/");
         String acmeAccountId = acmeAccountKeyIdSegment[acmeAccountKeyIdSegment.length - 1];
-        logger.info("ACME Account ID is {}", acmeAccountId);
+        logger.info("ACME Account ID: {}", acmeAccountId);
         AcmeAccount acmeAccount;
         try {
              acmeAccount = getAcmeAccountEntity(acmeAccountId);
-             logger.info("ACME Account set for the request. {}", acmeAccount.toString());
+             logger.info("ACME Account set for the request: {}", acmeAccount.toString());
         }catch (Exception e){
             logger.error("Requested account with ID {} does not exists", acmeAccountId);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
@@ -365,16 +365,15 @@ public class ExtendedAcmeHelperService {
         }
 
         if(!acmeAccount.getStatus().equals(AccountStatus.VALID)){
-            logger.error("Account status is not valid. It is {}", acmeAccount.getStatus().toString());
+            logger.error("Account status is not valid: {}", acmeAccount.getStatus().toString());
             throw new AcmeProblemDocumentException(HttpStatus.UNAUTHORIZED, Problem.UNAUTHORIZED, "Account is " + acmeAccount.getStatus().toString());
         }
 
         try {
             setPublicKey(AcmePublicKeyProcessor.publicKeyObjectFromString(acmeAccount.getPublicKey()));
             IsValidSignature();
-            logger.info("Creating a new Order for the request");
             AcmeOrder order = generateOrder(baseUrl, acmeAccount);
-            logger.debug("Order Created {}", order.toString());
+            logger.debug("Order Created: {}", order.toString());
             return ResponseEntity
                     .created(URI.create(order.getUrl()))
                     .header(NONCE_HEADER_NAME, generateNonce())
@@ -415,9 +414,9 @@ public class ExtendedAcmeHelperService {
     }
 
     public AcmeOrder generateOrder(String baseUrl, AcmeAccount acmeAccount) {
-        logger.info("Generating the new Order for the Account {}", acmeAccount.toString());
+        logger.info("Generating the new Order for the Account: {}", acmeAccount.toString());
         Order orderRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Order.class);
-        logger.debug("Order request is requested with the input {}", orderRequest.toString());
+        logger.debug("Order request is requested: {}", orderRequest.toString());
         AcmeOrder order = new AcmeOrder();
         order.setAcmeAccount(acmeAccount);
         order.setOrderId(AcmeRandomGeneratorAndValidator.generateRandomId());
@@ -439,7 +438,7 @@ public class ExtendedAcmeHelperService {
     }
 
     protected AcmeChallenge validateChallenge(String challengeId) throws AcmeProblemDocumentException{
-        logger.info("Initiating certificate validation for the Challenge ID {}", challengeId);
+        logger.info("Initiating certificate validation for the Challenge ID: {}", challengeId);
         AcmeChallenge challenge;
         try {
             challenge = acmeChallengeRepository.findByChallengeId(challengeId).orElseThrow(() -> new NotFoundException(Challenge.class, challengeId));
@@ -557,20 +556,20 @@ public class ExtendedAcmeHelperService {
     }
 
     public ResponseEntity<Account> updateAccount(String accountId) throws NotFoundException, AcmeProblemDocumentException {
-        logger.info("Request to update the ACME Account with ID {}", accountId);
+        logger.info("Request to update the ACME Account with ID: {}", accountId);
         AcmeAccount account = getAcmeAccountEntity(accountId);
         Account request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
-        logger.debug("Account Update request object is {}", request.toString());
+        logger.debug("Account Update request: {}", request.toString());
         if (request.getContact() != null) {
             account.setContact(SerializationUtil.serialize(request.getContact()));
         }
         if (request.getStatus().equals(AccountStatus.DEACTIVATED)) {
-            logger.info("Deactivating the Account with ID {}", accountId);
+            logger.info("Deactivating the Account with ID: {}", accountId);
             deactivateOrders(account.getOrders());
             account.setStatus(AccountStatus.DEACTIVATED);
         }
         acmeAccountRepository.save(account);
-        logger.debug("Updated Account object is {}", account.mapToDto().toString());
+        logger.debug("Updated Account object: {}", account.mapToDto().toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, generateNonce())
@@ -580,7 +579,7 @@ public class ExtendedAcmeHelperService {
 
     public ResponseEntity<?> revokeCertificate() throws ConnectorException, CertificateException, AcmeProblemDocumentException {
         CertificateRevocationRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateRevocationRequest.class);
-        logger.debug("Certificate revocation is triggered with the payload {}", request.toString());
+        logger.debug("Certificate revocation is triggered with the payload: {}", request.toString());
         X509Certificate x509Certificate = (X509Certificate) CertificateFactory.getInstance("X.509")
                 .generateCertificate(new ByteArrayInputStream(Base64.getUrlDecoder().decode(request.getCertificate())));
         String decodedCertificate = X509ObjectToString.toPem(x509Certificate).replace("-----BEGIN CERTIFICATE-----", "")
@@ -598,7 +597,7 @@ public class ExtendedAcmeHelperService {
         PublicKey accountPublicKey;
         PublicKey certPublicKey;
         String accountKid = getJwsObject().getHeader().toJSONObject().get("kid").toString();
-        logger.info("kid of the Account for the revocation is {}", accountKid);
+        logger.info("kid of the Account for the revocation: {}", accountKid);
         if (getJwsObject().getHeader().toJSONObject().containsKey("kid")) {
             String accountId = accountKid.split("/")[accountKid.split("/").length - 1];
             AcmeAccount account = getAcmeAccountEntity(accountId);
@@ -657,7 +656,7 @@ public class ExtendedAcmeHelperService {
             newKey = ((RSAKey) innerJws.getHeader().getJWK()).toPublicKey();
             oldKey = ((RSAKey) (innerJws.getPayload().toJSONObject().get("oldKey"))).toPublicKey();
         } catch (JOSEException e) {
-            logger.error("Error while parsing JWS. {}", e.getMessage());
+            logger.error("Error while parsing JWS: {}", e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed", "JWS Malformed", "JWS Malformed. Error while decoding the JWS Object"));
         }
         String account = innerJws.getPayload().toJSONObject().get("account").toString();
@@ -782,9 +781,8 @@ public class ExtendedAcmeHelperService {
         }
     }
 
-
     private boolean validateHttpChallenge(AcmeChallenge challenge) throws AcmeProblemDocumentException {
-        logger.info("Initiating HTTP Challenge validation. {}", challenge.toString());
+        logger.info("Initiating HTTP-01 Challenge validation: {}", challenge.toString());
         String response = getHttpChallengeResponse(
                 SerializationUtil.deserializeIdentifier(
                                 challenge
@@ -800,7 +798,7 @@ public class ExtendedAcmeHelperService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
         String expectedResponse = AcmeCommonHelper.createKeyAuthorization(challenge.getToken(), pubKey);
-        logger.debug("Response from the server is {}, expected response is {}", response, expectedResponse);
+        logger.debug("Response from the server: {}, expected response: {}", response, expectedResponse);
         if (response.equals(expectedResponse)) {
             return true;
         }
@@ -808,7 +806,7 @@ public class ExtendedAcmeHelperService {
     }
 
     private boolean validateDnsChallenge(AcmeChallenge challenge) {
-        logger.info("Initiating DNS Validation for challenge: {}", challenge.toString());
+        logger.info("Initiating DNS-01 Validation for challenge: {}", challenge.toString());
         Properties env = new Properties();
         env.setProperty(Context.INITIAL_CONTEXT_FACTORY,
                 "com.sun.jndi.dns.DnsContextFactory");
@@ -932,7 +930,7 @@ public class ExtendedAcmeHelperService {
             }
 
         } catch (Exception e) {
-            logger.warn("Unable to find common name {}", e.getMessage());
+            logger.warn("Unable to find common name: {}", e.getMessage());
         }
         for (Attribute attribute : certAttributes) {
             if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {

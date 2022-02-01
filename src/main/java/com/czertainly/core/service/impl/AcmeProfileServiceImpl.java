@@ -44,6 +44,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @Autowired
     private ExtendedAttributeService extendedAttributeService;
 
+    private static final String NONE_CONSTANT = "NONE";
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
     public List<AcmeProfileListDto> listAcmeProfile() {
@@ -85,7 +87,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
         acmeProfile.setDisableNewOrders(false);
 
-        if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals("NONE")){
+        if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)){
             RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
             acmeProfile.setRaProfile(raProfile);
             acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
@@ -109,7 +111,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
         if(request.getRaProfileUuid() != null){
-            if(request.getRaProfileUuid().equals("NONE")){
+            if(request.getRaProfileUuid().equals(NONE_CONSTANT)){
                 acmeProfile.setRaProfile(null);
             }else {
                 if(acmeProfile.getRaProfile() == null || !request.getRaProfileUuid().equals(acmeProfile.getRaProfile().getUuid())) {
