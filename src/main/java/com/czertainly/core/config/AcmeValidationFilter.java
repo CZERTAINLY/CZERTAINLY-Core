@@ -106,10 +106,14 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             } else {
                 orderId = requestUri.split("/")[5];
             }
-            AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new
+                    AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
             if(order.getExpires() != null){
                 if(order.getExpires().before(new Date())){
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderExpired", "Order Expired", "Expiry of the order is reached."));
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            new ProblemDocument("orderExpired",
+                                    "Order Expired",
+                                    "Expiry of the order is reached."));
                 }
             }
         }
@@ -121,10 +125,15 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             } else {
                 authorizationId = requestUri.split("/")[5];
             }
-            AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId)
+                    .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            Problem.ACCOUNT_DOES_NOT_EXIST));
             if(authorization.getExpires() != null){
                 if(authorization.getExpires().before(new Date())){
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("authorizationExpired", "Authorization Expired", "Expiry of the authorization is reached."));
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            new ProblemDocument("authorizationExpired",
+                                    "Authorization Expired",
+                                    "Expiry of the authorization is reached."));
                 }
             }
         }
@@ -136,10 +145,15 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             } else {
                 challengeId = requestUri.split("/")[5];
             }
-            AcmeChallenge challenge = acmeChallengeRepository.findByChallengeId(challengeId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            AcmeChallenge challenge = acmeChallengeRepository.findByChallengeId(challengeId)
+                    .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            Problem.ACCOUNT_DOES_NOT_EXIST));
             if(challenge.getAuthorization().getExpires() != null){
                 if(challenge.getAuthorization().getExpires().before(new Date())){
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("authorizationExpired", "Authorization Expired", "Expiry of the authorization is reached."));
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            new ProblemDocument("authorizationExpired",
+                                    "Authorization Expired",
+                                    "Expiry of the Authorization is reached."));
                 }
             }
         }
@@ -197,7 +211,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                             "RA Profile is not enabled",
                             "RA Profile is not enabled"));
         }
-        if(acmeProfile.isTermsOfServiceChangeApproval()){
+        if(acmeProfile.isDisableNewOrders()){
             ProblemDocument problemDocument = new ProblemDocument(Problem.USER_ACTION_REQUIRED);
             problemDocument.setInstance(acmeProfile.getTermsOfServiceUrl());
             problemDocument.setDetail("Terms of service have changed");

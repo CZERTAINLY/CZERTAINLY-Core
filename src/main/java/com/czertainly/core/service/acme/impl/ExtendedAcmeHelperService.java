@@ -157,6 +157,7 @@ public class ExtendedAcmeHelperService {
             this.setPublicKey();
             this.setIsValidSignature();
         } catch (Exception e) {
+            logger.error("Error while parsing the JWS. JWS may be malformed {}", e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
     }
@@ -168,6 +169,7 @@ public class ExtendedAcmeHelperService {
             this.acmeJwsBody = AcmeJsonProcessor.generalBodyJsonParser(rawJwsBody, JwsBody.class);
             this.setJwsObject();
         } catch (Exception e) {
+            logger.error("Error while parsing JWS, {}", e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
     }
@@ -292,8 +294,7 @@ public class ExtendedAcmeHelperService {
         } catch (Exception e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("profileNotFound", "Profile not found", "The given profile is not found"));
         }
-        logger.debug("RA Profile to use for the new Account is {}", raProfileToUse.toString());
-        logger.debug("ACME Account to use for the new Account is {}", acmeProfile.toString());
+        logger.debug("RA Profile to use for the new Account is {}, RA Profile is {}", raProfileToUse.toString(), acmeProfile.toString());
         String accountId = AcmeRandomGeneratorAndValidator.generateRandomId();
         AcmeAccount oldAccount = acmeAccountRepository.findByPublicKey(publicKey);
         if (acmeProfile.isRequireContact() != null && acmeProfile.isRequireContact() && accountRequest.getContact().isEmpty()) {
@@ -353,6 +354,7 @@ public class ExtendedAcmeHelperService {
              acmeAccount = getAcmeAccountEntity(acmeAccountId);
              logger.info("ACME Account set for the request. {}", acmeAccount.toString());
         }catch (Exception e){
+            logger.error("Requested account with ID {} does not exists", acmeAccountId);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
         }
         String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
@@ -373,8 +375,7 @@ public class ExtendedAcmeHelperService {
             IsValidSignature();
             logger.info("Creating a new Order for the request");
             AcmeOrder order = generateOrder(baseUrl, acmeAccount);
-            logger.debug("Order Created");
-            logger.debug(order.toString());
+            logger.debug("Order Created {}", order.toString());
             return ResponseEntity
                     .created(URI.create(order.getUrl()))
                     .header(NONCE_HEADER_NAME, generateNonce())
@@ -387,10 +388,9 @@ public class ExtendedAcmeHelperService {
     }
 
     protected AcmeOrder getAcmeOrderEntity(String orderId) throws AcmeProblemDocumentException {
-        logger.debug("Gathering ACME Order details with Order ID {}", orderId);
+        logger.info("Gathering ACME Order details with Order ID {}", orderId);
         AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound", "Order Not Found", "Specified ACME Order not found")));
-        logger.debug("ACME Order found for the ID {}", orderId);
-        logger.debug(acmeOrder.toString());
+        logger.debug("ACME Order found for the ID {}. {}", orderId, acmeOrder.toString());
         return acmeOrder;
     }
 
@@ -433,7 +433,6 @@ public class ExtendedAcmeHelperService {
         }
         acmeOrderRepository.save(order);
         logger.debug("Order created. Order Object is {}", order);
-        logger.debug("Initiating generating Challenges");
         Set<AcmeAuthorization> authorizations = generateValidations(baseUrl, order, orderRequest.getIdentifiers());
         order.setAuthorizations(authorizations);
         logger.debug("Challenges created and is associated to the Authorization");
@@ -475,11 +474,8 @@ public class ExtendedAcmeHelperService {
         return challenge;
     }
 
-    @Async
-    public void finalizeOrder(String orderId) throws AcmeProblemDocumentException {
+    public AcmeOrder checkOrderForFinalize(String orderId) throws AcmeProblemDocumentException {
         logger.info("Request to finalize the Order with ID {}", orderId);
-        CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateFinalizeRequest.class);
-        logger.debug("Finalize Order request with input as {}", request.toString());
         AcmeOrder order;
         try {
             order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
@@ -487,9 +483,16 @@ public class ExtendedAcmeHelperService {
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound","Order Not Found","The given Order is not found"));
         }
-        if (!order.getStatus().equals(OrderStatus.READY)) {
+        if ( !order.getStatus().equals(OrderStatus.READY)) {
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.ORDER_NOT_READY);
         }
+        return order;
+    }
+
+    @Async
+    public void finalizeOrder(AcmeOrder order) throws AcmeProblemDocumentException {
+        CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateFinalizeRequest.class);
+        logger.debug("Finalize Order request with input as {}", request.toString());
         JcaPKCS10CertificationRequest p10Object;
         try {
             p10Object = new JcaPKCS10CertificationRequest(Base64.getUrlDecoder().decode(request.getCsr()));
@@ -517,8 +520,7 @@ public class ExtendedAcmeHelperService {
             order.setStatus(OrderStatus.VALID);
             order.setExpires(AcmeCommonHelper.getDefaultExpires());
         } catch (Exception e) {
-            logger.error("Failed while issuing certificate. Exception is ");
-            logger.error(e.getMessage());
+            logger.error("Failed while issuing certificate. Exception is {}", e.getMessage());
             order.setStatus(OrderStatus.INVALID);
         }
         acmeOrderRepository.save(order);
@@ -654,6 +656,7 @@ public class ExtendedAcmeHelperService {
             newKey = ((RSAKey) innerJws.getHeader().getJWK()).toPublicKey();
             oldKey = ((RSAKey) (innerJws.getPayload().toJSONObject().get("oldKey"))).toPublicKey();
         } catch (JOSEException e) {
+            logger.error("Error while parsing JWS. {}", e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed", "JWS Malformed", "JWS Malformed. Error while decoding the JWS Object"));
         }
         String account = innerJws.getPayload().toJSONObject().get("account").toString();
@@ -797,8 +800,7 @@ public class ExtendedAcmeHelperService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
         String expectedResponse = AcmeCommonHelper.createKeyAuthorization(challenge.getToken(), pubKey);
-        logger.debug("Response from the Server is {}", response);
-        logger.debug("Expected response is {}", expectedResponse);
+        logger.debug("Response from the Server is {}, Expected response is {}", response, expectedResponse);
         if (response.equals(expectedResponse)) {
             return true;
         }
@@ -922,8 +924,7 @@ public class ExtendedAcmeHelperService {
             }
 
         } catch (Exception e) {
-            logger.debug(e.getMessage());
-            logger.warn("Unable to find common name");
+            logger.warn("Unable to find common name {}", e.getMessage());
         }
         for (Attribute attribute : certAttributes) {
             if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {

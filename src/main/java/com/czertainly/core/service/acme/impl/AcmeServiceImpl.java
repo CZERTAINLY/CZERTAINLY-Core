@@ -68,7 +68,6 @@ public class AcmeServiceImpl implements AcmeService {
     public ResponseEntity<?> getNonce(Boolean isHead) {
         String nonce = extendedAcmeHelperService.generateNonce();
         logger.debug("Generating new nonce. New nonce value is {}", nonce);
-
         if(isHead){
             ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
                     nonce).build();
@@ -119,8 +118,7 @@ public class AcmeServiceImpl implements AcmeService {
     @Override
     public ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId) throws AcmeProblemDocumentException {
         AcmeChallenge challenge = extendedAcmeHelperService.validateChallenge(challengeId);
-        logger.debug("Validating challenge with id {}", challengeId);
-        logger.debug("Challenge object is {}", challenge.toString());
+        logger.debug("Validating challenge with id {}. {}", challengeId, challenge.toString());
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
@@ -132,9 +130,9 @@ public class AcmeServiceImpl implements AcmeService {
     public ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException, ConnectorException {
         elevatePermission();
         extendedAcmeHelperService.initialize(jwsBody);
-        extendedAcmeHelperService.finalizeOrder(orderId);
+        AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
+        extendedAcmeHelperService.finalizeOrder(order);
         logger.debug("Finalizing the order for the Order ID {}", orderId);
-        AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
@@ -147,9 +145,10 @@ public class AcmeServiceImpl implements AcmeService {
     @Override
     public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
-        logger.info("Get the Orders details with ID {}", order);
-        logger.debug("Order Object is {}", order.toString());
+        logger.info("Get the Orders details with ID {}.", order);
+        logger.debug("Order details: " , order.toString());
         if(order.getStatus().equals(OrderStatus.INVALID)){
+            logger.error("Order status is invalid");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
         return ResponseEntity

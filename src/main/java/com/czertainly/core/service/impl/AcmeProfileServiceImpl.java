@@ -83,7 +83,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setRequireContact(request.isRequireContact());
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
-        acmeProfile.setTermsOfServiceChangeApproval(false);
+        acmeProfile.setDisableNewOrders(false);
 
         if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals("NONE")){
             RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
@@ -106,7 +106,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         }
         if(request.isTermsOfServiceChangeDisable() != null){
-            acmeProfile.setTermsOfServiceChangeApproval(request.isTermsOfServiceChangeDisable());
+            acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
         if(request.getRaProfileUuid() != null){
             if(request.getRaProfileUuid().equals("NONE")){
@@ -142,7 +142,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             acmeProfile.setWebsite(request.getWebsiteUrl());
         }
         if(request.isTermsOfServiceChangeDisable() != null){
-            acmeProfile.setTermsOfServiceChangeApproval(request.isTermsOfServiceChangeDisable());
+            acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
         if(request.getTermsOfServiceChangeUrl() != null){
             acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());

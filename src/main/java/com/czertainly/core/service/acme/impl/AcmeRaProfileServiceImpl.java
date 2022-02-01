@@ -125,7 +125,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     @Override
     public ResponseEntity<Challenge> validateChallenge(String raProfileName, String challengeId) throws AcmeProblemDocumentException {
         AcmeChallenge challenge = extendedAcmeHelperService.validateChallenge(challengeId);
-        logger.debug("Validating challenge with id {}", challengeId);
+        logger.info("Validating challenge with id {}", challengeId);
         logger.debug("Challenge object is {}", challenge.toString());
         return ResponseEntity
                 .ok()
@@ -138,9 +138,9 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     public ResponseEntity<Order> finalizeOrder(String raProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException, ConnectorException {
         elevatePermission();
         extendedAcmeHelperService.initialize(jwsBody);
-        extendedAcmeHelperService.finalizeOrder(orderId);
+        AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
+        extendedAcmeHelperService.finalizeOrder(order);
         logger.debug("Finalizing the order for the Order ID {}", orderId);
-        AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
@@ -155,6 +155,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         logger.info("Get the Orders details with ID {}", order);
         logger.debug("Order Object is {}", order.toString());
         if(order.getStatus().equals(OrderStatus.INVALID)){
+            logger.error("Order status is invalid");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
         return ResponseEntity
