@@ -132,7 +132,7 @@ public class AcmeServiceImpl implements AcmeService {
         elevatePermission();
         extendedAcmeHelperService.initialize(jwsBody);
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
-        logger.debug("Finalizing the Order with ID: {}", orderId);
+        logger.debug("Finalizing Order with ID: {}", orderId);
         extendedAcmeHelperService.finalizeOrder(order);
         return ResponseEntity
                 .ok()
@@ -145,7 +145,7 @@ public class AcmeServiceImpl implements AcmeService {
 
     @Override
     public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
-        logger.info("Get the Order details with ID: {}.", orderId);
+        logger.info("Get Order details with ID: {}.", orderId);
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
         logger.debug("Order details: {}" , order.toString());
         if(order.getStatus().equals(OrderStatus.INVALID)){
@@ -186,5 +186,4 @@ public class AcmeServiceImpl implements AcmeService {
         SecurityContextHolder.getContext().setAuthentication(reAuth);
         SecurityContextHolder.getContext().getAuthentication();
     }
-
 }

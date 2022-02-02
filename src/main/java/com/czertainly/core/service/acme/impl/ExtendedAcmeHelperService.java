@@ -444,12 +444,12 @@ public class ExtendedAcmeHelperService {
         logger.debug("Order created: {}", order);
         Set<AcmeAuthorization> authorizations = generateValidations(baseUrl, order, orderRequest.getIdentifiers());
         order.setAuthorizations(authorizations);
-        logger.debug("Challenges created and are associated with the Authorization for Order: {}",order);
+        logger.debug("Challenges created for Order: {}", order);
         return order;
     }
 
     protected AcmeChallenge validateChallenge(String challengeId) throws AcmeProblemDocumentException{
-        logger.info("Initiating certificate validation for the Challenge ID: {}", challengeId);
+        logger.info("Initiating certificate validation for Challenge ID: {}", challengeId);
         AcmeChallenge challenge;
         try {
             challenge = acmeChallengeRepository.findByChallengeId(challengeId).orElseThrow(() -> new NotFoundException(Challenge.class, challengeId));
@@ -488,7 +488,7 @@ public class ExtendedAcmeHelperService {
         AcmeOrder order;
         try {
             order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
-            logger.debug("Found Order: {}", order.toString());
+            logger.debug("Order found : {}", order.toString());
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound","Order Not Found","The given Order is not found"));
         }
@@ -673,12 +673,12 @@ public class ExtendedAcmeHelperService {
         String accountId = account.split("/")[account.split("/").length - 1];
         AcmeAccount acmeAccount = getAcmeAccountEntity(accountId);
         if(!acmeAccount.getPublicKey().equals(AcmePublicKeyProcessor.publicKeyPemStringFromObject(oldKey))){
-            logger.error("Public key of the Account with ID: {} does not match with old key field in request", accountId);
+            logger.error("Public key of the Account with ID: {} does not match with old key in request", accountId);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed", "JWS Malformed", "Account key does not match with old key"));
         }
         AcmeAccount oldAccount = acmeAccountRepository.findByPublicKey(AcmePublicKeyProcessor.publicKeyPemStringFromObject(newKey));
         if(oldAccount != null){
-            return ResponseEntity.status(HttpStatus.CONFLICT).header("Location",oldAccount.getAccountId()).body(new ProblemDocument("keyExists", "New Key already exists", "New key to replace the old account is already available in the server and is tagged to a different account"));
+            return ResponseEntity.status(HttpStatus.CONFLICT).header("Location",oldAccount.getAccountId()).body(new ProblemDocument("keyExists", "New Key already exists", "New key already tagged to a different account"));
         }
         validateKey(innerJws);
         acmeAccount.setPublicKey(AcmePublicKeyProcessor.publicKeyPemStringFromObject(newKey));
@@ -691,10 +691,10 @@ public class ExtendedAcmeHelperService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed","Inner JWS Malformed", "Inner JWS does not contain jwk"));
         }
         if(!innerJws.getHeader().toJSONObject().getOrDefault("url","innerUrl").equals(getJwsObject().getHeader().toJSONObject().getOrDefault("url","outerUrl"))){
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed","Inner JWS Malformed", "URL in inner and outer jws are different"));
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed","Inner JWS Malformed", "URL in inner and outer JWS are different"));
         }
         if(innerJws.getHeader().toJSONObject().containsKey("nonce")){
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed","Inner JWS Malformed", "Inner JWS cannot contain nonce header parameter"));
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed","Inner JWS Malformed", "Inner JWS cannot contain nonce header"));
         }
 
     }
@@ -765,7 +765,7 @@ public class ExtendedAcmeHelperService {
         if (acmeProfileRepository.existsByName(profileName)) {
             return acmeProfileRepository.findByName(profileName);
         } else {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("profileNotFound","ACME Profile Not Found","Given ACME Profile is not found"));
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("profileNotFound","ACME Profile Not Found","ACME Profile is not found"));
         }
     }
 
