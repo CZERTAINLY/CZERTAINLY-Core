@@ -44,6 +44,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @Autowired
     private ExtendedAttributeService extendedAttributeService;
 
+    private static final String NONE_CONSTANT = "NONE";
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
     public List<AcmeProfileListDto> listAcmeProfile() {
@@ -80,12 +82,12 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setValidity(request.getValidity());
         acmeProfile.setWebsite(request.getWebsiteUrl());
         acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
-        acmeProfile.setInsistContact(request.getRequireContact());
-        acmeProfile.setInsistTermsOfService(request.getRequireTermsOfService());
+        acmeProfile.setRequireContact(request.isRequireContact());
+        acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
-        acmeProfile.setTermsOfServiceChangeApproval(false);
+        acmeProfile.setDisableNewOrders(false);
 
-        if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals("NONE")){
+        if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)){
             RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
             acmeProfile.setRaProfile(raProfile);
             acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
@@ -99,17 +101,17 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
     public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileRequestDto request) throws ConnectorException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        if(request.getRequireContact() != null){
-            acmeProfile.setInsistContact(request.getRequireContact());
+        if(request.isRequireContact() != null){
+            acmeProfile.setRequireContact(request.isRequireContact());
         }
-        if(request.getRequireTermsOfService() != null){
-            acmeProfile.setInsistTermsOfService(request.getRequireTermsOfService());
+        if(request.isRequireTermsOfService() != null){
+            acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         }
-        if(request.getTermsOfServiceChangeDisable() != null){
-            acmeProfile.setTermsOfServiceChangeApproval(request.getTermsOfServiceChangeDisable());
+        if(request.isTermsOfServiceChangeDisable() != null){
+            acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
         if(request.getRaProfileUuid() != null){
-            if(request.getRaProfileUuid().equals("NONE")){
+            if(request.getRaProfileUuid().equals(NONE_CONSTANT)){
                 acmeProfile.setRaProfile(null);
             }else {
                 if(acmeProfile.getRaProfile() == null || !request.getRaProfileUuid().equals(acmeProfile.getRaProfile().getUuid())) {
@@ -141,8 +143,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         if(request.getWebsiteUrl() != null){
             acmeProfile.setWebsite(request.getWebsiteUrl());
         }
-        if(request.getTermsOfServiceChangeDisable() != null){
-            acmeProfile.setTermsOfServiceChangeApproval(request.getTermsOfServiceChangeDisable());
+        if(request.isTermsOfServiceChangeDisable() != null){
+            acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
         if(request.getTermsOfServiceChangeUrl() != null){
             acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
@@ -176,7 +178,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.ENABLE)
     public void enableAcmeProfile(String uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        if (acmeProfile.getEnabled() != null && acmeProfile.getEnabled()) {
+        if (acmeProfile.isEnabled() != null && acmeProfile.isEnabled()) {
             throw new RuntimeException("ACME Profile is already enabled");
         }
         acmeProfile.setEnabled(true);
@@ -187,7 +189,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DISABLE)
     public void disableAcmeProfile(String uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        if (!acmeProfile.getEnabled()) {
+        if (!acmeProfile.isEnabled()) {
             throw new RuntimeException("ACME Profile is already disabled");
         }
         acmeProfile.setEnabled(false);
@@ -200,7 +202,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         for (String uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                if (acmeProfile.getEnabled()) {
+                if (acmeProfile.isEnabled()) {
                     logger.warn("ACME Profile is already enabled");
                 }
                 acmeProfile.setEnabled(true);
@@ -217,7 +219,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         for (String uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                if (acmeProfile.getEnabled() != null && acmeProfile.getEnabled()) {
+                if (acmeProfile.isEnabled() != null && acmeProfile.isEnabled()) {
                     logger.warn("ACME Profile is already disabled");
                 }
                 acmeProfile.setEnabled(false);

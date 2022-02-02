@@ -1,8 +1,8 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.exception.AcmeProblemDocumentException;
-import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.common.JwsBody;
+import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.Problem;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -16,7 +16,7 @@ import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.util.AcmeJsonProcessor;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
-import com.czertainly.core.util.AcmeSerializationUtil;
+import com.czertainly.core.util.SerializationUtil;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
@@ -83,7 +83,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         } catch (AcmeProblemDocumentException e) {
             response.setStatus(e.getHttpStatusCode());
             response.setContentType("application/problem+json");
-            response.getWriter().println(AcmeSerializationUtil.serialize(e.getProblemDocument()));
+            response.getWriter().println(SerializationUtil.serialize(e.getProblemDocument()));
         }
 
     }
@@ -106,10 +106,14 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             } else {
                 orderId = requestUri.split("/")[5];
             }
-            AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new
+                    AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
             if(order.getExpires() != null){
                 if(order.getExpires().before(new Date())){
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderExpired", "Order Expired", "Expiry of the order is reached."));
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            new ProblemDocument("orderExpired",
+                                    "Order Expired",
+                                    "Expiry of the order is reached"));
                 }
             }
         }
@@ -121,10 +125,15 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             } else {
                 authorizationId = requestUri.split("/")[5];
             }
-            AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId)
+                    .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            Problem.ACCOUNT_DOES_NOT_EXIST));
             if(authorization.getExpires() != null){
                 if(authorization.getExpires().before(new Date())){
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("authorizationExpired", "Authorization Expired", "Expiry of the authorization is reached."));
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            new ProblemDocument("authorizationExpired",
+                                    "Authorization Expired",
+                                    "Expiry of the authorization is reached"));
                 }
             }
         }
@@ -136,10 +145,15 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             } else {
                 challengeId = requestUri.split("/")[5];
             }
-            AcmeChallenge challenge = acmeChallengeRepository.findByChallengeId(challengeId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            AcmeChallenge challenge = acmeChallengeRepository.findByChallengeId(challengeId)
+                    .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            Problem.ACCOUNT_DOES_NOT_EXIST));
             if(challenge.getAuthorization().getExpires() != null){
                 if(challenge.getAuthorization().getExpires().before(new Date())){
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("authorizationExpired", "Authorization Expired", "Expiry of the authorization is reached."));
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                            new ProblemDocument("authorizationExpired",
+                                    "Authorization Expired",
+                                    "Expiry of the authorization is reached"));
                 }
             }
         }
@@ -179,7 +193,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                             "Given ACME Profile in the request URL is not found"));
         }
 
-        if (!acmeProfile.getEnabled()) {
+        if (!acmeProfile.isEnabled()) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                     new ProblemDocument("acmeProfileDisabled",
                             "ACME Profile is not enabled",
@@ -197,7 +211,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                             "RA Profile is not enabled",
                             "RA Profile is not enabled"));
         }
-        if(acmeProfile.getTermsOfServiceChangeApproval()){
+        if(acmeProfile.isDisableNewOrders()){
             ProblemDocument problemDocument = new ProblemDocument(Problem.USER_ACTION_REQUIRED);
             problemDocument.setInstance(acmeProfile.getTermsOfServiceUrl());
             problemDocument.setDetail("Terms of service have changed");
@@ -226,7 +240,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                             "RA Profile is not enabled"));
         }
 
-        if (!raProfile.getAcmeProfile().getEnabled()) {
+        if (!raProfile.getAcmeProfile().isEnabled()) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                     new ProblemDocument("acmeProfileDisabled",
                             "ACME Profile is not enabled",
@@ -261,7 +275,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     new Base64URL(acmeData.getSignature()));
         } catch (Exception e) {
             logger.error(e.getMessage());
-            logger.error("Unable to parse jws object");
+            logger.error("Unable to parse JWS object");
             throw new AcmeProblemDocumentException(
                     HttpStatus.BAD_REQUEST, Problem.MALFORMED
             );
@@ -275,7 +289,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
 
     private void validateNonce(Object nonce) throws AcmeProblemDocumentException {
         if (nonce == null) {
-            logger.error("Nonce is not found in the URL");
+            logger.error("Nonce is not found in the request");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE);
         }
         extendedAcmeHelperService.isNonceValid(nonce.toString());
@@ -339,8 +353,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     return;
                 }
             } catch (JOSEException e) {
-                logger.error(e.getMessage());
-                logger.error("Unable to verify signature");
+                logger.error("Unable to verify signature: {}", e);
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
             }
             logger.error("Unable to verify the signature");
