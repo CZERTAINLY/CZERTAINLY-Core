@@ -155,7 +155,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
         logger.debug("Order: {}", order);
         if(order.getStatus().equals(OrderStatus.INVALID)){
-            logger.error("Order status is invalid");
+            logger.error("Order status is invalid: {}", order);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
         return ResponseEntity
@@ -169,8 +169,8 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     @Override
     public ResponseEntity<Resource> downloadCertificate(String raProfileName, String certificateId) throws NotFoundException, CertificateException {
         elevatePermission();
-        ByteArrayResource byteArrayResource = extendedAcmeHelperService.getCertificateResource(certificateId);
         logger.info("Downloading Certificate with ID: {}", certificateId);
+        ByteArrayResource byteArrayResource = extendedAcmeHelperService.getCertificateResource(certificateId);
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())

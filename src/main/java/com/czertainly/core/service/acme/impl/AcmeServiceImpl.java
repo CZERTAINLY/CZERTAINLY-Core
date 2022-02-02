@@ -149,7 +149,7 @@ public class AcmeServiceImpl implements AcmeService {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
         logger.debug("Order details: {}" , order.toString());
         if(order.getStatus().equals(OrderStatus.INVALID)){
-            logger.error("Order status is invalid");
+            logger.error("Order status is invalid: {}", order);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
         return ResponseEntity

@@ -399,7 +399,7 @@ public class ExtendedAcmeHelperService {
     protected AcmeOrder getAcmeOrderEntity(String orderId) throws AcmeProblemDocumentException {
         logger.info("Gathering ACME Order details with ID: {}", orderId);
         AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound", "Order Not Found", "Specified ACME Order not found")));
-        logger.debug("Order: {}", orderId, acmeOrder.toString());
+        logger.debug("Order: {}", acmeOrder.toString());
         return acmeOrder;
     }
 
@@ -511,7 +511,7 @@ public class ExtendedAcmeHelperService {
             logger.error(e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_CSR);
         }
-        logger.info("Initiating issue certificate for Order: {}", order);
+        logger.info("Initiating issue Certificate for Order: {}", order);
         ClientCertificateSignRequestDto certificateSignRequestDto = new ClientCertificateSignRequestDto();
         certificateSignRequestDto.setAttributes(new ArrayList<>());
         certificateSignRequestDto.setPkcs10(request.getCsr());
@@ -523,7 +523,7 @@ public class ExtendedAcmeHelperService {
     @Async
     private void createCert(AcmeOrder order, ClientCertificateSignRequestDto certificateSignRequestDto) {
         if(logger.isDebugEnabled()) {
-            logger.debug("Initiating the issuing Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());
+            logger.debug("Initiating issue Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());
         }
         try {
             ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(order.getAcmeAccount().getRaProfile().getUuid(), certificateSignRequestDto, true);
@@ -580,7 +580,9 @@ public class ExtendedAcmeHelperService {
             account.setStatus(AccountStatus.DEACTIVATED);
         }
         acmeAccountRepository.save(account);
-        logger.debug("Updated Account: {}", account.mapToDto().toString());
+        if(logger.isDebugEnabled()) {
+            logger.debug("Updated Account: {}", account.mapToDto().toString());
+        }
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, generateNonce())
@@ -598,7 +600,7 @@ public class ExtendedAcmeHelperService {
         ClientCertificateRevocationDto revokeRequest = new ClientCertificateRevocationDto();
         Certificate cert = certificateService.getCertificateEntityByContent(decodedCertificate);
         if (cert.getStatus().equals(CertificateStatus.REVOKED)) {
-            logger.error("Certificate is already revoked: {}", cert);
+            logger.error("Certificate is already revoked. Serial number: {}, Fingerprint: {}", cert.getSerialNumber(), cert.getFingerprint());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ALREADY_REVOKED);
         }
         String pemPubKeyJws = "";
@@ -678,7 +680,7 @@ public class ExtendedAcmeHelperService {
         }
         AcmeAccount oldAccount = acmeAccountRepository.findByPublicKey(AcmePublicKeyProcessor.publicKeyPemStringFromObject(newKey));
         if(oldAccount != null){
-            return ResponseEntity.status(HttpStatus.CONFLICT).header("Location",oldAccount.getAccountId()).body(new ProblemDocument("keyExists", "New Key already exists", "New key already tagged to a different account"));
+            return ResponseEntity.status(HttpStatus.CONFLICT).header(LOCATION_HEADER_NAME,oldAccount.getAccountId()).body(new ProblemDocument("keyExists", "New Key already exists", "New key already tagged to a different account"));
         }
         validateKey(innerJws);
         acmeAccount.setPublicKey(AcmePublicKeyProcessor.publicKeyPemStringFromObject(newKey));
@@ -782,6 +784,7 @@ public class ExtendedAcmeHelperService {
             final String base64EncodedDigest = Base64URL.encode(encodedhashOfExpectedKeyAuthorization).toString();
             return base64EncodedDigest;
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+            logger.error(e.getMessage());
             return null;
         }
     }
@@ -803,7 +806,7 @@ public class ExtendedAcmeHelperService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
         String expectedResponse = AcmeCommonHelper.createKeyAuthorization(challenge.getToken(), pubKey);
-        logger.debug("Response from the server: {}, expected response: {}", response, expectedResponse);
+        logger.debug("HTTP01 validation response from the server: {}, expected response: {}", response, expectedResponse);
         if (response.equals(expectedResponse)) {
             return true;
         }
@@ -811,7 +814,7 @@ public class ExtendedAcmeHelperService {
     }
 
     private boolean validateDnsChallenge(AcmeChallenge challenge) {
-        logger.info("Initiating DNS-01 Validation for challenge: {}", challenge.toString());
+        logger.info("Initiating DNS-01 validation for challenge: {}", challenge.toString());
         Properties env = new Properties();
         env.setProperty(Context.INITIAL_CONTEXT_FACTORY, DNS_CONTENT_FACTORY);
         AcmeProfile acmeProfile = challenge.getAuthorization().getOrder().getAcmeAccount().getAcmeProfile();
