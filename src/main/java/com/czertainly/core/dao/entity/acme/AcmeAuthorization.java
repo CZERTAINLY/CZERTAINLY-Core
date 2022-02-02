@@ -4,8 +4,8 @@ import com.czertainly.api.model.core.acme.Authorization;
 import com.czertainly.api.model.core.acme.AuthorizationStatus;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.util.AcmeCommonHelper;
-import com.czertainly.core.util.AcmeSerializationUtil;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.SerializationUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -58,8 +58,7 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
         Authorization authorization = new Authorization();
         authorization.setStatus(status);
         authorization.setExpires(AcmeCommonHelper.getStringFromDate(expires));
-        authorization.setWildcard(wildcard);
-        authorization.setIdentifier(AcmeSerializationUtil.deserializeIdentifier(identifier));
+        authorization.setIdentifier(SerializationUtil.deserializeIdentifier(identifier));
         authorization.setChallenges(challenges.stream().map(AcmeChallenge::mapToDto).collect(Collectors.toList()));
         return authorization;
     }
@@ -124,12 +123,12 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
         this.expires = expires;
     }
 
-    public Boolean getWildcard() {
+    public Boolean isWildcard() {
         return wildcard;
     }
 
-    public void setWildcard(Boolean wildcard) {
-        this.wildcard = wildcard;
+    public void setWildcard(Boolean isWildcard) {
+        this.wildcard = isWildcard;
     }
 
     public Set<AcmeChallenge> getChallenges() {

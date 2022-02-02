@@ -1,16 +1,9 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
-import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
-import com.czertainly.api.model.core.acme.Account;
 import com.czertainly.api.model.core.acme.AccountStatus;
-import com.czertainly.api.model.core.acme.AcmeProfileDto;
-import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
@@ -170,7 +163,7 @@ public class AcmeAccountServiceTest {
     @Test
     public void testEnableAdmin() throws NotFoundException, CertificateException {
         acmeAccountService.enableAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getEnabled());
+        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
     }
 
     @Test
@@ -181,7 +174,7 @@ public class AcmeAccountServiceTest {
     @Test
     public void testDisableAdmin() throws NotFoundException {
         acmeAccountService.disableAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getEnabled());
+        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
     }
 
     @Test
@@ -198,12 +191,12 @@ public class AcmeAccountServiceTest {
     @Test
     public void testBulkEnable() throws NotFoundException {
         acmeAccountService.bulkEnableAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getEnabled());
+        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
     }
 
     @Test
     public void testBulkDisable() throws NotFoundException {
         acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getEnabled());
+        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
     }
 }

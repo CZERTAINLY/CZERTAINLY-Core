@@ -5,8 +5,8 @@ import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.util.AcmeCommonHelper;
-import com.czertainly.core.util.AcmeSerializationUtil;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.SerializationUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -75,7 +75,7 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
         order.setExpires(AcmeCommonHelper.getStringFromDate(expires));
         order.setNotAfter(AcmeCommonHelper.getStringFromDate(notAfter));
         order.setNotBefore(AcmeCommonHelper.getStringFromDate(notBefore));
-        order.setIdentifiers(AcmeSerializationUtil.deserializeIdentifiers(identifiers));
+        order.setIdentifiers(SerializationUtil.deserializeIdentifiers(identifiers));
         return order;
     }
 
@@ -84,12 +84,11 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("id", id)
                 .append("orderId", orderId)
-                .append("issuedCertificate", certificateReference.getUuid())
+                .append("issuedCertificate", certificateReference)
                 .append("acmeAccount", acmeAccount)
                 .append("notBefore", notBefore)
                 .append("notAfter", notAfter)
                 .append("expires", expires)
-                .append("authorizations", authorizations)
                 .append("certificateId", certificateId)
                 .append("identifiers", identifiers).toString();
     }

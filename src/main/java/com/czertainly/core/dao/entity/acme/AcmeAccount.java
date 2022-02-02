@@ -169,7 +169,7 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
         this.contact = contact;
     }
 
-    public Boolean getTermsOfServiceAgreed() {
+    public Boolean isTermsOfServiceAgreed() {
         return termsOfServiceAgreed;
     }
 
