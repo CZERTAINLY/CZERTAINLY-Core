@@ -93,6 +93,7 @@ public class ExtendedAcmeHelperService {
     private static final String DNS_ENV_PREFIX = "dns://";
     private static final String HTTP_CHALLENGE_REQUEST_METHOD = "GET";
     private static final String LOCATION_HEADER_NAME = "Location";
+    private static final String HTTP_CHALLENGE_BASE_URL = "http://%s/.well-known/acme-challenge/%s";
 
 
     @Autowired
@@ -171,7 +172,6 @@ public class ExtendedAcmeHelperService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
     }
-
 
     public void initialize(String rawJwsBody) throws AcmeProblemDocumentException {
         this.rawJwsBody = rawJwsBody;
@@ -851,7 +851,7 @@ public class ExtendedAcmeHelperService {
     }
 
     private String getHttpChallengeResponse(String domain, String token) throws AcmeProblemDocumentException {
-        return getResponseFollowRedirects(String.format("http://%s/.well-known/acme-challenge/%s", domain, token));
+        return getResponseFollowRedirects(String.format(HTTP_CHALLENGE_BASE_URL, domain, token));
     }
 
     private String getResponseFollowRedirects(String url) throws AcmeProblemDocumentException {
