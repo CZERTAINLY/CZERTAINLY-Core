@@ -33,7 +33,9 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,10 +52,7 @@ import javax.naming.NamingException;
 import javax.naming.directory.Attributes;
 import javax.naming.directory.DirContext;
 import javax.naming.directory.InitialDirContext;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -504,20 +503,35 @@ public class ExtendedAcmeHelperService {
         CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateFinalizeRequest.class);
         logger.debug("Finalize Order: {}", request.toString());
         JcaPKCS10CertificationRequest p10Object;
+        String decodedCsr = "";
         try {
             p10Object = new JcaPKCS10CertificationRequest(Base64.getUrlDecoder().decode(request.getCsr()));
             validateCSR(p10Object, order);
+            decodedCsr = JcaPKCS10CertificationRequestToString(p10Object);
         } catch (IOException e) {
             logger.error(e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_CSR);
         }
+        decodedCsr = decodedCsr.replace("-----BEGIN CERTIFICATE REQUEST-----", "")
+                .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE REQUEST-----", "");
         logger.info("Initiating issue Certificate for Order: {}", order);
         ClientCertificateSignRequestDto certificateSignRequestDto = new ClientCertificateSignRequestDto();
         certificateSignRequestDto.setAttributes(new ArrayList<>());
-        certificateSignRequestDto.setPkcs10(request.getCsr());
+        certificateSignRequestDto.setPkcs10(decodedCsr);
         order.setStatus(OrderStatus.PROCESSING);
         acmeOrderRepository.save(order);
         createCert(order, certificateSignRequestDto);
+
+    }
+
+    private String JcaPKCS10CertificationRequestToString(JcaPKCS10CertificationRequest csr) throws IOException {
+        PemObject pemCSR = new PemObject("CERTIFICATE REQUEST", csr.getEncoded());
+        StringWriter decodedCsr = new StringWriter();
+        JcaPEMWriter pemWriter = new JcaPEMWriter(decodedCsr);
+        pemWriter.writeObject(pemCSR);
+        pemWriter.close();
+        decodedCsr.close();
+        return decodedCsr.toString();
     }
 
     @Async
