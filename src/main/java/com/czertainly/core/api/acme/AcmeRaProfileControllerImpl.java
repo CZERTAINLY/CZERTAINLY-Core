@@ -61,7 +61,7 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
     }
 
     @Override
-    public ResponseEntity<?> newAccount(String raProfileName, String jwsBody) throws
+    public ResponseEntity<Account> newAccount(String raProfileName, String jwsBody) throws
             AcmeProblemDocumentException, NotFoundException {
         return acmeService.newAccount(raProfileName, jwsBody);
     }

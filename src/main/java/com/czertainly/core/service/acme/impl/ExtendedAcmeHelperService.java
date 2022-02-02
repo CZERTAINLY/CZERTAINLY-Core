@@ -233,7 +233,7 @@ public class ExtendedAcmeHelperService {
 
     protected ResponseEntity<Account> processNewAccount(String profileName, String requestJson) throws AcmeProblemDocumentException {
         newAccountValidator(profileName, requestJson);
-        Account accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
+        NewAccountRequest accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), NewAccountRequest.class);
         logger.debug("New Account requested: {}", accountRequest.toString());
         AcmeAccount account;
         account = addNewAccount(profileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(getPublicKey()), accountRequest);
@@ -283,7 +283,7 @@ public class ExtendedAcmeHelperService {
         newAccountProcess();
     }
 
-    private AcmeAccount addNewAccount(String profileName, String publicKey, Account accountRequest) throws AcmeProblemDocumentException {
+    private AcmeAccount addNewAccount(String profileName, String publicKey, NewAccountRequest accountRequest) throws AcmeProblemDocumentException {
         AcmeProfile acmeProfile;
         boolean isRa;
         RaProfile raProfileToUse;
@@ -291,7 +291,6 @@ public class ExtendedAcmeHelperService {
             if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
                 raProfileToUse = getRaProfileEntity(profileName);
                 acmeProfile = raProfileToUse.getAcmeProfile();
-
                 isRa = true;
             } else {
                 acmeProfile = getAcmeProfileEntityByName(profileName);
@@ -544,7 +543,6 @@ public class ExtendedAcmeHelperService {
             order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
             order.setCertificateReference(certificateService.getCertificateEntity(certificateOutput.getUuid()));
             order.setStatus(OrderStatus.VALID);
-            order.setExpires(AcmeCommonHelper.getDefaultExpires());
         } catch (Exception e) {
             logger.error("Issue Certificate failed. Exception: {}", e.getMessage());
             order.setStatus(OrderStatus.INVALID);
