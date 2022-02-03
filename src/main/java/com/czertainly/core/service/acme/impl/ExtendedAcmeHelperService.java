@@ -188,13 +188,13 @@ public class ExtendedAcmeHelperService {
         Directory directory = new Directory();
         String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
         String replaceUrl;
-        Boolean isRa;
+        Boolean raProfileRequest;
         if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
             replaceUrl = "%s/acme/raProfile/%s/";
-            isRa = true;
+            raProfileRequest = true;
         } else {
             replaceUrl = "%s/acme/%s/";
-            isRa = false;
+            raProfileRequest = false;
         }
         directory.setNewNonce(String.format(replaceUrl + "new-nonce", baseUri, profileName));
         directory.setNewAccount(String.format(replaceUrl + "new-account", baseUri, profileName));
@@ -203,7 +203,7 @@ public class ExtendedAcmeHelperService {
         directory.setRevokeCert(String.format(replaceUrl + "revoke-cert", baseUri, profileName));
         directory.setKeyChange(String.format(replaceUrl + "key-change", baseUri, profileName));
         try {
-            directory.setMeta(frameDirectoryMeta(profileName, isRa));
+            directory.setMeta(frameDirectoryMeta(profileName, raProfileRequest));
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("profileNotFound", "Profile Not Found", "Given profile name is not found"));
         }
@@ -211,9 +211,9 @@ public class ExtendedAcmeHelperService {
         return directory;
     }
 
-    private DirectoryMeta frameDirectoryMeta(String profileName, boolean isRa) throws NotFoundException {
+    private DirectoryMeta frameDirectoryMeta(String profileName, boolean raProfileRequest) throws NotFoundException {
         AcmeProfile acmeProfile;
-        if (isRa) {
+        if (raProfileRequest) {
             acmeProfile = getRaProfileEntity(profileName).getAcmeProfile();
         } else {
             acmeProfile = acmeProfileRepository.findByName(profileName);
@@ -233,7 +233,7 @@ public class ExtendedAcmeHelperService {
 
     protected ResponseEntity<Account> processNewAccount(String profileName, String requestJson) throws AcmeProblemDocumentException {
         newAccountValidator(profileName, requestJson);
-        Account accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
+        NewAccountRequest accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), NewAccountRequest.class);
         logger.debug("New Account requested: {}", accountRequest.toString());
         AcmeAccount account;
         account = addNewAccount(profileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(getPublicKey()), accountRequest);
@@ -283,20 +283,19 @@ public class ExtendedAcmeHelperService {
         newAccountProcess();
     }
 
-    private AcmeAccount addNewAccount(String profileName, String publicKey, Account accountRequest) throws AcmeProblemDocumentException {
+    private AcmeAccount addNewAccount(String profileName, String publicKey, NewAccountRequest accountRequest) throws AcmeProblemDocumentException {
         AcmeProfile acmeProfile;
-        boolean isRa;
+        boolean raProfileRequest;
         RaProfile raProfileToUse;
         try {
             if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
                 raProfileToUse = getRaProfileEntity(profileName);
                 acmeProfile = raProfileToUse.getAcmeProfile();
-
-                isRa = true;
+                raProfileRequest = true;
             } else {
                 acmeProfile = getAcmeProfileEntityByName(profileName);
                 raProfileToUse = acmeProfile.getRaProfile();
-                isRa = false;
+                raProfileRequest = false;
             }
         } catch (Exception e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("profileNotFound", "Profile not found", "The given profile is not found"));
@@ -324,7 +323,7 @@ public class ExtendedAcmeHelperService {
             }
         }
 
-        if (!isRa && acmeProfile.getRaProfile() == null) {
+        if (!raProfileRequest && acmeProfile.getRaProfile() == null) {
             logger.error("RA Profile is not associated for the ACME Profile: {}", acmeProfile);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("invalidRaProfile",
                     "RA Profile Not Associated",
@@ -544,7 +543,6 @@ public class ExtendedAcmeHelperService {
             order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
             order.setCertificateReference(certificateService.getCertificateEntity(certificateOutput.getUuid()));
             order.setStatus(OrderStatus.VALID);
-            order.setExpires(AcmeCommonHelper.getDefaultExpires());
         } catch (Exception e) {
             logger.error("Issue Certificate failed. Exception: {}", e.getMessage());
             order.setStatus(OrderStatus.INVALID);

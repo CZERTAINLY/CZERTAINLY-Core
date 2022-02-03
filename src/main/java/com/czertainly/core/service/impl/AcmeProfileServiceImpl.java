@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
@@ -84,7 +85,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
         acmeProfile.setRequireContact(request.isRequireContact());
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
-        acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
         acmeProfile.setDisableNewOrders(false);
 
         if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)){
@@ -99,7 +99,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
-    public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileRequestDto request) throws ConnectorException {
+    public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if(request.isRequireContact() != null){
             acmeProfile.setRequireContact(request.isRequireContact());
