@@ -25,6 +25,7 @@ import com.nimbusds.jose.util.Base64URL;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerMapping;
 
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
@@ -74,8 +75,9 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             } else {
                 raProfileBased = false;
             }
-            validate(requestUrl, requestUri, raProfileBased, requestWrapper, response);
             filterChain.doFilter(requestWrapper, response);
+            Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+            validate(requestUrl, requestUri, raProfileBased, pathVariables, requestWrapper, response);
         } catch (AcmeProblemDocumentException e) {
             response.setStatus(e.getHttpStatusCode());
             response.setContentType("application/problem+json");
@@ -84,27 +86,22 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
 
     }
 
-    private void validate(String requestUrl, String requestUri, Boolean raProfileBased,
+    private void validate(String requestUrl, String requestUri, Boolean raProfileBased, Map pathVariables,
                           CustomHttpServletRequestWrapper requestWrapper,
                           HttpServletResponse response) throws AcmeProblemDocumentException {
         validateGeneral(requestUrl, requestUri, requestWrapper);
         if (raProfileBased) {
-            validateRaBasedAcme(requestUri);
+            validateRaBasedAcme(pathVariables);
         } else {
-            validateAcme(requestUri, response);
+            validateAcme(response, pathVariables);
         }
-        validateAccount(requestUri, raProfileBased);
-        validateExpires(requestUri, raProfileBased);
+        validateAccount(requestUri, raProfileBased, pathVariables);
+        validateExpires(requestUri, raProfileBased, pathVariables);
     }
 
-    private void validateExpires(String requestUri, Boolean raProfileBased) throws AcmeProblemDocumentException {
+    private void validateExpires(String requestUri, Boolean raProfileBased, Map pathVariables) throws AcmeProblemDocumentException {
         if(requestUri.contains("/order/")){
-            String orderId;
-            if (raProfileBased) {
-                orderId = requestUri.split("/")[6];
-            } else {
-                orderId = requestUri.split("/")[5];
-            }
+            String orderId = (String) pathVariables.getOrDefault("orderId", "");
             AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new
                     AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound",
                     "Order Not Found",
@@ -120,12 +117,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         }
 
         if(requestUri.contains("/authz/")){
-            String authorizationId;
-            if (raProfileBased) {
-                authorizationId = requestUri.split("/")[6];
-            } else {
-                authorizationId = requestUri.split("/")[5];
-            }
+            String authorizationId = (String) pathVariables.getOrDefault("authorizationId", "");
             AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId)
                     .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                             Problem.ACCOUNT_DOES_NOT_EXIST));
@@ -140,12 +132,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         }
 
         if(requestUri.contains("/chall/")){
-            String challengeId;
-            if (raProfileBased) {
-                challengeId = requestUri.split("/")[6];
-            } else {
-                challengeId = requestUri.split("/")[5];
-            }
+            String challengeId = (String) pathVariables.getOrDefault("challengeId", "");
             AcmeChallenge challenge = acmeChallengeRepository.findByChallengeId(challengeId)
                     .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                             Problem.ACCOUNT_DOES_NOT_EXIST));
@@ -160,16 +147,11 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         }
     }
 
-    private void validateAccount(String requestUri, Boolean raProfileBased) throws AcmeProblemDocumentException {
+    private void validateAccount(String requestUri, Boolean raProfileBased, Map pathVariable) throws AcmeProblemDocumentException {
         if (!requestUri.contains("/acct/")) {
             return;
         }
-        String accountId;
-        if (raProfileBased) {
-            accountId = requestUri.split("/")[6];
-        } else {
-            accountId = requestUri.split("/")[5];
-        }
+        String accountId = (String) pathVariable.getOrDefault("accountId", "");
         AcmeAccount acmeAccount = acmeAccountRepository.findByAccountId(accountId)
                 .orElseThrow(() ->
                         new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
@@ -184,8 +166,8 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         validateJwsHeader(requestUrl, requestUri, requestWrapper);
     }
 
-    private void validateAcme(String requestUri, HttpServletResponse response) throws AcmeProblemDocumentException {
-        String acmeProfileName = requestUri.split("/")[3];
+    private void validateAcme(HttpServletResponse response, Map pathVariables) throws AcmeProblemDocumentException {
+        String acmeProfileName = (String) pathVariables.getOrDefault("acmeProfileName", "");
         AcmeProfile acmeProfile = acmeProfileRepository.findByName(acmeProfileName);
         if (acmeProfile == null) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
@@ -221,8 +203,8 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         }
     }
 
-    private void validateRaBasedAcme(String requestUri) throws AcmeProblemDocumentException {
-        String raProfileName = requestUri.split("/")[4];
+    private void validateRaBasedAcme(Map pathVariables) throws AcmeProblemDocumentException {
+        String raProfileName = (String) pathVariables.getOrDefault("raProfileName","");
         RaProfile raProfile = raProfileRepository.findByName(raProfileName).orElseThrow(() ->
                 new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                         new ProblemDocument("raProfileNotFound",
