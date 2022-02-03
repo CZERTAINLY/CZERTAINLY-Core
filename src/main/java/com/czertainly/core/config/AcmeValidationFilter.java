@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -77,29 +78,27 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             }
             filterChain.doFilter(requestWrapper, response);
             Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
-            validate(requestUrl, requestUri, raProfileBased, pathVariables, requestWrapper, response);
+            validate(requestUrl, requestUri, raProfileBased, pathVariables, requestWrapper);
         } catch (AcmeProblemDocumentException e) {
             response.setStatus(e.getHttpStatusCode());
             response.setContentType("application/problem+json");
             response.getWriter().println(SerializationUtil.serialize(e.getProblemDocument()));
         }
-
     }
 
     private void validate(String requestUrl, String requestUri, Boolean raProfileBased, Map pathVariables,
-                          CustomHttpServletRequestWrapper requestWrapper,
-                          HttpServletResponse response) throws AcmeProblemDocumentException {
+                          CustomHttpServletRequestWrapper requestWrapper) throws AcmeProblemDocumentException {
         validateGeneral(requestUrl, requestUri, requestWrapper);
         if (raProfileBased) {
             validateRaBasedAcme(pathVariables);
         } else {
-            validateAcme(response, pathVariables);
+            validateAcme(pathVariables);
         }
-        validateAccount(requestUri, raProfileBased, pathVariables);
-        validateExpires(requestUri, raProfileBased, pathVariables);
+        validateAccount(requestUri, pathVariables);
+        validateExpires(requestUri, pathVariables);
     }
 
-    private void validateExpires(String requestUri, Boolean raProfileBased, Map pathVariables) throws AcmeProblemDocumentException {
+    private void validateExpires(String requestUri, Map pathVariables) throws AcmeProblemDocumentException {
         if(requestUri.contains("/order/")){
             String orderId = (String) pathVariables.getOrDefault("orderId", "");
             AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new
@@ -147,7 +146,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         }
     }
 
-    private void validateAccount(String requestUri, Boolean raProfileBased, Map pathVariable) throws AcmeProblemDocumentException {
+    private void validateAccount(String requestUri, Map pathVariable) throws AcmeProblemDocumentException {
         if (!requestUri.contains("/acct/")) {
             return;
         }
@@ -166,7 +165,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         validateJwsHeader(requestUrl, requestUri, requestWrapper);
     }
 
-    private void validateAcme(HttpServletResponse response, Map pathVariables) throws AcmeProblemDocumentException {
+    private void validateAcme(Map pathVariables) throws AcmeProblemDocumentException {
         String acmeProfileName = (String) pathVariables.getOrDefault("acmeProfileName", "");
         AcmeProfile acmeProfile = acmeProfileRepository.findByName(acmeProfileName);
         if (acmeProfile == null) {
@@ -198,8 +197,9 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             ProblemDocument problemDocument = new ProblemDocument(Problem.USER_ACTION_REQUIRED);
             problemDocument.setInstance(acmeProfile.getTermsOfServiceUrl());
             problemDocument.setDetail("Terms of service have changed");
-            response.addHeader("Link", "<" + acmeProfile.getTermsOfServiceChangeUrl() +">;rel=\"terms-of-service\"");
-            throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, problemDocument);
+            Map<String, String> additionalHeaders = new HashMap<>();
+            additionalHeaders.put("Link", "<" + acmeProfile.getTermsOfServiceChangeUrl() +">;rel=\"terms-of-service\"");
+            throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, problemDocument, additionalHeaders);
         }
     }
 
