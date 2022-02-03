@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
@@ -113,22 +114,20 @@ public class AcmeProfileServiceTest {
         acmeProfile.setEnabled(false);
         acmeProfileRepository.save(acmeProfile);
 
-        AcmeProfileRequestDto request = new AcmeProfileRequestDto();
-        request.setName("sameName");
+        AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
         request.setDescription("sample");
         request.setDnsResolverIp("sample");
         request.setDnsResolverPort("32");
 
         AcmeProfileDto dto = acmeProfileService.updateAcmeProfile(acmeProfile.getUuid(), request);
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
         Assertions.assertEquals(request.getDnsResolverIp(), dto.getDnsResolverIp());
     }
 
     @Test
     public void testEditAcmeProfile_validationFail() {
-        AcmeProfileRequestDto request = new AcmeProfileRequestDto();
+        AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
         Assertions.assertThrows(NullPointerException.class, () -> acmeProfileService.updateAcmeProfile(acmeProfile.getUuid(), request));
     }
 

@@ -18,6 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @ControllerAdvice
@@ -45,6 +46,10 @@ public class ResponseLoggingAdviceAdapter implements ResponseBodyAdvice<Object> 
                     serverHttpResponse instanceof ServletServerHttpResponse) {
                 HttpServletRequest request = ((ServletServerHttpRequest) serverHttpRequest).getServletRequest();
                 HttpServletResponse response = ((ServletServerHttpResponse) serverHttpResponse).getServletResponse();
+                List<String> responseHeaders = response.getHeaderNames().stream()
+                        .map(r -> r + " : " + response.getHeaders(r)).collect(Collectors.toList());
+                responseHeaders.addAll(
+                        serverHttpResponse.getHeaders().entrySet().stream().map(r-> r.getKey() + ":" + r.getValue()).collect(Collectors.toList()));
                 Object printableBody;
                 try {
                     printableBody = SerializationUtil.serialize(body);
@@ -55,8 +60,7 @@ public class ResponseLoggingAdviceAdapter implements ResponseBodyAdvice<Object> 
                         .append("RESPONSE FOR", request.getRequestURI())
                         .append("RESPONSE STATUS", response.getStatus())
                         .append("RESPONSE TYPE", response.getContentType())
-                        .append("RESPONSE HEADERS", response.getHeaderNames().stream()
-                                .map(r -> r + " : " + response.getHeaders(r)).collect(Collectors.toList()))
+                        .append("RESPONSE HEADERS", responseHeaders)
                         .append("RESPONSE BODY", printableBody);
                 logger.debug("RESPONSE DATA: {}", debugMessage);
             }
