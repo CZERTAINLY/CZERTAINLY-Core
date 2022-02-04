@@ -475,6 +475,7 @@ public class ExtendedAcmeHelperService {
         } else {
             challenge.setStatus(ChallengeStatus.INVALID);
         }
+        acmeOrderRepository.save(order);
         acmeChallengeRepository.save(challenge);
         acmeAuthorizationRepository.save(authorization);
         logger.info("Validation of the Challenge is completed: {}", challenge);
@@ -490,7 +491,7 @@ public class ExtendedAcmeHelperService {
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound","Order Not Found","The given Order is not found"));
         }
-        if ( !order.getStatus().equals(OrderStatus.READY)) {
+        if ( order.getStatus().equals(OrderStatus.INVALID) || order.getStatus().equals(OrderStatus.PENDING)) {
             logger.error("Order status: {}", order.getStatus());
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.ORDER_NOT_READY);
         }

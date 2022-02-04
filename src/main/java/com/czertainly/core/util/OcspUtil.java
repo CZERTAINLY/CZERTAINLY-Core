@@ -169,7 +169,7 @@ public class OcspUtil {
 				throw new IllegalArgumentException("Only http is supported for OCSP requests");
 			}
 		} catch (IOException e) {
-			logger.warn("Failed to connect to OCSP URL.", e);
+			logger.warn("Failed to connect to OCSP URL");
 			throw new IOException("Cannot get OCSP response from URL: " + serviceUrl, e);
 		}
 	}

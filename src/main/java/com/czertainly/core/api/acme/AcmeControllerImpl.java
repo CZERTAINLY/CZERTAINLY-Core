@@ -14,25 +14,30 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class AcmeControllerImpl implements AcmeController {
 
     @ModelAttribute
-    public void setResponseHeader(HttpServletResponse response) {
-        String linkUrl = String.join("/", Arrays.copyOfRange(ServletUriComponentsBuilder
-                .fromCurrentRequestUri()
-                .build()
-                .toUriString()
-                .split("/"), 0, 7));
+    public void setResponseHeader(HttpServletRequest request, HttpServletResponse response) {
+        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        String linkUrl;
+        Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
+        if(pathVariables.containsKey("acmeProfileName")){
+            linkUrl = baseUri + "/acme/"+ pathVariables.get("acmeProfileName") + "/directory";
+        }else{
+            linkUrl = baseUri + "/acme/raProfile/"+ pathVariables.get("acmeProfileName") + "/directory";
+        }
         response.addHeader("Link", "<"+linkUrl + ">;rel=\"index\"");
     }
 
