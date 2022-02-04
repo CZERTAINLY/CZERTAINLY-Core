@@ -23,8 +23,10 @@ import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.HandlerMapping;
 
 import javax.servlet.FilterChain;
@@ -56,7 +58,9 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
     private AcmeChallengeRepository acmeChallengeRepository;
     @Autowired
     private ExtendedAcmeHelperService extendedAcmeHelperService;
-
+    @Autowired
+    @Qualifier("handlerExceptionResolver")
+    private HandlerExceptionResolver resolver;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
@@ -80,9 +84,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
             validate(requestUrl, requestUri, raProfileBased, pathVariables, requestWrapper);
         } catch (AcmeProblemDocumentException e) {
-            response.setStatus(e.getHttpStatusCode());
-            response.setContentType("application/problem+json");
-            response.getWriter().println(SerializationUtil.serialize(e.getProblemDocument()));
+            resolver.resolveException(request, response, null, e);
         }
     }
 

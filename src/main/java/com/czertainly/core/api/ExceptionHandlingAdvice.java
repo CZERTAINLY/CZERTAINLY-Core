@@ -221,8 +221,10 @@ public class ExceptionHandlingAdvice {
     public ResponseEntity<ProblemDocument>  handleAcmeProblemDocumentException(AcmeProblemDocumentException ex){
         LOG.warn("ACME Error: {}", ex.getProblemDocument().toString());
         ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
-        for(String entry: ex.getAdditionalHeaders().keySet()){
-            response.header(entry, ex.getAdditionalHeaders().get(entry));
+        if(ex.getAdditionalHeaders() != null) {
+            for (String entry : ex.getAdditionalHeaders().keySet()) {
+                response.header(entry, ex.getAdditionalHeaders().get(entry));
+            }
         }
         return response.body(ex.getProblemDocument());
     }

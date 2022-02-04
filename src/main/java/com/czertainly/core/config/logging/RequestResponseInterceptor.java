@@ -30,6 +30,8 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
             throws Exception {
         if (logger.isDebugEnabled()) {
             ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
+            String body = CharStreams.toString(new InputStreamReader(
+                    requestWrapper.getInputStream(), Charsets.UTF_8));
             if (DispatcherType.REQUEST.name().equals(request.getDispatcherType().name())
                     && request.getMethod().equals(HttpMethod.GET.name())) {
                 requestWrapper.getParameterMap();
@@ -42,13 +44,18 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
                                 .map(r -> r + " : " + requestWrapper.getHeader(r)).collect(Collectors.toList()));
                 logger.debug("REQUEST DATA: {}", debugMessage);
             }
-
-            if (DispatcherType.REQUEST.name().equals(request.getDispatcherType().name())
-                    && request.getMethod().equals(HttpMethod.POST.name()) && request.getRequestURI().startsWith("/api/acme/")) {
-                String body = CharStreams.toString(new InputStreamReader(
-                        requestWrapper.getInputStream(), Charsets.UTF_8));
-                Map<String, String> jws = (Map<String, String>) SerializationUtil.deserialize(body, Map.class);
-                if(jws.getOrDefault("payload","").length() <= 3) {
+            else if (DispatcherType.REQUEST.name().equals(request.getDispatcherType().name())
+                    && request.getMethod().equals(HttpMethod.POST.name()) || body.isEmpty()) {
+                Boolean printMessage = true;
+                if (request.getRequestURI().startsWith("/api/acme/")) {
+                    try {
+                        Map<String, String> jws = (Map<String, String>) SerializationUtil.deserialize(body, Map.class);
+                        if (!jws.getOrDefault("payload", "").isEmpty()) {
+                            printMessage = false;
+                        }
+                    }catch (ClassCastException e){}
+                }
+                if (printMessage) {
                     ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                             .append("METHOD", requestWrapper.getMethod())
                             .append("PATH", requestWrapper.getRequestURI())
