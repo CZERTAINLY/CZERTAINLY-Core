@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.ConnectException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -219,7 +220,13 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(AcmeProblemDocumentException.class)
     public ResponseEntity<ProblemDocument>  handleAcmeProblemDocumentException(AcmeProblemDocumentException ex){
         LOG.warn("ACME Error: {}", ex.getProblemDocument().toString());
-        return ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json")).body(ex.getProblemDocument());
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
+        if(ex.getAdditionalHeaders() != null) {
+            for (String entry : ex.getAdditionalHeaders().keySet()) {
+                response.header(entry, ex.getAdditionalHeaders().get(entry));
+            }
+        }
+        return response.body(ex.getProblemDocument());
     }
 
     /**
