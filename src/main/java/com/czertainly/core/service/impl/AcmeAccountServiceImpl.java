@@ -12,6 +12,7 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.service.AcmeAccountService;
+import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,9 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Autowired
     private AcmeAccountRepository acmeAccountRepository;
+    @Autowired
+    private ExtendedAcmeHelperService extendedAcmeHelperService;
+
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REVOKE)
@@ -127,6 +131,8 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REQUEST)
     public AcmeAccountResponseDto getAcmeAccount(String uuid) throws NotFoundException {
+        AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
+        extendedAcmeHelperService.updateOrderStatusForAccount(acmeAccount);
         return getAcmeAccountEntity(uuid).mapToDtoForUi();
     }
 

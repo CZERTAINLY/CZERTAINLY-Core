@@ -571,7 +571,10 @@ public class ExtendedAcmeHelperService {
             isDeactivateRequest = getJwsObject().getPayload().toJSONObject().getOrDefault("status", "") == "deactivated";
         }
         AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId).orElseThrow(() -> new NotFoundException(Authorization.class, authorizationId));
-
+        if(authorization.getExpires() != null && authorization.getExpires().before(new Date())){
+            authorization.setStatus(AuthorizationStatus.INVALID);
+            acmeAuthorizationRepository.save(authorization);
+        }
         if (isDeactivateRequest) {
             authorization.setStatus(AuthorizationStatus.DEACTIVATED);
             acmeAuthorizationRepository.save(authorization);
@@ -772,7 +775,7 @@ public class ExtendedAcmeHelperService {
         return challenge;
     }
 
-    private AcmeAccount getAcmeAccountEntity(String accountId) throws AcmeProblemDocumentException {
+    public AcmeAccount getAcmeAccountEntity(String accountId) throws AcmeProblemDocumentException {
         return acmeAccountRepository.findByAccountId(accountId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
     }
 
@@ -988,6 +991,23 @@ public class ExtendedAcmeHelperService {
         }
         if (!dnsIdentifiers.containsAll(identifiersDns)) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_CSR);
+        }
+    }
+
+    public void updateOrderStatusByExpiry(AcmeOrder order) {
+        if(order.getExpires() != null && order.getExpires().before(new Date()) && !order.getStatus().equals(OrderStatus.VALID)){
+            order.setStatus(OrderStatus.INVALID);
+            acmeOrderRepository.save(order);
+        }
+
+    }
+    public void updateOrderStatusForAccount(AcmeAccount account) {
+        List<AcmeOrder> orders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(account, new Date());
+        for(AcmeOrder order: orders){
+            if(!order.getStatus().equals(OrderStatus.VALID)) {
+                order.setStatus(OrderStatus.INVALID);
+                acmeOrderRepository.save(order);
+            }
         }
     }
 }
