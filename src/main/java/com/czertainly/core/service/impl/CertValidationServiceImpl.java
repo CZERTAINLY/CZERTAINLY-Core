@@ -42,7 +42,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT"})
+@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
 public class CertValidationServiceImpl implements CertValidationService {
     private static final Logger logger = LoggerFactory.getLogger(CertValidationServiceImpl.class);
 
@@ -310,7 +310,8 @@ public class CertValidationServiceImpl implements CertValidationService {
         }
     }
 
-    private List<Certificate> getCertificateChain(Certificate certificate) {
+    @Override
+    public List<Certificate> getCertificateChain(Certificate certificate) {
         List<Certificate> chainCerts = new ArrayList<>();
         chainCerts.add(certificate);
         int previousLength = 1;
@@ -442,8 +443,7 @@ public class CertValidationServiceImpl implements CertValidationService {
                 }
 
             } catch (Exception e) {
-                logger.error("Not able to check ocsp.");
-                logger.error(e.getMessage());
+                logger.warn("Not able to check OCSP: {}", e.getMessage());
                 validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Error while checking OCSP.\nOCSP URL: " + String.join("\n", ocspUrls)));
             }
         }
@@ -618,8 +618,7 @@ public class CertValidationServiceImpl implements CertValidationService {
                 }
 
             } catch (Exception e) {
-                logger.error("Not able to check ocsp.");
-                logger.error(e.getMessage());
+                logger.warn("Not able to check OCSP: {}", e.getMessage());
                 validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Error while checking OCSP.\nOCSP URL: " + String.join("\n", ocspUrls)));
             }
         }
