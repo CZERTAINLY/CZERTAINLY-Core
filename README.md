@@ -73,6 +73,15 @@ Owner-------------/
 
 For more information, refer to the [CZERTAINLY documentation](https://docs.czertainly.com).
 
+## Protocol support
+
+`Core` support the following protocols for certificate management:
+- ACME
+
+## Docker container
+
+`Core` is provided as a Docker container. Use the 3keycompany/czertainly-core:tagname to pull the required image from the repository.
+
 ## Monitoring and reporting
 
 For monitoring and reporting, you can use the information provided by the `Core`. We strongly recommend trying the Operator UI that is additional component of the CZERTAINLY platform.
