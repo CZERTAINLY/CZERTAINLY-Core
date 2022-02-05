@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeChallenge;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
@@ -108,6 +109,8 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
 
     @Override
     public ResponseEntity<List<Order>> listOrders(String raProfileName, String accountId) throws AcmeProblemDocumentException {
+        AcmeAccount acmeAccount = extendedAcmeHelperService.getAcmeAccountEntity(accountId);
+        extendedAcmeHelperService.updateOrderStatusForAccount(acmeAccount);
         return extendedAcmeHelperService.listOrders(accountId);
     }
 
@@ -154,6 +157,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         logger.info("Get Order details with ID: {}", orderId);
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
         logger.debug("Order: {}", order);
+        extendedAcmeHelperService.updateOrderStatusByExpiry(order);
         if(order.getStatus().equals(OrderStatus.INVALID)){
             logger.error("Order status is invalid: {}", order);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
