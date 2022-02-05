@@ -23,7 +23,12 @@ public class CustomAuditAware implements AuditorAware<String> {
                 && "anonymousUser".equals(authentication.getPrincipal())) {
             // for connector self registration
             return Optional.of("anonymousUser");
-        }  else {
+        }
+        else if (authentication.getPrincipal() instanceof String
+                && "ACME_USER".equals(authentication.getPrincipal())) {
+            // for ACME related operation
+            return Optional.of("ACME_USER");
+        }else {
             throw new IllegalStateException("Unexpected type of principal.");
         }
     }

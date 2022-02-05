@@ -94,10 +94,9 @@ public class OcspUtil {
 				ocspUrls.add(ocspUrl);
 			}
 		} catch (Exception e) {
-			logger.error("Error while getting ocsp URL");
-			logger.error(e.getMessage());
+			logger.warn("Error while getting OCSP URL", e.getMessage());
 		}
-		logger.info("OSP Url for the certificate is not available");
+		logger.info("OCSP URL for the certificate is not available");
 		return ocspUrls;
 	}
 	
@@ -167,11 +166,11 @@ public class OcspUtil {
 				InputStream in = (InputStream) con.getContent();
                 return new OCSPResp(in);
 			} else {
-				throw new IllegalArgumentException("Only http is supported for ocsp calls");
+				throw new IllegalArgumentException("Only http is supported for OCSP requests");
 			}
 		} catch (IOException e) {
-			logger.error("Failed to connect to ocsp url.", e);
-			throw new IOException("Cannot get ocspResponse from url: " + serviceUrl, e);
+			logger.warn("Failed to connect to OCSP URL");
+			throw new IOException("Cannot get OCSP response from URL: " + serviceUrl, e);
 		}
 	}
 }

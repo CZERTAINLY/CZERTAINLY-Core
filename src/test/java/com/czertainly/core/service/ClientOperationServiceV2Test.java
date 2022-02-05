@@ -177,7 +177,7 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
-        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate("1065586a-6af6-11ec-90d6-0242ac120004", request);
+        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate("1065586a-6af6-11ec-90d6-0242ac120004", request, false);
         Assertions.assertNotNull(response);
 
         Optional<Certificate> newCertificate = certificateRepository.findBySerialNumberIgnoreCase("177E75F42E95ECB98F831EB57DE27B0BC8C47643");
@@ -187,7 +187,7 @@ public class ClientOperationServiceV2Test {
 
     @Test
     public void testIssueCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate("wrong-name", null));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate("wrong-name", null, false));
     }
 
     @Test
@@ -250,11 +250,11 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
-        clientOperationService.revokeCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request);
+        clientOperationService.revokeCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request, false);
     }
 
     @Test
     public void testRevokeCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate("wrong-name", "wrong-cert-id", null));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate("wrong-name", "wrong-cert-id", null, false));
     }
 }

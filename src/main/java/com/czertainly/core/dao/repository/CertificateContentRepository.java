@@ -11,4 +11,5 @@ import javax.transaction.Transactional;
 public interface CertificateContentRepository extends JpaRepository<CertificateContent, Long> {
 
     CertificateContent findByFingerprint(String thumbprint);
+    CertificateContent findByContent(String content);
 }
