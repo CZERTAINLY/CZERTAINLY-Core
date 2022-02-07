@@ -37,7 +37,7 @@ public class LoggingAdvice {
     protected void loggingAllOperation() {
     }
 
-    @Pointcut("within(company.threekey.ra.backend.api..*)")
+    @Pointcut("within(com.czertainly.core.api..*)")
     private void logAnyFunctionWithinResource() {
     }
 
