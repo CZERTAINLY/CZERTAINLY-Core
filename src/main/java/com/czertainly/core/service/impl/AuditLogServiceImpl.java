@@ -90,7 +90,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     @PostConstruct
     public void logStartup() {
         Map<Object, Object> additionalData = new HashMap<>();
-        additionalData.put("message", "RA profiles backend started");
+        additionalData.put("message", "CZERTAINLY backend started");
         log(ObjectType.BE, ObjectType.BE, null, OperationType.START, OperationStatusEnum.SUCCESS, additionalData);
     }
 
