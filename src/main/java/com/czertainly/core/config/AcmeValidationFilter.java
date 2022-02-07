@@ -64,22 +64,23 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
+        CustomHttpServletRequestWrapper requestWrapper = new CustomHttpServletRequestWrapper(request);
+        CustomHttpServletResponseWrapper responseWrapper = new CustomHttpServletResponseWrapper(response);
         String requestUri = request.getRequestURI();
         String requestUrl = request.getRequestURL().toString();
         Boolean raProfileBased;
         if (!requestUri.startsWith("/api/acme/")) {
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(requestWrapper, responseWrapper);
             return;
         }
         logger.info("ACME Request from " + request.getRemoteAddr() + " for " + requestUri);
-        CustomHttpServletRequestWrapper requestWrapper = new CustomHttpServletRequestWrapper(request);
         try {
             if (requestUri.contains("/raProfile/")) {
                 raProfileBased = true;
             } else {
                 raProfileBased = false;
             }
-            filterChain.doFilter(requestWrapper, response);
+            filterChain.doFilter(requestWrapper, responseWrapper);
             Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
             validate(requestUrl, requestUri, raProfileBased, pathVariables, requestWrapper);
         } catch (AcmeProblemDocumentException e) {

@@ -186,7 +186,7 @@ public class ExceptionHandlingAdvice {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorMessageDto handleMessageNotReadable(HttpMessageNotReadableException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
-        return ErrorMessageDto.getInstance(ex.getMessage());
+        return ErrorMessageDto.getInstance("Unable to read HTTP message");
     }
 
     /**
@@ -239,6 +239,4 @@ public class ExceptionHandlingAdvice {
         LOG.error("General error occurred: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("Internal server error.");
     }
-
-
 }

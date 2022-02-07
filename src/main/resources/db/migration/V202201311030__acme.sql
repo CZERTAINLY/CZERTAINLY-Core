@@ -97,10 +97,10 @@ CREATE TABLE acme_profile (
     website_url VARCHAR NULL DEFAULT NULL,
     validity BIGINT NULL DEFAULT NULL,
     retry_interval BIGINT NULL DEFAULT NULL,
-    terms_of_service_change_approval BOOLEAN NULL DEFAULT NULL,
+    disable_new_orders BOOLEAN NULL DEFAULT NULL,
     description VARCHAR NULL DEFAULT NULL,
-    insist_contact BOOLEAN NULL DEFAULT NULL,
-    insist_terms_of_service BOOLEAN NULL DEFAULT NULL,
+    require_contact BOOLEAN NULL DEFAULT NULL,
+    require_terms_of_service BOOLEAN NULL DEFAULT NULL,
     terms_of_service_change_url VARCHAR NULL DEFAULT NULL,
     PRIMARY KEY (id)
 )
