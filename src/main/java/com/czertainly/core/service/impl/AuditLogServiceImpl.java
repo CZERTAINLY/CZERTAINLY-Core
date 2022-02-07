@@ -98,7 +98,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     @PreDestroy
     public void logShutdown() {
         Map<Object, Object> additionalData = new HashMap<>();
-        additionalData.put("message", "RA profiles backend shutdown");
+        additionalData.put("message", "CZERTAINLY backend shutdown");
         log(ObjectType.BE, ObjectType.BE, null, OperationType.STOP, OperationStatusEnum.SUCCESS, additionalData);
     }
 
