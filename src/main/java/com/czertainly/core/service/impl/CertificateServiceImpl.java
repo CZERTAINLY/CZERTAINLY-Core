@@ -360,6 +360,11 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public List<SearchFieldDataDto> getSearchableFieldInformation() {
+        return getSearchableFieldsMap();
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
