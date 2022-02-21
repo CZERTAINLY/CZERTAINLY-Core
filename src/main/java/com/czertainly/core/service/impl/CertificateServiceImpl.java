@@ -61,6 +61,7 @@ public class CertificateServiceImpl implements CertificateService {
     private static final String EXPIRES_LABEL = "Expires";
 
     private static final Integer DEFAULT_PAGE_SIZE = 10;
+    private static final Integer MAX_PAGE_SIZE = 1000;
 
     @Autowired
     private EntityManagerFactory emFactory;
@@ -94,7 +95,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public List<CertificateDto> listCertificates(CertificateSearchRequestDto request) {
+    public CertificateResponseDto listCertificates(CertificateSearchRequestDto request) throws ValidationException {
         Map<String, Integer> page = getPageable(request);
         return getCertificatesWithFilter(request, page);
 
@@ -499,13 +500,13 @@ public class CertificateServiceImpl implements CertificateService {
         fields.add(getSearchField(SearchableFields.STATUS,
                         STATUS_LABEL,
                         true,
-                        List.of(CertificateStatus.REVOKED.getCode(),
-                                CertificateStatus.EXPIRED.getCode(),
-                                CertificateStatus.EXPIRING.getCode(),
-                                CertificateStatus.VALID.getCode(),
-                                CertificateStatus.INVALID.getCode(),
-                                CertificateStatus.NEW.getCode(),
-                                CertificateStatus.UNKNOWN.getCode()),
+                        List.of(CertificateStatus.REVOKED,
+                                CertificateStatus.EXPIRED,
+                                CertificateStatus.EXPIRING,
+                                CertificateStatus.VALID,
+                                CertificateStatus.INVALID,
+                                CertificateStatus.NEW,
+                                CertificateStatus.UNKNOWN),
                         SearchableFieldType.LIST,
                         List.of(SearchCondition.EQUALS)
                 )
@@ -522,7 +523,7 @@ public class CertificateServiceImpl implements CertificateService {
         return fields;
     }
 
-    private SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<String> values,
+    private SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values,
                                               SearchableFieldType fieldType, List<SearchCondition> conditions){
         SearchFieldDataDto dto = new SearchFieldDataDto();
         dto.setField(field);
@@ -534,9 +535,12 @@ public class CertificateServiceImpl implements CertificateService {
         return dto;
     }
 
-    private Map<String, Integer> getPageable(CertificateSearchRequestDto request){
+    private Map<String, Integer> getPageable(CertificateSearchRequestDto request) throws ValidationException{
         if(request.getItemsPerPage() == null){
             request.setItemsPerPage(DEFAULT_PAGE_SIZE);
+        }
+        if(request.getItemsPerPage() > MAX_PAGE_SIZE){
+            throw new ValidationException(ValidationError.create("Maximum items per page is " + MAX_PAGE_SIZE));
         }
 
         Integer pageStart = 0;
@@ -549,20 +553,29 @@ public class CertificateServiceImpl implements CertificateService {
         return Map.ofEntries(Map.entry("start", pageStart), Map.entry("end", pageEnd));
     }
 
-    private List<CertificateDto> getCertificatesWithFilter(CertificateSearchRequestDto request, Map<String, Integer> page){
-//        if(request.getFilters() == null || request.getFilters().isEmpty()) {
-//            Pageable p = PageRequest.of(page.get("start"), page.get("end"));
-//            return certificateRepository.findAll(p).stream().map(Certificate::mapToDto).collect(Collectors.toList());
-//        }
-        String sqlQuery = getQueryDynamicBasedOnFilter(request.getFilters());
-//        sqlQuery += " OFFSET " + page.get("start") + " ROWS FETCH NEXT " + request.getItemsPerPage().toString() + " ROWS ONLY";
-        EntityManager entityManager = emFactory.createEntityManager();
-        Query query = entityManager.createQuery(sqlQuery);
-        query.setFirstResult(page.get("start"));
-        query.setMaxResults(request.getItemsPerPage());
-        List<Certificate> certificates = query.getResultList();
-        entityManager.close();
-        return certificates.stream().map(Certificate::mapToDto).collect(Collectors.toList());
+    private CertificateResponseDto getCertificatesWithFilter(CertificateSearchRequestDto request, Map<String, Integer> page){
+        CertificateResponseDto certificateResponseDto = new CertificateResponseDto();
+        certificateResponseDto.setPageNumber(request.getPageNumber());
+        certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
+
+        if(request.getFilters() == null || request.getFilters().isEmpty()) {
+            Pageable p = PageRequest.of(page.get("start"), page.get("end"));
+            certificateResponseDto.setTotalPages((int) Math.ceil(certificateRepository.count()/request.getItemsPerPage()));
+            certificateResponseDto.setCertificates(certificateRepository.findAll(p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+        }else {
+            String sqlQuery = getQueryDynamicBasedOnFilter(request.getFilters());
+            EntityManager entityManager = emFactory.createEntityManager();
+            Query query = entityManager.createQuery(sqlQuery);
+            query.setFirstResult(page.get("start"));
+            query.setMaxResults(request.getItemsPerPage());
+            List<Certificate> certificates = query.getResultList();
+
+            Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from"));
+            certificateResponseDto.setTotalPages((int) Math.ceil((Long) countQuery.getSingleResult()/ request.getItemsPerPage()));
+            entityManager.close();
+            certificateResponseDto.setCertificates(certificates.stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+        }
+        return certificateResponseDto;
     }
 
     private String getQueryDynamicBasedOnFilter(List<CertificateFilterRequestDto> conditions){
@@ -573,7 +586,9 @@ public class CertificateServiceImpl implements CertificateService {
             qp += " c." + filter.getField().getCode() + " ";
             if(filter.getCondition().equals(SearchCondition.CONTAINS)){
                 qp += filter.getCondition().getCode() + " '%" + filter.getValue().toString() + "%'";
-            } else {
+            }else if(filter.getCondition().equals(SearchCondition.EMPTY) || filter.getCondition().equals(SearchCondition.NOT_EMPTY)) {
+                qp += filter.getCondition().getCode();
+            }else {
                 qp += filter.getCondition().getCode() + " '" + filter.getValue().toString() + "'";
             }
             queryParts.add(qp);

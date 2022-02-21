@@ -2,6 +2,7 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
@@ -36,7 +37,7 @@ public class CertificateControllerImpl implements CertificateController {
 	private CertValidationService certValidationService;
 
 	@Override
-	public List<CertificateDto> listCertificate(CertificateSearchRequestDto request) {
+	public CertificateResponseDto listCertificate(CertificateSearchRequestDto request) throws ValidationException {
 		return certificateService.listCertificates(request);
 	}
 

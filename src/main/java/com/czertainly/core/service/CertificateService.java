@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
@@ -15,7 +16,7 @@ import java.util.List;
 
 public interface CertificateService {
 
-    List<CertificateDto> listCertificates(CertificateSearchRequestDto request);
+    CertificateResponseDto listCertificates(CertificateSearchRequestDto request) throws ValidationException;
     
     CertificateDto getCertificate(String uuid) throws NotFoundException;
     

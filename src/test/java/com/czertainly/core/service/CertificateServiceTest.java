@@ -85,11 +85,11 @@ public class CertificateServiceTest {
 
     @Test
     public void testListCertificates() {
-        List<CertificateDto> certificateEntities = certificateService.listCertificates(new CertificateSearchRequestDto());
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(new CertificateSearchRequestDto());
         Assertions.assertNotNull(certificateEntities);
-        Assertions.assertFalse(certificateEntities.isEmpty());
-        Assertions.assertEquals(1, certificateEntities.size());
-        Assertions.assertEquals(certificate.getUuid(), certificateEntities.get(0).getUuid());
+        Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
+        Assertions.assertEquals(1, certificateEntities.getCertificates().size());
+        Assertions.assertEquals(certificate.getUuid(), certificateEntities.getCertificates().get(0).getUuid());
     }
 
     @Test
