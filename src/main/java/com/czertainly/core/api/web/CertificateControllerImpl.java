@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequest
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
@@ -35,8 +36,8 @@ public class CertificateControllerImpl implements CertificateController {
 	private CertValidationService certValidationService;
 
 	@Override
-	public List<CertificateDto> listCertificate(@RequestParam(required = false) Integer start,@RequestParam(required = false) Integer end) {
-		return certificateService.listCertificates(start, end);
+	public List<CertificateDto> listCertificate(CertificateSearchRequestDto request) {
+		return certificateService.listCertificates(request);
 	}
 
 	@Override
@@ -133,6 +134,11 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public void validateAllCertificate() {
 		certValidationService.validateAllCertificates();
+	}
+
+	@Override
+	public List<SearchFieldDataDto> getSearchableFieldInformation() {
+		return certificateService.getSearchableFieldInformation();
 	}
 
 }

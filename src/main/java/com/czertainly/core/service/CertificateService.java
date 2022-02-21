@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 
 import java.security.cert.CertificateException;
@@ -14,7 +15,7 @@ import java.util.List;
 
 public interface CertificateService {
 
-    List<CertificateDto> listCertificates(Integer start, Integer end);
+    List<CertificateDto> listCertificates(CertificateSearchRequestDto request);
     
     CertificateDto getCertificate(String uuid) throws NotFoundException;
     
@@ -47,4 +48,6 @@ public interface CertificateService {
     void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException;
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
     void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
+
+    List<SearchFieldDataDto> getSearchableFieldInformation();
 }

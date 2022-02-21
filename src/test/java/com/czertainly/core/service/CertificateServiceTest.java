@@ -85,7 +85,7 @@ public class CertificateServiceTest {
 
     @Test
     public void testListCertificates() {
-        List<CertificateDto> certificateEntities = certificateService.listCertificates(0, 1);
+        List<CertificateDto> certificateEntities = certificateService.listCertificates(new CertificateSearchRequestDto());
         Assertions.assertNotNull(certificateEntities);
         Assertions.assertFalse(certificateEntities.isEmpty());
         Assertions.assertEquals(1, certificateEntities.size());

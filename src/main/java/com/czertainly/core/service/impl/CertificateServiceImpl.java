@@ -11,6 +11,10 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.search.SearchCondition;
+import com.czertainly.api.model.core.certificate.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.certificate.search.SearchableFieldType;
+import com.czertainly.api.model.core.certificate.search.SearchableFields;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -26,14 +30,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Query;
 import javax.transaction.Transactional;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +47,23 @@ import java.util.stream.Collectors;
 public class CertificateServiceImpl implements CertificateService {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
+
+    private static final String COMMON_NAME_LABEL = "Common Name";
+    private static final String SERIAL_NUMBER_LABEL = "Serial Number";
+    private static final String RA_PROFILE_NAME_LABEL = "RA Profile Name";
+    private static final String ENTITY_NAME_LABEL = "Entity Name";
+    private static final String STATUS_LABEL = "Status";
+    private static final String GROUP_NAME_LABEL = "Group";
+    private static final String OWNER_LABEL = "Owner";
+    private static final String ISSUER_COMMON_NAME_LABEL = "Issuer Common Name";
+    private static final String SIGNATURE_ALGORITHM_LABEL = "Signature Algorithm";
+    private static final String FINGERPRINT_LABEL = "Fingerprint";
+    private static final String EXPIRES_LABEL = "Expires";
+
+    private static final Integer DEFAULT_PAGE_SIZE = 10;
+
+    @Autowired
+    private EntityManagerFactory emFactory;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -72,16 +94,10 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public List<CertificateDto> listCertificates(Integer start, Integer end) {
-        if (start != null && end != null) {
-            if (start > 1) {
-                start = start - 1;
-            }
-            Pageable page = PageRequest.of(start, end + 1);
-            return certificateRepository.findAll(page).stream().map(Certificate::mapToDto).collect(Collectors.toList());
+    public List<CertificateDto> listCertificates(CertificateSearchRequestDto request) {
+        Map<String, Integer> page = getPageable(request);
+        return getCertificatesWithFilter(request, page);
 
-        }
-        return certificateRepository.findAll().stream().map(Certificate::mapToDto).collect(Collectors.toList());
     }
 
     @Override
@@ -267,6 +283,11 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public List<SearchFieldDataDto> getSearchableFieldInformation() {
+        return getSearchableFieldsMap();
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
@@ -422,5 +443,142 @@ public class CertificateServiceImpl implements CertificateService {
         } catch (NotFoundException e) {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
         }
+    }
+
+    private List<SearchFieldDataDto> getSearchableFieldsMap() {
+        List<SearchFieldDataDto> fields = new ArrayList<>();
+
+        fields.add(getSearchField(SearchableFields.COMMON_NAME,
+                COMMON_NAME_LABEL,
+                false,
+                null,
+                SearchableFieldType.STRING,
+                List.of(SearchCondition.CONTAINS,
+                        SearchCondition.EQUALS)
+            )
+        );
+
+        fields.add(getSearchField(SearchableFields.SERIAL_NUMBER,
+                        SERIAL_NUMBER_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.EQUALS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.RA_PROFILE_NAME,
+                        RA_PROFILE_NAME_LABEL,
+                        true,
+                        raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.EQUALS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.ENTITY_NAME,
+                        ENTITY_NAME_LABEL,
+                        true,
+                        entityRepository.findAll().stream().map(CertificateEntity::getName).collect(Collectors.toList()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.EQUALS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.OWNER,
+                        OWNER_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.EQUALS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.STATUS,
+                        STATUS_LABEL,
+                        true,
+                        List.of(CertificateStatus.REVOKED.getCode(),
+                                CertificateStatus.EXPIRED.getCode(),
+                                CertificateStatus.EXPIRING.getCode(),
+                                CertificateStatus.VALID.getCode(),
+                                CertificateStatus.INVALID.getCode(),
+                                CertificateStatus.NEW.getCode(),
+                                CertificateStatus.UNKNOWN.getCode()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.EQUALS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.GROUP_NAME,
+                        GROUP_NAME_LABEL,
+                        true,
+                        groupRepository.findAll().stream().map(CertificateGroup::getName).collect(Collectors.toList()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.EQUALS)
+                )
+        );
+        return fields;
+    }
+
+    private SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<String> values,
+                                              SearchableFieldType fieldType, List<SearchCondition> conditions){
+        SearchFieldDataDto dto = new SearchFieldDataDto();
+        dto.setField(field);
+        dto.setLabel(label);
+        dto.setMultiValue(multiValue);
+        dto.setValue(values);
+        dto.setType(fieldType);
+        dto.setConditions(conditions);
+        return dto;
+    }
+
+    private Map<String, Integer> getPageable(CertificateSearchRequestDto request){
+        if(request.getItemsPerPage() == null){
+            request.setItemsPerPage(DEFAULT_PAGE_SIZE);
+        }
+
+        Integer pageStart = 0;
+        Integer pageEnd = request.getItemsPerPage();
+
+        if(request.getPageNumber() != null) {
+            pageStart = ((request.getPageNumber() - 1) * request.getItemsPerPage());
+            pageEnd = request.getPageNumber() * request.getItemsPerPage();
+        }
+        return Map.ofEntries(Map.entry("start", pageStart), Map.entry("end", pageEnd));
+    }
+
+    private List<CertificateDto> getCertificatesWithFilter(CertificateSearchRequestDto request, Map<String, Integer> page){
+//        if(request.getFilters() == null || request.getFilters().isEmpty()) {
+//            Pageable p = PageRequest.of(page.get("start"), page.get("end"));
+//            return certificateRepository.findAll(p).stream().map(Certificate::mapToDto).collect(Collectors.toList());
+//        }
+        String sqlQuery = getQueryDynamicBasedOnFilter(request.getFilters());
+//        sqlQuery += " OFFSET " + page.get("start") + " ROWS FETCH NEXT " + request.getItemsPerPage().toString() + " ROWS ONLY";
+        EntityManager entityManager = emFactory.createEntityManager();
+        Query query = entityManager.createQuery(sqlQuery);
+        query.setFirstResult(page.get("start"));
+        query.setMaxResults(request.getItemsPerPage());
+        List<Certificate> certificates = query.getResultList();
+        entityManager.close();
+        return certificates.stream().map(Certificate::mapToDto).collect(Collectors.toList());
+    }
+
+    private String getQueryDynamicBasedOnFilter(List<CertificateFilterRequestDto> conditions){
+        String query = "select c from Certificate c WHERE";
+        List<String> queryParts = new ArrayList<>();
+        for(CertificateFilterRequestDto filter: conditions){
+            String qp = "";
+            qp += " c." + filter.getField().getCode() + " ";
+            if(filter.getCondition().equals(SearchCondition.CONTAINS)){
+                qp += filter.getCondition().getCode() + " '%" + filter.getValue().toString() + "%'";
+            } else {
+                qp += filter.getCondition().getCode() + " '" + filter.getValue().toString() + "'";
+            }
+            queryParts.add(qp);
+        }
+        query += String.join(" AND ", queryParts);
+        return query;
     }
 }
