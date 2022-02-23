@@ -500,13 +500,13 @@ public class CertificateServiceImpl implements CertificateService {
         fields.add(getSearchField(SearchableFields.STATUS,
                         STATUS_LABEL,
                         true,
-                        List.of(CertificateStatus.REVOKED,
-                                CertificateStatus.EXPIRED,
-                                CertificateStatus.EXPIRING,
-                                CertificateStatus.VALID,
-                                CertificateStatus.INVALID,
-                                CertificateStatus.NEW,
-                                CertificateStatus.UNKNOWN),
+                        List.of(CertificateStatus.REVOKED.toString(),
+                                CertificateStatus.EXPIRED.toString(),
+                                CertificateStatus.EXPIRING.toString(),
+                                CertificateStatus.VALID.toString(),
+                                CertificateStatus.INVALID.toString(),
+                                CertificateStatus.NEW.toString(),
+                                CertificateStatus.UNKNOWN.toString()),
                         SearchableFieldType.LIST,
                         List.of(SearchCondition.EQUALS)
                 )
@@ -575,21 +575,74 @@ public class CertificateServiceImpl implements CertificateService {
             entityManager.close();
             certificateResponseDto.setCertificates(certificates.stream().map(Certificate::mapToDto).collect(Collectors.toList()));
         }
+        if(certificateResponseDto.getTotalPages().equals(0)){
+            certificateResponseDto.setTotalPages(1);
+        }
         return certificateResponseDto;
     }
 
-    private String getQueryDynamicBasedOnFilter(List<CertificateFilterRequestDto> conditions){
+    private String getQueryDynamicBasedOnFilter(List<CertificateFilterRequestDto> conditions) throws ValidationException {
         String query = "select c from Certificate c WHERE";
         List<String> queryParts = new ArrayList<>();
-        for(CertificateFilterRequestDto filter: conditions){
+        List<SearchFieldDataDto> originalJson = getSearchableFieldsMap();
+        List<SearchFieldDataDto> iterableJson = new ArrayList<>();
+        for(CertificateFilterRequestDto requestField: conditions){
+            for(SearchFieldDataDto field: originalJson){
+                if(requestField.getField().equals(field.getField())){
+                    field.setValue(requestField.getValue());
+                    field.setConditions(List.of(requestField.getCondition()));
+                    iterableJson.add(field);
+                }
+            }
+        }
+        for(SearchFieldDataDto filter: iterableJson){
             String qp = "";
             qp += " c." + filter.getField().getCode() + " ";
-            if(filter.getCondition().equals(SearchCondition.CONTAINS)){
-                qp += filter.getCondition().getCode() + " '%" + filter.getValue().toString() + "%'";
-            }else if(filter.getCondition().equals(SearchCondition.EMPTY) || filter.getCondition().equals(SearchCondition.NOT_EMPTY)) {
-                qp += filter.getCondition().getCode();
+            if(filter.getMultiValue() && !(filter.getValue() instanceof String)) {
+                List<String> whereObjects = new ArrayList<>();
+                if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
+                    whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getId).map(i -> i.toString()).collect(Collectors.toList()));
+                }
+                else if(filter.getField().equals(SearchableFields.ENTITY_NAME)) {
+                    whereObjects.addAll(entityRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateEntity::getId).map(i -> i.toString()).collect(Collectors.toList()));
+                }
+                else if(filter.getField().equals(SearchableFields.GROUP_NAME)) {
+                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getId).map(i -> i.toString()).collect(Collectors.toList()));
+                }else{
+                    whereObjects.addAll(((List<Object>) filter.getValue()).stream().map(i -> "'" + i.toString() + "'").collect(Collectors.toList()));
+                }
+
+                if(whereObjects.isEmpty()){
+                    throw new ValidationException(ValidationError.create("No valid object found for search in " + filter.getLabel()));
+                }
+
+                if(filter.getConditions().get(0).equals(SearchCondition.EQUALS)){
+                    qp += " IN (" +  String.join(",", whereObjects) + " )";
+                }
+                if(filter.getConditions().get(0).equals(SearchCondition.NOT_EQUALS)){
+                    qp += " NOT IN (" +  String.join(",", whereObjects) + " )";
+                }
             }else {
-                qp += filter.getCondition().getCode() + " '" + filter.getValue().toString() + "'";
+                if(filter.getConditions().get(0).equals(SearchCondition.CONTAINS)){
+                    qp += filter.getConditions().get(0).getCode() + " '%" + filter.getValue().toString() + "%'";
+                }else if(filter.getConditions().get(0).equals(SearchCondition.EMPTY) || filter.getConditions().get(0).equals(SearchCondition.NOT_EMPTY)) {
+                    qp += filter.getConditions().get(0).getCode();
+                }else {
+                    if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
+                        String raProileId = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
+                        qp += filter.getConditions().get(0).getCode() + " '" + raProileId + "'";
+                    }
+                    else if(filter.getField().equals(SearchableFields.ENTITY_NAME)) {
+                        String entityId = entityRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
+                        qp += filter.getConditions().get(0).getCode() + " '" + entityId + "'";
+                    }
+                    else if(filter.getField().equals(SearchableFields.GROUP_NAME)) {
+                        String groupId = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
+                        qp += filter.getConditions().get(0).getCode() + " '" + groupId + "'";
+                    }else {
+                        qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "'";
+                    }
+                }
             }
             queryParts.add(qp);
         }
