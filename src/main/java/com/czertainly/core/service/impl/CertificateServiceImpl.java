@@ -903,6 +903,9 @@ public class CertificateServiceImpl implements CertificateService {
         if (certificateResponseDto.getTotalPages().equals(0)) {
             certificateResponseDto.setTotalPages(1);
         }
+        if(certificateResponseDto.getTotalPages().equals(0)){
+            certificateResponseDto.setTotalPages(1);
+        }
         return certificateResponseDto;
     }
 
