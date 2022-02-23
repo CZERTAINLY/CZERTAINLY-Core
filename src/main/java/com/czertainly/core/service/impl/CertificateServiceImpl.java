@@ -450,13 +450,17 @@ public class CertificateServiceImpl implements CertificateService {
         List<SearchFieldDataDto> fields = new ArrayList<>();
 
         fields.add(getSearchField(SearchableFields.COMMON_NAME,
-                COMMON_NAME_LABEL,
-                false,
-                null,
-                SearchableFieldType.STRING,
-                List.of(SearchCondition.CONTAINS,
-                        SearchCondition.EQUALS)
-            )
+                        COMMON_NAME_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.NOT_EQUALS
+                        )
+                )
         );
 
         fields.add(getSearchField(SearchableFields.SERIAL_NUMBER,
@@ -465,7 +469,11 @@ public class CertificateServiceImpl implements CertificateService {
                         null,
                         SearchableFieldType.STRING,
                         List.of(SearchCondition.CONTAINS,
-                                SearchCondition.EQUALS)
+                                SearchCondition.EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.NOT_EQUALS
+                        )
                 )
         );
 
@@ -474,7 +482,7 @@ public class CertificateServiceImpl implements CertificateService {
                         true,
                         raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()),
                         SearchableFieldType.LIST,
-                        List.of(SearchCondition.EQUALS)
+                        List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY)
                 )
         );
 
@@ -483,7 +491,7 @@ public class CertificateServiceImpl implements CertificateService {
                         true,
                         entityRepository.findAll().stream().map(CertificateEntity::getName).collect(Collectors.toList()),
                         SearchableFieldType.LIST,
-                        List.of(SearchCondition.EQUALS)
+                        List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY)
                 )
         );
 
@@ -493,7 +501,10 @@ public class CertificateServiceImpl implements CertificateService {
                         null,
                         SearchableFieldType.STRING,
                         List.of(SearchCondition.CONTAINS,
-                                SearchCondition.EQUALS)
+                                SearchCondition.EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.NOT_EQUALS)
                 )
         );
 
@@ -508,7 +519,7 @@ public class CertificateServiceImpl implements CertificateService {
                                 CertificateStatus.NEW.toString(),
                                 CertificateStatus.UNKNOWN.toString()),
                         SearchableFieldType.LIST,
-                        List.of(SearchCondition.EQUALS)
+                        List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS)
                 )
         );
 
@@ -517,14 +528,56 @@ public class CertificateServiceImpl implements CertificateService {
                         true,
                         groupRepository.findAll().stream().map(CertificateGroup::getName).collect(Collectors.toList()),
                         SearchableFieldType.LIST,
-                        List.of(SearchCondition.EQUALS)
+                        List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.ISSUER_COMMON_NAME,
+                        ISSUER_COMMON_NAME_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.NOT_EQUALS
+                        )
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.FINGERPRINT,
+                        FINGERPRINT_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.NOT_EQUALS
+                        )
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.SIGNATURE_ALGORITHM,
+                        SIGNATURE_ALGORITHM_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.NOT_EQUALS
+                        )
                 )
         );
         return fields;
     }
 
     private SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values,
-                                              SearchableFieldType fieldType, List<SearchCondition> conditions){
+                                              SearchableFieldType fieldType, List<SearchCondition> conditions) {
         SearchFieldDataDto dto = new SearchFieldDataDto();
         dto.setField(field);
         dto.setLabel(label);
@@ -535,34 +588,35 @@ public class CertificateServiceImpl implements CertificateService {
         return dto;
     }
 
-    private Map<String, Integer> getPageable(CertificateSearchRequestDto request) throws ValidationException{
-        if(request.getItemsPerPage() == null){
+    private Map<String, Integer> getPageable(CertificateSearchRequestDto request) throws ValidationException {
+        if (request.getItemsPerPage() == null) {
             request.setItemsPerPage(DEFAULT_PAGE_SIZE);
         }
-        if(request.getItemsPerPage() > MAX_PAGE_SIZE){
+        if (request.getItemsPerPage() > MAX_PAGE_SIZE) {
             throw new ValidationException(ValidationError.create("Maximum items per page is " + MAX_PAGE_SIZE));
         }
 
         Integer pageStart = 0;
         Integer pageEnd = request.getItemsPerPage();
 
-        if(request.getPageNumber() != null) {
+        if (request.getPageNumber() != null) {
             pageStart = ((request.getPageNumber() - 1) * request.getItemsPerPage());
             pageEnd = request.getPageNumber() * request.getItemsPerPage();
         }
         return Map.ofEntries(Map.entry("start", pageStart), Map.entry("end", pageEnd));
     }
 
-    private CertificateResponseDto getCertificatesWithFilter(CertificateSearchRequestDto request, Map<String, Integer> page){
+    private CertificateResponseDto getCertificatesWithFilter(CertificateSearchRequestDto request, Map<String, Integer> page) {
         CertificateResponseDto certificateResponseDto = new CertificateResponseDto();
         certificateResponseDto.setPageNumber(request.getPageNumber());
         certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
 
-        if(request.getFilters() == null || request.getFilters().isEmpty()) {
-            Pageable p = PageRequest.of(page.get("start"), page.get("end"));
-            certificateResponseDto.setTotalPages((int) Math.ceil(certificateRepository.count()/request.getItemsPerPage()));
-            certificateResponseDto.setCertificates(certificateRepository.findAll(p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
-        }else {
+        if (request.getFilters() == null || request.getFilters().isEmpty()) {
+            Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+            certificateResponseDto.setTotalPages((int) Math.ceil((double) certificateRepository.count() / request.getItemsPerPage()));
+            certificateResponseDto.setTotalItems(certificateRepository.count());
+            certificateResponseDto.setCertificates(certificateRepository.findAllByOrderByIdDesc(p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+        } else {
             String sqlQuery = getQueryDynamicBasedOnFilter(request.getFilters());
             EntityManager entityManager = emFactory.createEntityManager();
             Query query = entityManager.createQuery(sqlQuery);
@@ -570,12 +624,21 @@ public class CertificateServiceImpl implements CertificateService {
             query.setMaxResults(request.getItemsPerPage());
             List<Certificate> certificates = query.getResultList();
 
-            Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from"));
-            certificateResponseDto.setTotalPages((int) Math.ceil((Long) countQuery.getSingleResult()/ request.getItemsPerPage()));
-            entityManager.close();
-            certificateResponseDto.setCertificates(certificates.stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+            if(certificates.isEmpty()) {
+                certificateResponseDto.setTotalPages(1);
+                certificateResponseDto.setTotalItems(0L);
+                certificateResponseDto.setCertificates(new ArrayList<>());
+
+            }else {
+                Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from"));
+                Long totalItems = (Long) countQuery.getSingleResult();
+                certificateResponseDto.setTotalPages((int) Math.ceil((double) totalItems / request.getItemsPerPage()));
+                certificateResponseDto.setTotalItems(totalItems);
+                entityManager.close();
+                certificateResponseDto.setCertificates(certificates.stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+            }
         }
-        if(certificateResponseDto.getTotalPages().equals(0)){
+        if (certificateResponseDto.getTotalPages().equals(0)) {
             certificateResponseDto.setTotalPages(1);
         }
         return certificateResponseDto;
@@ -586,60 +649,56 @@ public class CertificateServiceImpl implements CertificateService {
         List<String> queryParts = new ArrayList<>();
         List<SearchFieldDataDto> originalJson = getSearchableFieldsMap();
         List<SearchFieldDataDto> iterableJson = new ArrayList<>();
-        for(CertificateFilterRequestDto requestField: conditions){
-            for(SearchFieldDataDto field: originalJson){
-                if(requestField.getField().equals(field.getField())){
+        for (CertificateFilterRequestDto requestField : conditions) {
+            for (SearchFieldDataDto field : originalJson) {
+                if (requestField.getField().equals(field.getField())) {
                     field.setValue(requestField.getValue());
                     field.setConditions(List.of(requestField.getCondition()));
                     iterableJson.add(field);
                 }
             }
         }
-        for(SearchFieldDataDto filter: iterableJson){
+        for (SearchFieldDataDto filter : iterableJson) {
             String qp = "";
             qp += " c." + filter.getField().getCode() + " ";
-            if(filter.getMultiValue() && !(filter.getValue() instanceof String)) {
+            if (filter.getMultiValue() && !(filter.getValue() instanceof String)) {
                 List<String> whereObjects = new ArrayList<>();
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
                     whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getId).map(i -> i.toString()).collect(Collectors.toList()));
-                }
-                else if(filter.getField().equals(SearchableFields.ENTITY_NAME)) {
+                } else if (filter.getField().equals(SearchableFields.ENTITY_NAME)) {
                     whereObjects.addAll(entityRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateEntity::getId).map(i -> i.toString()).collect(Collectors.toList()));
-                }
-                else if(filter.getField().equals(SearchableFields.GROUP_NAME)) {
+                } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
                     whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getId).map(i -> i.toString()).collect(Collectors.toList()));
-                }else{
+                } else {
                     whereObjects.addAll(((List<Object>) filter.getValue()).stream().map(i -> "'" + i.toString() + "'").collect(Collectors.toList()));
                 }
 
-                if(whereObjects.isEmpty()){
+                if (whereObjects.isEmpty()) {
                     throw new ValidationException(ValidationError.create("No valid object found for search in " + filter.getLabel()));
                 }
 
-                if(filter.getConditions().get(0).equals(SearchCondition.EQUALS)){
-                    qp += " IN (" +  String.join(",", whereObjects) + " )";
+                if (filter.getConditions().get(0).equals(SearchCondition.EQUALS)) {
+                    qp += " IN (" + String.join(",", whereObjects) + " )";
                 }
-                if(filter.getConditions().get(0).equals(SearchCondition.NOT_EQUALS)){
-                    qp += " NOT IN (" +  String.join(",", whereObjects) + " )";
+                if (filter.getConditions().get(0).equals(SearchCondition.NOT_EQUALS)) {
+                    qp += " NOT IN (" + String.join(",", whereObjects) + " )";
                 }
-            }else {
-                if(filter.getConditions().get(0).equals(SearchCondition.CONTAINS)){
+            } else {
+                if (filter.getConditions().get(0).equals(SearchCondition.CONTAINS)) {
                     qp += filter.getConditions().get(0).getCode() + " '%" + filter.getValue().toString() + "%'";
-                }else if(filter.getConditions().get(0).equals(SearchCondition.EMPTY) || filter.getConditions().get(0).equals(SearchCondition.NOT_EMPTY)) {
+                } else if (filter.getConditions().get(0).equals(SearchCondition.EMPTY) || filter.getConditions().get(0).equals(SearchCondition.NOT_EMPTY)) {
                     qp += filter.getConditions().get(0).getCode();
-                }else {
+                } else {
                     if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
-                        String raProileId = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
-                        qp += filter.getConditions().get(0).getCode() + " '" + raProileId + "'";
-                    }
-                    else if(filter.getField().equals(SearchableFields.ENTITY_NAME)) {
+                        String raProfileId = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
+                        qp += filter.getConditions().get(0).getCode() + " '" + raProfileId + "'";
+                    } else if (filter.getField().equals(SearchableFields.ENTITY_NAME)) {
                         String entityId = entityRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
                         qp += filter.getConditions().get(0).getCode() + " '" + entityId + "'";
-                    }
-                    else if(filter.getField().equals(SearchableFields.GROUP_NAME)) {
+                    } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
                         String groupId = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
                         qp += filter.getConditions().get(0).getCode() + " '" + groupId + "'";
-                    }else {
+                    } else {
                         qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "'";
                     }
                 }
@@ -647,6 +706,7 @@ public class CertificateServiceImpl implements CertificateService {
             queryParts.add(qp);
         }
         query += String.join(" AND ", queryParts);
+        query += " GROUP BY c.id ORDER BY c.id DESC";
         return query;
     }
 }
