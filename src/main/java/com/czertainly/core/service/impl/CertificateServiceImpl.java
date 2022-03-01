@@ -59,6 +59,7 @@ public class CertificateServiceImpl implements CertificateService {
     private static final String SIGNATURE_ALGORITHM_LABEL = "Signature Algorithm";
     private static final String FINGERPRINT_LABEL = "Fingerprint";
     private static final String EXPIRES_LABEL = "Expires";
+    private static final String NOT_BEFORE_LABEL = "Not Before";
 
     private static final Integer DEFAULT_PAGE_SIZE = 10;
     private static final Integer MAX_PAGE_SIZE = 1000;
@@ -630,6 +631,28 @@ public class CertificateServiceImpl implements CertificateService {
                         )
                 )
         );
+
+        fields.add(getSearchField(SearchableFields.NOT_AFTER,
+                        EXPIRES_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.DATE,
+                        List.of(SearchCondition.GREATER,
+                                SearchCondition.LESSER
+                        )
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.NOT_BEFORE,
+                        NOT_BEFORE_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.DATE,
+                        List.of(SearchCondition.GREATER,
+                                SearchCondition.LESSER
+                        )
+                )
+        );
         return fields;
     }
 
@@ -764,11 +787,13 @@ public class CertificateServiceImpl implements CertificateService {
         }
         query += String.join(" AND ", queryParts);
         query += " GROUP BY c.id ORDER BY c.id DESC";
+        logger.debug("Executable query: {}", query);
         return query;
     }
 
     private List<Certificate> queryExecutor(List<CertificateFilterRequestDto> filters){
         String sqlQuery = "select c from Certificate c";
+        logger.debug("Executing query: {}", sqlQuery);
         if(!filters.isEmpty()) {
             sqlQuery = getQueryDynamicBasedOnFilter(filters);
         }
