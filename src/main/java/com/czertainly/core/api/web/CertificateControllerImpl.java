@@ -112,7 +112,7 @@ public class CertificateControllerImpl implements CertificateController {
 	// ------------------- /Bulk Update API -----------------------
 
 	@Override
-	public ResponseEntity<?> upload(@RequestBody UploadCertificateRequestDto request)
+	public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
 			throws AlreadyExistException, CertificateException {
 		CertificateDto dto = certificateService.upload(request);
 		URI location = ServletUriComponentsBuilder
@@ -122,7 +122,7 @@ public class CertificateControllerImpl implements CertificateController {
                 .toUri();
 		UuidDto responseDto = new UuidDto();
 		responseDto.setUuid(dto.getUuid());
-        return ResponseEntity.created(location).build();
+        return ResponseEntity.created(location).body(responseDto);
 	}
 
 	@Override
