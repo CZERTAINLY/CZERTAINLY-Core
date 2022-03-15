@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import org.junit.jupiter.api.Assertions;
@@ -259,6 +260,14 @@ public class CertificateServiceTest {
     @Test
     public void testUpdateCertificateOwner_certificateNotFound() {
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateOwner("wrong-uuid", null));
+    }
+
+    @Test
+    public void testSearchableFields() {
+        List<SearchFieldDataDto> response = certificateService.getSearchableFieldInformation();
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(24, response.size());
+        Assertions.assertFalse(response.isEmpty());
     }
 
     @Test

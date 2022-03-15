@@ -914,7 +914,7 @@ public class CertificateServiceImpl implements CertificateService {
                     fieldDup.setType(field.getType());
                     fieldDup.setLabel(field.getLabel());
                     fieldDup.setType(field.getType());
-                    fieldDup.setMultiValue(field.getMultiValue());
+                    fieldDup.setMultiValue(field.isMultiValue());
                     fieldDup.setValue(requestField.getValue());
                     fieldDup.setConditions(List.of(requestField.getCondition()));
                     iterableJson.add(fieldDup);
@@ -928,7 +928,7 @@ public class CertificateServiceImpl implements CertificateService {
             }else {
                 qp += " c." + filter.getField().getCode() + " ";
             }
-            if (filter.getMultiValue() && !(filter.getValue() instanceof String)) {
+            if (filter.isMultiValue() && !(filter.getValue() instanceof String)) {
                 List<String> whereObjects = new ArrayList<>();
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
                     whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getId).map(i -> i.toString()).collect(Collectors.toList()));
