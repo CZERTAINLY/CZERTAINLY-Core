@@ -3,7 +3,6 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.dao.entity.*;
-import org.springframework.beans.PropertyValues;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -40,6 +39,9 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     List<Certificate> findByRaProfile(RaProfile raProfile);
     List<Certificate> findByGroup(CertificateGroup group);
     List<Certificate> findByEntity(CertificateEntity entity);
+
+    @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
+    List<String> findDistinctSignatureAlgorithm();
     
     @Query("SELECT DISTINCT certificateType FROM Certificate")
     List<CertificateType> findDistinctCertificateType();
@@ -49,9 +51,15 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     
     @Query("SELECT DISTINCT basicConstraints FROM Certificate")
     List<String> findDistinctBasicConstraints();
+
+    @Query("SELECT DISTINCT keyUsage FROM Certificate")
+    List<String> findDistinctKeyUsage();
     
     @Query("SELECT DISTINCT status FROM Certificate")
     List<CertificateStatus> findDistinctStatus();
+
+    @Query("SELECT DISTINCT publicKeyAlgorithm FROM Certificate")
+    List<String> findDistinctPublicKeyAlgorithm();
 
     List<Certificate> findAllByOrderByIdDesc(Pageable p);
 }

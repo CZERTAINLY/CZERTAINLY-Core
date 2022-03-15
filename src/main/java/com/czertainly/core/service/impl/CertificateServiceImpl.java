@@ -21,6 +21,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,16 +51,28 @@ public class CertificateServiceImpl implements CertificateService {
 
     private static final String COMMON_NAME_LABEL = "Common Name";
     private static final String SERIAL_NUMBER_LABEL = "Serial Number";
-    private static final String RA_PROFILE_NAME_LABEL = "RA Profile Name";
-    private static final String ENTITY_NAME_LABEL = "Entity Name";
+    private static final String RA_PROFILE_NAME_LABEL = "RA Profile";
+    private static final String ENTITY_NAME_LABEL = "Entity";
     private static final String STATUS_LABEL = "Status";
     private static final String GROUP_NAME_LABEL = "Group";
     private static final String OWNER_LABEL = "Owner";
     private static final String ISSUER_COMMON_NAME_LABEL = "Issuer Common Name";
     private static final String SIGNATURE_ALGORITHM_LABEL = "Signature Algorithm";
     private static final String FINGERPRINT_LABEL = "Fingerprint";
-    private static final String EXPIRES_LABEL = "Expires";
-    private static final String NOT_BEFORE_LABEL = "Not Before";
+    private static final String EXPIRES_LABEL = "Expires At";
+    private static final String NOT_BEFORE_LABEL = "Valid From";
+    private static final String PUBLIC_KEY_ALGORITHM_LABEL = "Public Key Algorithm";
+    private static final String KEY_SIZE_LABEL = "Key Size";
+    private static final String KEY_USAGE_LABEL = "Key Usage";
+    private static final String BASIC_CONSTRAINTS_LABEL = "Basic Constraints";
+    private static final String META_DATA_LABEL = "Meta Data";
+    private static final String SUBJECT_ALTERNATIVE_NAME_LABEL = "Subject Alternative Name";
+    private static final String SUBJECT_DN_LABEL = "Subject DN";
+    private static final String ISSUER_DN_LABEL = "Issuer DN";
+    private static final String ISSUER_SERIAL_NUMBER_LABEL = "Issuer Serial Number";
+    private static final String OCSP_VALIDATION_LABEL = "OCSP Validation";
+    private static final String CRL_VALIDATION_LABEL = "CRL Validation";
+    private static final String SIGNATURE_VALIDATION_LABEL = "Signature Validation";
 
     private static final Integer DEFAULT_PAGE_SIZE = 10;
     private static final Integer MAX_PAGE_SIZE = 1000;
@@ -209,15 +222,15 @@ public class CertificateServiceImpl implements CertificateService {
     public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-        if(!request.isAllSelect()) {
+        if (!request.isAllSelect()) {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 certificate.setRaProfile(raProfile);
                 certificateRepository.save(certificate);
             }
-        }else{
-            for(Certificate certificate: queryExecutor(request.getFilters())){
+        } else {
+            for (Certificate certificate : queryExecutor(request.getFilters())) {
                 certificate.setRaProfile(raProfile);
                 certificateRepository.save(certificate);
             }
@@ -230,15 +243,15 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
 
-        if(!request.isAllSelect()) {
+        if (!request.isAllSelect()) {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 certificate.setGroup(certificateGroup);
                 certificateRepository.save(certificate);
             }
-        }else{
-            for(Certificate certificate: queryExecutor(request.getFilters())){
+        } else {
+            for (Certificate certificate : queryExecutor(request.getFilters())) {
                 certificate.setGroup(certificateGroup);
                 certificateRepository.save(certificate);
             }
@@ -250,15 +263,15 @@ public class CertificateServiceImpl implements CertificateService {
     public void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException {
         CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-        if(!request.isAllSelect()) {
+        if (!request.isAllSelect()) {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 certificate.setEntity(certificateEntity);
                 certificateRepository.save(certificate);
             }
-        }else{
-            for(Certificate certificate: queryExecutor(request.getFilters())){
+        } else {
+            for (Certificate certificate : queryExecutor(request.getFilters())) {
                 certificate.setEntity(certificateEntity);
                 certificateRepository.save(certificate);
             }
@@ -268,15 +281,15 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
-        if(!request.isAllSelect()) {
+        if (!request.isAllSelect()) {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 certificate.setOwner(request.getOwner());
                 certificateRepository.save(certificate);
             }
-        }else{
-            for(Certificate certificate: queryExecutor(request.getFilters())){
+        } else {
+            for (Certificate certificate : queryExecutor(request.getFilters())) {
                 certificate.setOwner(request.getOwner());
                 certificateRepository.save(certificate);
             }
@@ -287,7 +300,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     public List<String> bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
         List<String> failedDeleteCerts = new ArrayList<>();
-        if(!request.isAllSelect()) {
+        if (!request.isAllSelect()) {
             for (String uuid : request.getUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
@@ -313,8 +326,8 @@ public class CertificateServiceImpl implements CertificateService {
 
                 certificateRepository.delete(certificate);
             }
-        }else{
-            for(Certificate certificate: queryExecutor(request.getFilters())){
+        } else {
+            for (Certificate certificate : queryExecutor(request.getFilters())) {
                 if (!adminRepository.findByCertificate(certificate).isEmpty()) {
                     logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
                     failedDeleteCerts.add(certificate.getCommonName());
@@ -513,10 +526,13 @@ public class CertificateServiceImpl implements CertificateService {
                         null,
                         SearchableFieldType.STRING,
                         List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
                                 SearchCondition.EQUALS,
+                                SearchCondition.NOT_EQUALS,
                                 SearchCondition.EMPTY,
                                 SearchCondition.NOT_EMPTY,
-                                SearchCondition.NOT_EQUALS
+                                SearchCondition.STARTS_WITH,
+                                SearchCondition.ENDS_WITH
                         )
                 )
         );
@@ -527,13 +543,34 @@ public class CertificateServiceImpl implements CertificateService {
                         null,
                         SearchableFieldType.STRING,
                         List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
                                 SearchCondition.EQUALS,
+                                SearchCondition.NOT_EQUALS,
                                 SearchCondition.EMPTY,
                                 SearchCondition.NOT_EMPTY,
-                                SearchCondition.NOT_EQUALS
+                                SearchCondition.STARTS_WITH,
+                                SearchCondition.ENDS_WITH
                         )
                 )
         );
+
+        fields.add(getSearchField(SearchableFields.ISSUER_SERIAL_NUMBER,
+                        ISSUER_SERIAL_NUMBER_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
+                                SearchCondition.EQUALS,
+                                SearchCondition.NOT_EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.STARTS_WITH,
+                                SearchCondition.ENDS_WITH
+                        )
+                )
+        );
+
 
         fields.add(getSearchField(SearchableFields.RA_PROFILE_NAME,
                         RA_PROFILE_NAME_LABEL,
@@ -559,10 +596,13 @@ public class CertificateServiceImpl implements CertificateService {
                         null,
                         SearchableFieldType.STRING,
                         List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
                                 SearchCondition.EQUALS,
+                                SearchCondition.NOT_EQUALS,
                                 SearchCondition.EMPTY,
                                 SearchCondition.NOT_EMPTY,
-                                SearchCondition.NOT_EQUALS)
+                                SearchCondition.STARTS_WITH,
+                                SearchCondition.ENDS_WITH)
                 )
         );
 
@@ -596,10 +636,13 @@ public class CertificateServiceImpl implements CertificateService {
                         null,
                         SearchableFieldType.STRING,
                         List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
                                 SearchCondition.EQUALS,
+                                SearchCondition.NOT_EQUALS,
                                 SearchCondition.EMPTY,
                                 SearchCondition.NOT_EMPTY,
-                                SearchCondition.NOT_EQUALS
+                                SearchCondition.STARTS_WITH,
+                                SearchCondition.ENDS_WITH
                         )
                 )
         );
@@ -610,23 +653,23 @@ public class CertificateServiceImpl implements CertificateService {
                         null,
                         SearchableFieldType.STRING,
                         List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
                                 SearchCondition.EQUALS,
+                                SearchCondition.NOT_EQUALS,
                                 SearchCondition.EMPTY,
                                 SearchCondition.NOT_EMPTY,
-                                SearchCondition.NOT_EQUALS
+                                SearchCondition.STARTS_WITH,
+                                SearchCondition.ENDS_WITH
                         )
                 )
         );
 
         fields.add(getSearchField(SearchableFields.SIGNATURE_ALGORITHM,
                         SIGNATURE_ALGORITHM_LABEL,
-                        false,
-                        null,
-                        SearchableFieldType.STRING,
-                        List.of(SearchCondition.CONTAINS,
-                                SearchCondition.EQUALS,
-                                SearchCondition.EMPTY,
-                                SearchCondition.NOT_EMPTY,
+                        true,
+                        new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.EQUALS,
                                 SearchCondition.NOT_EQUALS
                         )
                 )
@@ -653,7 +696,139 @@ public class CertificateServiceImpl implements CertificateService {
                         )
                 )
         );
+
+        fields.add(getSearchField(SearchableFields.SUBJECTDN,
+                        SUBJECT_DN_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
+                                SearchCondition.EQUALS,
+                                SearchCondition.NOT_EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.STARTS_WITH,
+                                SearchCondition.ENDS_WITH
+                        )
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.ISSUERDN,
+                        ISSUER_DN_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
+                                SearchCondition.EQUALS,
+                                SearchCondition.NOT_EQUALS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY,
+                                SearchCondition.STARTS_WITH,
+                                SearchCondition.ENDS_WITH
+                        )
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.META,
+                        META_DATA_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY
+                        )
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.SUBJECT_ALTERNATIVE_NAMES,
+                        SUBJECT_ALTERNATIVE_NAME_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.CONTAINS,
+                                SearchCondition.NOT_CONTAINS,
+                                SearchCondition.EMPTY,
+                                SearchCondition.NOT_EMPTY
+                        )
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.PUBLIC_KEY_ALGORITHM,
+                        PUBLIC_KEY_ALGORITHM_LABEL,
+                        true,
+                        new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.KEY_SIZE,
+                        KEY_SIZE_LABEL,
+                        true,
+                        new ArrayList<>(certificateRepository.findDistinctKeySize()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.BASIC_CONSTRAINTS,
+                        BASIC_CONSTRAINTS_LABEL,
+                        true,
+                        new ArrayList<>(certificateRepository.findDistinctBasicConstraints()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.KEY_USAGE,
+                        KEY_USAGE_LABEL,
+                        false,
+                        serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()),
+                        SearchableFieldType.LIST,
+                        List.of(SearchCondition.CONTAINS, SearchCondition.NOT_CONTAINS)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.OCSP_VALIDATION,
+                        OCSP_VALIDATION_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.SUCCESS, SearchCondition.FAILED, SearchCondition.UNKNOWN, SearchCondition.EMPTY)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.CRL_VALIDATION,
+                        CRL_VALIDATION_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.SUCCESS, SearchCondition.FAILED, SearchCondition.UNKNOWN, SearchCondition.EMPTY)
+                )
+        );
+
+        fields.add(getSearchField(SearchableFields.SIGNATURE_VALIDATION,
+                        SIGNATURE_VALIDATION_LABEL,
+                        false,
+                        null,
+                        SearchableFieldType.STRING,
+                        List.of(SearchCondition.SUCCESS, SearchCondition.FAILED, SearchCondition.UNKNOWN)
+                )
+        );
+        logger.debug("Searchable Fields: {}", fields);
         return fields;
+    }
+
+    private List<Object> serializedListOfStringToListOfObject(List<String> serializedData) {
+        Set<String> serSet = new LinkedHashSet<>();
+        for (String obj : serializedData) {
+            serSet.addAll(MetaDefinitions.deserializeArrayString(obj));
+        }
+        return new ArrayList<>(serSet);
     }
 
     private SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values,
@@ -683,10 +858,12 @@ public class CertificateServiceImpl implements CertificateService {
             pageStart = ((request.getPageNumber() - 1) * request.getItemsPerPage());
             pageEnd = request.getPageNumber() * request.getItemsPerPage();
         }
+        logger.debug("Pagination information - Start: {}, End : {}", pageStart, pageEnd);
         return Map.ofEntries(Map.entry("start", pageStart), Map.entry("end", pageEnd));
     }
 
     private CertificateResponseDto getCertificatesWithFilter(CertificateSearchRequestDto request, Map<String, Integer> page) {
+        logger.debug("Certificate search request: {}", request.toString());
         CertificateResponseDto certificateResponseDto = new CertificateResponseDto();
         certificateResponseDto.setPageNumber(request.getPageNumber());
         certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
@@ -704,13 +881,13 @@ public class CertificateServiceImpl implements CertificateService {
             query.setMaxResults(request.getItemsPerPage());
             List<Certificate> certificates = query.getResultList();
 
-            if(certificates.isEmpty()) {
+            if (certificates.isEmpty()) {
                 certificateResponseDto.setTotalPages(1);
                 certificateResponseDto.setTotalItems(0L);
                 certificateResponseDto.setCertificates(new ArrayList<>());
-
-            }else {
-                Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from").replace(" GROUP BY c.id ORDER BY c.id DESC",""));
+                entityManager.close();
+            } else {
+                Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from").replace(" GROUP BY c.id ORDER BY c.id DESC", ""));
                 Long totalItems = (Long) countQuery.getSingleResult();
                 certificateResponseDto.setTotalPages((int) Math.ceil((double) totalItems / request.getItemsPerPage()));
                 certificateResponseDto.setTotalItems(totalItems);
@@ -728,19 +905,29 @@ public class CertificateServiceImpl implements CertificateService {
         String query = "select c from Certificate c WHERE";
         List<String> queryParts = new ArrayList<>();
         List<SearchFieldDataDto> originalJson = getSearchableFieldsMap();
-        List<SearchFieldDataDto> iterableJson = new ArrayList<>();
+        List<SearchFieldDataDto> iterableJson = new LinkedList<>();
         for (CertificateFilterRequestDto requestField : conditions) {
             for (SearchFieldDataDto field : originalJson) {
                 if (requestField.getField().equals(field.getField())) {
-                    field.setValue(requestField.getValue());
-                    field.setConditions(List.of(requestField.getCondition()));
-                    iterableJson.add(field);
+                    SearchFieldDataDto fieldDup = new SearchFieldDataDto();
+                    fieldDup.setField(field.getField());
+                    fieldDup.setType(field.getType());
+                    fieldDup.setLabel(field.getLabel());
+                    fieldDup.setType(field.getType());
+                    fieldDup.setMultiValue(field.getMultiValue());
+                    fieldDup.setValue(requestField.getValue());
+                    fieldDup.setConditions(List.of(requestField.getCondition()));
+                    iterableJson.add(fieldDup);
                 }
             }
         }
         for (SearchFieldDataDto filter : iterableJson) {
             String qp = "";
-            qp += " c." + filter.getField().getCode() + " ";
+            if(List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(filter.getField())){
+                qp += " c.certificateValidationResult ";
+            }else {
+                qp += " c." + filter.getField().getCode() + " ";
+            }
             if (filter.getMultiValue() && !(filter.getValue() instanceof String)) {
                 List<String> whereObjects = new ArrayList<>();
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
@@ -764,8 +951,42 @@ public class CertificateServiceImpl implements CertificateService {
                     qp += " NOT IN (" + String.join(",", whereObjects) + " )";
                 }
             } else {
-                if (filter.getConditions().get(0).equals(SearchCondition.CONTAINS)) {
+                if(filter.getField().equals(SearchableFields.SIGNATURE_VALIDATION)){
+                    if(filter.getConditions().get(0).equals(SearchCondition.SUCCESS)){
+                        qp += " LIKE '%\"Signature Verification\":{\"status\":\"success\"%'";
+                    }else if(filter.getConditions().get(0).equals(SearchCondition.FAILED)){
+                        qp += " LIKE '%\"Signature Verification\":{\"status\":\"failed\"%'";
+                    }else if(filter.getConditions().get(0).equals(SearchCondition.UNKNOWN)){
+                        qp += " LIKE '%\"Signature Verification\":{\"status\":\"not_checked\"%'";
+                    }
+                }else if(filter.getField().equals(SearchableFields.OCSP_VALIDATION)){
+                    if(filter.getConditions().get(0).equals(SearchCondition.SUCCESS)){
+                        qp += "LIKE '\"OCSP Verification\":{\"status\":\"success\"%'";
+                    }else if(filter.getConditions().get(0).equals(SearchCondition.FAILED)){
+                        qp += "LIKE '%\"OCSP Verification\":{\"status\":\"failed\"%'";
+                    }else if(filter.getConditions().get(0).equals(SearchCondition.UNKNOWN)){
+                        qp += "LIKE '%\"OCSP Verification\":{\"status\":\"unknown\"%'";
+                    }else if(filter.getConditions().get(0).equals(SearchCondition.EMPTY)){
+                        qp += "LIKE '%\"OCSP Verification\":{\"status\":\"warning\"%'";
+                    }
+                }
+                else if(filter.getField().equals(SearchableFields.CRL_VALIDATION)){
+                    if(filter.getConditions().get(0).equals(SearchCondition.SUCCESS)){
+                        qp += "LIKE '%\"CRL Verification\":{\"status\":\"success\"%'";
+                    }else if(filter.getConditions().get(0).equals(SearchCondition.FAILED)){
+                        qp += "LIKE '%\"CRL Verification\":{\"status\":\"failed\"%'";
+                    }else if(filter.getConditions().get(0).equals(SearchCondition.UNKNOWN)){
+                        qp += "LIKE '%\"CRL Verification\":{\"status\":\"unknown\"%'";
+                    }else if(filter.getConditions().get(0).equals(SearchCondition.EMPTY)){
+                        qp += "LIKE '%\"CRL Verification\":{\"status\":\"warning\"%'";
+                    }
+                }
+                else if (filter.getConditions().get(0).equals(SearchCondition.CONTAINS) || filter.getConditions().get(0).equals(SearchCondition.NOT_CONTAINS)) {
                     qp += filter.getConditions().get(0).getCode() + " '%" + filter.getValue().toString() + "%'";
+                } else if (filter.getConditions().get(0).equals(SearchCondition.STARTS_WITH)) {
+                    qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "%'";
+                } else if (filter.getConditions().get(0).equals(SearchCondition.ENDS_WITH)) {
+                    qp += filter.getConditions().get(0).getCode() + " '%" + filter.getValue().toString() + "'";
                 } else if (filter.getConditions().get(0).equals(SearchCondition.EMPTY) || filter.getConditions().get(0).equals(SearchCondition.NOT_EMPTY)) {
                     qp += filter.getConditions().get(0).getCode();
                 } else {
@@ -791,10 +1012,10 @@ public class CertificateServiceImpl implements CertificateService {
         return query;
     }
 
-    private List<Certificate> queryExecutor(List<CertificateFilterRequestDto> filters){
+    private List<Certificate> queryExecutor(List<CertificateFilterRequestDto> filters) {
         String sqlQuery = "select c from Certificate c";
         logger.debug("Executing query: {}", sqlQuery);
-        if(!filters.isEmpty()) {
+        if (!filters.isEmpty()) {
             sqlQuery = getQueryDynamicBasedOnFilter(filters);
         }
         EntityManager entityManager = emFactory.createEntityManager();
