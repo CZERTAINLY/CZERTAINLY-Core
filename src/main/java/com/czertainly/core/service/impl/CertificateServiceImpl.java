@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT"})
+@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
 public class CertificateServiceImpl implements CertificateService {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
@@ -94,6 +94,13 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     public Certificate getCertificateEntity(String uuid) throws NotFoundException {
         return certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    public Certificate getCertificateEntityByContent(String content) {
+        CertificateContent certificateContent = certificateContentRepository.findByContent(content);
+        return certificateRepository.findByCertificateContent(certificateContent);
     }
 
     @Override

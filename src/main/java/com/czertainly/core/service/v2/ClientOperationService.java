@@ -25,7 +25,7 @@ public interface ClientOperationService {
 
     ClientCertificateDataResponseDto issueCertificate(
             String raProfileUuid,
-            ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
+            ClientCertificateSignRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
 
     ClientCertificateDataResponseDto renewCertificate(
             String raProfileUuid,
@@ -42,5 +42,6 @@ public interface ClientOperationService {
     void revokeCertificate(
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException;
+            ClientCertificateRevocationDto request,
+            Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException;
 }
