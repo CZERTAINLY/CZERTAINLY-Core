@@ -222,7 +222,7 @@ public class CertificateServiceImpl implements CertificateService {
     public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-        if (!request.isAllSelect()) {
+        if (request.getFilters() == null) {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
@@ -243,7 +243,7 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
 
-        if (!request.isAllSelect()) {
+        if (request.getFilters() == null) {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
@@ -263,7 +263,7 @@ public class CertificateServiceImpl implements CertificateService {
     public void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException {
         CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-        if (!request.isAllSelect()) {
+        if (request.getFilters() == null) {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
@@ -281,7 +281,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
-        if (!request.isAllSelect()) {
+        if (request.getFilters() == null) {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
@@ -300,7 +300,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     public List<String> bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
         List<String> failedDeleteCerts = new ArrayList<>();
-        if (!request.isAllSelect()) {
+        if (request.getFilters() == null) {
             for (String uuid : request.getUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
@@ -870,6 +870,12 @@ public class CertificateServiceImpl implements CertificateService {
     private CertificateResponseDto getCertificatesWithFilter(CertificateSearchRequestDto request, Map<String, Integer> page) {
         logger.debug("Certificate search request: {}", request.toString());
         CertificateResponseDto certificateResponseDto = new CertificateResponseDto();
+        if (request.getItemsPerPage() == null) {
+            request.setItemsPerPage(DEFAULT_PAGE_SIZE);
+        }
+        if (request.getPageNumber() == null) {
+            request.setPageNumber(1);
+        }
         certificateResponseDto.setPageNumber(request.getPageNumber());
         certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
 
