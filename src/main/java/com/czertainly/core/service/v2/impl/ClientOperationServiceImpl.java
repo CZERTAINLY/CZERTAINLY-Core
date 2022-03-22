@@ -14,6 +14,8 @@ import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateSignRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateAction;
+import com.czertainly.api.model.core.certificate.CertificateActionStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
@@ -29,6 +31,7 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.ValidatorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +41,9 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.security.cert.CertificateException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service("clientOperationServiceImplV2")
 @Transactional
@@ -100,18 +105,23 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 caRequest);
 
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+        Map<String, Object> additionalInformation = new HashMap<>();
+        additionalInformation.put("fileName", certificate.getCommonName() + "_" + certificate.getSerialNumber() + ".csr");
+        additionalInformation.put("downloadable", true);
+        additionalInformation.put("content", caRequest.getPkcs10());
+        certificateService.addActionHistory(CertificateAction.ISSUE, CertificateActionStatus.SUCCESS, "Certificate issued through CZERTAINLY using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
 
         logger.info("Certificate Created. Adding the certificate to Inventory");
         CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
         dto.setRaProfileUuid(raProfile.getUuid());
-        logger.debug("Id of the certificate is {}", certificate.getId());
+        logger.debug("Id of the Certificate is {}", certificate.getId());
         logger.debug("Id of the RA Profile is {}", raProfile.getId());
         certificateService.updateRaProfile(certificate.getUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
         } catch (Exception e){
-            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
+            logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
         ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
@@ -134,23 +144,37 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
 
-        CertificateDataResponseDto caResponse = certificateApiClient.renewCertificate(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                caRequest);
+        Map<String, Object> additionalInformation = new HashMap<>();
+        additionalInformation.put("fileName", oldCertificate.getCommonName() + "_" + oldCertificate.getSerialNumber() + ".csr");
+        additionalInformation.put("downloadable", true);
+        additionalInformation.put("content", caRequest.getPkcs10());
+        Certificate certificate = null;
+        CertificateDataResponseDto caResponse = null;
+        try {
+            caResponse = certificateApiClient.renewCertificate(
+                    raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                    raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                    caRequest);
+            certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+            certificateService.addActionHistory(CertificateAction.RENEW, CertificateActionStatus.SUCCESS, "Certificate renewed through CZERTAINLY using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
+            certificateService.addActionHistory(CertificateAction.RENEW, CertificateActionStatus.SUCCESS, "Certificate renewed through CZERTAINLY using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
+        } catch (Exception e){
+            certificateService.addActionHistory(CertificateAction.RENEW, CertificateActionStatus.FAILED, "Failed to renew Certificate. Exception is - " + e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
+            logger.error("Failed to renew Certificate", e.getMessage());
+            return null;
+        }
 
-        Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         logger.info("Certificate Renewed. Adding the certificate to Inventory");
         CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
         dto.setRaProfileUuid(raProfile.getUuid());
-        logger.debug("Id of the certificate is {}", certificate.getId());
+        logger.debug("Id of the Certificate is {}", certificate.getId());
         logger.debug("Id of the RA Profile is {}", raProfile.getId());
         certificateService.updateRaProfile(certificate.getUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
         } catch (Exception e){
-            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
+            logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
         ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
@@ -195,11 +219,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(certificate.getCertificateContent().getContent());
-
-        certificateApiClient.revokeCertificate(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                caRequest);
+        try {
+            certificateApiClient.revokeCertificate(
+                    raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                    raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                    caRequest);
+            certificateService.addActionHistory(CertificateAction.REVOKE, CertificateActionStatus.SUCCESS, "Certificate revoked", "", certificate);
+        }catch (Exception e){
+            certificateService.addActionHistory(CertificateAction.REVOKE, CertificateActionStatus.FAILED, "Failed to revoke Certificate. Exception is " + e.getMessage(), "", certificate);
+            logger.error(e.getMessage());
+            return;
+        }
         try {
             certificate.setStatus(CertificateStatus.REVOKED);
             certificateRepository.save(certificate);
