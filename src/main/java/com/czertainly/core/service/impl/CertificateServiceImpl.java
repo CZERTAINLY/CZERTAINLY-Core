@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpd
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.BulkOperationStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.search.SearchCondition;
@@ -298,9 +299,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
-    public List<String> bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
+    public BulkOperationResponse bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
         List<String> failedDeleteCerts = new ArrayList<>();
+        Integer totalItems;
         if (request.getFilters() == null) {
+            totalItems = request.getUuids().size();
             for (String uuid : request.getUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
@@ -327,7 +330,9 @@ public class CertificateServiceImpl implements CertificateService {
                 certificateRepository.delete(certificate);
             }
         } else {
-            for (Certificate certificate : queryExecutor(request.getFilters())) {
+            List<Certificate> certList = queryExecutor(request.getFilters());
+            totalItems = certList.size();
+            for (Certificate certificate : certList) {
                 if (!adminRepository.findByCertificate(certificate).isEmpty()) {
                     logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
                     failedDeleteCerts.add(certificate.getCommonName());
@@ -351,7 +356,20 @@ public class CertificateServiceImpl implements CertificateService {
                 certificateRepository.delete(certificate);
             }
         }
-        return failedDeleteCerts;
+        BulkOperationResponse bulkOperationResponse = new BulkOperationResponse();
+        bulkOperationResponse.setFailedItem(Long.valueOf(failedDeleteCerts.size()));
+        if(failedDeleteCerts.isEmpty()){
+            bulkOperationResponse.setStatus(BulkOperationStatus.SUCCESS);
+            bulkOperationResponse.setMessage("All Certificates are deleted");
+        }
+        else if(failedDeleteCerts.size() == totalItems){
+            bulkOperationResponse.setStatus(BulkOperationStatus.FAILED);
+            bulkOperationResponse.setMessage("Failed to delete the Certificates. None of the Certificates were removed");
+        }else{
+            bulkOperationResponse.setStatus(BulkOperationStatus.PARTIAL);
+            bulkOperationResponse.setMessage("Failed to remove some of the Certificates");
+        }
+        return bulkOperationResponse;
     }
 
     @Override

@@ -48,7 +48,7 @@ public interface CertificateService {
     void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException;
     void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException;
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
-    List<String> bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
+    BulkOperationResponse bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
 }

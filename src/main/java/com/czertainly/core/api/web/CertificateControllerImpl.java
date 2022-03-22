@@ -127,7 +127,7 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public List<String> bulkRemoveCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
+	public BulkOperationResponse bulkRemoveCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
 		return certificateService.bulkRemoveCertificate(request);
 	}
 
