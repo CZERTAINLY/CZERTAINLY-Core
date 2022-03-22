@@ -5,7 +5,10 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.core.certificate.CertificateAction;
+import com.czertainly.api.model.core.certificate.CertificateActionStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateHistory;
 import com.czertainly.core.dao.entity.Certificate;
 
 import java.security.cert.CertificateException;
@@ -47,4 +50,8 @@ public interface CertificateService {
     void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException;
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
     void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
+
+    List<CertificateHistory> getCertificateActionHistory(String uuid) throws NotFoundException;
+
+    void addActionHistory(CertificateAction action, CertificateActionStatus status, String message, String additionalInformation, Certificate certificate);
 }
