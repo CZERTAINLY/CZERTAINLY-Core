@@ -42,5 +42,5 @@ public interface CertificateService {
     void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
 
     List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException;
-    void addActionHistory(CertificateEvent action, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate);
+    void addEventHistory(CertificateEvent action, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate);
 }

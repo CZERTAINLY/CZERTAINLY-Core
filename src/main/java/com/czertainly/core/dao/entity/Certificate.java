@@ -115,7 +115,7 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     @JsonBackReference
     @OneToMany(mappedBy = "certificate")
-    private Set<CertificateEventHistory> actionHistories = new HashSet<>();
+    private Set<CertificateEventHistory> eventHistories = new HashSet<>();
 
     @Override
     public CertificateDto mapToDto() {
@@ -378,11 +378,11 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.certificateValidationResult = certificateValidationResult;
     }
 
-    public Set<CertificateEventHistory> getActionHistories() {
-        return actionHistories;
+    public Set<CertificateEventHistory> getEventHistories() {
+        return eventHistories;
     }
 
-    public void setActionHistories(Set<CertificateEventHistory> actionHistories) {
-        this.actionHistories = actionHistories;
+    public void setEventHistories(Set<CertificateEventHistory> eventHistories) {
+        this.eventHistories = eventHistories;
     }
 }

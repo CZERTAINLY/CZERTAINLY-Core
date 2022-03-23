@@ -17,9 +17,6 @@ import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.X509ObjectToString;
-import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
-import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,14 +27,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
-import java.io.StringWriter;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -130,12 +124,12 @@ public class CertificateServiceImpl implements CertificateService {
 
         for (Client client : clientRepository.findByCertificate(certificate)) {
             errors.add(ValidationError.create("Certificate has Client " + client.getName() + " associated to it"));
-            addActionHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Client " + client.getName(), "", certificate);
+            addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Client " + client.getName(), "", certificate);
         }
 
         for (Admin admin : adminRepository.findByCertificate(certificate)) {
             errors.add(ValidationError.create("Certificate has Admin " + admin.getName() + " associated to it"));
-            addActionHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Admin  " + admin.getName(), "", certificate);
+            addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Admin  " + admin.getName(), "", certificate);
         }
 
         if (!errors.isEmpty()) {
@@ -165,7 +159,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setRaProfile(raProfile);
         certificateRepository.save(certificate);
-        addActionHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
+        addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
     }
 
     @Override
@@ -182,7 +176,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setGroup(certificateGroup);
         certificateRepository.save(certificate);
-        addActionHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
+        addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
     }
 
     @Override
@@ -198,7 +192,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setEntity(certificateEntity);
         certificateRepository.save(certificate);
-        addActionHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
+        addEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
 
     }
 
@@ -213,7 +207,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setOwner(request.getOwner());
         certificateRepository.save(certificate);
-        addActionHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
+        addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
 
     }
 
@@ -231,7 +225,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
             certificate.setRaProfile(raProfile);
             certificateRepository.save(certificate);
-            addActionHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
+            addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
         }
     }
 
@@ -250,7 +244,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
             certificate.setGroup(certificateGroup);
             certificateRepository.save(certificate);
-            addActionHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
+            addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
         }
     }
 
@@ -268,7 +262,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
             certificate.setEntity(certificateEntity);
             certificateRepository.save(certificate);
-            addActionHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
+            addEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
         }
     }
 
@@ -284,7 +278,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
             certificate.setOwner(request.getOwner());
             certificateRepository.save(certificate);
-            addActionHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
+            addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
         }
     }
 
@@ -296,13 +290,13 @@ public class CertificateServiceImpl implements CertificateService {
                     .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
             if (!adminRepository.findByCertificate(certificate).isEmpty()) {
                 logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
-                addActionHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Admin", "", certificate);
+                addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Admin", "", certificate);
                 continue;
             }
 
             if (!clientRepository.findByCertificate(certificate).isEmpty()) {
                 logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
-                addActionHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Client", "", certificate);
+                addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Client", "", certificate);
                 continue;
             }
 
@@ -435,7 +429,7 @@ public class CertificateServiceImpl implements CertificateService {
         } catch (Exception e) {
             logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
         }
-        addActionHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
+        addEventHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
         return entity.mapToDto();
     }
 
@@ -463,7 +457,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public void addActionHistory(CertificateEvent action, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
+    public void addEventHistory(CertificateEvent action, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
         CertificateEventHistory history = new CertificateEventHistory();
         history.setAction(action);
         history.setCertificate(certificate);

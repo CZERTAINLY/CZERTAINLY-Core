@@ -34,7 +34,6 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.ValidatorUtil;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,13 +41,9 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.cert.CertificateException;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service("clientOperationServiceImplV2")
 @Transactional
@@ -112,7 +107,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", CertificateUtil.formatCsr(caRequest.getPkcs10()));
-        certificateService.addActionHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
+        certificateService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
 
         logger.info("Certificate Created {}. Adding the certificate to Inventory", certificate);
         CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
@@ -156,10 +151,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
             certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
-            certificateService.addActionHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
-            certificateService.addActionHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
+            certificateService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
+            certificateService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
         } catch (Exception e){
-            certificateService.addActionHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
+            certificateService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
             logger.error("Failed to renew Certificate", e.getMessage());
             return null;
         }
@@ -222,9 +217,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
-            certificateService.addActionHistory(CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked", "", certificate);
+            certificateService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked", "", certificate);
         }catch (Exception e){
-            certificateService.addActionHistory(CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "", certificate);
+            certificateService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "", certificate);
             logger.error(e.getMessage());
             return;
         }

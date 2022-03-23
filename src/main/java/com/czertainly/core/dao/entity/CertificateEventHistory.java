@@ -23,8 +23,8 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "action")
-    private CertificateEvent action;
+    @Column(name = "event")
+    private CertificateEvent event;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
@@ -48,7 +48,7 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
                 .append("created", created)
                 .append("createdBy", author)
                 .append("status", status)
-                .append("action", action)
+                .append("event", event)
                 .append("message", message)
                 .toString();
     }
@@ -57,7 +57,7 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
     public CertificateEventHistoryDto mapToDto(){
         CertificateEventHistoryDto certificateEventHistoryDto = new CertificateEventHistoryDto();
         certificateEventHistoryDto.setCertificateUuid(certificate.getUuid());
-        certificateEventHistoryDto.setEvent(action);
+        certificateEventHistoryDto.setEvent(event);
         try {
             certificateEventHistoryDto.setAdditionalInformation(new ObjectMapper().readValue(additionalInformation, HashMap.class));
         } catch (JsonProcessingException e) {
@@ -80,11 +80,11 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
     }
 
     public CertificateEvent getAction() {
-        return action;
+        return event;
     }
 
     public void setAction(CertificateEvent action) {
-        this.action = action;
+        this.event = action;
     }
 
     public CertificateEventStatus getStatus() {

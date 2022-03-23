@@ -6,7 +6,7 @@ CREATE TABLE certificate_event_history (
 	"i_cre" TIMESTAMP NOT NULL,
 	"i_upd" TIMESTAMP NOT NULL,
 	"i_author" VARCHAR NOT NULL,
-	"action" VARCHAR NOT NULL,
+	"event" VARCHAR NOT NULL,
 	"status" VARCHAR NOT NULL,
 	"message" VARCHAR NOT NULL,
 	"additional_information" VARCHAR NULL DEFAULT NULL,
