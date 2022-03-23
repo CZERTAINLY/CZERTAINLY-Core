@@ -1,11 +1,9 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.certificate.CertificateAction;
-import com.czertainly.api.model.core.certificate.CertificateActionStatus;
-import com.czertainly.api.model.core.certificate.CertificateHistory;
-import com.czertainly.core.dao.entity.acme.AcmeAccount;
+import com.czertainly.api.model.core.certificate.CertificateEvent;
+import com.czertainly.api.model.core.certificate.CertificateEventStatus;
+import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.MetaDefinitions;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -13,23 +11,24 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.HashMap;
 
 @Entity
-@Table(name = "certificate_action_history")
-public class CertificateActionHistory extends Audited implements Serializable, DtoMapper<CertificateHistory> {
+@Table(name = "certificate_event_history")
+public class CertificateEventHistory extends Audited implements Serializable, DtoMapper<CertificateEventHistoryDto> {
     @Id
     @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_action_history_seq")
-    @SequenceGenerator(name = "certificate_action_history_seq", sequenceName = "certificate_action_history_id_seq", allocationSize = 1)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_event_history_seq")
+    @SequenceGenerator(name = "certificate_event_history_seq", sequenceName = "certificate_event_history_id_seq", allocationSize = 1)
     private Long id;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "action")
-    private CertificateAction action;
+    private CertificateEvent action;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private CertificateActionStatus status;
+    private CertificateEventStatus status;
 
     @Column(name="message")
     private String message;
@@ -55,21 +54,21 @@ public class CertificateActionHistory extends Audited implements Serializable, D
     }
 
     @Override
-    public CertificateHistory mapToDto(){
-        CertificateHistory certificateHistory = new CertificateHistory();
-        certificateHistory.setCertificateUuid(certificate.getUuid());
-        certificateHistory.setAction(action);
+    public CertificateEventHistoryDto mapToDto(){
+        CertificateEventHistoryDto certificateEventHistoryDto = new CertificateEventHistoryDto();
+        certificateEventHistoryDto.setCertificateUuid(certificate.getUuid());
+        certificateEventHistoryDto.setEvent(action);
         try {
-            certificateHistory.setAdditionalInformation(new ObjectMapper().readValue(additionalInformation, Object.class));
+            certificateEventHistoryDto.setAdditionalInformation(new ObjectMapper().readValue(additionalInformation, HashMap.class));
         } catch (JsonProcessingException e) {
-            certificateHistory.setAdditionalInformation(additionalInformation);
+            certificateEventHistoryDto.setAdditionalInformation(null);
         }
-        certificateHistory.setMessage(message);
-        certificateHistory.setUuid(uuid);
-        certificateHistory.setCreated(created);
-        certificateHistory.setCreatedBy(author);
-        certificateHistory.setStatus(status);
-        return certificateHistory;
+        certificateEventHistoryDto.setMessage(message);
+        certificateEventHistoryDto.setUuid(uuid);
+        certificateEventHistoryDto.setCreated(created);
+        certificateEventHistoryDto.setCreatedBy(author);
+        certificateEventHistoryDto.setStatus(status);
+        return certificateEventHistoryDto;
     }
 
     public Long getId() {
@@ -80,19 +79,19 @@ public class CertificateActionHistory extends Audited implements Serializable, D
         this.id = id;
     }
 
-    public CertificateAction getAction() {
+    public CertificateEvent getAction() {
         return action;
     }
 
-    public void setAction(CertificateAction action) {
+    public void setAction(CertificateEvent action) {
         this.action = action;
     }
 
-    public CertificateActionStatus getStatus() {
+    public CertificateEventStatus getStatus() {
         return status;
     }
 
-    public void setStatus(CertificateActionStatus status) {
+    public void setStatus(CertificateEventStatus status) {
         this.status = status;
     }
 

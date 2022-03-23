@@ -17,6 +17,9 @@ import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.X509ObjectToString;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,11 +30,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.io.StringWriter;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -71,7 +77,7 @@ public class CertificateServiceImpl implements CertificateService {
     private CertValidationService certValidationService;
 
     @Autowired
-    private CertificateActionHistoryRepository certificateActionHistoryRepository;
+    private CertificateEventHistoryRepository certificateEventHistoryRepository;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -115,7 +121,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
-    @Transactional(propagation = Propagation.NEVER)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void removeCertificate(String uuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
@@ -124,12 +130,12 @@ public class CertificateServiceImpl implements CertificateService {
 
         for (Client client : clientRepository.findByCertificate(certificate)) {
             errors.add(ValidationError.create("Certificate has Client " + client.getName() + " associated to it"));
-            addActionHistory(CertificateAction.DELETE, CertificateActionStatus.FAILED, "Certificate used by Client "+ client.getName(), "", certificate);
+            addActionHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Client " + client.getName(), "", certificate);
         }
 
         for (Admin admin : adminRepository.findByCertificate(certificate)) {
             errors.add(ValidationError.create("Certificate has Admin " + admin.getName() + " associated to it"));
-            addActionHistory(CertificateAction.DELETE, CertificateActionStatus.FAILED, "Certificate used by Admin  " + admin.getName(), "", certificate);
+            addActionHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Admin  " + admin.getName(), "", certificate);
         }
 
         if (!errors.isEmpty()) {
@@ -154,12 +160,12 @@ public class CertificateServiceImpl implements CertificateService {
         RaProfile raProfile = raProfileRepository.findByUuid(request.getRaProfileUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
         String originalProfile = "undefined";
-        if(certificate.getRaProfile() != null) {
+        if (certificate.getRaProfile() != null) {
             originalProfile = certificate.getRaProfile().getName();
         }
         certificate.setRaProfile(raProfile);
         certificateRepository.save(certificate);
-        addActionHistory(CertificateAction.UPDATE_RA_PROFILE, CertificateActionStatus.SUCCESS, "RA Profile Updated from " + originalProfile + " to " + raProfile.getName(), "", certificate);
+        addActionHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
     }
 
     @Override
@@ -171,12 +177,12 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateGroup certificateGroup = groupRepository.findByUuid(request.getGroupUuid())
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getGroupUuid()));
         String originalGroup = "undefined";
-        if(certificate.getOwner() != null) {
+        if (certificate.getOwner() != null) {
             originalGroup = certificate.getGroup().getName();
         }
         certificate.setGroup(certificateGroup);
         certificateRepository.save(certificate);
-        addActionHistory(CertificateAction.UPDATE_GROUP, CertificateActionStatus.SUCCESS, "Certificate Group Updated from " + originalGroup + " to " + certificateGroup.getName(), "", certificate);
+        addActionHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
     }
 
     @Override
@@ -187,12 +193,12 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateEntity certificateEntity = entityRepository.findByUuid(request.getEntityUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getEntityUuid()));
         String originalEntity = "undefined";
-        if(certificate.getEntity() != null) {
+        if (certificate.getEntity() != null) {
             originalEntity = certificate.getEntity().getName();
         }
         certificate.setEntity(certificateEntity);
         certificateRepository.save(certificate);
-        addActionHistory(CertificateAction.UPDATE_ENTITY, CertificateActionStatus.SUCCESS, "Certificate Entity Updated from " + originalEntity + " to " + certificateEntity.getName(), "", certificate);
+        addActionHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
 
     }
 
@@ -202,12 +208,12 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         String originalOwner = certificate.getOwner();
-        if(originalOwner.isEmpty()){
+        if (originalOwner == null || originalOwner.isEmpty()) {
             originalOwner = "undefined";
         }
         certificate.setOwner(request.getOwner());
         certificateRepository.save(certificate);
-        addActionHistory(CertificateAction.UPDATE_OWNER, CertificateActionStatus.SUCCESS, "Certificate Owner Updated from " + originalOwner + " to " + request.getOwner(), "", certificate);
+        addActionHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
 
     }
 
@@ -220,12 +226,12 @@ public class CertificateServiceImpl implements CertificateService {
             RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
                     .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
             String originalProfile = "undefined";
-            if(certificate.getRaProfile() != null) {
+            if (certificate.getRaProfile() != null) {
                 originalProfile = certificate.getRaProfile().getName();
             }
             certificate.setRaProfile(raProfile);
             certificateRepository.save(certificate);
-            addActionHistory(CertificateAction.UPDATE_RA_PROFILE, CertificateActionStatus.SUCCESS, "RA Profile Updated from " + originalProfile + " to " + raProfile.getName(), "", certificate);
+            addActionHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
         }
     }
 
@@ -239,12 +245,12 @@ public class CertificateServiceImpl implements CertificateService {
             CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
                     .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
             String originalGroup = "undefined";
-            if(certificate.getOwner() != null) {
+            if (certificate.getOwner() != null) {
                 originalGroup = certificate.getGroup().getName();
             }
             certificate.setGroup(certificateGroup);
             certificateRepository.save(certificate);
-            addActionHistory(CertificateAction.UPDATE_GROUP, CertificateActionStatus.SUCCESS, "Certificate Group Updated from " + originalGroup + " to " + certificateGroup.getName(), "", certificate);
+            addActionHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
         }
     }
 
@@ -257,12 +263,12 @@ public class CertificateServiceImpl implements CertificateService {
             CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
                     .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
             String originalEntity = "undefined";
-            if(certificate.getEntity() != null) {
+            if (certificate.getEntity() != null) {
                 originalEntity = certificate.getEntity().getName();
             }
             certificate.setEntity(certificateEntity);
             certificateRepository.save(certificate);
-            addActionHistory(CertificateAction.UPDATE_ENTITY, CertificateActionStatus.SUCCESS, "Certificate Entity Updated from " + originalEntity + " to " + certificateEntity.getName(), "", certificate);
+            addActionHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
         }
     }
 
@@ -273,12 +279,12 @@ public class CertificateServiceImpl implements CertificateService {
             Certificate certificate = certificateRepository.findByUuid(certificateId)
                     .orElseThrow(() -> new NotFoundException(Certificate.class, certificateId));
             String originalOwner = certificate.getOwner();
-            if(originalOwner.isEmpty()){
+            if (originalOwner.isEmpty()) {
                 originalOwner = "undefined";
             }
             certificate.setOwner(request.getOwner());
             certificateRepository.save(certificate);
-            addActionHistory(CertificateAction.UPDATE_OWNER, CertificateActionStatus.SUCCESS, "Certificate Owner Updated from " + originalOwner + " to " + request.getOwner(), "", certificate);
+            addActionHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
         }
     }
 
@@ -290,13 +296,13 @@ public class CertificateServiceImpl implements CertificateService {
                     .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
             if (!adminRepository.findByCertificate(certificate).isEmpty()) {
                 logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
-                addActionHistory(CertificateAction.DELETE, CertificateActionStatus.FAILED, "Certificate used by Admin", "", certificate);
+                addActionHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Admin", "", certificate);
                 continue;
             }
 
             if (!clientRepository.findByCertificate(certificate).isEmpty()) {
                 logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
-                addActionHistory(CertificateAction.DELETE, CertificateActionStatus.FAILED, "Certificate used by Client", "", certificate);
+                addActionHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Client", "", certificate);
                 continue;
             }
 
@@ -354,9 +360,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<CertificateHistory> getCertificateActionHistory(String uuid) throws NotFoundException {
+    public List<CertificateEventHistoryDto> getCertificateActionHistory(String uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
-        return certificateActionHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream().map(CertificateActionHistory::mapToDto).collect(Collectors.toList());
+        return certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream().map(CertificateEventHistory::mapToDto).collect(Collectors.toList());
     }
 
     private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
@@ -414,15 +420,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
-    public Certificate saveCertificateEntity(String cert) throws CertificateException {
-        X509Certificate certificate = CertificateUtil.parseCertificate(cert);
-        Certificate entity = createCertificateEntity(certificate);
-        certificateRepository.save(entity);
-        return entity;
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
     public CertificateDto upload(UploadCertificateRequestDto request)
             throws AlreadyExistException, CertificateException {
         X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
@@ -438,19 +435,8 @@ public class CertificateServiceImpl implements CertificateService {
         } catch (Exception e) {
             logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
         }
-        addActionHistory(CertificateAction.UPLOAD, CertificateActionStatus.SUCCESS, "Certificate uploaded successfully", "", entity);
+        addActionHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
         return entity.mapToDto();
-    }
-
-    @Override
-    public Certificate checkCreateCertificate(X509Certificate certificate) throws AlreadyExistException {
-        String certificateSerialNumber = certificate.getSerialNumber().toString(16);
-        if (!certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isEmpty()) {
-            throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
-        }
-        Certificate entity = createCertificateEntity(certificate);
-        certificateRepository.save(entity);
-        return entity;
     }
 
     @Override
@@ -471,20 +457,19 @@ public class CertificateServiceImpl implements CertificateService {
             Certificate certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
             certificate.setStatus(CertificateStatus.REVOKED);
             certificateRepository.save(certificate);
-            addActionHistory(CertificateAction.REVOKE, CertificateActionStatus.SUCCESS, "Certificate revoked", "", certificate);
         } catch (NotFoundException e) {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
         }
     }
 
     @Override
-    public void addActionHistory(CertificateAction action, CertificateActionStatus status, String message, String additionalInformation, Certificate certificate){
-        CertificateActionHistory history = new CertificateActionHistory();
+    public void addActionHistory(CertificateEvent action, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
+        CertificateEventHistory history = new CertificateEventHistory();
         history.setAction(action);
         history.setCertificate(certificate);
         history.setStatus(status);
         history.setAdditionalInformation(additionalInformation);
         history.setMessage(message);
-        certificateActionHistoryRepository.save(history);
+        certificateEventHistoryRepository.save(history);
     }
 }
