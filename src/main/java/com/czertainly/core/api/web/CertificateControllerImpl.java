@@ -137,8 +137,8 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public List<CertificateEventHistoryDto> getCertificateActionHistory(String uuid) throws NotFoundException{
-		return certificateService.getCertificateActionHistory(uuid);
+	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
+		return certificateService.getCertificateEventHistory(uuid);
 	}
 
 }

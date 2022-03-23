@@ -248,7 +248,7 @@ public class CertificateUtil {
 			pemWriter.close();
 			decodedCsr.close();
 			return decodedCsr.toString();
-		} catch (IOException e) {
+		} catch (IOException | NullPointerException e) {
 			throw new CertificateException("Failed to format CSR. " + e.getMessage());
 		}
 	}
