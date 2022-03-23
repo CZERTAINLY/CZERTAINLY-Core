@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpd
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.CertValidationService;
@@ -133,6 +134,11 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public void validateAllCertificate() {
 		certValidationService.validateAllCertificates();
+	}
+
+	@Override
+	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
+		return certificateService.getCertificateEventHistory(uuid);
 	}
 
 }
