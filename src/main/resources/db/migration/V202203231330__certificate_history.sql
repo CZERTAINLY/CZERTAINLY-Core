@@ -11,7 +11,7 @@ CREATE TABLE certificate_event_history (
 	"message" VARCHAR NOT NULL,
 	"additional_information" VARCHAR NULL DEFAULT NULL,
 	"certificate_id" BIGINT NOT NULL,
-	PRIMARY KEY ("id"),
+	PRIMARY KEY ("id")
 )
 ;
 
