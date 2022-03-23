@@ -124,12 +124,12 @@ public class CertificateServiceImpl implements CertificateService {
 
         for (Client client : clientRepository.findByCertificate(certificate)) {
             errors.add(ValidationError.create("Certificate has Client " + client.getName() + " associated to it"));
-            addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Client " + client.getName(), "", certificate);
+            addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client " + client.getName(), "", certificate);
         }
 
         for (Admin admin : adminRepository.findByCertificate(certificate)) {
             errors.add(ValidationError.create("Certificate has Admin " + admin.getName() + " associated to it"));
-            addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Admin  " + admin.getName(), "", certificate);
+            addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin  " + admin.getName(), "", certificate);
         }
 
         if (!errors.isEmpty()) {
@@ -290,13 +290,13 @@ public class CertificateServiceImpl implements CertificateService {
                     .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
             if (!adminRepository.findByCertificate(certificate).isEmpty()) {
                 logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
-                addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Admin", "", certificate);
+                addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin", "", certificate);
                 continue;
             }
 
             if (!clientRepository.findByCertificate(certificate).isEmpty()) {
                 logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
-                addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Used by Client", "", certificate);
+                addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client", "", certificate);
                 continue;
             }
 
