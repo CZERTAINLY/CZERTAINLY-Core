@@ -79,12 +79,12 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
         this.id = id;
     }
 
-    public CertificateEvent getAction() {
+    public CertificateEvent getEvent() {
         return event;
     }
 
-    public void setAction(CertificateEvent action) {
-        this.event = action;
+    public void setEvent(CertificateEvent event) {
+        this.event = event;
     }
 
     public CertificateEventStatus getStatus() {
