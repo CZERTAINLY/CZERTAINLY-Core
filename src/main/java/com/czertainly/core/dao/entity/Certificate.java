@@ -6,6 +6,7 @@ import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.slf4j.Logger;
@@ -14,6 +15,8 @@ import org.slf4j.LoggerFactory;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "certificate")
@@ -109,6 +112,10 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
+
+    @JsonBackReference
+    @OneToMany(mappedBy = "certificate")
+    private Set<CertificateEventHistory> eventHistories = new HashSet<>();
 
     @Override
     public CertificateDto mapToDto() {
@@ -371,4 +378,11 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.certificateValidationResult = certificateValidationResult;
     }
 
+    public Set<CertificateEventHistory> getEventHistories() {
+        return eventHistories;
+    }
+
+    public void setEventHistories(Set<CertificateEventHistory> eventHistories) {
+        this.eventHistories = eventHistories;
+    }
 }
