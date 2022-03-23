@@ -109,7 +109,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         additionalInformation.put("CSR", CertificateUtil.formatCsr(caRequest.getPkcs10()));
         certificateService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
 
-        logger.info("Certificate Created {}. Adding the certificate to Inventory", certificate);
+        logger.info("Certificate created {}", certificate);
         CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
