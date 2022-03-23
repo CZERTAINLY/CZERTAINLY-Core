@@ -360,7 +360,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<CertificateEventHistoryDto> getCertificateActionHistory(String uuid) throws NotFoundException {
+    public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
         return certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream().map(CertificateEventHistory::mapToDto).collect(Collectors.toList());
     }

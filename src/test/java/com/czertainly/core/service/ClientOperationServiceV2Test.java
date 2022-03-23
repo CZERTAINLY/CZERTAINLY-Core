@@ -177,6 +177,7 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
+        request.setPkcs10("");
         ClientCertificateDataResponseDto response = clientOperationService.issueCertificate("1065586a-6af6-11ec-90d6-0242ac120004", request, false);
         Assertions.assertNotNull(response);
 
@@ -198,6 +199,7 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
+        request.setPkcs10("");
         clientOperationService.renewCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request);
     }
 
