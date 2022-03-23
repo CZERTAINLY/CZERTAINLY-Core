@@ -4,7 +4,6 @@ import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.core.dao.entity.acme.AcmeOrder;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -116,7 +115,7 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     @JsonBackReference
     @OneToMany(mappedBy = "certificate")
-    private Set<CertificateActionHistory> actionHistories = new HashSet<>();
+    private Set<CertificateEventHistory> actionHistories = new HashSet<>();
 
     @Override
     public CertificateDto mapToDto() {
@@ -379,11 +378,11 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.certificateValidationResult = certificateValidationResult;
     }
 
-    public Set<CertificateActionHistory> getActionHistories() {
+    public Set<CertificateEventHistory> getActionHistories() {
         return actionHistories;
     }
 
-    public void setActionHistories(Set<CertificateActionHistory> actionHistories) {
+    public void setActionHistories(Set<CertificateEventHistory> actionHistories) {
         this.actionHistories = actionHistories;
     }
 }
