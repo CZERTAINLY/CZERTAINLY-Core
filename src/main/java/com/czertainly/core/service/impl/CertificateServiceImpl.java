@@ -457,9 +457,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public void addEventHistory(CertificateEvent action, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
+    public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
         CertificateEventHistory history = new CertificateEventHistory();
-        history.setAction(action);
+        history.setEvent(event);
         history.setCertificate(certificate);
         history.setStatus(status);
         history.setAdditionalInformation(additionalInformation);
