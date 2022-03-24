@@ -130,12 +130,6 @@ public class CertificateServiceTest {
     }
 
     @Test
-    public void testRemoveCertificate() throws NotFoundException {
-        certificateService.removeCertificate(certificate.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getUuid()));
-    }
-
-    @Test
     public void testRemoveCertificate_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.removeCertificate("wrong-uuid"));
     }
@@ -251,7 +245,6 @@ public class CertificateServiceTest {
     public void testUpdateOwner() throws NotFoundException {
         CertificateOwnerRequestDto request = new CertificateOwnerRequestDto();
         request.setOwner("newOwner");
-
         certificateService.updateOwner(certificate.getUuid(), request);
 
         Assertions.assertEquals(request.getOwner(), certificate.getOwner());
