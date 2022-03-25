@@ -10,12 +10,17 @@ import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequest
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.SearchService;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,9 +36,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +45,8 @@ import java.util.stream.Collectors;
 public class CertificateServiceImpl implements CertificateService {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
+
+    private static final Integer DEFAULT_PAGE_SIZE = 10;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -73,18 +78,14 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private CertificateEventHistoryRepository certificateEventHistoryRepository;
 
+    @Autowired
+    private SearchService searchService;
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public List<CertificateDto> listCertificates(Integer start, Integer end) {
-        if (start != null && end != null) {
-            if (start > 1) {
-                start = start - 1;
-            }
-            Pageable page = PageRequest.of(start, end + 1);
-            return certificateRepository.findAll(page).stream().map(Certificate::mapToDto).collect(Collectors.toList());
+    public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
+        return getCertificatesWithFilter(request);
 
-        }
-        return certificateRepository.findAll().stream().map(Certificate::mapToDto).collect(Collectors.toList());
     }
 
     @Override
@@ -214,102 +215,160 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
-        for (String certificateUuid : request.getCertificateUuids()) {
-            Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-                    .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-            RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
-                    .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-            String originalProfile = "undefined";
-            if (certificate.getRaProfile() != null) {
-                originalProfile = certificate.getRaProfile().getName();
+        RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
+        if (request.getFilters() == null) {
+            for (String certificateUuid : request.getCertificateUuids()) {
+                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+                certificate.setRaProfile(raProfile);
+                certificateRepository.save(certificate);
             }
-            certificate.setRaProfile(raProfile);
-            certificateRepository.save(certificate);
-            addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
+        } else {
+            for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation())) {
+                certificate.setRaProfile(raProfile);
+                certificateRepository.save(certificate);
+            }
         }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException {
-        for (String certificateUuid : request.getCertificateUuids()) {
-            Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-                    .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
+                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
 
-            CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
-                    .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
-            String originalGroup = "undefined";
-            if (certificate.getOwner() != null) {
-                originalGroup = certificate.getGroup().getName();
+        if (request.getFilters() == null) {
+            for (String certificateUuid : request.getCertificateUuids()) {
+                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+                certificate.setGroup(certificateGroup);
+                certificateRepository.save(certificate);
             }
-            certificate.setGroup(certificateGroup);
-            certificateRepository.save(certificate);
-            addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
+        } else {
+            for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation())) {
+                certificate.setGroup(certificateGroup);
+                certificateRepository.save(certificate);
+            }
         }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException {
-        for (String certificateUuid : request.getCertificateUuids()) {
-            Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-                    .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-            CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
-                    .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-            String originalEntity = "undefined";
-            if (certificate.getEntity() != null) {
-                originalEntity = certificate.getEntity().getName();
+        CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
+        if (request.getFilters() == null) {
+            for (String certificateUuid : request.getCertificateUuids()) {
+                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+                certificate.setEntity(certificateEntity);
+                certificateRepository.save(certificate);
             }
-            certificate.setEntity(certificateEntity);
-            certificateRepository.save(certificate);
-            addEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
+        } else {
+            for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation())) {
+                certificate.setEntity(certificateEntity);
+                certificateRepository.save(certificate);
+            }
         }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
-        for (String certificateId : request.getCertificateUuids()) {
-            Certificate certificate = certificateRepository.findByUuid(certificateId)
-                    .orElseThrow(() -> new NotFoundException(Certificate.class, certificateId));
-            String originalOwner = certificate.getOwner();
-            if (originalOwner.isEmpty()) {
-                originalOwner = "undefined";
+        if (request.getFilters() == null) {
+            for (String certificateUuid : request.getCertificateUuids()) {
+                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+                certificate.setOwner(request.getOwner());
+                certificateRepository.save(certificate);
             }
-            certificate.setOwner(request.getOwner());
-            certificateRepository.save(certificate);
-            addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
+        } else {
+            for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation())) {
+                certificate.setOwner(request.getOwner());
+                certificateRepository.save(certificate);
+            }
         }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
-    public void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
-        for (String uuid : request.getUuids()) {
-            Certificate certificate = certificateRepository.findByUuid(uuid)
-                    .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-            if (!adminRepository.findByCertificate(certificate).isEmpty()) {
-                logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
-                addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin", "", certificate);
-                continue;
-            }
-
-            if (!clientRepository.findByCertificate(certificate).isEmpty()) {
-                logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
-                addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client", "", certificate);
-                continue;
-            }
-
-            if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
-                CertificateContent content = certificateContentRepository
-                        .findById(certificate.getCertificateContent().getId()).orElse(null);
-                if (content != null) {
-                    certificateContentRepository.delete(content);
+    public BulkOperationResponse bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
+        List<String> failedDeleteCerts = new ArrayList<>();
+        Integer totalItems;
+        if (request.getFilters() == null) {
+            totalItems = request.getUuids().size();
+            for (String uuid : request.getUuids()) {
+                Certificate certificate = certificateRepository.findByUuid(uuid)
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+                if (!adminRepository.findByCertificate(certificate).isEmpty()) {
+                    logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
+                    failedDeleteCerts.add(certificate.getUuid());
+                    continue;
                 }
-            }
 
-            certificateRepository.delete(certificate);
+                if (!clientRepository.findByCertificate(certificate).isEmpty()) {
+                    logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
+                    failedDeleteCerts.add(certificate.getUuid());
+                    continue;
+                }
+
+                if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
+                    CertificateContent content = certificateContentRepository
+                            .findById(certificate.getCertificateContent().getId()).orElse(null);
+                    if (content != null) {
+                        certificateContentRepository.delete(content);
+                    }
+                }
+
+                certificateRepository.delete(certificate);
+            }
+        } else {
+            List<Certificate> certList = (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation());
+            totalItems = certList.size();
+            for (Certificate certificate : certList) {
+                if (!adminRepository.findByCertificate(certificate).isEmpty()) {
+                    logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
+                    failedDeleteCerts.add(certificate.getCommonName());
+                    continue;
+                }
+
+                if (!clientRepository.findByCertificate(certificate).isEmpty()) {
+                    logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
+                    failedDeleteCerts.add(certificate.getCommonName());
+                    continue;
+                }
+
+                if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
+                    CertificateContent content = certificateContentRepository
+                            .findById(certificate.getCertificateContent().getId()).orElse(null);
+                    if (content != null) {
+                        certificateContentRepository.delete(content);
+                    }
+                }
+
+                certificateRepository.delete(certificate);
+            }
         }
+        BulkOperationResponse bulkOperationResponse = new BulkOperationResponse();
+        bulkOperationResponse.setFailedItem(Long.valueOf(failedDeleteCerts.size()));
+        if(failedDeleteCerts.isEmpty()){
+            bulkOperationResponse.setStatus(BulkOperationStatus.SUCCESS);
+            bulkOperationResponse.setMessage("All Certificates are deleted");
+        }
+        else if(failedDeleteCerts.size() == totalItems){
+            bulkOperationResponse.setStatus(BulkOperationStatus.FAILED);
+            bulkOperationResponse.setMessage("Failed to delete the Certificates. None of the Certificates were removed");
+        }else{
+            bulkOperationResponse.setStatus(BulkOperationStatus.PARTIAL);
+            bulkOperationResponse.setMessage("Failed to remove some of the Certificates");
+        }
+        return bulkOperationResponse;
+    }
+
+    @Override
+    public List<SearchFieldDataDto> getSearchableFieldInformation() {
+        return getSearchableFieldsMap();
     }
 
     @Override
@@ -454,6 +513,92 @@ public class CertificateServiceImpl implements CertificateService {
         } catch (NotFoundException e) {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
         }
+    }
+
+    private List<SearchFieldDataDto> getSearchableFieldsMap() {
+        
+        SearchFieldDataDto raProfileFilter = SearchLabelConstants.RA_PROFILE_NAME_FILTER;
+        raProfileFilter.setValue(raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()));
+
+        SearchFieldDataDto entityFilter = SearchLabelConstants.ENTITY_NAME_FILTER;
+        entityFilter.setValue(entityRepository.findAll().stream().map(CertificateEntity::getName).collect(Collectors.toList()));
+
+        SearchFieldDataDto groupFilter = SearchLabelConstants.GROUP_NAME_FILTER;
+        groupFilter.setValue(groupRepository.findAll().stream().map(CertificateGroup::getName).collect(Collectors.toList()));
+
+        SearchFieldDataDto signatureAlgorithmFilter = SearchLabelConstants.SIGNATURE_ALGORITHM_FILTER;
+        signatureAlgorithmFilter.setValue(new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm()));
+
+        SearchFieldDataDto publicKeyFilter = SearchLabelConstants.PUBLIC_KEY_ALGORITHM_FILTER;
+        publicKeyFilter.setValue(new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm()));
+
+        SearchFieldDataDto keySizeFilter = SearchLabelConstants.KEY_SIZE_FILTER;
+        keySizeFilter.setValue(new ArrayList<>(certificateRepository.findDistinctKeySize()));
+
+        SearchFieldDataDto keyUsageFilter = SearchLabelConstants.KEY_USAGE_FILTER;
+        keyUsageFilter.setValue(serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()));
+
+        List<SearchFieldDataDto> fields = List.of(
+                SearchLabelConstants.COMMON_NAME_FILTER,
+                SearchLabelConstants.SERIAL_NUMBER_FILTER,
+                SearchLabelConstants.ISSUER_SERIAL_NUMBER_FILTER,
+                raProfileFilter,
+                entityFilter,
+                groupFilter,
+                SearchLabelConstants.OWNER_FILTER,
+                SearchLabelConstants.STATUS_FILTER,
+                SearchLabelConstants.ISSUER_COMMON_NAME_FILTER,
+                SearchLabelConstants.FINGERPRINT_FILTER,
+                signatureAlgorithmFilter,
+                SearchLabelConstants.NOT_AFTER_FILTER,
+                SearchLabelConstants.NOT_BEFORE_FILTER,
+                SearchLabelConstants.SUBJECTDN_FILTER,
+                SearchLabelConstants.ISSUERDN_FILTER,
+                SearchLabelConstants.META_FILTER,
+                SearchLabelConstants.SUBJECT_ALTERNATIVE_NAMES_FILTER,
+                SearchLabelConstants.OCSP_VALIDATION_FILTER,
+                SearchLabelConstants.CRL_VALIDATION_FILTER,
+                SearchLabelConstants.KEY_USAGE_FILTER,
+                SearchLabelConstants.SIGNATURE_VALIDATION_FILTER,
+                publicKeyFilter,
+                keySizeFilter,
+                keyUsageFilter
+        );
+        logger.debug("Searchable Fields: {}", fields);
+        return fields;
+    }
+
+    private List<Object> serializedListOfStringToListOfObject(List<String> serializedData) {
+        Set<String> serSet = new LinkedHashSet<>();
+        for (String obj : serializedData) {
+            serSet.addAll(MetaDefinitions.deserializeArrayString(obj));
+        }
+        return new ArrayList<>(serSet);
+    }
+
+    private CertificateResponseDto getCertificatesWithFilter(SearchRequestDto request) {
+        logger.debug("Certificate search request: {}", request.toString());
+        CertificateResponseDto certificateResponseDto = new CertificateResponseDto();
+        if (request.getItemsPerPage() == null) {
+            request.setItemsPerPage(DEFAULT_PAGE_SIZE);
+        }
+        if (request.getPageNumber() == null) {
+            request.setPageNumber(1);
+        }
+        if (request.getFilters() == null || request.getFilters().isEmpty()) {
+            Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+            certificateResponseDto.setTotalPages((int) Math.ceil((double) certificateRepository.count() / request.getItemsPerPage()));
+            certificateResponseDto.setTotalItems(certificateRepository.count());
+            certificateResponseDto.setCertificates(certificateRepository.findAllByOrderByIdDesc(p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+        } else {
+            DynamicSearchInternalResponse dynamicSearchInternalResponse = searchService.dynamicSearchQueryExecutor(request, "Certificate", getSearchableFieldInformation());
+            certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
+            certificateResponseDto.setTotalItems(dynamicSearchInternalResponse.getTotalItems());
+            certificateResponseDto.setTotalPages(dynamicSearchInternalResponse.getTotalPages());
+            certificateResponseDto.setPageNumber(request.getPageNumber());
+            certificateResponseDto.setCertificates(((List<Certificate>) dynamicSearchInternalResponse.getResult()).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+        }
+        return certificateResponseDto;
     }
 
     @Override

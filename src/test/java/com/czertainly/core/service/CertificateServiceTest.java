@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import org.junit.jupiter.api.Assertions;
@@ -85,11 +86,11 @@ public class CertificateServiceTest {
 
     @Test
     public void testListCertificates() {
-        List<CertificateDto> certificateEntities = certificateService.listCertificates(0, 1);
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(new SearchRequestDto());
         Assertions.assertNotNull(certificateEntities);
-        Assertions.assertFalse(certificateEntities.isEmpty());
-        Assertions.assertEquals(1, certificateEntities.size());
-        Assertions.assertEquals(certificate.getUuid(), certificateEntities.get(0).getUuid());
+        Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
+        Assertions.assertEquals(1, certificateEntities.getCertificates().size());
+        Assertions.assertEquals(certificate.getUuid(), certificateEntities.getCertificates().get(0).getUuid());
     }
 
     @Test
@@ -252,6 +253,14 @@ public class CertificateServiceTest {
     @Test
     public void testUpdateCertificateOwner_certificateNotFound() {
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateOwner("wrong-uuid", null));
+    }
+
+    @Test
+    public void testSearchableFields() {
+        List<SearchFieldDataDto> response = certificateService.getSearchableFieldInformation();
+        Assertions.assertNotNull(response);
+        Assertions.assertEquals(24, response.size());
+        Assertions.assertFalse(response.isEmpty());
     }
 
     @Test
