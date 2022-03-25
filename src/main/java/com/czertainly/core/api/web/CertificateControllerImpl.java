@@ -11,7 +11,7 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
@@ -37,7 +37,7 @@ public class CertificateControllerImpl implements CertificateController {
 	private CertValidationService certValidationService;
 
 	@Override
-	public CertificateResponseDto listCertificate(CertificateSearchRequestDto request) throws ValidationException {
+	public CertificateResponseDto listCertificate(SearchRequestDto request) throws ValidationException {
 		return certificateService.listCertificates(request);
 	}
 

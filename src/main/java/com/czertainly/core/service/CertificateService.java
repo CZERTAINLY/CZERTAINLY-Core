@@ -6,11 +6,11 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
-import com.czertainly.api.model.core.certificate.CertificateEvent;
-import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
+import com.czertainly.api.model.core.certificate.CertificateEventStatus;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 
 import java.security.cert.CertificateException;
@@ -19,7 +19,7 @@ import java.util.List;
 
 public interface CertificateService {
 
-    CertificateResponseDto listCertificates(CertificateSearchRequestDto request) throws ValidationException;
+    CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException;
     
     CertificateDto getCertificate(String uuid) throws NotFoundException;
     Certificate getCertificateEntity(String uuid) throws NotFoundException;

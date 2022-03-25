@@ -6,7 +6,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import org.junit.jupiter.api.Assertions;
@@ -86,7 +86,7 @@ public class CertificateServiceTest {
 
     @Test
     public void testListCertificates() {
-        CertificateResponseDto certificateEntities = certificateService.listCertificates(new CertificateSearchRequestDto());
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(new SearchRequestDto());
         Assertions.assertNotNull(certificateEntities);
         Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
         Assertions.assertEquals(1, certificateEntities.getCertificates().size());
