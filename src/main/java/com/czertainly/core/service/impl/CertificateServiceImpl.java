@@ -516,6 +516,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
+        
         SearchFieldDataDto raProfileFilter = SearchLabelConstants.RA_PROFILE_NAME_FILTER;
         raProfileFilter.setValue(raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()));
 
