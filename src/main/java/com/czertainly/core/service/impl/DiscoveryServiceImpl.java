@@ -12,6 +12,8 @@ import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateEvent;
+import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
@@ -295,6 +297,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             updateMeta(entry, certificate, modal);
             allCerts.add(entry);
             createDiscoveryCertificate(entry, modal);
+            Map<String, Object> additionalInfo = new HashMap<>();
+            additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
+            additionalInfo.put("Discovery Kind", modal.getKind());
+            additionalInfo.putAll(certificate.getMeta());
+            certificateService.addEventHistory(CertificateEvent.DISCOVERY, CertificateEventStatus.SUCCESS, "Discovered from Connector: " + modal.getConnectorName(), MetaDefinitions.serialize(additionalInfo), entry);
         	}catch(Exception e) {
         		logger.error("Unable to create certificate for " + modal.toString());
         	}
