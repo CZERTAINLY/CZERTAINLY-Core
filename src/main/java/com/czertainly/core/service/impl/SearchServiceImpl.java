@@ -68,11 +68,19 @@ public class SearchServiceImpl implements SearchService {
         String sqlQuery = "select c from " + entity + " c";
         logger.debug("Executing query: {}", sqlQuery);
         if (!filters.isEmpty()) {
-            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson);
+            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, "");
         }
+        return customQueryExecutor(sqlQuery);
+    }
+
+    @Override
+    public Object customQueryExecutor(String sqlQuery){
+        logger.debug("Executing query: {}", sqlQuery);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
-        return query.getResultList();
+        Object result =  query.getResultList();
+        entityManager.close();
+        return result;
     }
 
     @Override
@@ -86,7 +94,7 @@ public class SearchServiceImpl implements SearchService {
         if (searchRequestDto.getPageNumber() == null) {
             searchRequestDto.setPageNumber(1);
         }
-        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson);
+        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "");
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         query.setFirstResult(page.get("start"));
@@ -115,8 +123,14 @@ public class SearchServiceImpl implements SearchService {
         return dynamicSearchInternalResponse;
     }
 
-    private String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson) throws ValidationException {
-        String query = "select c from " + entity + " c WHERE";
+    @Override
+    public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery) throws ValidationException {
+        String query;
+        if(joinQuery.isEmpty()) {
+            query = "select c from " + entity + " c WHERE";
+        }else{
+            query = "select c from " + entity + " c " + joinQuery + " AND ";
+        }
         List<String> queryParts = new ArrayList<>();
         List<SearchFieldDataDto> iterableJson = new LinkedList<>();
         for (SearchFilterRequestDto requestField : conditions) {

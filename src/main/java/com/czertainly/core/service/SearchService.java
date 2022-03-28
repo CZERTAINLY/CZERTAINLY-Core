@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.search.*;
@@ -11,5 +12,9 @@ public interface SearchService {
                                       SearchableFieldType fieldType, List<SearchCondition> conditions);
     Object completeSearchQueryExecutor(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson);
     DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson);
+
+    Object customQueryExecutor(String sqlQuery);
+
+    String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery) throws ValidationException;
 
 }
