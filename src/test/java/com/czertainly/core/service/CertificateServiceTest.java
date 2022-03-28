@@ -259,7 +259,7 @@ public class CertificateServiceTest {
     public void testSearchableFields() {
         List<SearchFieldDataDto> response = certificateService.getSearchableFieldInformation();
         Assertions.assertNotNull(response);
-        Assertions.assertEquals(24, response.size());
+        Assertions.assertEquals(23, response.size());
         Assertions.assertFalse(response.isEmpty());
     }
 
