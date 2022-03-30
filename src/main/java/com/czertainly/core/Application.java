@@ -22,9 +22,9 @@ import java.util.Map;
 @EnableAsync
 public class Application extends SpringBootServletInitializer {
 
-	//Number of async pools in action at a time
+	// Number of async pools in action at a time. Number is set as 10 since there are not too many async operations and having 10 pools would suffice
 	private static final Integer POOL_SIZE = 10;
-	//Maximum queue size for the async operations when no pool is available to take action
+	// Maximum queue size for the async operations when no pool is available to take action. Maximum count cannot exceed 500 since there are not many async operations
 	private static final Integer QUEUE_SIZE = 500;
 
     public static void main(String[] args) {
