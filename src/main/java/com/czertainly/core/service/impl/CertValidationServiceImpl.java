@@ -53,7 +53,7 @@ public class CertValidationServiceImpl implements CertValidationService {
     private CertificateRepository certificateRepository;
 
     @Override
-    @Async
+    @Async("threadPoolTaskExecutor")
     public void validateAllCertificates() {
         List<Certificate> certificates = certificateRepository.findByStatus(CertificateStatus.UNKNOWN);
         for (Certificate certificate : certificates) {
@@ -66,7 +66,7 @@ public class CertValidationServiceImpl implements CertValidationService {
     }
 
     @Override
-    @Async
+    @Async("threadPoolTaskExecutor")
     public void validateCertificates(List<Certificate> certificates) {
         for (Certificate certificate : certificates) {
             try {
