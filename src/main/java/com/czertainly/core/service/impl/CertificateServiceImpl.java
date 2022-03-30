@@ -54,6 +54,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     // Default page size for the certificate search API when page size is not provided
     public static final Integer DEFAULT_PAGE_SIZE = 10;
+    // Maximum page size for search API operation
+    public static final Integer MAX_PAGE_SIZE = 1000;
     // Default batch size to perform bulk delete operation on Certificates
     public static final Integer DELETE_BATCH_SIZE = 1000;
 

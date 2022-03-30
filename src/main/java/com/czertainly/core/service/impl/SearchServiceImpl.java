@@ -34,9 +34,6 @@ public class SearchServiceImpl implements SearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
 
-    // Maximum page size for search API operation
-    private static final Integer MAX_PAGE_SIZE = 1000;
-
     @PersistenceUnit
     private EntityManagerFactory emFactory;
 
@@ -291,8 +288,8 @@ public class SearchServiceImpl implements SearchService {
         if (request.getItemsPerPage() == null) {
             request.setItemsPerPage(CertificateServiceImpl.DEFAULT_PAGE_SIZE);
         }
-        if (request.getItemsPerPage() > MAX_PAGE_SIZE) {
-            throw new ValidationException(ValidationError.create("Maximum items per page is " + MAX_PAGE_SIZE));
+        if (request.getItemsPerPage() > CertificateServiceImpl.MAX_PAGE_SIZE) {
+            throw new ValidationException(ValidationError.create("Maximum items per page is " + CertificateServiceImpl.MAX_PAGE_SIZE));
         }
 
         Integer pageStart = 0;
