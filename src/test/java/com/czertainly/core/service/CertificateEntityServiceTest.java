@@ -9,6 +9,7 @@ import com.czertainly.core.dao.entity.CertificateEntity;
 import com.czertainly.core.dao.repository.EntityRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -115,9 +116,4 @@ public class CertificateEntityServiceTest {
         Assertions.assertThrows(NotFoundException.class, () -> entityService.removeEntity("wrong-uuid"));
     }
 
-    @Test
-    public void testBulkRemove() {
-        entityService.bulkRemoveEntity(List.of(certificateEntity.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> entityService.getCertificateEntity(certificateEntity.getUuid()));
-    }
 }

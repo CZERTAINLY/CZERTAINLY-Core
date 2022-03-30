@@ -57,6 +57,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     private CertificateService certificateService;
     @Autowired
+    private CertificateEventHistoryService certificateEventHistoryService;
+    @Autowired
     private CredentialService credentialService;
     @Autowired
     private DiscoveryCertificateRepository discoveryCertificateRepository;
@@ -158,7 +160,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @Async
+    @Async("threadPoolTaskExecutor")
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
             throws NotFoundException, ConnectorException {
@@ -301,7 +303,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
             additionalInfo.put("Discovery Kind", modal.getKind());
             additionalInfo.putAll(certificate.getMeta());
-            certificateService.addEventHistory(CertificateEvent.DISCOVERY, CertificateEventStatus.SUCCESS, "Discovered from Connector: " + modal.getConnectorName(), MetaDefinitions.serialize(additionalInfo), entry);
+                certificateEventHistoryService.addEventHistory(CertificateEvent.DISCOVERY, CertificateEventStatus.SUCCESS, "Discovered from Connector: " + modal.getConnectorName(), MetaDefinitions.serialize(additionalInfo), entry);
         	}catch(Exception e) {
         		logger.error("Unable to create certificate for " + modal.toString());
         	}
