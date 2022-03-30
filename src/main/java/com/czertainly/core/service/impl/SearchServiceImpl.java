@@ -34,7 +34,7 @@ public class SearchServiceImpl implements SearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
 
-    private static final Integer DEFAULT_PAGE_SIZE = 10;
+    // Maximum page size for search API operation
     private static final Integer MAX_PAGE_SIZE = 1000;
 
     @PersistenceUnit
@@ -132,7 +132,7 @@ public class SearchServiceImpl implements SearchService {
         Map<String, Integer> page = getPageable(searchRequestDto);
         DynamicSearchInternalResponse dynamicSearchInternalResponse = new DynamicSearchInternalResponse();
         if (searchRequestDto.getItemsPerPage() == null) {
-            searchRequestDto.setItemsPerPage(DEFAULT_PAGE_SIZE);
+            searchRequestDto.setItemsPerPage(CertificateServiceImpl.DEFAULT_PAGE_SIZE);
         }
         if (searchRequestDto.getPageNumber() == null) {
             searchRequestDto.setPageNumber(1);
@@ -289,7 +289,7 @@ public class SearchServiceImpl implements SearchService {
 
     private Map<String, Integer> getPageable(SearchRequestDto request) throws ValidationException {
         if (request.getItemsPerPage() == null) {
-            request.setItemsPerPage(DEFAULT_PAGE_SIZE);
+            request.setItemsPerPage(CertificateServiceImpl.DEFAULT_PAGE_SIZE);
         }
         if (request.getItemsPerPage() > MAX_PAGE_SIZE) {
             throw new ValidationException(ValidationError.create("Maximum items per page is " + MAX_PAGE_SIZE));

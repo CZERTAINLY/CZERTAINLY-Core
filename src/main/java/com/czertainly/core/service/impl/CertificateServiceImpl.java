@@ -52,10 +52,10 @@ public class CertificateServiceImpl implements CertificateService {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
-    //Default page size for the certificate search API when page size is not provided
-    private static final Integer DEFAULT_PAGE_SIZE = 10;
-    //Default batch size to perform bulk delete operation on Certificates
-    private static final Integer DELETE_BATCH_SIZE = 1000;
+    // Default page size for the certificate search API when page size is not provided
+    public static final Integer DEFAULT_PAGE_SIZE = 10;
+    // Default batch size to perform bulk delete operation on Certificates
+    public static final Integer DELETE_BATCH_SIZE = 1000;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -244,7 +244,7 @@ public class CertificateServiceImpl implements CertificateService {
         } else {
             String profileUpdateQuery = "UPDATE certificate c SET ra_profile_id = " + raProfile.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             searchService.nativeQueryExecutor(profileUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(),CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
 
         }
     }
@@ -270,7 +270,7 @@ public class CertificateServiceImpl implements CertificateService {
         } else {
             String groupUpdateQuery = "UPDATE certificate c SET group_id = " + certificateGroup.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             searchService.nativeQueryExecutor(groupUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(),CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
         }
     }
 
@@ -294,7 +294,7 @@ public class CertificateServiceImpl implements CertificateService {
         } else {
             String entityUpdateQuery = "UPDATE certificate c SET entity_id = " + certificateEntity.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             searchService.nativeQueryExecutor(entityUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(),CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Entity Name: " + certificateEntity.getName());
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Entity Name: " + certificateEntity.getName());
         }
     }
 
@@ -316,7 +316,7 @@ public class CertificateServiceImpl implements CertificateService {
         } else {
             String ownerUpdateQuery = "UPDATE certificate c SET owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             searchService.nativeQueryExecutor(ownerUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(),CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
         }
 
     }
@@ -375,10 +375,10 @@ public class CertificateServiceImpl implements CertificateService {
             for (Certificate certificate : clientUsedCertificates) {
                 batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin / Client ", "", certificate));
             }
-            for(List<Certificate> certificates : Lists.partition(certListDyn, DELETE_BATCH_SIZE)) {
+            for (List<Certificate> certificates : Lists.partition(certListDyn, DELETE_BATCH_SIZE)) {
                 certificateRepository.deleteAll(certificates);
             }
-            for(List<CertificateContent> certificateContents : Lists.partition(certificateContentRepository.findCertificateContentNotUsed(), DELETE_BATCH_SIZE)) {
+            for (List<CertificateContent> certificateContents : Lists.partition(certificateContentRepository.findCertificateContentNotUsed(), DELETE_BATCH_SIZE)) {
                 certificateContentRepository.deleteAll(certificateContents);
             }
         }
@@ -615,6 +615,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private String getCurrentUsername() {
-        return ((UserDetails)SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUsername();
+        return ((UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUsername();
     }
 }
