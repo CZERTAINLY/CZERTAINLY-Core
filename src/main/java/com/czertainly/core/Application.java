@@ -21,6 +21,12 @@ import java.util.Map;
 @SpringBootApplication
 @EnableAsync
 public class Application extends SpringBootServletInitializer {
+
+	//Number of async pools in action at a time
+	private static final Integer POOL_SIZE = 10;
+	//Maximum queue size for the async operations when no pool is available to take action
+	private static final Integer QUEUE_SIZE = 500;
+
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
@@ -53,9 +59,9 @@ public class Application extends SpringBootServletInitializer {
     @Bean("threadPoolTaskExecutor")
 	public TaskExecutor taskExecutor() {
 		ThreadPoolTaskExecutor executor = new ContextAwarePoolExecutor();
-		executor.setCorePoolSize(10);
-		executor.setMaxPoolSize(10);
-		executor.setQueueCapacity(500);
+		executor.setCorePoolSize(POOL_SIZE);
+		executor.setMaxPoolSize(POOL_SIZE);
+		executor.setQueueCapacity(QUEUE_SIZE);
 		executor.setThreadNamePrefix("RAProfileCore-");
 		executor.initialize();
 		return new DelegatingSecurityContextAsyncTaskExecutor(executor);
