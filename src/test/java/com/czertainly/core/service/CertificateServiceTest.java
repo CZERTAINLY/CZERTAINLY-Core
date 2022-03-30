@@ -259,7 +259,6 @@ public class CertificateServiceTest {
     public void testSearchableFields() {
         List<SearchFieldDataDto> response = certificateService.getSearchableFieldInformation();
         Assertions.assertNotNull(response);
-        Assertions.assertEquals(24, response.size());
         Assertions.assertFalse(response.isEmpty());
     }
 
@@ -270,6 +269,6 @@ public class CertificateServiceTest {
 
         certificateService.bulkRemoveCertificate(request);
 
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getUuid()));
+        Assertions.assertAll(() -> certificateService.getCertificate(certificate.getUuid()));
     }
 }

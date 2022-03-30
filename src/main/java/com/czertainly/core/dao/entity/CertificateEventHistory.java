@@ -60,7 +60,7 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
         certificateEventHistoryDto.setEvent(event);
         try {
             certificateEventHistoryDto.setAdditionalInformation(new ObjectMapper().readValue(additionalInformation, HashMap.class));
-        } catch (JsonProcessingException e) {
+        } catch (JsonProcessingException | IllegalArgumentException e) {
             certificateEventHistoryDto.setAdditionalInformation(null);
         }
         certificateEventHistoryDto.setMessage(message);

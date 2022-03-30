@@ -44,8 +44,5 @@ public interface CertificateService {
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
-    BulkOperationResponse bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
-
-    List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException;
-    void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate);
+    void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
 }
