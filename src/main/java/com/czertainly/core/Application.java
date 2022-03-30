@@ -8,6 +8,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.task.TaskDecorator;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.task.DelegatingSecurityContextAsyncTaskExecutor;
@@ -16,7 +17,6 @@ import org.springframework.web.context.request.RequestContextHolder;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
-import java.util.concurrent.Executor;
 
 @SpringBootApplication
 @EnableAsync
@@ -50,11 +50,11 @@ public class Application extends SpringBootServletInitializer {
 		}
 	}
 
-    @Bean
-	public Executor taskExecutor() {
+    @Bean("threadPoolTaskExecutor")
+	public TaskExecutor taskExecutor() {
 		ThreadPoolTaskExecutor executor = new ContextAwarePoolExecutor();
-		executor.setCorePoolSize(2);
-		executor.setMaxPoolSize(2);
+		executor.setCorePoolSize(10);
+		executor.setMaxPoolSize(10);
 		executor.setQueueCapacity(500);
 		executor.setThreadNamePrefix("RAProfileCore-");
 		executor.initialize();

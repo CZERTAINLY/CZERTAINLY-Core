@@ -11,7 +11,12 @@ public class ContextAwareCallable<T> implements Callable<T> {
 
     public ContextAwareCallable(Callable<T> task, RequestAttributes context) {
         this.task = task;
-        this.context = context;
+        this.context = copy(context);
+    }
+
+    private RequestAttributes copy(RequestAttributes requestAttributes) {
+        // RequestAttributes needs to be copied as it will be garbage collected when origin request will complete.
+        return requestAttributes;
     }
 
     @Override
