@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -82,9 +83,11 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private CertValidationService certValidationService;
 
+    @Lazy
     @Autowired
     private CertificateEventHistoryService certificateEventHistoryService;
 
+    @Lazy
     @Autowired
     private SearchService searchService;
 
@@ -318,7 +321,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
-    public BulkOperationResponse bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
+    @Async("threadPoolTaskExecutor")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
         List<String> failedDeleteCerts = new ArrayList<>();
         Integer totalItems;
         BulkOperationResponse bulkOperationResponse = new BulkOperationResponse();
@@ -356,7 +361,7 @@ public class CertificateServiceImpl implements CertificateService {
             totalItems = certList.size();
 
             String joins = " LEFT JOIN Admin t1 ON c.id = t1.id  LEFT JOIN Client t2 ON c.id = t2.id WHERE t1.id IS NULL and t2.id is NULL";
-            String clientJoins = " LEFT JOIN Client t1 ON c.id = t1.id LEFT JOIN Admin t2 ON c.id = t2.id WHERE t1.id IS NOT NULL AND t2.id IS NOT NULL";
+            String clientJoins = " LEFT JOIN Client t1 ON c.id = t1.id LEFT JOIN Admin t2 ON c.id = t2.id WHERE t2.id IS NOT NULL AND t1.id IS NOT NULL ";
 
             String customQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), joins, false, false);
             String clientCustomQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), clientJoins, false, false);
@@ -367,29 +372,14 @@ public class CertificateServiceImpl implements CertificateService {
             bulkOperationResponse.setFailedItem(Long.valueOf(totalItems - certListDyn.size()));
 
             for (Certificate certificate : clientUsedCertificates) {
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin / Client", "", certificate));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin / Client ", "", certificate));
             }
-
-            if (certList.size() != certListDyn.size()) {
-                bulkOperationResponse.setStatus(BulkOperationStatus.PARTIAL);
-                bulkOperationResponse.setMessage("Failed to remove some of the Certificates");
-            } else if (failedDeleteCerts.size() == totalItems) {
-                bulkOperationResponse.setStatus(BulkOperationStatus.FAILED);
-                bulkOperationResponse.setMessage("Failed to delete the Certificates. None of the Certificates were removed");
-                return bulkOperationResponse;
-            } else {
-                bulkOperationResponse.setStatus(BulkOperationStatus.SUCCESS);
-                bulkOperationResponse.setMessage("All Certificates are deleted");
+            for(List<Certificate> certificates : Lists.partition(certListDyn, 10)) {
+                certificateRepository.deleteAll(certificates);
             }
-            List<Long> ifs = certListDyn.stream().map(Certificate::getId).collect(Collectors.toList());
-            for(Certificate certificate : certListDyn) {
-                certificateRepository.delete(certificate);
-            }
-//            searchService.nativeQueryExecutor("DELETE FROM certificate d WHERE d.id IN ( SELECT c.id FROM certificate c LEFT JOIN admin t1 ON c.id = t1.id  LEFT JOIN client t2 ON c.id = t2.id WHERE " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", " t1.id IS NULL and t2.id is NULL ", getSearchableFieldInformation(), true, true) + ")");
+            certificateContentRepository.deleteInBatch(certificateContentRepository.findCertificateContentNotUsed());
         }
-        searchService.asyncNativeQueryExecutor("delete from certificate_content o where o.id in (SELECT c.id FROM certificate_content c LEFT JOIN certificate t1 ON c.id= t1.certificate_content_id LEFT JOIN discovery_certificate t2 ON c.id = t2.certificate_content_id WHERE t1.id IS NULL AND t2.id IS null)");
         certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
-        return bulkOperationResponse;
     }
 
     @Override
@@ -502,7 +492,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
-//        updateIssuer();
+        updateIssuer();
 //        try {
 //            certValidationService.validate(entity);
 //        } catch (Exception e) {

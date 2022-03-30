@@ -44,5 +44,5 @@ public interface CertificateService {
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
-    BulkOperationResponse bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
+    void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
 }

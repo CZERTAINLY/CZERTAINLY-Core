@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.certificate.BulkOperationStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
@@ -133,7 +134,11 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public BulkOperationResponse bulkRemoveCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
-		return certificateService.bulkRemoveCertificate(request);
+		certificateService.bulkRemoveCertificate(request);
+		BulkOperationResponse response = new BulkOperationResponse();
+		response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
+		response.setStatus(BulkOperationStatus.SUCCESS);
+		return response;
 	}
 
 	@Override
