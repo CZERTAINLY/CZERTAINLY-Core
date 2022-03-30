@@ -52,7 +52,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
+    //Default page size for the certificate search API when page size is not provided
     private static final Integer DEFAULT_PAGE_SIZE = 10;
+    //Default batch size to perform bulk delete operation on Certificates
     private static final Integer DELETE_BATCH_SIZE = 1000;
 
     @Autowired
@@ -322,7 +324,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @Async("threadPoolTaskExecutor")
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
         List<String> failedDeleteCerts = new ArrayList<>();
         Integer totalItems;
@@ -374,13 +375,16 @@ public class CertificateServiceImpl implements CertificateService {
             for (Certificate certificate : clientUsedCertificates) {
                 batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin / Client ", "", certificate));
             }
-            for(List<Certificate> certificates : Lists.partition(certListDyn, 10)) {
+            for(List<Certificate> certificates : Lists.partition(certListDyn, DELETE_BATCH_SIZE)) {
                 certificateRepository.deleteAll(certificates);
             }
-            certificateContentRepository.deleteInBatch(certificateContentRepository.findCertificateContentNotUsed());
+            for(List<CertificateContent> certificateContents : Lists.partition(certificateContentRepository.findCertificateContentNotUsed(), DELETE_BATCH_SIZE)) {
+                certificateContentRepository.deleteAll(certificateContents);
+            }
         }
         certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
     }
+
 
     @Override
     public List<SearchFieldDataDto> getSearchableFieldInformation() {
@@ -482,7 +486,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-//    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
     public CertificateDto upload(UploadCertificateRequestDto request)
             throws AlreadyExistException, CertificateException {
         X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
@@ -493,12 +497,12 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
         updateIssuer();
-//        try {
-//            certValidationService.validate(entity);
-//        } catch (Exception e) {
-//            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
-//        }
-//        certificateEventHistoryService.addEventHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
+        try {
+            certValidationService.validate(entity);
+        } catch (Exception e) {
+            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
+        }
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
         return entity.mapToDto();
     }
 
