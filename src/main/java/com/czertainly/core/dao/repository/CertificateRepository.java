@@ -5,7 +5,9 @@ import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.dao.entity.*;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
@@ -62,4 +64,8 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     List<String> findDistinctPublicKeyAlgorithm();
 
     List<Certificate> findAllByOrderByIdDesc(Pageable p);
+
+    @Modifying
+    @Query("delete from Certificate u where u.id in ?1")
+    void deleteCertificateWithIds(List<Long> ids);
 }

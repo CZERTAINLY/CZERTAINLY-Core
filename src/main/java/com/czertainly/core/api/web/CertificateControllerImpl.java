@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +36,9 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Autowired
 	private CertValidationService certValidationService;
+
+	@Autowired
+	private CertificateEventHistoryService certificateEventHistoryService;
 
 	@Override
 	public CertificateResponseDto listCertificate(SearchRequestDto request) throws ValidationException {
@@ -144,7 +148,7 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
-		return certificateService.getCertificateEventHistory(uuid);
+		return certificateEventHistoryService.getCertificateEventHistory(uuid);
 	}
 
 }

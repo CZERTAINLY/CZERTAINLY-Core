@@ -5,7 +5,7 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.search.*;
 
-import java.util.List;
+import java.util.List;  
 
 public interface SearchService {
     SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values,
@@ -15,6 +15,11 @@ public interface SearchService {
 
     Object customQueryExecutor(String sqlQuery);
 
-    String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery) throws ValidationException;
+    Object nativeQueryExecutor(String sqlQuery);
 
+    Object asyncNativeQueryExecutor(String sqlQuery);
+
+    String getCompleteSearchQuery(List<SearchFilterRequestDto> filters, String entity, String joinQuery, List<SearchFieldDataDto> originalJson, Boolean conditionOnly, Boolean nativeCode);
+
+    String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode) throws ValidationException;
 }

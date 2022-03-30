@@ -15,13 +15,12 @@ import com.czertainly.core.service.SearchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Query;
+import javax.persistence.*;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -38,7 +37,7 @@ public class SearchServiceImpl implements SearchService {
     private static final Integer DEFAULT_PAGE_SIZE = 10;
     private static final Integer MAX_PAGE_SIZE = 1000;
 
-    @Autowired
+    @PersistenceUnit
     private EntityManagerFactory emFactory;
 
     @Autowired
@@ -68,10 +67,22 @@ public class SearchServiceImpl implements SearchService {
         String sqlQuery = "select c from " + entity + " c";
         logger.debug("Executing query: {}", sqlQuery);
         if (!filters.isEmpty()) {
-            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, "");
+            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, "", false, false);
         }
         return customQueryExecutor(sqlQuery);
     }
+
+    @Override
+    public String getCompleteSearchQuery(List<SearchFilterRequestDto> filters, String entity, String joinQuery, List<SearchFieldDataDto> originalJson, Boolean conditionOnly, Boolean nativeCode) {
+
+        String sqlQuery = !conditionOnly ? "select c from " + entity + " c": "";
+        logger.debug("Executing query: {}", sqlQuery);
+        if (!filters.isEmpty()) {
+            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, joinQuery, conditionOnly, nativeCode);
+        }
+        return sqlQuery;
+    }
+
 
     @Override
     public Object customQueryExecutor(String sqlQuery){
@@ -84,6 +95,38 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
+    public Object nativeQueryExecutor(String sqlQuery){
+        logger.debug("Executing query: {}", sqlQuery);
+        EntityManager entityManager = emFactory.createEntityManager();
+        Query query = entityManager.createNativeQuery(sqlQuery);
+        Object result = null;
+        try {
+            result = query.getResultList();
+        }catch (PersistenceException e){
+            logger.warn("Result is empty: {}", e.getMessage());
+        }
+        entityManager.close();
+        return result;
+    }
+
+    @Override
+    @Async("threadPoolTaskExecutor")
+    public Object asyncNativeQueryExecutor(String sqlQuery){
+        logger.debug("Executing query: {}", sqlQuery);
+        EntityManager entityManager = emFactory.createEntityManager();
+        Query query = entityManager.createNativeQuery(sqlQuery);
+        Object result = null;
+        try {
+            result = query.getResultList();
+        }catch (PersistenceException e){
+            logger.warn("Result is empty: {}", e.getMessage());
+        }
+        entityManager.close();
+        return result;
+    }
+
+
+    @Override
     public DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson) {
         logger.debug("Search request: {}", searchRequestDto.toString());
         Map<String, Integer> page = getPageable(searchRequestDto);
@@ -94,7 +137,7 @@ public class SearchServiceImpl implements SearchService {
         if (searchRequestDto.getPageNumber() == null) {
             searchRequestDto.setPageNumber(1);
         }
-        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "");
+        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         query.setFirstResult(page.get("start"));
@@ -124,12 +167,15 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery) throws ValidationException {
+    public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode) throws ValidationException {
         String query;
         if(joinQuery.isEmpty()) {
-            query = "select c from " + entity + " c WHERE";
+            query = (!conditionOnly ? "select c from " + entity + " c " : "") + " WHERE";
         }else{
-            query = "select c from " + entity + " c " + joinQuery + " AND ";
+            query = (!conditionOnly ? "select c from " + entity + " c " : " ") + joinQuery;
+            if(!conditions.isEmpty()){
+                query += " AND ";
+            }
         }
         List<String> queryParts = new ArrayList<>();
         List<SearchFieldDataDto> iterableJson = new LinkedList<>();
@@ -153,7 +199,11 @@ public class SearchServiceImpl implements SearchService {
             if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(filter.getField())) {
                 qp += " c.certificateValidationResult ";
             } else {
-                qp += " c." + filter.getField().getCode() + " ";
+                if(nativeCode) {
+                    qp += " c." + filter.getField().getNativeCode() + " ";
+                }else{
+                    qp += " c." + filter.getField().getCode() + " ";
+                }
             }
             if (filter.isMultiValue() && !(filter.getValue() instanceof String)) {
                 List<String> whereObjects = new ArrayList<>();

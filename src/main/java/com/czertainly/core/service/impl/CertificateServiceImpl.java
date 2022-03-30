@@ -17,17 +17,22 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.SearchService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
+import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +52,7 @@ public class CertificateServiceImpl implements CertificateService {
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
     private static final Integer DEFAULT_PAGE_SIZE = 10;
+    private static final Integer DELETE_BATCH_SIZE = 1000;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -72,11 +78,12 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private AdminRepository adminRepository;
 
+    @Lazy
     @Autowired
     private CertValidationService certValidationService;
 
     @Autowired
-    private CertificateEventHistoryRepository certificateEventHistoryRepository;
+    private CertificateEventHistoryService certificateEventHistoryService;
 
     @Autowired
     private SearchService searchService;
@@ -125,12 +132,12 @@ public class CertificateServiceImpl implements CertificateService {
 
         for (Client client : clientRepository.findByCertificate(certificate)) {
             errors.add(ValidationError.create("Certificate has Client " + client.getName() + " associated to it"));
-            addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client " + client.getName(), "", certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client " + client.getName(), "", certificate);
         }
 
         for (Admin admin : adminRepository.findByCertificate(certificate)) {
             errors.add(ValidationError.create("Certificate has Admin " + admin.getName() + " associated to it"));
-            addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin  " + admin.getName(), "", certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin  " + admin.getName(), "", certificate);
         }
 
         if (!errors.isEmpty()) {
@@ -160,7 +167,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setRaProfile(raProfile);
         certificateRepository.save(certificate);
-        addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
     }
 
     @Override
@@ -177,7 +184,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setGroup(certificateGroup);
         certificateRepository.save(certificate);
-        addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
     }
 
     @Override
@@ -193,7 +200,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setEntity(certificateEntity);
         certificateRepository.save(certificate);
-        addEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
 
     }
 
@@ -208,112 +215,105 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setOwner(request.getOwner());
         certificateRepository.save(certificate);
-        addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
 
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
-        List<Certificate> batchOperationList = new ArrayList<>();
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
         if (request.getFilters() == null) {
+            List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
                 certificate.setRaProfile(raProfile);
                 batchOperationList.add(certificate);
             }
+            certificateRepository.saveAll(batchOperationList);
+            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
-            for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation())) {
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
-                certificate.setRaProfile(raProfile);
-                batchOperationList.add(certificate);
-            }
+            String profileUpdateQuery = "UPDATE certificate c SET ra_profile_id = " + raProfile.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            searchService.nativeQueryExecutor(profileUpdateQuery);
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(),CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
+
         }
-        certificateRepository.saveAll(batchOperationList);
-        certificateEventHistoryRepository.saveAll(batchHistoryOperationList);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException {
-        List<Certificate> batchOperationList = new ArrayList<>();
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
-
+        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null) {
+            List<Certificate> batchOperationList = new ArrayList<>();
+
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + certificateGroup.getName(), "", certificate));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + certificateGroup.getName(), "", certificate));
                 certificate.setGroup(certificateGroup);
                 batchOperationList.add(certificate);
             }
+            certificateRepository.saveAll(batchOperationList);
+            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
-            for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation())) {
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + certificateGroup.getName(), "", certificate));
-                certificate.setGroup(certificateGroup);
-                batchOperationList.add(certificate);
-            }
+            String groupUpdateQuery = "UPDATE certificate c SET group_id = " + certificateGroup.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            searchService.nativeQueryExecutor(groupUpdateQuery);
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(),CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
         }
-        certificateRepository.saveAll(batchOperationList);
-        certificateEventHistoryRepository.saveAll(batchHistoryOperationList);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException {
-        List<Certificate> batchOperationList = new ArrayList<>();
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
         if (request.getFilters() == null) {
+            List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, certificate.getEntity() != null ? certificate.getEntity().getName() : "undefined" + " -> " + certificateEntity.getName(), "", certificate));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, certificate.getEntity() != null ? certificate.getEntity().getName() : "undefined" + " -> " + certificateEntity.getName(), "", certificate));
                 certificate.setEntity(certificateEntity);
                 batchOperationList.add(certificate);
+                certificateRepository.saveAll(batchOperationList);
+                certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
             }
         } else {
-            for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation())) {
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, certificate.getEntity() != null ? certificate.getEntity().getName() : "undefined" + " -> " + certificateEntity.getName(), "", certificate));
-                certificate.setEntity(certificateEntity);
-                batchOperationList.add(certificate);
-            }
+            String entityUpdateQuery = "UPDATE certificate c SET entity_id = " + certificateEntity.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            searchService.nativeQueryExecutor(entityUpdateQuery);
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(),CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Entity Name: " + certificateEntity.getName());
         }
-        certificateRepository.saveAll(batchOperationList);
-        certificateEventHistoryRepository.saveAll(batchHistoryOperationList);
-
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
-        List<Certificate> batchOperationList = new ArrayList<>();
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null) {
+            List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(certificateUuid)
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
                 certificate.setOwner(request.getOwner());
                 batchOperationList.add(certificate);
             }
+            certificateRepository.saveAll(batchOperationList);
+            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
-            for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation())) {
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
-                certificate.setOwner(request.getOwner());
-                batchOperationList.add(certificate);
-            }
+            String ownerUpdateQuery = "UPDATE certificate c SET owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            searchService.nativeQueryExecutor(ownerUpdateQuery);
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(),CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
         }
-        certificateRepository.saveAll(batchOperationList);
-        certificateEventHistoryRepository.saveAll(batchHistoryOperationList);
+
     }
 
     @Override
@@ -329,14 +329,14 @@ public class CertificateServiceImpl implements CertificateService {
                         .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
                 if (!adminRepository.findByCertificate(certificate).isEmpty()) {
                     logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
-                    batchHistoryOperationList.add(getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client ", "", certificate));
+                    batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client ", "", certificate));
                     failedDeleteCerts.add(certificate.getUuid());
                     continue;
                 }
 
                 if (!clientRepository.findByCertificate(certificate).isEmpty()) {
                     logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
-                    batchHistoryOperationList.add(getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin ", "", certificate));
+                    batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin ", "", certificate));
                     failedDeleteCerts.add(certificate.getUuid());
                     continue;
                 }
@@ -356,25 +356,18 @@ public class CertificateServiceImpl implements CertificateService {
             totalItems = certList.size();
 
             String joins = " LEFT JOIN Admin t1 ON c.id = t1.id  LEFT JOIN Client t2 ON c.id = t2.id WHERE t1.id IS NULL and t2.id is NULL";
-            String clientJoins = " LEFT JOIN Client t1 ON c.id = t1.id WHERE t1.id IS NOT NULL";
-            String adminJoins = "LEFT JOIN Admin t1 ON c.id = t1.id WHERE t1.id IS NOT NULL";
+            String clientJoins = " LEFT JOIN Client t1 ON c.id = t1.id LEFT JOIN Admin t2 ON c.id = t2.id WHERE t1.id IS NOT NULL AND t2.id IS NOT NULL";
 
-            String customQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), joins);
-            String clientCustomQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), clientJoins);
-            String adminCustomQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), adminJoins);
+            String customQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), joins, false, false);
+            String clientCustomQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), clientJoins, false, false);
 
             List<Certificate> clientUsedCertificates = (List<Certificate>) searchService.customQueryExecutor(clientCustomQuery);
-            List<Certificate> adminUsedCertificates = (List<Certificate>) searchService.customQueryExecutor(adminCustomQuery);
             List<Certificate> certListDyn = (List<Certificate>) searchService.customQueryExecutor(customQuery);
 
             bulkOperationResponse.setFailedItem(Long.valueOf(totalItems - certListDyn.size()));
 
             for (Certificate certificate : clientUsedCertificates) {
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client ", "", certificate));
-            }
-
-            for (Certificate certificate : adminUsedCertificates) {
-                batchHistoryOperationList.add(getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin ", "", certificate));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin / Client", "", certificate));
             }
 
             if (certList.size() != certListDyn.size()) {
@@ -388,11 +381,14 @@ public class CertificateServiceImpl implements CertificateService {
                 bulkOperationResponse.setStatus(BulkOperationStatus.SUCCESS);
                 bulkOperationResponse.setMessage("All Certificates are deleted");
             }
-            System.out.println("********************************");
-            certificateRepository.deleteInBatch(certListDyn);
-            certificateContentRepository.deleteInBatch(certificateContentRepository.findCertificateContentNotUsed());
+            List<Long> ifs = certListDyn.stream().map(Certificate::getId).collect(Collectors.toList());
+            for(Certificate certificate : certListDyn) {
+                certificateRepository.delete(certificate);
+            }
+//            searchService.nativeQueryExecutor("DELETE FROM certificate d WHERE d.id IN ( SELECT c.id FROM certificate c LEFT JOIN admin t1 ON c.id = t1.id  LEFT JOIN client t2 ON c.id = t2.id WHERE " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", " t1.id IS NULL and t2.id is NULL ", getSearchableFieldInformation(), true, true) + ")");
         }
-        certificateEventHistoryRepository.saveAll(batchHistoryOperationList);
+        searchService.asyncNativeQueryExecutor("delete from certificate_content o where o.id in (SELECT c.id FROM certificate_content c LEFT JOIN certificate t1 ON c.id= t1.certificate_content_id LEFT JOIN discovery_certificate t2 ON c.id = t2.certificate_content_id WHERE t1.id IS NULL AND t2.id IS null)");
+        certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         return bulkOperationResponse;
     }
 
@@ -440,12 +436,6 @@ public class CertificateServiceImpl implements CertificateService {
                 }
             }
         }
-    }
-
-    @Override
-    public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException {
-        Certificate certificate = getCertificateEntity(uuid);
-        return certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream().map(CertificateEventHistory::mapToDto).collect(Collectors.toList());
     }
 
     private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
@@ -502,7 +492,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+//    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
     public CertificateDto upload(UploadCertificateRequestDto request)
             throws AlreadyExistException, CertificateException {
         X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
@@ -512,13 +502,13 @@ public class CertificateServiceImpl implements CertificateService {
         }
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
-        updateIssuer();
-        try {
-            certValidationService.validate(entity);
-        } catch (Exception e) {
-            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
-        }
-        addEventHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
+//        updateIssuer();
+//        try {
+//            certValidationService.validate(entity);
+//        } catch (Exception e) {
+//            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
+//        }
+//        certificateEventHistoryService.addEventHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
         return entity.mapToDto();
     }
 
@@ -630,24 +620,7 @@ public class CertificateServiceImpl implements CertificateService {
         return certificateResponseDto;
     }
 
-    @Override
-    public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
-        CertificateEventHistory history = new CertificateEventHistory();
-        history.setEvent(event);
-        history.setCertificate(certificate);
-        history.setStatus(status);
-        history.setAdditionalInformation(additionalInformation);
-        history.setMessage(message);
-        certificateEventHistoryRepository.save(history);
-    }
-
-    private CertificateEventHistory getEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
-        CertificateEventHistory history = new CertificateEventHistory();
-        history.setEvent(event);
-        history.setCertificate(certificate);
-        history.setStatus(status);
-        history.setAdditionalInformation(additionalInformation);
-        history.setMessage(message);
-        return history;
+    private String getCurrentUsername() {
+        return ((UserDetails)SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUsername();
     }
 }
