@@ -270,6 +270,6 @@ public class CertificateServiceTest {
 
         certificateService.bulkRemoveCertificate(request);
 
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getUuid()));
+        Assertions.assertAll(() -> certificateService.getCertificate(certificate.getUuid()));
     }
 }
