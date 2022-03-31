@@ -244,8 +244,8 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.saveAll(batchOperationList);
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
-            String profileUpdateQuery = "UPDATE certificate c SET ra_profile_id = " + raProfile.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            searchService.nativeQueryExecutor(profileUpdateQuery);
+            String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + raProfile.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            certificateRepository.bulkUpdateQuery(profileUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
 
         }
@@ -270,8 +270,8 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.saveAll(batchOperationList);
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
-            String groupUpdateQuery = "UPDATE certificate c SET group_id = " + certificateGroup.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            searchService.nativeQueryExecutor(groupUpdateQuery);
+            String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            certificateRepository.bulkUpdateQuery(groupUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
         }
     }
@@ -294,8 +294,8 @@ public class CertificateServiceImpl implements CertificateService {
                 certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
             }
         } else {
-            String entityUpdateQuery = "UPDATE certificate c SET entity_id = " + certificateEntity.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            searchService.nativeQueryExecutor(entityUpdateQuery);
+            String entityUpdateQuery = "UPDATE Certificate c SET c.entity = " + certificateEntity.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            certificateRepository.bulkUpdateQuery(entityUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Entity Name: " + certificateEntity.getName());
         }
     }
@@ -316,8 +316,8 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.saveAll(batchOperationList);
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
-            String ownerUpdateQuery = "UPDATE certificate c SET owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, true).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            searchService.nativeQueryExecutor(ownerUpdateQuery);
+            String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            certificateRepository.bulkUpdateQuery(ownerUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
         }
 
@@ -619,4 +619,13 @@ public class CertificateServiceImpl implements CertificateService {
     private String getCurrentUsername() {
         return ((UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUsername();
     }
+
+    // TODO: Predicate for future use to construct the conditions, and forward to the data repository
+    /*
+    private Predicate createPredicate(List<SearchFilterRequestDto> filters) {
+        BooleanBuilder predicate = new BooleanBuilder();
+        return predicate;
+    }
+    */
+
 }
