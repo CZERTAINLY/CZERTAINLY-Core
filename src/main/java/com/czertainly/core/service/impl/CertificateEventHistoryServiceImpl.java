@@ -47,7 +47,6 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
         history.setStatus(status);
         history.setAdditionalInformation(additionalInformation);
         history.setMessage(message);
-        logger.debug("Event history: {}", history);
         certificateEventHistoryRepository.save(history);
     }
 
@@ -59,7 +58,6 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
         history.setStatus(status);
         history.setAdditionalInformation(additionalInformation);
         history.setMessage(message);
-        logger.debug("Event history: {}", history);
         return history;
     }
 

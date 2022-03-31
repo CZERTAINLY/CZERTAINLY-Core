@@ -3,11 +3,11 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
@@ -17,7 +17,7 @@ import java.util.Optional;
 
 @Repository
 @Transactional
-public interface CertificateRepository extends JpaRepository<Certificate, Long> {
+public interface CertificateRepository extends JpaRepository<Certificate, Long>, CustomCertificateRepository {
 
     Optional<Certificate> findByUuid(String uuid);
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
