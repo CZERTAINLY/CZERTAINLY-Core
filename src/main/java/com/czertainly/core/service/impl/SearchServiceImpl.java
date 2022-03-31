@@ -86,7 +86,7 @@ public class SearchServiceImpl implements SearchService {
         logger.debug("Executing query: {}", sqlQuery);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
-        Object result =  query.getResultList();
+        Object result = query.getResultList();
         entityManager.close();
         return result;
     }
