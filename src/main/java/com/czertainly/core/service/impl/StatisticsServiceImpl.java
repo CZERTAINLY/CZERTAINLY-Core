@@ -12,6 +12,7 @@ import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.StatisticsService;
+import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,9 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -48,6 +52,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.STATISTICS, operation = OperationType.REQUEST)
     public StatisticsDto getStatistics() {
         logger.info("Gathering the statistics information from database");
+
         StatisticsDto dto = new StatisticsDto();
         dto.setTotalCertificates(getCertificateCount());
         dto.setTotalDiscoveries(getDiscoveryCount());
@@ -60,7 +65,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         dto.setCertificateStatByType(getCertificateStatByType(dto));
         dto.setCertificateStatByKeySize(getCertificateStatByKeySize(dto));
         dto.setCertificateStatByBasicConstraints(getCertificateStatByBasicConstraints(dto));
-        dto.setCertificateStatByExpiry(getCertificatesByExpiry());
+        dto.setCertificateStatByExpiry(getCertificatesByExpiry(dto));
         dto.setCertificateStatByStatus(getCertificateStatByStatus());
 
         return dto;
@@ -87,102 +92,96 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private Map<String, Long> getGroupStatByCertificateCount(StatisticsDto dto) {
-        Map<String, Long> stat = new HashMap<>();
-        long totalStatCount = 0;
-        for (CertificateGroup certificateGroup : groupRepository.findAll()) {
-            Integer statSize = certificateRepository.findDistinctByGroupId(certificateGroup.getId()).size();
-            totalStatCount += statSize;
-            stat.put(certificateGroup.getName(), (long) statSize);
-        }
-        stat.put("Unassigned", dto.getTotalCertificates() - totalStatCount);
-        return stat;
+        List<Long> keys = new ArrayList<Long>();
+        var result = certificateRepository.getCertificatesCountByGroup();
+        for (Object[] item : result) keys.add((long)item[0]);
+        var labels = certificateRepository.getGroupNamesWithIds(keys);
+
+        return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
     }
 
     private Map<String, Long> getEntityStatByCertificateCount(StatisticsDto dto) {
-        Map<String, Long> stat = new HashMap<>();
-        long totalStatCount = 0;
-        for (CertificateEntity certificateEntity : entityRepository.findAll()) {
-            Integer statSize = certificateRepository.findDistinctByEntityId(certificateEntity.getId()).size();
-            totalStatCount += statSize;
-            stat.put(certificateEntity.getName(), (long) statSize);
-        }
-        stat.put("Unassigned", dto.getTotalCertificates() - totalStatCount);
-        return stat;
+        List<Long> keys = new ArrayList<Long>();
+        var result = certificateRepository.getCertificatesCountByEntity();
+        for (Object[] item : result) keys.add((long)item[0]);
+        var labels = certificateRepository.getEntityNamesWithIds(keys);
+
+        return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
     }
 
     private Map<String, Long> getRaProfileStatByCertificateCount(StatisticsDto dto) {
-        Map<String, Long> stat = new HashMap<>();
-        long totalStatCount = 0;
-        for (RaProfile profile : raProfileRepository.findAll()) {
-            Integer statSize = certificateRepository.findDistinctByRaProfileId(profile.getId()).size();
-            totalStatCount += statSize;
-            stat.put(profile.getName(), (long) statSize);
-        }
-        stat.put("Unassigned", dto.getTotalCertificates() - totalStatCount);
-        return stat;
+        List<Long> keys = new ArrayList<Long>();
+        var result = certificateRepository.getCertificatesCountByRaProfile();
+        for (Object[] item : result) keys.add((long)item[0]);
+        var labels = certificateRepository.getRaProfileNamesWithIds(keys);
+
+        return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
     }
 
     private Map<String, Long> getCertificateStatByType(StatisticsDto dto) {
-        Map<String, Long> stat = new HashMap<>();
-        long totalStatCount = 0;
-        for (CertificateType certificateType : certificateRepository.findDistinctCertificateType()) {
-            Integer statSize = certificateRepository.findByCertificateType(certificateType).size();
-            totalStatCount += statSize;
-            stat.put(certificateType.getCode(), (long) statSize);
-        }
-        stat.put("Unknown", dto.getTotalCertificates() - totalStatCount);
-        return stat;
+        var result = certificateRepository.getCertificatesCountByType();
+
+        return getStatsMap(result, null, dto.getTotalCertificates(), "Unknown");
     }
 
     private Map<String, Long> getCertificateStatByKeySize(StatisticsDto dto) {
-        Map<String, Long> stat = new HashMap<>();
-        long totalStatCount = 0;
-        for (Integer keySize : certificateRepository.findDistinctKeySize()) {
-            Integer statSize = certificateRepository.findByKeySize(keySize).size();
-            totalStatCount += statSize;
-            stat.put(keySize.toString(), (long) statSize);
-        }
-        stat.put("Unknown", dto.getTotalCertificates() - totalStatCount);
-        return stat;
+        var result = certificateRepository.getCertificatesCountByKeySize();
+
+        return getStatsMap(result, null, dto.getTotalCertificates(), "Unknown");
     }
 
     private Map<String, Long> getCertificateStatByBasicConstraints(StatisticsDto dto) {
-        Map<String, Long> stat = new HashMap<>();
-        long totalStatCount = 0;
-        for (String bc : certificateRepository.findDistinctBasicConstraints()) {
-            Integer statSize = certificateRepository.findByBasicConstraints(bc).size();
-            totalStatCount += statSize;
-            stat.put(bc, (long) statSize);
-        }
-        stat.put("Unknown", dto.getTotalCertificates() - totalStatCount);
-        return stat;
+        var result = certificateRepository.getCertificatesCountByBasicConstraints();
+
+        return getStatsMap(result, null, dto.getTotalCertificates(), "Unknown");
     }
     
     private Map<String, Long> getCertificateStatByStatus() {
-        Map<String, Long> stat = new HashMap<>();
-        for (CertificateStatus bc : certificateRepository.findDistinctStatus()) {
-            Integer statSize = certificateRepository.findDistinctByStatus(bc).size();
-            stat.put(bc.toString(), (long) statSize);
+        var result = certificateRepository.getCertificatesCountByStatus();
+
+        return getStatsMap(result, null, 0, null);
+    }
+
+    private Map<String, Long> getCertificatesByExpiry(StatisticsDto dto) {
+        long totalStatsCount = 0;
+        Map<String, Long> stats = new HashMap<>();
+
+        LocalDateTime today =  LocalDateTime.now();
+        LocalDateTime notBeforeTo = today;
+        LocalDateTime notBeforeFrom = LocalDateTime.now();
+        int[] expiryInDays = { 10, 20, 30, 60, 90 };
+        for (Integer days: expiryInDays) {
+            notBeforeTo = today.plusDays(days);
+            var result = certificateRepository.getCertificatesCountByExpiryDate(java.sql.Timestamp.valueOf(notBeforeFrom), java.sql.Timestamp.valueOf(notBeforeTo));
+            totalStatsCount += (long) result.get(0)[0];
+            stats.put(days.toString(), (Long) result.get(0)[0]);
+            notBeforeFrom = notBeforeTo;
         }
-        return stat;
+        stats.put("More", dto.getTotalCertificates() - totalStatsCount);
+
+        return stats;
     }
 
-    private Map<String, Long> getCertificatesByExpiry() {
-        Map<String, Long> stat = new HashMap<>();
-        stat.put("10", getCertificateExpiryCount(10));
-        stat.put("20", getCertificateExpiryCount(20));
-        stat.put("30", getCertificateExpiryCount(30));
-        stat.put("60", getCertificateExpiryCount(60));
-        stat.put("90", getCertificateExpiryCount(90));
-        return stat;
-    }
+    private Map<String, Long> getStatsMap(List<Object[]> resultStats, List<Object[]> resultLabels, long totalCount, String defaultLabel) {
+        long totalStatsCount = 0;
+        Map<String, Long> stats = new HashMap<>();
 
-    private Long getCertificateExpiryCount(Integer days) {
-        Date expDays = new Date();
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(expDays);
-        cal.add(Calendar.DATE, days); //minus number would decrement the days
-        List<Certificate> certs = certificateRepository.findByNotAfterLessThan(cal.getTime());
-        return (long) certs.size();
+        if(resultLabels == null) {
+            for (Object[] item : resultStats) {
+                totalStatsCount += (long) item[1];
+                stats.put(item[0].toString(), (long) item[1]);
+            }
+        }
+        else {
+            Map<Long, String> labels = new HashMap<>();
+            for (Object[] item : resultLabels) labels.put((long) item[0], item[1].toString());
+            for (Object[] item : resultStats) {
+                totalStatsCount += (long) item[1];
+                stats.put(labels.get((long) item[0]), (long) item[1]);
+            }
+        }
+
+        if(defaultLabel != null) stats.put(defaultLabel, totalCount - totalStatsCount);
+        return stats;
     }
 }
