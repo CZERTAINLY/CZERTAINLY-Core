@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -21,16 +22,7 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long>,
 
     Optional<Certificate> findByUuid(String uuid);
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
-    List<Certificate> findDistinctByGroupId(Long group);
-    List<Certificate> findDistinctByStatus(CertificateStatus certificateStatus);
-    List<Certificate> findDistinctByEntityId(Long entity);
-    List<Certificate> findDistinctByRaProfileId(Long raProfile);
-    List<Certificate> findByCertificateType(CertificateType certificateType);
-    List<Certificate> findByKeySize(Integer keySize);
-    List<Certificate> findByBasicConstraints(String basicConstraints);
-    List<Certificate> findByNotAfterLessThan(Date notAfter);
-    Optional<Certificate> findByIssuerSerialNumberIgnoreCase(String issuerSerialNumber);
-    Optional <Certificate> findByCommonName(String commonName);
+
     Certificate findByCertificateContent(CertificateContent certificateContent);
 	Optional<Certificate> findByFingerprint(String fingerprint);
     List<Certificate> findBySubjectDn(String subjectDn);
@@ -68,4 +60,38 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long>,
     @Modifying
     @Query("delete from Certificate u where u.id in ?1")
     void deleteCertificateWithIds(List<Long> ids);
+
+    /* Stats queries */
+    @Query(value = "SELECT c.groupId, COUNT(c.groupId) FROM Certificate AS c WHERE c.groupId IS NOT NULL GROUP BY c.groupId")
+    List<Object[]> getCertificatesCountByGroup();
+
+    @Query("SELECT g.id, g.name FROM CertificateGroup g WHERE g.id IN ?1")
+    List<Object[]> getGroupNamesWithIds(List<Long> ids);
+
+    @Query(value = "SELECT c.entityId, COUNT(c.entityId) FROM Certificate AS c WHERE c.entityId IS NOT NULL GROUP BY c.entityId")
+    List<Object[]> getCertificatesCountByEntity();
+
+    @Query("SELECT e.id, e.name FROM CertificateEntity e WHERE e.id IN ?1")
+    List<Object[]> getEntityNamesWithIds(List<Long> ids);
+
+    @Query(value = "SELECT c.raProfileId, COUNT(c.raProfileId) FROM Certificate AS c WHERE c.raProfileId IS NOT NULL GROUP BY c.raProfileId")
+    List<Object[]> getCertificatesCountByRaProfile();
+
+    @Query("SELECT p.id, p.name FROM RaProfile p WHERE p.id IN ?1")
+    List<Object[]> getRaProfileNamesWithIds(List<Long> ids);
+
+    @Query(value = "SELECT c.certificateType, COUNT(c.certificateType) FROM Certificate AS c WHERE c.certificateType IS NOT NULL GROUP BY c.certificateType")
+    List<Object[]> getCertificatesCountByType();
+
+    @Query(value = "SELECT c.keySize, COUNT(c.keySize) FROM Certificate AS c WHERE c.keySize IS NOT NULL GROUP BY c.keySize")
+    List<Object[]> getCertificatesCountByKeySize();
+
+    @Query(value = "SELECT c.basicConstraints, COUNT(c.basicConstraints) FROM Certificate AS c WHERE c.basicConstraints IS NOT NULL GROUP BY c.basicConstraints")
+    List<Object[]> getCertificatesCountByBasicConstraints();
+
+    @Query(value = "SELECT c.status, COUNT(c.status) FROM Certificate AS c WHERE c.status IS NOT NULL GROUP BY c.status")
+    List<Object[]> getCertificatesCountByStatus();
+
+    @Query("SELECT COUNT(c.id) FROM Certificate AS c WHERE c.notAfter > ?1 AND c.notAfter <= ?2")
+    List<Object[]> getCertificatesCountByExpiryDate(Date notAfterFrom, Date notAfterTo);
 }
