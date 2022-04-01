@@ -89,13 +89,22 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     @JoinColumn(name = "ra_profile_id")
     private RaProfile raProfile;
 
+    @Column(name = "ra_profile_id", insertable = false, updatable = false)
+    private Long raProfileId;
+
     @ManyToOne
     @JoinColumn(name = "group_id")
     private CertificateGroup group;
 
+    @Column(name = "group_id", insertable = false, updatable = false)
+    private Long groupId;
+
     @ManyToOne()
     @JoinColumn(name = "entity_id")
     private CertificateEntity entity;
+
+    @Column(name = "entity_id", insertable = false, updatable = false)
+    private Long entityId;
 
     @Column(name = "owner")
     private String owner;
