@@ -521,6 +521,19 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException {
+        X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
+        String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
+        if (!certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isEmpty()) {
+            throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
+        }
+        Certificate entity = createCertificateEntity(x509Cert);
+        entity.setMeta(meta);
+        certificateRepository.save(entity);
+        return entity;
+    }
+
+    @Override
     public void revokeCertificate(String serialNumber) {
         try {
             Certificate certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
@@ -620,12 +633,46 @@ public class CertificateServiceImpl implements CertificateService {
         return ((UserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal()).getUsername();
     }
 
-    // TODO: Predicate for future use to construct the conditions, and forward to the data repository
-    /*
-    private Predicate createPredicate(List<SearchFilterRequestDto> filters) {
-        BooleanBuilder predicate = new BooleanBuilder();
-        return predicate;
-    }
-    */
+    private String updateMeta(Certificate certificate, String metadata) {
+        Map<String, Object> meta = new HashMap<>();
+        if (certificate.getMeta() != null) {
+            meta = MetaDefinitions.deserialize(certificate.getMeta());
+        }
 
+        if (metadata != null & !meta.isEmpty()) {
+            Map<String, Object> updateMeta = MetaDefinitions.deserialize(metadata);
+            if (updateMeta != null && !updateMeta.isEmpty()) {
+                meta.putAll(updateMeta);
+                return MetaDefinitions.serialize(meta);
+            }
+        }
+        return MetaDefinitions.serialize(meta);
+    }
+
+
+    // TODO: Predicate for future use to construct the conditions, and forward to the data repository
+
+//    private Predicate createPredicate(List<SearchFilterRequestDto> filters) {
+//        BooleanBuilder predicate = new BooleanBuilder();
+//
+//        Path<Certificate> certificate = Expressions.path(Certificate.class, "certificate");
+//        try {
+//            Class fieldClass = Certificate.class.getField(filters.get(0).getField().getCode()).getClass();
+//            Path<Class> certificateField = Expressions.path(Class.class, certificate, filters.get(0).getField().getCode());
+//
+//
+//            PathBuilder<Certificate> entityPath = new PathBuilder<Certificate>(Certificate.class, "certificate");
+//            StringPath sp = entityPath.get(filters.get(0).getField().getCode(), fieldClass.getClass());
+//
+//            predicate.and(entityPath.get.eq(filters.get(0).getValue()));
+//
+//            Expressions.predicate(Ops.AND, certificateField, filters.get(0).getValue().toString());
+//        } catch (NoSuchFieldException e) {
+//            e.printStackTrace();
+//        }
+//        Expressions.predicate(Ops.AND, )
+//        filters.get(0).getField().getClass()
+//
+//        return predicate;
+//    }
 }

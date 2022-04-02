@@ -30,6 +30,7 @@ public interface CertificateService {
 	void updateIssuer();
 	Certificate createCertificateEntity(X509Certificate certificate);
 	Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException;
+    Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException;
 	CertificateDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException;
 	void revokeCertificate(String serialNumber);
 	
