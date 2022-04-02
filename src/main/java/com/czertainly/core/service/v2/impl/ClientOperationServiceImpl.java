@@ -107,7 +107,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 caRequest);
 
-        Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+        //Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+        Certificate certificate = certificateService.checkCreateCertificateWithMeta(caResponse.getCertificateData(), caResponse.getMeta());
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", CertificateUtil.formatCsr(caRequest.getPkcs10()));
         certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
@@ -143,6 +144,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPkcs10(request.getPkcs10());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
+        caRequest.setMeta(oldCertificate.getMeta());
 
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", CertificateUtil.formatCsr(caRequest.getPkcs10()));
@@ -153,7 +155,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
-            certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+            //certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+            certificate = certificateService.checkCreateCertificateWithMeta(caResponse.getCertificateData(), caResponse.getMeta());
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
         } catch (Exception e){
