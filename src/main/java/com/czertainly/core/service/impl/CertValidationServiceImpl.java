@@ -46,6 +46,8 @@ import java.util.concurrent.TimeUnit;
 public class CertValidationServiceImpl implements CertValidationService {
     private static final Logger logger = LoggerFactory.getLogger(CertValidationServiceImpl.class);
 
+    private static final int DAYS_TO_EXPIRE = 30;
+
     @Autowired
     private CertificateService certificateService;
 
@@ -258,44 +260,44 @@ public class CertValidationServiceImpl implements CertValidationService {
             return;
         }
         boolean isValid = validateNotBefore(new Date(), x509.getNotBefore());
-        int validTill = validateNotAfter(new Date(), x509.getNotAfter());
+        long validTill = validateNotAfter(new Date(), x509.getNotAfter());
 
         try {
             x509.verify(x509.getPublicKey());
             certificate.setStatus(CertificateStatus.VALID);
-            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Signature Verification Completed Successfully"));
+            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Signature verification completed successfully"));
         } catch (Exception e) {
-            logger.error("Unable to verify the self signed certificate signature", e);
+            logger.error("Unable to verify the self-signed certificate signature", e);
             validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Unable to verify the signature"));
         }
 
         CertificateStatus status;
         if (!isValid) {
             status = CertificateStatus.INVALID;
-            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.INVALID, "Invalid Start Time. Start Time exceeds current time"));
+            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.INVALID, "Not Valid yet"));
             certificate.setStatus(status);
             certificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(certificate);
             return;
         }
-        if (validTill < 30 && validTill > 0) {
+        if (validTill < TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE) && validTill > 0) {
             status = CertificateStatus.EXPIRING;
-            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING, "Expiring in " + validTill + " days"));
+            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING, "Expiring in " + convertMillisecondsToTimeString(validTill) ));
         }
-        if (validTill > 30) {
+        if (validTill > TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
             status = CertificateStatus.VALID;
-            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Certificate Validity Check Completed Successfully"));
+            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Certificate validity check completed successfully"));
         }
         if (validTill <= 0) {
             status = CertificateStatus.EXPIRED;
-            validationOutput.put("Certificate Expiry", new CertificateValidationDto(CertificateValidationStatus.EXPIRED, "Certificate expired " + validTill * -1 + " days ago"));
+            validationOutput.put("Certificate Expiry", new CertificateValidationDto(CertificateValidationStatus.EXPIRED, "Certificate expired " + convertMillisecondsToTimeString(validTill*-1) + " ago"));
             certificate.setStatus(status);
             certificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(certificate);
             return;
         }
-        validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Self Signed Certificate"));
-        validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Self Signed Certificate"));
+        validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Self-signed Certificate"));
+        validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Self-signed Certificate"));
         certificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
         certificateRepository.save(certificate);
     }
@@ -305,7 +307,7 @@ public class CertValidationServiceImpl implements CertValidationService {
             subjectCertificate.verify(issuerCertificate.getPublicKey());
             return true;
         } catch (Exception e) {
-            logger.warn("Unable to verify certificate for signature.", e);
+            logger.warn("Unable to verify certificate for signature", e);
             return false;
         }
     }
@@ -352,7 +354,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         List<String> ocspUrls = OcspUtil.getOcspUrlFromCertificate(certX509);
 
         boolean isValid = validateNotBefore(new Date(), certX509.getNotBefore());
-        int validTill = validateNotAfter(new Date(), certX509.getNotAfter());
+        long validTill = validateNotAfter(new Date(), certX509.getNotAfter());
 
         CertificateStatus subjectCertificateOriginalStatus = subjectCertificate.getStatus();
 
@@ -360,9 +362,9 @@ public class CertValidationServiceImpl implements CertValidationService {
         Map<String, CertificateValidationDto> validationOutput = getValidationInitialOutput();
 
         if (verifySignature(certX509, x509Issuer)) {
-            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Signature Verification Success"));
+            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Signature verification success"));
         } else {
-            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Signature Verification Failed"));
+            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Signature verification failed"));
             status = CertificateStatus.INVALID;
             subjectCertificate.setStatus(status);
             subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
@@ -372,26 +374,26 @@ public class CertValidationServiceImpl implements CertValidationService {
 
         if (!isValid) {
             status = CertificateStatus.INVALID;
-            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.INVALID, "Invalid Start time"));
+            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.INVALID, "Not valid yet"));
             subjectCertificate.setStatus(status);
             subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(subjectCertificate);
             return;
         }
-        if (validTill < 30 && validTill > 0) {
+        if (validTill < TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE) && validTill > 0) {
             status = CertificateStatus.EXPIRING;
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING,
-                    "Expiring within 30 days"));
+                    "Expiring within " + convertMillisecondsToTimeString(validTill) ));
         }
-        if (validTill > 30) {
+        if (validTill > TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
             status = CertificateStatus.VALID;
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.SUCCESS,
-                    "Certificate Expiry Status Check Successful"));
+                    "Certificate expiry status check successful"));
         }
         if (validTill <= 0) {
             status = CertificateStatus.EXPIRED;
             validationOutput.put("Certificate Expiry", new CertificateValidationDto(CertificateValidationStatus.EXPIRED,
-                    "Certificate Expired " + validTill * -1 + " days ago"));
+                    "Certificate expired " + convertMillisecondsToTimeString(validTill*-1) + " ago"));
             subjectCertificate.setStatus(status);
             subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(subjectCertificate);
@@ -412,15 +414,15 @@ public class CertValidationServiceImpl implements CertValidationService {
                             ocspUrl);
                     if (ocspStatus.equals("Success")) {
                         ocspOutput = "Success";
-                        ocspMessage += "OCSP Verification Success from " + ocspUrl;
+                        ocspMessage += "OCSP verification success from " + ocspUrl;
                     } else if (ocspStatus.equals("Failed")) {
                         isRevoked = true;
                         ocspOutput = "Failed";
-                        ocspMessage += "Certificate was Revoked by information from OCSP.\nOCSP URL: " + ocspUrl;
+                        ocspMessage += "Certificate was revoked according to information from OCSP.\nOCSP URL: " + ocspUrl;
                         break;
                     } else {
                         ocspOutput = "Unknown";
-                        ocspMessage += "OCSP Check result is Unknown.\nOCSP URL: " + ocspUrl;
+                        ocspMessage += "OCSP check result is unknown.\nOCSP URL: " + ocspUrl;
 
                     }
                 }
@@ -470,7 +472,7 @@ public class CertValidationServiceImpl implements CertValidationService {
             if (isRevoked) {
                 status = CertificateStatus.REVOKED;
                 validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.REVOKED, "Certificate was revoked on "
-                        + crlOutput.split("=")[1] + " according the CRL. \n" + " Reason: " +
+                        + crlOutput.split("=")[1] + " according to the CRL. \n" + " Reason: " +
                         crlOutput.split("=")[0] + ".\n CRL URL(s): " + String.join(", ", crlUrls)));
                 subjectCertificate.setStatus(status);
                 subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
@@ -482,11 +484,11 @@ public class CertValidationServiceImpl implements CertValidationService {
                 }
                 if (subjectCertificateOriginalStatus.equals(CertificateStatus.REVOKED)) {
                     validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.REVOKED,
-                            "Certificate revoked via Czertainly. CRL returns Valid. CRL may not be updated.\nCRL URL(s): " + String.join(", ", crlUrls)));
+                            "Certificate revoked via platform. CRL returns valid. CRL may not be updated.\nCRL URL(s): " + String.join(", ", crlUrls)));
                     status = CertificateStatus.REVOKED;
                 } else {
                     validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS,
-                            "CRL Verification completed successfully.\nCRL URL(s): " + String.join(", ", crlUrls)));
+                            "CRL verification completed successfully.\nCRL URL(s): " + String.join(", ", crlUrls)));
                 }
             }
         }
@@ -520,7 +522,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         List<String> ocspUrls = OcspUtil.getOcspUrlFromCertificate(certX509);
 
         boolean isValid = validateNotBefore(new Date(), certX509.getNotBefore());
-        int validTill = validateNotAfter(new Date(), certX509.getNotAfter());
+        long validTill = validateNotAfter(new Date(), certX509.getNotAfter());
 
         CertificateStatus subjectCertificateOriginalStatus = subjectCertificate.getStatus();
 
@@ -528,12 +530,12 @@ public class CertValidationServiceImpl implements CertValidationService {
         Map<String, CertificateValidationDto> validationOutput = getValidationInitialOutput();
         validationOutput.put("Certificate Chain", new CertificateValidationDto(CertificateValidationStatus.WARNING, "Issuer certificate cannot be found. It is unavailable in the inventory and in the AIA extension"));
         if (issuerCertificate == null) {
-            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Issuer Information Unavailable"));
+            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Issuer information unavailable"));
         } else {
             if (verifySignature(certX509, x509Issuer)) {
-                validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Signature Verification Success"));
+                validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Signature verification successful"));
             } else {
-                validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Signature Verification Failed"));
+                validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Signature verification failed"));
                 status = CertificateStatus.INVALID;
                 subjectCertificate.setStatus(status);
                 subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
@@ -544,26 +546,26 @@ public class CertValidationServiceImpl implements CertValidationService {
 
         if (!isValid) {
             status = CertificateStatus.INVALID;
-            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.INVALID, "Invalid Start time"));
+            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.INVALID, "Not valid yet"));
             subjectCertificate.setStatus(status);
             subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(subjectCertificate);
             return;
         }
-        if (validTill < 30 && validTill > 0) {
+        if (validTill <= TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE) && validTill > 0) {
             status = CertificateStatus.EXPIRING;
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING,
-                    "Expiring within 30 days"));
+                    "Expiring within " + convertMillisecondsToTimeString(validTill) ));
         }
-        if (validTill > 30) {
+        if (validTill > TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
             status = CertificateStatus.VALID;
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.SUCCESS,
-                    "Certificate Expiry Status Check Successful"));
+                    "Certificate expiry status check successful"));
         }
-        if (validTill <= 0) {
+        if (validTill < 0) {
             status = CertificateStatus.EXPIRED;
             validationOutput.put("Certificate Expiry", new CertificateValidationDto(CertificateValidationStatus.EXPIRED,
-                    "Certificate Expired " + validTill * -1 + " days ago"));
+                    "Certificate expired " + convertMillisecondsToTimeString(validTill*-1) + " ago"));
             subjectCertificate.setStatus(status);
             subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(subjectCertificate);
@@ -575,7 +577,7 @@ public class CertValidationServiceImpl implements CertValidationService {
             }
             validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.WARNING, "No OCSP URL in certificate"));
         } else if (x509Issuer == null) {
-            validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Issuer Information Unavailable"));
+            validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Issuer information unavailable"));
         } else {
             try {
                 Boolean isRevoked = false;
@@ -586,15 +588,15 @@ public class CertValidationServiceImpl implements CertValidationService {
                             ocspUrl);
                     if (ocspStatus.equals("Success")) {
                         ocspOutput = "Success";
-                        ocspMessage += "OCSP Verification Success from " + ocspUrl;
+                        ocspMessage += "OCSP verification successful from " + ocspUrl;
                     } else if (ocspStatus.equals("Failed")) {
                         isRevoked = true;
                         ocspOutput = "Failed";
-                        ocspMessage += "Certificate was Revoked by information from OCSP.\nOCSP URL: " + ocspUrl;
+                        ocspMessage += "Certificate was revoked according to information from OCSP.\nOCSP URL: " + ocspUrl;
                         break;
                     } else {
                         ocspOutput = "Unknown";
-                        ocspMessage += "OCSP Check result is Unknown.\nOCSP URL: " + ocspUrl;
+                        ocspMessage += "OCSP Check result is unknown.\nOCSP URL: " + ocspUrl;
 
                     }
 
@@ -645,7 +647,7 @@ public class CertValidationServiceImpl implements CertValidationService {
             if (isRevoked) {
                 status = CertificateStatus.REVOKED;
                 validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.REVOKED, "Certificate was revoked on "
-                        + crlOutput.split("=")[1] + " according the CRL. \n" + " Reason: " +
+                        + crlOutput.split("=")[1] + " according to the CRL. \n" + " Reason: " +
                         crlOutput.split("=")[0] + ".\n CRL URL(s): " + String.join(", ", crlUrls)));
                 subjectCertificate.setStatus(status);
                 subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
@@ -657,11 +659,11 @@ public class CertValidationServiceImpl implements CertValidationService {
                 }
                 if (subjectCertificateOriginalStatus.equals(CertificateStatus.REVOKED)) {
                     validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.REVOKED,
-                            "Certificate revoked via Czertainly. CRL returns Valid. CRL may not be updated.\nCRL URL(s): " + String.join(", ", crlUrls)));
+                            "Certificate revoked via platform. CRL returns valid. CRL may not be updated.\nCRL URL(s): " + String.join(", ", crlUrls)));
                     status = CertificateStatus.REVOKED;
                 } else {
                     validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS,
-                            "CRL Verification completed successfully.\nCRL URL(s): " + String.join(", ", crlUrls)));
+                            "CRL verification completed successfully.\nCRL URL(s): " + String.join(", ", crlUrls)));
                 }
             }
         }
@@ -700,9 +702,19 @@ public class CertValidationServiceImpl implements CertValidationService {
         return today.after(notBefore);
     }
 
-    private int validateNotAfter(Date today, Date notAfter) {
-        long diff = notAfter.getTime() - today.getTime();
-        return (int) TimeUnit.DAYS.convert(diff, TimeUnit.MILLISECONDS);
+    private long validateNotAfter(Date today, Date notAfter) {
+        return notAfter.getTime() - today.getTime();
     }
 
+    private String convertMillisecondsToTimeString(long milliseconds) {
+        final long dy = TimeUnit.MILLISECONDS.toDays(milliseconds);
+        final long hr = TimeUnit.MILLISECONDS.toHours(milliseconds)
+                - TimeUnit.DAYS.toHours(TimeUnit.MILLISECONDS.toDays(milliseconds));
+        final long min = TimeUnit.MILLISECONDS.toMinutes(milliseconds)
+                - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(milliseconds));
+        final long sec = TimeUnit.MILLISECONDS.toSeconds(milliseconds)
+                - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(milliseconds));
+
+        return String.format("%d days %d hours %d minutes %d seconds", dy, hr, min, sec);
+    }
 }
