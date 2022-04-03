@@ -99,12 +99,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
         // the CSR should be properly converted to ensure consistent Base64-encoded format
+        String pkcs10;
         try {
-            caRequest.setPkcs10(Base64.getEncoder().encodeToString(parseCsrToJcaObject(request.getPkcs10()).getEncoded()));
+            pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(request.getPkcs10()).getEncoded());
         } catch (IOException e) {
             logger.debug("Failed to parse CSR: " + e);
             throw new CertificateException(e);
         }
+        caRequest.setPkcs10(pkcs10);
         caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
 
@@ -116,7 +118,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         //Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         Certificate certificate = certificateService.checkCreateCertificateWithMeta(caResponse.getCertificateData(), caResponse.getMeta());
         HashMap<String, Object> additionalInformation = new HashMap<>();
-        additionalInformation.put("CSR", CertificateUtil.formatCsr(caRequest.getPkcs10()));
+        additionalInformation.put("CSR", pkcs10);
         certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
 
         logger.info("Certificate created {}", certificate);
@@ -148,18 +150,20 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         logger.debug("Renewing Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
         // the CSR should be properly converted to ensure consistent Base64-encoded format
+        String pkcs10;
         try {
-            caRequest.setPkcs10(Base64.getEncoder().encodeToString(parseCsrToJcaObject(request.getPkcs10()).getEncoded()));
+            pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(request.getPkcs10()).getEncoded());
         } catch (IOException e) {
             logger.debug("Failed to parse CSR: " + e);
             throw new CertificateException(e);
         }
+        caRequest.setPkcs10(pkcs10);
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
         caRequest.setMeta(oldCertificate.getMeta());
 
         HashMap<String, Object> additionalInformation = new HashMap<>();
-        additionalInformation.put("CSR", CertificateUtil.formatCsr(caRequest.getPkcs10()));
+        additionalInformation.put("CSR", pkcs10);
         Certificate certificate = null;
         CertificateDataResponseDto caResponse = null;
         try {
