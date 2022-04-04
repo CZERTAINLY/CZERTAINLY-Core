@@ -33,7 +33,7 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
     @Column(name="message")
     private String message;
 
-    @Column(name="additional_information")
+    @Column(name="additional_information", columnDefinition = "TEXT")
     private String additionalInformation;
 
     @ManyToOne
