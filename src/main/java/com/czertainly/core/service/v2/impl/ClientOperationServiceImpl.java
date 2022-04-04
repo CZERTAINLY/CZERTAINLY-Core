@@ -31,10 +31,8 @@ import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.ValidatorUtil;
+import com.czertainly.core.util.*;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +40,9 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.io.IOException;
 import java.security.cert.CertificateException;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 
@@ -98,7 +98,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
-        caRequest.setPkcs10(request.getPkcs10());
+        // the CSR should be properly converted to ensure consistent Base64-encoded format
+        String pkcs10;
+        try {
+            pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(request.getPkcs10()).getEncoded());
+        } catch (IOException e) {
+            logger.debug("Failed to parse CSR: " + e);
+            throw new CertificateException(e);
+        }
+        caRequest.setPkcs10(pkcs10);
         caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
 
@@ -110,7 +118,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         //Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         Certificate certificate = certificateService.checkCreateCertificateWithMeta(caResponse.getCertificateData(), caResponse.getMeta());
         HashMap<String, Object> additionalInformation = new HashMap<>();
-        additionalInformation.put("CSR", CertificateUtil.formatCsr(caRequest.getPkcs10()));
+        additionalInformation.put("CSR", pkcs10);
         certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
 
         logger.info("Certificate created {}", certificate);
@@ -141,13 +149,21 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Renewing Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
-        caRequest.setPkcs10(request.getPkcs10());
+        // the CSR should be properly converted to ensure consistent Base64-encoded format
+        String pkcs10;
+        try {
+            pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(request.getPkcs10()).getEncoded());
+        } catch (IOException e) {
+            logger.debug("Failed to parse CSR: " + e);
+            throw new CertificateException(e);
+        }
+        caRequest.setPkcs10(pkcs10);
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
         caRequest.setMeta(oldCertificate.getMeta());
 
         HashMap<String, Object> additionalInformation = new HashMap<>();
-        additionalInformation.put("CSR", CertificateUtil.formatCsr(caRequest.getPkcs10()));
+        additionalInformation.put("CSR", pkcs10);
         Certificate certificate = null;
         CertificateDataResponseDto caResponse = null;
         try {
@@ -235,5 +251,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }catch(Exception e) {
             logger.warn(e.getMessage());
         }
+    }
+
+    private JcaPKCS10CertificationRequest parseCsrToJcaObject(String pkcs10) throws IOException {
+        JcaPKCS10CertificationRequest csr;
+        try {
+            csr = CsrUtil.csrStringToJcaObject(pkcs10);
+        } catch (IOException e) {
+            logger.debug("Failed to parse CSR, will decode and try again...");
+            String decodedPkcs10 = new String(Base64.getDecoder().decode(pkcs10));
+            csr = CsrUtil.csrStringToJcaObject(decodedPkcs10);
+        }
+        return csr;
     }
 }
