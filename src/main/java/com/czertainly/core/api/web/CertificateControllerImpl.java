@@ -2,21 +2,25 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.certificate.BulkOperationStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -34,9 +38,12 @@ public class CertificateControllerImpl implements CertificateController {
 	@Autowired
 	private CertValidationService certValidationService;
 
+	@Autowired
+	private CertificateEventHistoryService certificateEventHistoryService;
+
 	@Override
-	public List<CertificateDto> listCertificate(@RequestParam(required = false) Integer start,@RequestParam(required = false) Integer end) {
-		return certificateService.listCertificates(start, end);
+	public CertificateResponseDto listCertificate(SearchRequestDto request) throws ValidationException {
+		return certificateService.listCertificates(request);
 	}
 
 	@Override
@@ -112,7 +119,7 @@ public class CertificateControllerImpl implements CertificateController {
 	// ------------------- /Bulk Update API -----------------------
 
 	@Override
-	public ResponseEntity<?> upload(@RequestBody UploadCertificateRequestDto request)
+	public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
 			throws AlreadyExistException, CertificateException {
 		CertificateDto dto = certificateService.upload(request);
 		URI location = ServletUriComponentsBuilder
@@ -122,17 +129,31 @@ public class CertificateControllerImpl implements CertificateController {
                 .toUri();
 		UuidDto responseDto = new UuidDto();
 		responseDto.setUuid(dto.getUuid());
-        return ResponseEntity.created(location).build();
+        return ResponseEntity.created(location).body(responseDto);
 	}
 
 	@Override
-	public void bulkRemoveCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
+	public BulkOperationResponse bulkRemoveCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
 		certificateService.bulkRemoveCertificate(request);
+		BulkOperationResponse response = new BulkOperationResponse();
+		response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
+		response.setStatus(BulkOperationStatus.SUCCESS);
+		return response;
 	}
 
 	@Override
 	public void validateAllCertificate() {
 		certValidationService.validateAllCertificates();
+	}
+
+	@Override
+	public List<SearchFieldDataDto> getSearchableFieldInformation() {
+		return certificateService.getSearchableFieldInformation();
+	}
+
+	@Override
+	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
+		return certificateEventHistoryService.getCertificateEventHistory(uuid);
 	}
 
 }

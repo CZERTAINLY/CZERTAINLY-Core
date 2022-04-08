@@ -498,7 +498,7 @@ public class ExtendedAcmeHelperService {
         return order;
     }
 
-    @Async
+    @Async("threadPoolTaskExecutor")
     public void finalizeOrder(AcmeOrder order) throws AcmeProblemDocumentException {
         CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateFinalizeRequest.class);
         logger.debug("Finalize Order: {}", request.toString());
@@ -534,7 +534,7 @@ public class ExtendedAcmeHelperService {
         return decodedCsr.toString();
     }
 
-    @Async
+    @Async("threadPoolTaskExecutor")
     private void createCert(AcmeOrder order, ClientCertificateSignRequestDto certificateSignRequestDto) {
         if(logger.isDebugEnabled()) {
             logger.debug("Initiating issue Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());
