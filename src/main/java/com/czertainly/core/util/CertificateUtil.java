@@ -5,6 +5,9 @@ import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.config.ApplicationConfig;
 import com.czertainly.core.dao.entity.Certificate;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +16,8 @@ import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
 import javax.xml.bind.DatatypeConverter;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
@@ -210,4 +215,41 @@ public class CertificateUtil {
             }
         }
     }
+
+	public static String formatCsr(String unformattedCsr) {
+		try {
+			JcaPKCS10CertificationRequest jcaPKCS10CertificationRequest = csrStringToJcaObject(unformattedCsr);
+			return JcaObjectToString(jcaPKCS10CertificationRequest);
+		} catch (CertificateException e) {
+			logger.debug("Failed to parse and format CSR : ", unformattedCsr);
+			logger.error(e.getMessage());
+			return unformattedCsr;
+		}
+	}
+
+	private static JcaPKCS10CertificationRequest csrStringToJcaObject(String csr) throws CertificateException {
+		csr = csr.replace("-----BEGIN CERTIFICATE REQUEST-----", "")
+				.replaceAll(System.lineSeparator(), "")
+				.replace("-----END CERTIFICATE REQUEST-----", "");
+		byte[] decoded = Base64.getDecoder().decode(csr);
+		try {
+			return new JcaPKCS10CertificationRequest(decoded);
+		} catch (IOException e) {
+			throw new CertificateException("Failed to parse CSR. " + e.getMessage());
+		}
+	}
+
+	private static String JcaObjectToString(JcaPKCS10CertificationRequest pkcs10CertificationRequest) throws CertificateException {
+		try {
+			PemObject pemCSR = new PemObject("CERTIFICATE REQUEST", pkcs10CertificationRequest.getEncoded());
+			StringWriter decodedCsr = new StringWriter();
+			JcaPEMWriter pemWriter = new JcaPEMWriter(decodedCsr);
+			pemWriter.writeObject(pemCSR);
+			pemWriter.close();
+			decodedCsr.close();
+			return decodedCsr.toString();
+		} catch (IOException | NullPointerException e) {
+			throw new CertificateException("Failed to format CSR. " + e.getMessage());
+		}
+	}
 }

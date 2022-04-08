@@ -14,6 +14,8 @@ import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateSignRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateEvent;
+import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
@@ -25,11 +27,12 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.ValidatorUtil;
+import com.czertainly.core.util.*;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +40,10 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.io.IOException;
 import java.security.cert.CertificateException;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 
 @Service("clientOperationServiceImplV2")
@@ -52,6 +58,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CertificateApiClient certificateApiClient;
     @Autowired
     private CertificateService certificateService;
+    @Autowired
+    private CertificateEventHistoryService certificateEventHistoryService;
     @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
@@ -90,7 +98,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
-        caRequest.setPkcs10(request.getPkcs10());
+        // the CSR should be properly converted to ensure consistent Base64-encoded format
+        String pkcs10;
+        try {
+            pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(request.getPkcs10()).getEncoded());
+        } catch (IOException e) {
+            logger.debug("Failed to parse CSR: " + e);
+            throw new CertificateException(e);
+        }
+        caRequest.setPkcs10(pkcs10);
         caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
 
@@ -99,19 +115,22 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                 caRequest);
 
-        Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+        //Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+        Certificate certificate = certificateService.checkCreateCertificateWithMeta(caResponse.getCertificateData(), caResponse.getMeta());
+        HashMap<String, Object> additionalInformation = new HashMap<>();
+        additionalInformation.put("CSR", pkcs10);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
 
-        logger.info("Certificate Created. Adding the certificate to Inventory");
+        logger.info("Certificate created {}", certificate);
         CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
         dto.setRaProfileUuid(raProfile.getUuid());
-        logger.debug("Id of the certificate is {}", certificate.getId());
-        logger.debug("Id of the RA Profile is {}", raProfile.getId());
+        logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
         certificateService.updateRaProfile(certificate.getUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
         } catch (Exception e){
-            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
+            logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
         ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
@@ -128,29 +147,50 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         Certificate oldCertificate = certificateService.getCertificateEntity(certificateUuid);
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
-
+        logger.debug("Renewing Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
-        caRequest.setPkcs10(request.getPkcs10());
+        // the CSR should be properly converted to ensure consistent Base64-encoded format
+        String pkcs10;
+        try {
+            pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(request.getPkcs10()).getEncoded());
+        } catch (IOException e) {
+            logger.debug("Failed to parse CSR: " + e);
+            throw new CertificateException(e);
+        }
+        caRequest.setPkcs10(pkcs10);
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
+        caRequest.setMeta(oldCertificate.getMeta());
 
-        CertificateDataResponseDto caResponse = certificateApiClient.renewCertificate(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                caRequest);
+        HashMap<String, Object> additionalInformation = new HashMap<>();
+        additionalInformation.put("CSR", pkcs10);
+        Certificate certificate = null;
+        CertificateDataResponseDto caResponse = null;
+        try {
+            caResponse = certificateApiClient.renewCertificate(
+                    raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                    raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                    caRequest);
+            //certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+            certificate = certificateService.checkCreateCertificateWithMeta(caResponse.getCertificateData(), caResponse.getMeta());
+            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
+        } catch (Exception e){
+            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
+            logger.error("Failed to renew Certificate", e.getMessage());
+            return null;
+        }
 
-        Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
-        logger.info("Certificate Renewed. Adding the certificate to Inventory");
+        logger.info("Certificate Renewed: {}", certificate);
         CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
         dto.setRaProfileUuid(raProfile.getUuid());
-        logger.debug("Id of the certificate is {}", certificate.getId());
-        logger.debug("Id of the RA Profile is {}", raProfile.getId());
+        logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
         certificateService.updateRaProfile(certificate.getUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
         } catch (Exception e){
-            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
+            logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
         ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
@@ -187,24 +227,41 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
-
-        logger.debug("Ra Profile {} set for revoking the certificate", raProfile.getName());
+        logger.debug("Revoking Certificate: ", certificate.toString());
 
         CertRevocationDto caRequest = new CertRevocationDto();
         caRequest.setReason(request.getReason());
         caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(certificate.getCertificateContent().getContent());
-
-        certificateApiClient.revokeCertificate(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                caRequest);
+        try {
+            certificateApiClient.revokeCertificate(
+                    raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                    raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                    caRequest);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked", "", certificate);
+        }catch (Exception e){
+            certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "", certificate);
+            logger.error(e.getMessage());
+            return;
+        }
         try {
             certificate.setStatus(CertificateStatus.REVOKED);
             certificateRepository.save(certificate);
         }catch(Exception e) {
             logger.warn(e.getMessage());
         }
+    }
+
+    private JcaPKCS10CertificationRequest parseCsrToJcaObject(String pkcs10) throws IOException {
+        JcaPKCS10CertificationRequest csr;
+        try {
+            csr = CsrUtil.csrStringToJcaObject(pkcs10);
+        } catch (IOException e) {
+            logger.debug("Failed to parse CSR, will decode and try again...");
+            String decodedPkcs10 = new String(Base64.getDecoder().decode(pkcs10));
+            csr = CsrUtil.csrStringToJcaObject(decodedPkcs10);
+        }
+        return csr;
     }
 }

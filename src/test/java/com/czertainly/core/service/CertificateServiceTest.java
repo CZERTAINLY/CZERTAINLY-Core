@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import org.junit.jupiter.api.Assertions;
@@ -85,11 +86,11 @@ public class CertificateServiceTest {
 
     @Test
     public void testListCertificates() {
-        List<CertificateDto> certificateEntities = certificateService.listCertificates(0, 1);
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(new SearchRequestDto());
         Assertions.assertNotNull(certificateEntities);
-        Assertions.assertFalse(certificateEntities.isEmpty());
-        Assertions.assertEquals(1, certificateEntities.size());
-        Assertions.assertEquals(certificate.getUuid(), certificateEntities.get(0).getUuid());
+        Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
+        Assertions.assertEquals(1, certificateEntities.getCertificates().size());
+        Assertions.assertEquals(certificate.getUuid(), certificateEntities.getCertificates().get(0).getUuid());
     }
 
     @Test
@@ -126,12 +127,6 @@ public class CertificateServiceTest {
     @Test
     public void testAddCertificate_certificateException() {
         Assertions.assertThrows(CertificateException.class, () -> certificateService.checkCreateCertificate("certificate"));
-    }
-
-    @Test
-    public void testRemoveCertificate() throws NotFoundException {
-        certificateService.removeCertificate(certificate.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getUuid()));
     }
 
     @Test
@@ -250,7 +245,6 @@ public class CertificateServiceTest {
     public void testUpdateOwner() throws NotFoundException {
         CertificateOwnerRequestDto request = new CertificateOwnerRequestDto();
         request.setOwner("newOwner");
-
         certificateService.updateOwner(certificate.getUuid(), request);
 
         Assertions.assertEquals(request.getOwner(), certificate.getOwner());
@@ -262,12 +256,19 @@ public class CertificateServiceTest {
     }
 
     @Test
+    public void testSearchableFields() {
+        List<SearchFieldDataDto> response = certificateService.getSearchableFieldInformation();
+        Assertions.assertNotNull(response);
+        Assertions.assertFalse(response.isEmpty());
+    }
+
+    @Test
     public void testBulkRemove() throws NotFoundException {
         RemoveCertificateDto request = new RemoveCertificateDto();
         request.setUuids(List.of(certificate.getUuid()));
 
         certificateService.bulkRemoveCertificate(request);
 
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getUuid()));
+        Assertions.assertAll(() -> certificateService.getCertificate(certificate.getUuid()));
     }
 }
