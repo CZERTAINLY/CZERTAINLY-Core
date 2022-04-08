@@ -80,7 +80,18 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 
 ## Docker container
 
-`Core` is provided as a Docker container. Use the 3keycompany/czertainly-core:tagname to pull the required image from the repository.
+`Core` is provided as a Docker container. Use the 3keycompany/czertainly-core:tagname to pull the required image from the repository. It can be configured using the following environment variables:
+
+| Variable | Description | Required | Default value |
+| --- | --- | --- | --- |
+| `JDBC_URL` | JDBC URL for database access | Yes | N/A |
+| `JDBC_USERNAME` | Username to access the database | Yes | N/A |
+| `JDBC_PASSWORD` | Password to access the database | Yes | N/A |
+| `DB_SCHEMA` | Database schema to use | No | ejbca |
+| `PORT` | Port where the service is exposed | No | 8080 |
+| `HEADER_NAME` | Name of the header where the certificate of the client can be found | No | X-APP-CERTIFICATE |
+| `HEADER_ENABLED` | True if the certificate should be get from the header | Yes | N/A |
+| `TS_PASSWORD` | Password for the trusted certificate store | Yes | Any |
 
 ## Monitoring and reporting
 
