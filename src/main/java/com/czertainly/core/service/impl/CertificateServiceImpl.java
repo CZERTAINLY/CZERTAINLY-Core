@@ -186,7 +186,7 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateGroup certificateGroup = groupRepository.findByUuid(request.getGroupUuid())
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getGroupUuid()));
         String originalGroup = "undefined";
-        if (certificate.getOwner() != null) {
+        if (certificate.getGroup() != null) {
             originalGroup = certificate.getGroup().getName();
         }
         certificate.setGroup(certificateGroup);
