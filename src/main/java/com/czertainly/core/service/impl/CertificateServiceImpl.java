@@ -69,9 +69,6 @@ public class CertificateServiceImpl implements CertificateService {
     private GroupRepository groupRepository;
 
     @Autowired
-    private EntityRepository entityRepository;
-
-    @Autowired
     private CertificateContentRepository certificateContentRepository;
 
     @Autowired
@@ -196,23 +193,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateEntity(String uuid, CertificateUpdateEntityDto request) throws NotFoundException {
-        Certificate certificate = certificateRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        CertificateEntity certificateEntity = entityRepository.findByUuid(request.getEntityUuid())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getEntityUuid()));
-        String originalEntity = "undefined";
-        if (certificate.getEntity() != null) {
-            originalEntity = certificate.getEntity().getName();
-        }
-        certificate.setEntity(certificateEntity);
-        certificateRepository.save(certificate);
-        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
-
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void updateOwner(String uuid, CertificateOwnerRequestDto request) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
@@ -273,30 +253,6 @@ public class CertificateServiceImpl implements CertificateService {
             String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(groupUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
-        }
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException {
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-        if (request.getFilters() == null) {
-            List<Certificate> batchOperationList = new ArrayList<>();
-            for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, certificate.getEntity() != null ? certificate.getEntity().getName() : "undefined" + " -> " + certificateEntity.getName(), "", certificate));
-                certificate.setEntity(certificateEntity);
-                batchOperationList.add(certificate);
-                certificateRepository.saveAll(batchOperationList);
-                certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
-            }
-        } else {
-            String entityUpdateQuery = "UPDATE Certificate c SET c.entity = " + certificateEntity.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            certificateRepository.bulkUpdateQuery(entityUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Entity Name: " + certificateEntity.getName());
         }
     }
 
@@ -549,9 +505,6 @@ public class CertificateServiceImpl implements CertificateService {
         SearchFieldDataDto raProfileFilter = SearchLabelConstants.RA_PROFILE_NAME_FILTER;
         raProfileFilter.setValue(raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()));
 
-        SearchFieldDataDto entityFilter = SearchLabelConstants.ENTITY_NAME_FILTER;
-        entityFilter.setValue(entityRepository.findAll().stream().map(CertificateEntity::getName).collect(Collectors.toList()));
-
         SearchFieldDataDto groupFilter = SearchLabelConstants.GROUP_NAME_FILTER;
         groupFilter.setValue(groupRepository.findAll().stream().map(CertificateGroup::getName).collect(Collectors.toList()));
 
@@ -572,7 +525,6 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchLabelConstants.SERIAL_NUMBER_FILTER,
                 SearchLabelConstants.ISSUER_SERIAL_NUMBER_FILTER,
                 raProfileFilter,
-                entityFilter,
                 groupFilter,
                 SearchLabelConstants.OWNER_FILTER,
                 SearchLabelConstants.STATUS_FILTER,

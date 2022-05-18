@@ -36,12 +36,12 @@ public interface CertificateService {
 	
 	void updateRaProfile(String uuid, CertificateUpdateRAProfileDto request) throws NotFoundException;
     void updateCertificateGroup(String uuid, CertificateUpdateGroupDto request) throws NotFoundException;
-    void updateEntity(String uuid, CertificateUpdateEntityDto request) throws NotFoundException;
+
     void updateOwner(String uuid, CertificateOwnerRequestDto request) throws NotFoundException;
 
     void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException;
     void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException;
-    void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException;
+
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
 
     List<SearchFieldDataDto> getSearchableFieldInformation();

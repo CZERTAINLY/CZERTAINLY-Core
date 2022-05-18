@@ -74,12 +74,6 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public void updateEntity(@PathVariable String uuid, @RequestBody CertificateUpdateEntityDto request)
-			throws NotFoundException {
-		certificateService.updateEntity(uuid, request);
-	}
-
-	@Override
 	public void updateOwner(@PathVariable String uuid, @RequestBody CertificateOwnerRequestDto request)
 			throws NotFoundException {
 		certificateService.updateOwner(uuid, request);
@@ -103,12 +97,6 @@ public class CertificateControllerImpl implements CertificateController {
 	public void bulkUpdateCertificateGroup(@RequestBody MultipleGroupUpdateDto request)
 			throws NotFoundException {
 		certificateService.bulkUpdateCertificateGroup(request);
-	}
-
-	@Override
-	public void bulkUpdateEntity(@RequestBody MultipleEntityUpdateDto request)
-			throws NotFoundException {
-		certificateService.bulkUpdateEntity(request);
 	}
 
 	@Override
