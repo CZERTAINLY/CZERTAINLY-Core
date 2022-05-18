@@ -42,7 +42,7 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
-                .path("/{uuid}")
+                .path("/{entityUuid}")
                 .buildAndExpand(entityInstance.getUuid())
                 .toUri();
         UuidDto dto = new UuidDto();

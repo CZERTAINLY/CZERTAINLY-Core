@@ -73,6 +73,11 @@ public class ApplicationConfig {
     }
 
     @Bean
+    public LocationApiClient locationApiClient(WebClient webClient) {
+        return new LocationApiClient(webClient);
+    }
+
+    @Bean
     public EndEntityProfileApiClient endEntityProfileApiClient(WebClient webClient) {
         return new EndEntityProfileApiClient(webClient);
     }
