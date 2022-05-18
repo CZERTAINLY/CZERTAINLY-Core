@@ -68,6 +68,11 @@ public class ApplicationConfig {
     }
 
     @Bean
+    public EntityInstanceApiClient entityInstanceApiClient(WebClient webClient) {
+        return new EntityInstanceApiClient(webClient);
+    }
+
+    @Bean
     public EndEntityProfileApiClient endEntityProfileApiClient(WebClient webClient) {
         return new EndEntityProfileApiClient(webClient);
     }
