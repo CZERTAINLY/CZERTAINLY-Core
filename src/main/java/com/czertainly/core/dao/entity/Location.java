@@ -1,20 +1,19 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
-import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.czertainly.core.util.MetaDefinitions;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Entity
 @Table(name = "location")
@@ -47,11 +46,21 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
     private Boolean enabled;
 
     @OneToMany(
-            mappedBy = "certificate",
+            mappedBy = "location",
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
+    @JsonBackReference
     private Set<CertificateLocation> certificates = new HashSet<>();
+
+    @Column(name = "support_multi_entries")
+    private boolean supportMultipleEntries;
+
+    @Column(name = "support_key_mgmt")
+    private boolean supportKeyManagement;
+
+    @Column(name = "metadata")
+    private String metadata;
 
     public Long getId() {
         return id;
@@ -85,12 +94,12 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
         this.entityInstanceName = entityInstanceName;
     }
 
-    public String getAttributes() {
-        return attributes;
+    public List<RequestAttributeDto> getRequestAttributes() {
+        return AttributeDefinitionUtils.deserializeRequestAttributes(this.attributes);
     }
 
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
+    public void setAttributes(List<AttributeDefinition> attributes) {
+        this.attributes = AttributeDefinitionUtils.serialize(attributes);
     }
 
     public EntityInstanceReference getEntityInstanceReference() {
@@ -117,6 +126,30 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
         this.certificates = certificates;
     }
 
+    public boolean isSupportMultipleEntries() {
+        return supportMultipleEntries;
+    }
+
+    public void setSupportMultipleEntries(boolean supportMultipleEntries) {
+        this.supportMultipleEntries = supportMultipleEntries;
+    }
+
+    public boolean isSupportKeyManagement() {
+        return supportKeyManagement;
+    }
+
+    public void setSupportKeyManagement(boolean supportKeyManagement) {
+        this.supportKeyManagement = supportKeyManagement;
+    }
+
+    public Map<String, Object> getMetadata() {
+        return MetaDefinitions.deserialize(metadata);
+    }
+
+    public void setMetadata(Map<String, Object> metadata) {
+        this.metadata = MetaDefinitions.serialize(metadata);
+    }
+
     @Override
     @Transient
     public LocationDto mapToDto() {
@@ -128,6 +161,38 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
         dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);
+        dto.setSupportMultipleEntries(supportMultipleEntries);
+        dto.setSupportKeyManagement(supportKeyManagement);
+        dto.setMetadata(MetaDefinitions.deserialize(metadata));
+
+        List<CertificateInLocationDto> cilDtoList = new ArrayList<>();
+        for (CertificateLocation certificateLocation : this.certificates) {
+            CertificateInLocationDto cilDto = new CertificateInLocationDto();
+            cilDto.setMetadata(certificateLocation.getMetadata());
+            cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
+            cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
+            cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid());
+            cilDto.setWithKey(certificateLocation.isWithKey());
+
+            cilDtoList.add(cilDto);
+        }
+        dto.setCertificates(cilDtoList);
+
+        return dto;
+    }
+
+    public LocationDto mapToDtoSimple() {
+        LocationDto dto = new LocationDto();
+        dto.setUuid(uuid);
+        dto.setName(name);
+        dto.setDescription(this.description);
+        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid() : null);
+        dto.setEntityInstanceName(this.entityInstanceName);
+        dto.setEnabled(enabled);
+        dto.setSupportMultipleEntries(supportMultipleEntries);
+        dto.setSupportKeyManagement(supportKeyManagement);
+        dto.setMetadata(MetaDefinitions.deserialize(metadata));
+
         return dto;
     }
 

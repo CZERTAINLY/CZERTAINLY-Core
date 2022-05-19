@@ -7,7 +7,6 @@ import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.slf4j.Logger;
@@ -101,10 +100,11 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     private Long groupId;
 
     @OneToMany(
-            mappedBy = "location",
+            mappedBy = "certificate",
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
+    @JsonBackReference
     private Set<CertificateLocation> locations = new HashSet<>();
 
     @Column(name = "owner")

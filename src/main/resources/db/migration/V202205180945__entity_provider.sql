@@ -28,11 +28,15 @@ create table location (
     enabled                   boolean,
     name                      varchar(255),
     entity_instance_ref_id    int8,
+    support_multi_entries     boolean,
+    support_key_mgmt          boolean,
+    metadata                  text null default null,
     primary key (id)
 );
 
 create table certificate_location (
-    additional_data           text null default null,
+    metadata                  text null default null,
+    with_key                  boolean,
     location_id               int8 not null,
     certificate_id            int8 not null,
     primary key (location_id, certificate_id)

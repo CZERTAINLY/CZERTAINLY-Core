@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.LocationManagementController;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
@@ -38,7 +35,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public ResponseEntity<?> addLocation(AddLocationRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public ResponseEntity<?> addLocation(AddLocationRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, CertificateException {
         LocationDto locationDto = locationService.addLocation(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{locationUuid}")
                 .buildAndExpand(locationDto.getUuid()).toUri();
@@ -53,7 +50,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public LocationDto editLocation(String locationUuid, EditLocationRequestDto request) throws ConnectorException {
+    public LocationDto editLocation(String locationUuid, EditLocationRequestDto request) throws ConnectorException, CertificateException {
         return locationService.editLocation(locationUuid, request);
     }
 
@@ -84,18 +81,22 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     public LocationDto pushCertificate(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws ConnectorException {
-        return null;
+        return locationService.pushCertificateToLocation(locationUuid, certificateUuid, request);
     }
 
     @Override
     public LocationDto removeCertificate(String locationUuid, String certificateUuid) throws ConnectorException {
-        return null;
+        return locationService.removeCertificateFromLocation(locationUuid, certificateUuid);
     }
 
     @Override
-    public LocationDto issueCertificate(String locationUuid, String raProfileUuid, IssueToLocationRequestDto request) throws ConnectorException {
-        return null;
+    public LocationDto issueCertificate(String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException {
+        return locationService.issueCertificateToLocation(locationUuid, request);
     }
 
+    @Override
+    public LocationDto updateLocationContent(String locationUuid) throws ConnectorException, CertificateException {
+        return locationService.updateLocationContent(locationUuid);
+    }
 
 }

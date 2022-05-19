@@ -1,9 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
@@ -16,10 +13,7 @@ import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.service.CertValidationService;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.SearchService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
@@ -92,6 +86,10 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private SearchService searchService;
 
+    @Lazy
+    @Autowired
+    private LocationService locationService;
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
@@ -147,15 +145,25 @@ public class CertificateServiceImpl implements CertificateService {
         if (!errors.isEmpty()) {
             throw new ValidationException("Could not delete certificate", errors);
         }
+
+        // remove certificate from Locations
+        try {
+            locationService.removeCertificateFromLocations(uuid);
+        } catch (ConnectorException e) {
+            logger.error("Failed to remove Certificate {} from Locations", uuid);
+        }
+
         if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
             CertificateContent content = certificateContentRepository
                     .findById(certificate.getCertificateContent().getId()).orElse(null);
             if (content != null) {
+                certificateRepository.delete(certificate);
                 certificateContentRepository.delete(content);
             }
+        } else {
+            certificateRepository.delete(certificate);
         }
 
-        certificateRepository.delete(certificate);
     }
 
     @Override
@@ -343,7 +351,6 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
     }
 
-
     @Override
     public List<SearchFieldDataDto> getSearchableFieldInformation() {
         return getSearchableFieldsMap();
@@ -403,6 +410,52 @@ public class CertificateServiceImpl implements CertificateService {
     private X509Certificate getX509(String certificate) throws CertificateException {
         return CertificateUtil.getX509Certificate(certificate.replace("-----BEGIN CERTIFICATE-----", "")
                 .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", ""));
+    }
+
+    @Override
+    public Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException {
+        Certificate entity = new Certificate();
+        String fingerprint;
+
+        // by default we are working with the X.509 certificate
+        if (certificateType == null) {
+            certificateType = CertificateType.X509;
+        }
+        if (!certificateType.equals(CertificateType.X509)) {
+            String message = "Unsupported type of the certificate: " + certificateType;
+            logger.debug(message);
+            throw new com.czertainly.api.exception.CertificateException(message);
+        } else {
+            X509Certificate certificate;
+            try {
+                certificate = getX509(certificateData);
+            } catch (CertificateException e) {
+                String message = "Failed to get parse the certificate " + certificateData + " > " + e.getMessage();
+                logger.error("message");
+                throw new com.czertainly.api.exception.CertificateException(message);
+            }
+            try {
+                fingerprint = CertificateUtil.getThumbprint(certificate.getEncoded());
+                Optional<Certificate> existingCertificate = certificateRepository.findByFingerprint(fingerprint);
+
+                if (existingCertificate.isPresent()) {
+                    logger.debug("Returning existing certificate with fingerprint {}", fingerprint);
+                    return existingCertificate.get();
+                }
+            } catch (NoSuchAlgorithmException | CertificateException e) {
+                String message = "Failed to get thumbprint for certificate " + certificate.getSerialNumber() + " > " + e.getMessage();
+                logger.error("message");
+                throw new com.czertainly.api.exception.CertificateException(message);
+            }
+
+            CertificateUtil.prepareCertificate(entity, certificate);
+            entity.setFingerprint(fingerprint);
+            entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
+
+            //certificateRepository.save(entity);
+
+            return entity;
+        }
     }
 
     @Override

@@ -1,7 +1,11 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.core.util.MetaDefinitions;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.Map;
 import java.util.Objects;
 
 @Entity
@@ -9,7 +13,7 @@ import java.util.Objects;
 public class CertificateLocation implements Serializable {
 
     @EmbeddedId
-    private CertificateLocationId id;
+    private CertificateLocationId id = new CertificateLocationId();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("locationId")
@@ -19,8 +23,11 @@ public class CertificateLocation implements Serializable {
     @MapsId("certificateId")
     private Certificate certificate;
 
-    @Column(name = "additional_data")
-    private String additionalData;
+    @Column(name = "metadata")
+    private String metadata;
+
+    @Column(name = "with_key")
+    private boolean withKey;
 
     public CertificateLocation() {}
 
@@ -54,12 +61,20 @@ public class CertificateLocation implements Serializable {
         this.certificate = certificate;
     }
 
-    public String getAdditionalData() {
-        return additionalData;
+    public Map<String, Object> getMetadata() {
+        return MetaDefinitions.deserialize(metadata);
     }
 
-    public void setAdditionalData(String additionalData) {
-        this.additionalData = additionalData;
+    public void setMetadata(Map<String, Object> metadata) {
+        this.metadata = MetaDefinitions.serialize(metadata);
+    }
+
+    public boolean isWithKey() {
+        return withKey;
+    }
+
+    public void setWithKey(boolean hasPrivateKey) {
+        this.withKey = hasPrivateKey;
     }
 
     @Override
@@ -78,58 +93,4 @@ public class CertificateLocation implements Serializable {
     public int hashCode() {
         return Objects.hash(location, certificate);
     }
-
-    /**
-        Embedded class for a composite primary key
-     */
-    @Embeddable
-    public class CertificateLocationId implements Serializable {
-
-        @Column(name = "location_id")
-        private Long locationId;
-
-        @Column(name = "certificate_id")
-        private Long certificateId;
-
-        public CertificateLocationId() {}
-
-        public CertificateLocationId (Long locationId, Long certificateId) {
-            this.locationId = locationId;
-            this.certificateId = certificateId;
-        }
-
-        public Long getLocationId() {
-            return locationId;
-        }
-
-        public void setLocationId(Long locationId) {
-            this.locationId = locationId;
-        }
-
-        public Long getCertificateId() {
-            return certificateId;
-        }
-
-        public void setCertificateId(Long certificateId) {
-            this.certificateId = certificateId;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-
-            if (o == null || getClass() != o.getClass())
-                return false;
-
-            CertificateLocationId that = (CertificateLocationId) o;
-            return Objects.equals(locationId, that.locationId) &&
-                    Objects.equals(certificateId, that.certificateId);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(locationId, certificateId);
-        }
-    }
-
 }
