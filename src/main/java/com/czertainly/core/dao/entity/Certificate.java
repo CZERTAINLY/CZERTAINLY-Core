@@ -101,8 +101,8 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     @OneToMany(
             mappedBy = "certificate",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
+            cascade = CascadeType.ALL
+            //orphanRemoval = true
     )
     @JsonBackReference
     private Set<CertificateLocation> locations = new HashSet<>();

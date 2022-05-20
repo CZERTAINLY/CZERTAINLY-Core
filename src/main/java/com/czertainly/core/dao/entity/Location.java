@@ -47,8 +47,8 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
 
     @OneToMany(
             mappedBy = "location",
-            cascade = CascadeType.ALL,
-            orphanRemoval = true
+            cascade = CascadeType.ALL
+            //orphanRemoval = true
     )
     @JsonBackReference
     private Set<CertificateLocation> certificates = new HashSet<>();

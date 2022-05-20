@@ -30,10 +30,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.transaction.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class LocationServiceImpl implements LocationService {
 
     private static final Logger logger = LoggerFactory.getLogger(LocationServiceImpl.class);
@@ -41,20 +43,40 @@ public class LocationServiceImpl implements LocationService {
     private static final List<BaseAttributeDefinitionTypes> TO_BE_MASKED = List.of(BaseAttributeDefinitionTypes.SECRET);
 
     @Autowired
+    public void setLocationRepository(LocationRepository locationRepository) {
+        this.locationRepository = locationRepository;
+    }
+    @Autowired
+    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
+    }
+    @Autowired
+    public void setCertificateLocationRepository(CertificateLocationRepository certificateLocationRepository) {
+        this.certificateLocationRepository = certificateLocationRepository;
+    }
+    @Autowired
+    public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
+        this.entityInstanceApiClient = entityInstanceApiClient;
+    }
+    @Autowired
+    public void setLocationApiClient(LocationApiClient locationApiClient) {
+        this.locationApiClient = locationApiClient;
+    }
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+    @Autowired
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
+
     private LocationRepository locationRepository;
-    @Autowired
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    @Autowired
     private CertificateLocationRepository certificateLocationRepository;
-    @Autowired
     private EntityInstanceApiClient entityInstanceApiClient;
-    @Autowired
     private LocationApiClient locationApiClient;
-
-    @Autowired
     private CertificateService certificateService;
-
-    @Autowired
     private ClientOperationService clientOperationService;
 
     @Override
@@ -339,8 +361,7 @@ public class LocationServiceImpl implements LocationService {
         LocationDetailResponseDto locationDetailResponseDto = locationApiClient.getLocationDetail(
                 entityInstanceRef.getConnector().mapToDto(), entityInstanceRef.getEntityInstanceUuid(), locationDetailRequestDto);
 
-        Location updatedLocation = updateLocation(location, locationDetailResponseDto);
-        locationRepository.save(location);
+        Location updatedLocation = updateLocationContent(location, locationDetailResponseDto);
 
         logger.info("Location with name {} and UUID {} synced", location.getName(), location.getUuid());
 
@@ -352,11 +373,11 @@ public class LocationServiceImpl implements LocationService {
         removeCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
         removeCertificateRequestDto.setCertificateMetadata(certificateLocation.getMetadata());
 
-        locationApiClient.removeCertificateFromLocation(
-                certificateLocation.getLocation().getEntityInstanceReference().getConnector().mapToDto(),
-                certificateLocation.getLocation().getEntityInstanceReference().getEntityInstanceUuid(),
-                removeCertificateRequestDto
-        );
+//        locationApiClient.removeCertificateFromLocation(
+//                certificateLocation.getLocation().getEntityInstanceReference().getConnector().mapToDto(),
+//                certificateLocation.getLocation().getEntityInstanceReference().getEntityInstanceUuid(),
+//                removeCertificateRequestDto
+//        );
 
         certificateLocationRepository.delete(certificateLocation);
         logger.info("Certificate {} deleted from Location {}", certificateLocation.getCertificate().getUuid(), certificateLocation.getLocation().getName());
@@ -436,10 +457,15 @@ public class LocationServiceImpl implements LocationService {
         return entity;
     }
 
-    private Location updateLocation(Location entity, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException {
+    private Location updateLocationContent(Location entity, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException {
         entity.setSupportMultipleEntries(locationDetailResponseDto.isMultipleEntries());
         entity.setSupportKeyManagement(locationDetailResponseDto.isSupportKeyManagement());
         entity.setMetadata(locationDetailResponseDto.getMetadata());
+
+        for (CertificateLocation cl : entity.getCertificates()) {
+            certificateLocationRepository.delete(cl);
+        }
+        entity.getCertificates().clear();
 
         Set<CertificateLocation> cls = new HashSet<>();
         for (CertificateLocationDto certificateLocationDto : locationDetailResponseDto.getCertificates()) {
@@ -447,9 +473,12 @@ public class LocationServiceImpl implements LocationService {
             cl.setWithKey(certificateLocationDto.isWithKey());
             cl.setCertificate(certificateService.createCertificate(certificateLocationDto.getCertificateData(), certificateLocationDto.getCertificateType()));
             cl.setMetadata(certificateLocationDto.getMetadata());
+            cl.setLocation(entity);
+            cls.add(cl);
         }
 
-        entity.setCertificates(cls);
+        entity.getCertificates().addAll(cls);
+        locationRepository.save(entity);
 
         return entity;
     }

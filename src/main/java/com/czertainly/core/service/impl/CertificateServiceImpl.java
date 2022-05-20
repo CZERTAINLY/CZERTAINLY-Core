@@ -147,11 +147,11 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         // remove certificate from Locations
-        try {
-            locationService.removeCertificateFromLocations(uuid);
-        } catch (ConnectorException e) {
-            logger.error("Failed to remove Certificate {} from Locations", uuid);
-        }
+//        try {
+//            locationService.removeCertificateFromLocations(uuid);
+//        } catch (ConnectorException e) {
+//            logger.error("Failed to remove Certificate {} from Locations", uuid);
+//        }
 
         if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
             CertificateContent content = certificateContentRepository
@@ -452,7 +452,7 @@ public class CertificateServiceImpl implements CertificateService {
             entity.setFingerprint(fingerprint);
             entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
 
-            //certificateRepository.save(entity);
+            certificateRepository.save(entity);
 
             return entity;
         }

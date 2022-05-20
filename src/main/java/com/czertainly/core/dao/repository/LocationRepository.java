@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-@Transactional
 public interface LocationRepository extends JpaRepository<Location, Long> {
 
     Optional<Location> findByUuid(String uuid);
