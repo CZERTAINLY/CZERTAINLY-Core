@@ -1,7 +1,6 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.core.util.MetaDefinitions;
-import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -30,12 +29,6 @@ public class CertificateLocation implements Serializable {
     private boolean withKey;
 
     public CertificateLocation() {}
-
-    public CertificateLocation(Location location, Certificate certificate) {
-        this.location = location;
-        this.certificate = certificate;
-        this.id = new CertificateLocationId(location.getId(), certificate.getId());
-    }
 
     public CertificateLocationId getId() {
         return id;

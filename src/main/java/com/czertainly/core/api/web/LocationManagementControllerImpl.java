@@ -22,6 +22,10 @@ import java.util.List;
 public class LocationManagementControllerImpl implements LocationManagementController {
 
     @Autowired
+    public void setLocationService(LocationService locationService) {
+        this.locationService = locationService;
+    }
+
     private LocationService locationService;
 
     @Override

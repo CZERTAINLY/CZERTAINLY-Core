@@ -452,6 +452,12 @@ public class CertificateServiceImpl implements CertificateService {
             entity.setFingerprint(fingerprint);
             entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
 
+            try {
+                certValidationService.validate(entity);
+            } catch (Exception e) {
+                logger.warn("Unable to validate certificate {}, {}", entity.getUuid(), e.getMessage());
+            }
+
             certificateRepository.save(entity);
 
             return entity;

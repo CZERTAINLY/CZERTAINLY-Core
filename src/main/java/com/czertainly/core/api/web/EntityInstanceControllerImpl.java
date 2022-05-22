@@ -24,6 +24,10 @@ import java.util.List;
 public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Autowired
+    public void setEntityInstanceService(EntityInstanceService entityInstanceService) {
+        this.entityInstanceService = entityInstanceService;
+    }
+
     private EntityInstanceService entityInstanceService;
 
     @Override
