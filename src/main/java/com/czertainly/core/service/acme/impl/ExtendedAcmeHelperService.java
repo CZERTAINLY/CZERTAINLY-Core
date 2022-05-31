@@ -22,6 +22,7 @@ import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.*;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
+import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
@@ -63,6 +64,7 @@ import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.text.ParseException;
@@ -93,6 +95,10 @@ public class ExtendedAcmeHelperService {
     private static final String HTTP_CHALLENGE_REQUEST_METHOD = "GET";
     private static final String LOCATION_HEADER_NAME = "Location";
     private static final String HTTP_CHALLENGE_BASE_URL = "http://%s/.well-known/acme-challenge/%s";
+    public static final String RSA_KEY_TYPE_NOTATION = "RSA";
+    public static final String EC_KEY_TYPE_NOTATION = "EC";
+    public static final List<String> ACME_SUPPORTED_ALGORITHMS = List.of(RSA_KEY_TYPE_NOTATION, EC_KEY_TYPE_NOTATION);
+    public static final Integer ACME_RSA_MINIMUM_KEY_LENGTH = 1024;
 
 
     @Autowired
@@ -139,8 +145,17 @@ public class ExtendedAcmeHelperService {
         return publicKey;
     }
 
-    private void setPublicKey() throws JOSEException {
-        this.publicKey = ((RSAKey) jwsObject.getHeader().getJWK()).toPublicKey();
+    private void setPublicKey() throws JOSEException, AcmeProblemDocumentException {
+        String keyType = jwsObject.getHeader().getJWK().getKeyType().toString();
+        if (keyType.equals(RSA_KEY_TYPE_NOTATION)) {
+            this.publicKey = jwsObject.getHeader().getJWK().toRSAKey().toPublicKey();
+        } else if (keyType.equals(EC_KEY_TYPE_NOTATION)) {
+            this.publicKey = jwsObject.getHeader().getJWK().toECKey().toPublicKey();
+        }else {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_SIGNATURE_ALGORITHM,
+                    "Account key is generated using unsupported algorithm by the server",
+                    ACME_SUPPORTED_ALGORITHMS);
+        }
     }
 
     protected void setPublicKey(PublicKey publicKey) throws JOSEException {
@@ -153,13 +168,25 @@ public class ExtendedAcmeHelperService {
         this.jwsObject = jwsObject;
     }
 
-    private void setIsValidSignature() throws JOSEException {
-        this.isValidSignature = jwsObject.verify(new RSASSAVerifier((RSAPublicKey) publicKey));
+    private Boolean checkSignature(PublicKey publicKey) throws JOSEException, AcmeProblemDocumentException {
+        String keyType = publicKey.getAlgorithm();
+        if (keyType.equals(RSA_KEY_TYPE_NOTATION)) {
+            return jwsObject.verify(new RSASSAVerifier((RSAPublicKey) publicKey));
+        }else if(keyType.equals(EC_KEY_TYPE_NOTATION)){
+            return jwsObject.verify(new ECDSAVerifier((ECPublicKey) publicKey));
+        }else {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_SIGNATURE_ALGORITHM,
+                    "Account key is generated using unsupported algorithm by the server",
+                    ACME_SUPPORTED_ALGORITHMS);
+        }
     }
 
-    protected Boolean IsValidSignature() throws JOSEException {
-        this.isValidSignature = jwsObject.verify(new RSASSAVerifier((RSAPublicKey) publicKey));
-        return this.isValidSignature;
+    private void setIsValidSignature() throws JOSEException, AcmeProblemDocumentException {
+        this.isValidSignature = checkSignature(publicKey);
+    }
+
+    protected Boolean IsValidSignature() throws JOSEException, AcmeProblemDocumentException {
+        return checkSignature(publicKey);
     }
 
     protected void newAccountProcess() throws AcmeProblemDocumentException {
@@ -590,7 +617,7 @@ public class ExtendedAcmeHelperService {
         if (request.getContact() != null) {
             account.setContact(SerializationUtil.serialize(request.getContact()));
         }
-        if (request.getStatus().equals(AccountStatus.DEACTIVATED)) {
+        if (request.getStatus() != null && request.getStatus().equals(AccountStatus.DEACTIVATED)) {
             logger.info("Deactivating Account with ID: {}", accountId);
             deactivateOrders(account.getOrders());
             account.setStatus(AccountStatus.DEACTIVATED);
@@ -649,9 +676,9 @@ public class ExtendedAcmeHelperService {
             }
         }
         try {
-            if ((accountPublicKey != null && getJwsObject().verify(new RSASSAVerifier((RSAPublicKey) accountPublicKey)))) {
+            if ((accountPublicKey != null && checkSignature(accountPublicKey))) {
                 logger.info("ACME Revocation request is signed by Account key: {}", request);
-            } else if ((certPublicKey != null && getJwsObject().verify(new RSASSAVerifier((RSAPublicKey) certPublicKey)))) {
+            } else if ((certPublicKey != null && checkSignature(certPublicKey))) {
                 logger.info("ACME Revocation request is signed by private key associated to the Certificate: {}", request);
             } else {
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
