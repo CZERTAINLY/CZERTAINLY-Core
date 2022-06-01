@@ -144,6 +144,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
         logger.debug("Finalizing the Order with ID: {}", orderId);
         extendedAcmeHelperService.finalizeOrder(order);
+        order.setStatus(OrderStatus.PROCESSING);
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
