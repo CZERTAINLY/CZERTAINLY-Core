@@ -99,6 +99,7 @@ public class ExtendedAcmeHelperService {
     public static final String EC_KEY_TYPE_NOTATION = "EC";
     public static final List<String> ACME_SUPPORTED_ALGORITHMS = List.of(RSA_KEY_TYPE_NOTATION, EC_KEY_TYPE_NOTATION);
     public static final Integer ACME_RSA_MINIMUM_KEY_LENGTH = 1024;
+    public static final Integer ACME_EC_MINIMUM_KEY_LENGTH = 112;
 
 
     @Autowired
@@ -152,9 +153,8 @@ public class ExtendedAcmeHelperService {
         } else if (keyType.equals(EC_KEY_TYPE_NOTATION)) {
             this.publicKey = jwsObject.getHeader().getJWK().toECKey().toPublicKey();
         }else {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_SIGNATURE_ALGORITHM,
-                    "Account key is generated using unsupported algorithm by the server",
-                    ACME_SUPPORTED_ALGORITHMS);
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
+                    "Account key is generated using unsupported algorithm by the server. Supported algorithms are " +String.join(", ", ACME_SUPPORTED_ALGORITHMS));
         }
     }
 
@@ -175,9 +175,8 @@ public class ExtendedAcmeHelperService {
         }else if(keyType.equals(EC_KEY_TYPE_NOTATION)){
             return jwsObject.verify(new ECDSAVerifier((ECPublicKey) publicKey));
         }else {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_SIGNATURE_ALGORITHM,
-                    "Account key is generated using unsupported algorithm by the server",
-                    ACME_SUPPORTED_ALGORITHMS);
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
+                    "Account key is generated using unsupported algorithm by the server. Supported algorithms are " +String.join(", ", ACME_SUPPORTED_ALGORITHMS));
         }
     }
 

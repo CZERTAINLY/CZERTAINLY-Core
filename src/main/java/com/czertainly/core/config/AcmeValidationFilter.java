@@ -306,14 +306,14 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
                     }
                 } else if (keyType.toString().equals(extendedAcmeHelperService.EC_KEY_TYPE_NOTATION)) {
                     publicKey = jwsObject.getHeader().getJWK().toECKey().toPublicKey();
-                    if (jwsObject.getHeader().getJWK().toECKey().size() < extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH){
+                    if (jwsObject.getHeader().getJWK().toECKey().size() < extendedAcmeHelperService.ACME_EC_MINIMUM_KEY_LENGTH){
                         throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
                                 "Bit length of the EC key should be at least " + extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH.toString());
                     }
                 } else {
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_SIGNATURE_ALGORITHM,
-                            "Account key is generated using unsupported algorithm by the server",
-                            extendedAcmeHelperService.ACME_SUPPORTED_ALGORITHMS);
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
+                            "Account key is generated using unsupported algorithm by the server. Supported algorithms are " +
+                                    String.join(", ", extendedAcmeHelperService.ACME_SUPPORTED_ALGORITHMS));
                 }
 
                 validateSignature(publicKey, jwsObject, requestUri.contains("/revoke-cert"));
