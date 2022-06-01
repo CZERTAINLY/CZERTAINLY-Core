@@ -298,24 +298,29 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             try {
                 PublicKey publicKey = null;
                 KeyType keyType = jwsObject.getHeader().getJWK().getKeyType();
+                logger.debug("Key type for the request: " + keyType.toString());
                 if (keyType.toString().equals(extendedAcmeHelperService.RSA_KEY_TYPE_NOTATION)) {
                     publicKey = jwsObject.getHeader().getJWK().toRSAKey().toPublicKey();
-                    if (jwsObject.getHeader().getJWK().toRSAKey().size() < extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH){
+                    Integer keySize = jwsObject.getHeader().getJWK().toRSAKey().size();
+                    if (keySize < extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH){
+                        logger.error("Key length is : " + keySize + ", Expecting more than: " + extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH);
                         throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
-                                "Bit length of the RSA key should be at least " + extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH.toString());
+                                "Bit length of the RSA key should be at least " + extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH);
                     }
                 } else if (keyType.toString().equals(extendedAcmeHelperService.EC_KEY_TYPE_NOTATION)) {
                     publicKey = jwsObject.getHeader().getJWK().toECKey().toPublicKey();
-                    if (jwsObject.getHeader().getJWK().toECKey().size() < extendedAcmeHelperService.ACME_EC_MINIMUM_KEY_LENGTH){
+                    Integer keySize = jwsObject.getHeader().getJWK().toECKey().size();
+                    if (keySize < extendedAcmeHelperService.ACME_EC_MINIMUM_KEY_LENGTH){
+                        logger.error("Key length is : " + keySize + ", Expecting more than: " + extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH);
                         throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
-                                "Bit length of the EC key should be at least " + extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH.toString());
+                                "Bit length of the EC key should be at least " + extendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH);
                     }
                 } else {
-                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
-                            "Account key is generated using unsupported algorithm by the server. Supported algorithms are " +
-                                    String.join(", ", extendedAcmeHelperService.ACME_SUPPORTED_ALGORITHMS));
+                    String message = "Account key is generated using unsupported key type by the server. Supported key types are " +
+                            String.join(", ", extendedAcmeHelperService.ACME_SUPPORTED_ALGORITHMS);
+                    logger.error(message);
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY, message);
                 }
-
                 validateSignature(publicKey, jwsObject, requestUri.contains("/revoke-cert"));
             } catch (JOSEException e) {
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);

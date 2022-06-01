@@ -148,13 +148,15 @@ public class ExtendedAcmeHelperService {
 
     private void setPublicKey() throws JOSEException, AcmeProblemDocumentException {
         String keyType = jwsObject.getHeader().getJWK().getKeyType().toString();
+        logger.info("Public key type: {}", keyType);
         if (keyType.equals(RSA_KEY_TYPE_NOTATION)) {
             this.publicKey = jwsObject.getHeader().getJWK().toRSAKey().toPublicKey();
         } else if (keyType.equals(EC_KEY_TYPE_NOTATION)) {
             this.publicKey = jwsObject.getHeader().getJWK().toECKey().toPublicKey();
         }else {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
-                    "Account key is generated using unsupported algorithm by the server. Supported algorithms are " +String.join(", ", ACME_SUPPORTED_ALGORITHMS));
+            String message = "Account key is generated using unsupported key type by the server. Supported key types are " +String.join(", ", ACME_SUPPORTED_ALGORITHMS);
+            logger.error(message);
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY, message);
         }
     }
 
@@ -170,13 +172,15 @@ public class ExtendedAcmeHelperService {
 
     private Boolean checkSignature(PublicKey publicKey) throws JOSEException, AcmeProblemDocumentException {
         String keyType = publicKey.getAlgorithm();
+        logger.info("Key type for the request: {}", keyType);
         if (keyType.equals(RSA_KEY_TYPE_NOTATION)) {
             return jwsObject.verify(new RSASSAVerifier((RSAPublicKey) publicKey));
         }else if(keyType.equals(EC_KEY_TYPE_NOTATION)){
             return jwsObject.verify(new ECDSAVerifier((ECPublicKey) publicKey));
         }else {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
-                    "Account key is generated using unsupported algorithm by the server. Supported algorithms are " +String.join(", ", ACME_SUPPORTED_ALGORITHMS));
+            String message = "Account key is generated using unsupported key type by the server. Supported key types are " +String.join(", ", ACME_SUPPORTED_ALGORITHMS);
+            logger.error(message);
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY, message);
         }
     }
 
@@ -243,6 +247,9 @@ public class ExtendedAcmeHelperService {
             acmeProfile = getRaProfileEntity(profileName).getAcmeProfile();
         } else {
             acmeProfile = acmeProfileRepository.findByName(profileName);
+        }
+        if(acmeProfile == null){
+            throw new NotFoundException(AcmeProfile.class, profileName);
         }
         DirectoryMeta meta = new DirectoryMeta();
         meta.setCaaIdentities(new String[0]);
