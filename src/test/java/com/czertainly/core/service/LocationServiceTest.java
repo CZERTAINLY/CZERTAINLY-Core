@@ -189,7 +189,7 @@ public class LocationServiceTest {
         List<LocationDto> locations = locationService.listLocation();
         Assertions.assertNotNull(locations);
         Assertions.assertFalse(locations.isEmpty());
-        Assertions.assertEquals(1, locations.size());
+        Assertions.assertEquals(3, locations.size());
         Assertions.assertEquals(location.getUuid(), locations.get(0).getUuid());
     }
 

@@ -6,6 +6,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
+import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.RequestAttributeDto;
 import com.czertainly.api.model.connector.v2.CertRevocationDto;
@@ -23,12 +24,15 @@ import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateLocation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.LocationService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
@@ -53,19 +57,46 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
 
     @Autowired
+    public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
+        this.raProfileRepository = raProfileRepository;
+    }
+    @Autowired
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
+    }
+    @Autowired
+    public void setLocationService(LocationService locationService) {
+        this.locationService = locationService;
+    }
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+    @Autowired
+    public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
+        this.certificateEventHistoryService = certificateEventHistoryService;
+    }
+    @Autowired
+    public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
+        this.extendedAttributeService = extendedAttributeService;
+    }
+    @Autowired
+    public void setCertValidationService(CertValidationService certValidationService) {
+        this.certValidationService = certValidationService;
+    }
+    @Autowired
+    public void setCertificateApiClient(CertificateApiClient certificateApiClient) {
+        this.certificateApiClient = certificateApiClient;
+    }
+
     private RaProfileRepository raProfileRepository;
-    @Autowired
-    private CertificateApiClient certificateApiClient;
-    @Autowired
-    private CertificateService certificateService;
-    @Autowired
-    private CertificateEventHistoryService certificateEventHistoryService;
-    @Autowired
     private CertificateRepository certificateRepository;
-    @Autowired
-    private CertValidationService certValidationService;
-    @Autowired
+    private LocationService locationService;
+    private CertificateService certificateService;
+    private CertificateEventHistoryService certificateEventHistoryService;
     private ExtendedAttributeService extendedAttributeService;
+    private CertValidationService certValidationService;
+    private CertificateApiClient certificateApiClient;
 
 
     @Override
@@ -175,6 +206,22 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificate = certificateService.checkCreateCertificateWithMeta(caResponse.getCertificateData(), caResponse.getMeta());
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
+
+            /** replace certificate in the locations if needed */
+            if (request.isReplaceInLocations()) {
+                logger.info("Replacing certificates in locations for certificate: " + certificate.getUuid());
+                for (CertificateLocation cl : oldCertificate.getLocations()) {
+                    PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
+                    pushRequest.setAttributes(cl.getPushAttributes());
+
+                    locationService.removeCertificateFromLocation(cl.getLocation().getUuid(), oldCertificate.getUuid());
+                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), null, oldCertificate);
+
+                    locationService.pushCertificateToLocation(cl.getLocation().getUuid(), certificate.getUuid(), pushRequest);
+                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Pushed to Location " + cl.getLocation().getName(), null, certificate);
+                }
+            }
+
         } catch (Exception e){
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
             logger.error("Failed to renew Certificate", e.getMessage());

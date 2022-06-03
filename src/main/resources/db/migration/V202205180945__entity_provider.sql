@@ -35,6 +35,8 @@ create table location (
 );
 
 create table certificate_location (
+    push_attributes           text null default null,
+    csr_attributes            text null default null,
     metadata                  text null default null,
     with_key                  boolean,
     location_id               int8 not null,

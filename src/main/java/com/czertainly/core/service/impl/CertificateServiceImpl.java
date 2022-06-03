@@ -461,6 +461,8 @@ public class CertificateServiceImpl implements CertificateService {
 
             certificateRepository.save(entity);
 
+            certificateEventHistoryService.addEventHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
+
             return entity;
         }
     }

@@ -1,9 +1,12 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -24,6 +27,12 @@ public class CertificateLocation implements Serializable {
 
     @Column(name = "metadata")
     private String metadata;
+
+    @Column(name = "push_attributes")
+    private String pushAttributes;
+
+    @Column(name = "csr_attributes")
+    private String csrAttributes;
 
     @Column(name = "with_key")
     private boolean withKey;
@@ -60,6 +69,22 @@ public class CertificateLocation implements Serializable {
 
     public void setMetadata(Map<String, Object> metadata) {
         this.metadata = MetaDefinitions.serialize(metadata);
+    }
+
+    public List<RequestAttributeDto> getPushAttributes() {
+        return AttributeDefinitionUtils.deserializeRequestAttributes(pushAttributes);
+    }
+
+    public void setPushAttributes(List<RequestAttributeDto> pushAttributes) {
+        this.pushAttributes = AttributeDefinitionUtils.serializeRequestAttributes(pushAttributes);
+    }
+
+    public List<RequestAttributeDto> getCsrAttributes() {
+        return AttributeDefinitionUtils.deserializeRequestAttributes(csrAttributes);
+    }
+
+    public void setCsrAttributes(List<RequestAttributeDto> csrAttributes) {
+        this.csrAttributes = AttributeDefinitionUtils.serializeRequestAttributes(csrAttributes);
     }
 
     public boolean isWithKey() {
