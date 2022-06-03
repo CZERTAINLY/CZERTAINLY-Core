@@ -15,6 +15,7 @@ import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateLocationRepository;
@@ -238,7 +239,7 @@ public class LocationServiceImpl implements LocationService {
         CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
                 .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
 
-        removeCertificateFromLocation(certificateInLocation);
+        removeCertificateFromLocation(location, certificateInLocation);
 
         return maskSecret(location.mapToDto());
     }
@@ -350,7 +351,7 @@ public class LocationServiceImpl implements LocationService {
         certificateLocation.setCertificate(certificate);
         certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
         certificateLocation.setPushAttributes(generateCsrResponseDto.getPushAttributes());
-        certificateLocation.setPushAttributes(request.getCsrAttributes());
+        certificateLocation.setCsrAttributes(request.getCsrAttributes());
 
         // TODO: response with the indication if the key is available for pushed certificate
 
@@ -383,6 +384,87 @@ public class LocationServiceImpl implements LocationService {
         return maskSecret(location.mapToDto());
     }
 
+    @Override
+    public LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException, LocationException {
+        CertificateLocation certificateLocation = getCertificateLocation(locationUuid, certificateUuid);
+
+        // Check if everything is available to do the renewal
+        if (certificateLocation.getPushAttributes() == null || certificateLocation.getPushAttributes().isEmpty()) {
+            throw new LocationException("Renewal of the certificate " + certificateUuid + " in the location " + locationUuid + " is not possible because the push attributes are not available");
+        }
+        if (certificateLocation.getCsrAttributes() == null || certificateLocation.getCsrAttributes().isEmpty()) {
+            throw new LocationException("Renewal of the certificate " + certificateUuid + " in the location " + locationUuid + " is not possible because the csr attributes are not available");
+        }
+        if (!certificateLocation.getLocation().isSupportKeyManagement()) {
+            throw new LocationException("Location " + certificateLocation.getLocation().getName() + " does not support key management");
+        }
+
+        removeCertificateFromLocation(certificateLocation);
+
+        GenerateCsrRequestDto generateCsrRequestDto = new GenerateCsrRequestDto();
+        generateCsrRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
+        generateCsrRequestDto.setCsrAttributes(certificateLocation.getCsrAttributes());
+
+        GenerateCsrResponseDto generateCsrResponseDto = locationApiClient.generateCsrLocation(
+                certificateLocation.getLocation().getEntityInstanceReference().getConnector().mapToDto(),
+                certificateLocation.getLocation().getEntityInstanceReference().getEntityInstanceUuid(),
+                generateCsrRequestDto
+        );
+
+        logger.info("Received certificate signing request from Location {}", certificateLocation.getLocation().getName());
+
+        ClientCertificateRenewRequestDto clientCertificateRenewRequestDto = new ClientCertificateRenewRequestDto();
+        clientCertificateRenewRequestDto.setPkcs10(generateCsrResponseDto.getCsr());
+        clientCertificateRenewRequestDto.setReplaceInLocations(false);
+
+        ClientCertificateDataResponseDto clientCertificateDataResponseDto = clientOperationService.renewCertificate(
+                certificateLocation.getCertificate().getRaProfile().getUuid(),
+                certificateLocation.getCertificate().getUuid(),
+                clientCertificateRenewRequestDto
+        );
+
+        PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
+        pushCertificateRequestDto.setCertificate(clientCertificateDataResponseDto.getCertificateData());
+        // TODO: support for different types of certificate
+        pushCertificateRequestDto.setCertificateType(CertificateType.X509);
+        pushCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
+        pushCertificateRequestDto.setPushAttributes(generateCsrResponseDto.getPushAttributes());
+
+        PushCertificateResponseDto pushCertificateResponseDto = locationApiClient.pushCertificateToLocation(
+                certificateLocation.getLocation().getEntityInstanceReference().getConnector().mapToDto(),
+                certificateLocation.getLocation().getEntityInstanceReference().getEntityInstanceUuid(),
+                pushCertificateRequestDto
+        );
+
+        Certificate certificate = certificateService.getCertificateEntity(clientCertificateDataResponseDto.getUuid());
+
+        CertificateLocation newCertificateLocation = new CertificateLocation();
+        newCertificateLocation.setLocation(certificateLocation.getLocation());
+        newCertificateLocation.setCertificate(certificate);
+        newCertificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
+        newCertificateLocation.setPushAttributes(generateCsrResponseDto.getPushAttributes());
+        newCertificateLocation.setCsrAttributes(certificateLocation.getCsrAttributes());
+
+        // TODO: response with the indication if the key is available for pushed certificate
+
+        certificateLocationRepository.save(newCertificateLocation);
+
+        logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), newCertificateLocation.getLocation().getName());
+
+        return null;
+    }
+
+    private CertificateLocation getCertificateLocation(String locationUuid, String certificateUuid) throws NotFoundException {
+        Location location = locationRepository.findByUuid(locationUuid)
+                .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
+
+        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
+
+        CertificateLocationId clId = new CertificateLocationId(location.getId(), certificate.getId());
+        return certificateLocationRepository.findById(clId)
+                .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
+    }
+
     private void removeCertificateFromLocation(CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
@@ -396,6 +478,25 @@ public class LocationServiceImpl implements LocationService {
 
         certificateLocationRepository.delete(certificateLocation);
         logger.info("Certificate {} deleted from Location {}", certificateLocation.getCertificate().getUuid(), certificateLocation.getLocation().getName());
+    }
+
+    private void removeCertificateFromLocation(Location entity, CertificateLocation certificateLocation) throws ConnectorException {
+        RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
+        removeCertificateRequestDto.setLocationAttributes(entity.getRequestAttributes());
+        removeCertificateRequestDto.setCertificateMetadata(certificateLocation.getMetadata());
+
+        locationApiClient.removeCertificateFromLocation(
+                entity.getEntityInstanceReference().getConnector().mapToDto(),
+                entity.getEntityInstanceReference().getEntityInstanceUuid(),
+                removeCertificateRequestDto
+        );
+
+        certificateLocationRepository.delete(certificateLocation);
+        entity.getCertificates().remove(certificateLocation);
+
+        locationRepository.save(entity);
+
+        logger.info("Certificate {} deleted from Location {}", certificateLocation.getCertificate().getUuid(), entity.getName());
     }
 
     private List<AttributeDefinition> mergeAndValidateAttributes(EntityInstanceReference entityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
@@ -477,10 +578,12 @@ public class LocationServiceImpl implements LocationService {
             cls.add(cl);
         }
 
-        for (CertificateLocation cl : entity.getCertificates()) {
+        Iterator<CertificateLocation> iterator = entity.getCertificates().iterator();
+        while(iterator.hasNext()) {
+            CertificateLocation cl = iterator.next();
             if (!cls.contains(cl)) {
                 certificateLocationRepository.delete(cl);
-                entity.getCertificates().remove(cl);
+                iterator.remove();
             }
         }
 

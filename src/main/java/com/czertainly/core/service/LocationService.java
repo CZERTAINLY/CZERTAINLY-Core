@@ -45,4 +45,6 @@ public interface LocationService {
 
     LocationDto updateLocationContent(String locationUuid) throws ConnectorException, CertificateException;
 
+    LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException, LocationException;
+
 }

@@ -103,4 +103,9 @@ public class LocationManagementControllerImpl implements LocationManagementContr
         return locationService.updateLocationContent(locationUuid);
     }
 
+    @Override
+    public LocationDto updateLocationContent(String locationUuid, String certificateUuid) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException, LocationException {
+        return locationService.renewCertificateInLocation(locationUuid, certificateUuid);
+    }
+
 }
