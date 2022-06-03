@@ -287,6 +287,7 @@ public class LocationServiceImpl implements LocationService {
         certificateLocation.setLocation(location);
         certificateLocation.setCertificate(certificate);
         certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
+        certificateLocation.setPushAttributes(request.getAttributes());
 
         // TODO: response with the indication if the key is available for pushed certificate
 
@@ -348,6 +349,8 @@ public class LocationServiceImpl implements LocationService {
         certificateLocation.setLocation(location);
         certificateLocation.setCertificate(certificate);
         certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
+        certificateLocation.setPushAttributes(generateCsrResponseDto.getPushAttributes());
+        certificateLocation.setPushAttributes(request.getCsrAttributes());
 
         // TODO: response with the indication if the key is available for pushed certificate
 
@@ -469,6 +472,8 @@ public class LocationServiceImpl implements LocationService {
             cl.setCertificate(certificateService.createCertificate(certificateLocationDto.getCertificateData(), certificateLocationDto.getCertificateType()));
             cl.setMetadata(certificateLocationDto.getMetadata());
             cl.setLocation(entity);
+            cl.setPushAttributes(certificateLocationDto.getPushAttributes());
+            cl.setCsrAttributes(certificateLocationDto.getCsrAttributes());
             cls.add(cl);
         }
 

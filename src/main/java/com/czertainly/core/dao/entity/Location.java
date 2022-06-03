@@ -173,6 +173,8 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
             cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid());
             cilDto.setWithKey(certificateLocation.isWithKey());
+            cilDto.setPushAttributes(certificateLocation.getPushAttributes());
+            cilDto.setCsrAttributes(certificateLocation.getCsrAttributes());
 
             cilDtoList.add(cilDto);
         }
