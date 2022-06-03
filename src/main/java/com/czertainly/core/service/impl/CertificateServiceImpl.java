@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequest
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchLabelConstants;
@@ -557,6 +558,16 @@ public class CertificateServiceImpl implements CertificateService {
         } catch (NotFoundException e) {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
         }
+    }
+
+    @Override
+    public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
+        Certificate certificateEntity = certificateRepository.findByUuid(certificateUuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        return certificateEntity.getLocations().stream()
+                .map(CertificateLocation::getLocation)
+                .map(Location::mapToDtoSimple)
+                .collect(Collectors.toList());
     }
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {

@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.certificate.BulkOperationStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.CertValidationService;
@@ -142,6 +143,11 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
 		return certificateEventHistoryService.getCertificateEventHistory(uuid);
+	}
+
+	@Override
+	public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
+		return certificateService.listLocations(certificateUuid);
 	}
 
 }

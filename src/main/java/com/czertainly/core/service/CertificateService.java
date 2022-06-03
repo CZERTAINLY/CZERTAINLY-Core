@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 
@@ -54,4 +55,12 @@ public interface CertificateService {
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
     void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
+
+    /**
+     * List all locations associated with the certificate
+     * @param certificateUuid
+     * @return List of locations
+     * @throws NotFoundException
+     */
+    List<LocationDto> listLocations(String certificateUuid) throws NotFoundException;
 }
