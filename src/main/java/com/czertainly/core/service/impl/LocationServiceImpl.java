@@ -293,6 +293,9 @@ public class LocationServiceImpl implements LocationService {
         // TODO: response with the indication if the key is available for pushed certificate
 
         certificateLocationRepository.save(certificateLocation);
+        location.getCertificates().add(certificateLocation);
+        
+        locationRepository.save(location);
 
         logger.info("Certificate {} successfully pushed to Location {}", certificateUuid, location.getName());
 
@@ -356,6 +359,9 @@ public class LocationServiceImpl implements LocationService {
         // TODO: response with the indication if the key is available for pushed certificate
 
         certificateLocationRepository.save(certificateLocation);
+        location.getCertificates().add(certificateLocation);
+        
+        locationRepository.save(location);
 
         logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), location.getName());
 
