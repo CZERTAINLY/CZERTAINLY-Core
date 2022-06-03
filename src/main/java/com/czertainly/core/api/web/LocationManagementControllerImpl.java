@@ -84,7 +84,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public LocationDto pushCertificate(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws ConnectorException {
+    public LocationDto pushCertificate(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws ConnectorException, LocationException {
         return locationService.pushCertificateToLocation(locationUuid, certificateUuid, request);
     }
 
@@ -94,7 +94,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public LocationDto issueCertificate(String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException {
+    public LocationDto issueCertificate(String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException, LocationException {
         return locationService.issueCertificateToLocation(locationUuid, request);
     }
 

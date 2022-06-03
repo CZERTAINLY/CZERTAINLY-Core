@@ -261,9 +261,13 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws ConnectorException {
+    public LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws ConnectorException, LocationException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
+
+        if (!location.isSupportMultipleEntries() && location.getCertificates().size() >= 1) {
+            throw new LocationException("Location " + location.getName() + " does not support multiple entries");
+        }
 
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
 
@@ -294,9 +298,16 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException {
+    public LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException, LocationException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
+
+        if (!location.isSupportKeyManagement()) {
+            throw new LocationException("Location " + location.getName() + " does not support key management");
+        }
+        if (!location.isSupportMultipleEntries() && location.getCertificates().size() >= 1) {
+            throw new LocationException("Location " + location.getName() + " does not support multiple entries");
+        }
 
         GenerateCsrRequestDto generateCsrRequestDto = new GenerateCsrRequestDto();
         generateCsrRequestDto.setLocationAttributes(location.getRequestAttributes());

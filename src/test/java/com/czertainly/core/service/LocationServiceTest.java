@@ -3,6 +3,8 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
+import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
+import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.BaseAttributeDefinitionTypes;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -32,6 +34,8 @@ import java.util.Set;
 public class LocationServiceTest {
 
     private static final String LOCATION_NAME = "testLocation1";
+    private static final String LOCATION_NAME_NOMULTIENTRIES = "testLocation-noMultiEntries";
+    private static final String LOCATION_NAME_NOKEYMANAGEMENT = "testLocation-noKeyManagement";
 
     @Autowired
     private LocationService locationService;
@@ -47,8 +51,11 @@ public class LocationServiceTest {
     private ConnectorRepository connectorRepository;
 
     private Location location;
+    private Location locationNoMultiEntries;
+    private Location locationNoKeyManagement;
     private EntityInstanceReference entityInstanceReference;
     private Certificate certificate;
+    private Certificate certificateWithoutLocation;
     private WireMockServer mockServer;
 
     @BeforeEach
@@ -66,6 +73,11 @@ public class LocationServiceTest {
         certificate.setSerialNumber("cc4ab59d436a88dae957");
         certificate = certificateRepository.save(certificate);
 
+        certificateWithoutLocation = new Certificate();
+        certificateWithoutLocation.setCertificateContent(certificateContent);
+        certificateWithoutLocation.setSerialNumber("aa4ab59d436a88dae957");
+        certificateWithoutLocation = certificateRepository.save(certificateWithoutLocation);
+
         Connector connector = new Connector();
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
@@ -75,26 +87,9 @@ public class LocationServiceTest {
         entityInstanceReference.setConnector(connector);
         entityInstanceReference = entityInstanceReferenceRepository.save(entityInstanceReference);
 
-        AttributeDefinition attribute = new AttributeDefinition();
-        attribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1c");
-        attribute.setName("attribute");
-        attribute.setLabel("attribute");
-        attribute.setDescription("description");
-        attribute.setType(BaseAttributeDefinitionTypes.STRING);
-        attribute.setRequired(true);
-        attribute.setReadOnly(false);
-        attribute.setVisible(true);
-
-        location = new Location();
-        location.setName(LOCATION_NAME);
-        location.setEntityInstanceReference(entityInstanceReference);
-        location.setEnabled(true);
-        location.setSupportKeyManagement(true);
-        location.setSupportMultipleEntries(true);
-        List<AttributeDefinition> attributes = new ArrayList<>();
-        attributes.add(attribute);
-        location.setAttributes(attributes);
-        //location = locationRepository.save(location);
+        location = createLocation();
+        locationNoMultiEntries = createLocationNoMultiEntries();
+        locationNoKeyManagement = createLocationNoKeyManagement();
 
         Set<CertificateLocation> cls = new HashSet<>();
         CertificateLocation certificateLocation = new CertificateLocation();
@@ -105,7 +100,83 @@ public class LocationServiceTest {
         cls.add(certificateLocation);
 
         location.getCertificates().addAll(cls);
+        locationNoMultiEntries.getCertificates().addAll(cls);
+        locationNoKeyManagement.getCertificates().addAll(cls);
         location = locationRepository.save(location);
+        locationNoMultiEntries = locationRepository.save(locationNoMultiEntries);
+        locationNoKeyManagement = locationRepository.save(locationNoKeyManagement);
+    }
+
+    private Location createLocation() {
+        AttributeDefinition attribute = new AttributeDefinition();
+        attribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1c");
+        attribute.setName("attribute");
+        attribute.setLabel("attribute");
+        attribute.setDescription("description");
+        attribute.setType(BaseAttributeDefinitionTypes.STRING);
+        attribute.setRequired(true);
+        attribute.setReadOnly(false);
+        attribute.setVisible(true);
+
+        Location location = new Location();
+        location.setName(LOCATION_NAME);
+        location.setEntityInstanceReference(entityInstanceReference);
+        location.setEnabled(true);
+        location.setSupportKeyManagement(true);
+        location.setSupportMultipleEntries(true);
+        List<AttributeDefinition> attributes = new ArrayList<>();
+        attributes.add(attribute);
+        location.setAttributes(attributes);
+
+        return location;
+    }
+
+    private Location createLocationNoMultiEntries() {
+        AttributeDefinition attribute = new AttributeDefinition();
+        attribute.setUuid("a9392cc3-6f7f-46a2-8915-b9873f1267df");
+        attribute.setName("attribute");
+        attribute.setLabel("attribute");
+        attribute.setDescription("description");
+        attribute.setType(BaseAttributeDefinitionTypes.STRING);
+        attribute.setRequired(true);
+        attribute.setReadOnly(false);
+        attribute.setVisible(true);
+
+        Location location = new Location();
+        location.setName(LOCATION_NAME_NOMULTIENTRIES);
+        location.setEntityInstanceReference(entityInstanceReference);
+        location.setEnabled(true);
+        location.setSupportKeyManagement(true);
+        location.setSupportMultipleEntries(false);
+        List<AttributeDefinition> attributes = new ArrayList<>();
+        attributes.add(attribute);
+        location.setAttributes(attributes);
+
+        return location;
+    }
+
+    private Location createLocationNoKeyManagement() {
+        AttributeDefinition attribute = new AttributeDefinition();
+        attribute.setUuid("eec75a92-a8c3-4903-935e-60c248f92af6");
+        attribute.setName("attribute");
+        attribute.setLabel("attribute");
+        attribute.setDescription("description");
+        attribute.setType(BaseAttributeDefinitionTypes.STRING);
+        attribute.setRequired(true);
+        attribute.setReadOnly(false);
+        attribute.setVisible(true);
+
+        Location location = new Location();
+        location.setName(LOCATION_NAME_NOKEYMANAGEMENT);
+        location.setEntityInstanceReference(entityInstanceReference);
+        location.setEnabled(true);
+        location.setSupportKeyManagement(false);
+        location.setSupportMultipleEntries(true);
+        List<AttributeDefinition> attributes = new ArrayList<>();
+        attributes.add(attribute);
+        location.setAttributes(attributes);
+
+        return location;
     }
 
     @AfterEach
@@ -258,4 +329,42 @@ public class LocationServiceTest {
     }
 
     // TODO: testing the location push, remove, issue, sync
+
+    @Test
+    public void testPushCertificateToLocation_MultiNotSupported() {
+        PushToLocationRequestDto request = new PushToLocationRequestDto();
+        request.setAttributes(List.of());
+
+        Assertions.assertThrows(LocationException.class, () -> locationService.pushCertificateToLocation(
+                locationNoMultiEntries.getUuid(),
+                certificateWithoutLocation.getUuid(),
+                request)
+        );
+    }
+
+    @Test
+    public void testIssueCertificateToLocation_KeyManagementNotSupported() {
+        IssueToLocationRequestDto request = new IssueToLocationRequestDto();
+        request.setCsrAttributes(List.of());
+        request.setIssueAttributes(List.of());
+        request.setRaProfileUuid("test");
+
+        Assertions.assertThrows(LocationException.class, () -> locationService.issueCertificateToLocation(
+                locationNoKeyManagement.getUuid(),
+                request)
+        );
+    }
+
+    @Test
+    public void testIssueCertificateToLocation_MultiNotSupported() {
+        IssueToLocationRequestDto request = new IssueToLocationRequestDto();
+        request.setCsrAttributes(List.of());
+        request.setIssueAttributes(List.of());
+        request.setRaProfileUuid("test");
+
+        Assertions.assertThrows(LocationException.class, () -> locationService.issueCertificateToLocation(
+                locationNoMultiEntries.getUuid(),
+                request)
+        );
+    }
 }

@@ -39,9 +39,9 @@ public interface LocationService {
 
     void removeCertificateFromLocations(String certificateUuid) throws ConnectorException;
 
-    LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws ConnectorException;
+    LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws ConnectorException, LocationException;
 
-    LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException;
+    LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException, LocationException;
 
     LocationDto updateLocationContent(String locationUuid) throws ConnectorException, CertificateException;
 
