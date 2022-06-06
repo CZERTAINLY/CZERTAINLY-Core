@@ -150,12 +150,16 @@ public class CertificateServiceImpl implements CertificateService {
         if (!errors.isEmpty()) {
             throw new ValidationException("Could not delete certificate", errors);
         }
+
         if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
             CertificateContent content = certificateContentRepository
                     .findById(certificate.getCertificateContent().getId()).orElse(null);
             if (content != null) {
+                certificateRepository.delete(certificate);
                 certificateContentRepository.delete(content);
             }
+        } else {
+            certificateRepository.delete(certificate);
         }
 
         certificateRepository.delete(certificate);
