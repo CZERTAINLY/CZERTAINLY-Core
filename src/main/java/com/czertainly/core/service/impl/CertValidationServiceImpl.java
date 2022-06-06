@@ -28,6 +28,7 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -40,6 +41,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Service
 @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
@@ -111,10 +113,7 @@ public class CertValidationServiceImpl implements CertValidationService {
 
     private Boolean checkFullChain(List<Certificate> certificates) {
         Certificate lastCert = certificates.get(certificates.size() - 1);
-        if (lastCert.getSubjectDn().equals(lastCert.getIssuerDn())) {
-            return true;
-        }
-        return false;
+        return lastCert.getSubjectDn().equals(lastCert.getIssuerDn());
     }
 
     private void reValidate(Certificate certificate) throws NotFoundException, CertificateException, IOException {
@@ -282,7 +281,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         }
         if (validTill < TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE) && validTill > 0) {
             status = CertificateStatus.EXPIRING;
-            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING, "Expiring in " + convertMillisecondsToTimeString(validTill) ));
+            validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING, "Expiring in " + convertMillisecondsToTimeString(validTill)));
         }
         if (validTill > TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
             status = CertificateStatus.VALID;
@@ -290,7 +289,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         }
         if (validTill <= 0) {
             status = CertificateStatus.EXPIRED;
-            validationOutput.put("Certificate Expiry", new CertificateValidationDto(CertificateValidationStatus.EXPIRED, "Certificate expired " + convertMillisecondsToTimeString(validTill*-1) + " ago"));
+            validationOutput.put("Certificate Expiry", new CertificateValidationDto(CertificateValidationStatus.EXPIRED, "Certificate expired " + convertMillisecondsToTimeString(validTill * -1) + " ago"));
             certificate.setStatus(status);
             certificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(certificate);
@@ -383,7 +382,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         if (validTill < TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE) && validTill > 0) {
             status = CertificateStatus.EXPIRING;
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING,
-                    "Expiring within " + convertMillisecondsToTimeString(validTill) ));
+                    "Expiring within " + convertMillisecondsToTimeString(validTill)));
         }
         if (validTill > TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
             status = CertificateStatus.VALID;
@@ -393,7 +392,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         if (validTill <= 0) {
             status = CertificateStatus.EXPIRED;
             validationOutput.put("Certificate Expiry", new CertificateValidationDto(CertificateValidationStatus.EXPIRED,
-                    "Certificate expired " + convertMillisecondsToTimeString(validTill*-1) + " ago"));
+                    "Certificate expired " + convertMillisecondsToTimeString(validTill * -1) + " ago"));
             subjectCertificate.setStatus(status);
             subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(subjectCertificate);
@@ -457,16 +456,24 @@ public class CertValidationServiceImpl implements CertValidationService {
             validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.WARNING, "No CRL URL in certificate"));
         } else {
             boolean isRevoked = false;
+            boolean isCRLFailed = false;
             String crlOutput = "";
             for (String crlUrl : crlUrls) {
+                logger.info("Checking for the CRL of the certificate " + crlUrl);
                 try {
                     crlOutput = CrlUtil.checkCertificateRevocationList(certX509, crlUrl);
                     if (!crlOutput.equals("")) {
                         isRevoked = true;
                         break;
                     }
-                } catch (Exception e) {
+                } catch (TimeoutException | SocketTimeoutException e) {
                     logger.error(e.getMessage());
+                    isCRLFailed = true;
+                    validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.WARNING, "Unable to connect to CRL. Connection timed out"));
+                } catch (Exception e) {
+                    isCRLFailed = true;
+                    logger.error(e.getMessage());
+                    validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Failed connecting to CRL. " + e.getMessage()));
                 }
             }
             if (isRevoked) {
@@ -487,8 +494,10 @@ public class CertValidationServiceImpl implements CertValidationService {
                             "Certificate revoked via platform. CRL returns valid. CRL may not be updated.\nCRL URL(s): " + String.join(", ", crlUrls)));
                     status = CertificateStatus.REVOKED;
                 } else {
-                    validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS,
-                            "CRL verification completed successfully.\nCRL URL(s): " + String.join(", ", crlUrls)));
+                    if (!isCRLFailed) {
+                        validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS,
+                                "CRL verification completed successfully.\nCRL URL(s): " + String.join(", ", crlUrls)));
+                    }
                 }
             }
         }
@@ -516,7 +525,6 @@ public class CertValidationServiceImpl implements CertValidationService {
         X509Certificate x509Issuer = null;
         if (issuerCertificate != null) {
             x509Issuer = getX509(issuerCertificate.getCertificateContent().getContent());
-            ;
         }
         List<String> crlUrls = CrlUtil.getCDPFromCertificate(certX509);
         List<String> ocspUrls = OcspUtil.getOcspUrlFromCertificate(certX509);
@@ -555,7 +563,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         if (validTill <= TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE) && validTill > 0) {
             status = CertificateStatus.EXPIRING;
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING,
-                    "Expiring within " + convertMillisecondsToTimeString(validTill) ));
+                    "Expiring within " + convertMillisecondsToTimeString(validTill)));
         }
         if (validTill > TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
             status = CertificateStatus.VALID;
@@ -565,7 +573,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         if (validTill < 0) {
             status = CertificateStatus.EXPIRED;
             validationOutput.put("Certificate Expiry", new CertificateValidationDto(CertificateValidationStatus.EXPIRED,
-                    "Certificate expired " + convertMillisecondsToTimeString(validTill*-1) + " ago"));
+                    "Certificate expired " + convertMillisecondsToTimeString(validTill * -1) + " ago"));
             subjectCertificate.setStatus(status);
             subjectCertificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
             certificateRepository.save(subjectCertificate);
@@ -632,16 +640,24 @@ public class CertValidationServiceImpl implements CertValidationService {
             validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.WARNING, "No CRL URL in certificate"));
         } else {
             boolean isRevoked = false;
+            boolean isCRLFailed = false;
             String crlOutput = "";
             for (String crlUrl : crlUrls) {
+                logger.info("Checking for the CRL of the certificate " + crlUrl);
                 try {
                     crlOutput = CrlUtil.checkCertificateRevocationList(certX509, crlUrl);
                     if (!crlOutput.equals("")) {
                         isRevoked = true;
                         break;
                     }
-                } catch (Exception e) {
+                } catch (TimeoutException | SocketTimeoutException e) {
                     logger.error(e.getMessage());
+                    isCRLFailed = true;
+                    validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.WARNING, "Unable to connect to CRL. Connection timed out"));
+                } catch (Exception e) {
+                    isCRLFailed = true;
+                    logger.error(e.getMessage());
+                    validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Failed connecting to CRL."));
                 }
             }
             if (isRevoked) {
@@ -662,8 +678,10 @@ public class CertValidationServiceImpl implements CertValidationService {
                             "Certificate revoked via platform. CRL returns valid. CRL may not be updated.\nCRL URL(s): " + String.join(", ", crlUrls)));
                     status = CertificateStatus.REVOKED;
                 } else {
-                    validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS,
-                            "CRL verification completed successfully.\nCRL URL(s): " + String.join(", ", crlUrls)));
+                    if (!isCRLFailed) {
+                        validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS,
+                                "CRL verification completed successfully.\nCRL URL(s): " + String.join(", ", crlUrls)));
+                    }
                 }
             }
         }
