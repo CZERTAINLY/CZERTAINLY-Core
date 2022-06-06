@@ -52,7 +52,6 @@ import java.util.List;
 
 @Service("clientOperationServiceImplV2")
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
 public class ClientOperationServiceImpl implements ClientOperationService {
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
 
@@ -215,10 +214,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     pushRequest.setAttributes(cl.getPushAttributes());
 
                     locationService.removeCertificateFromLocation(cl.getLocation().getUuid(), oldCertificate.getUuid());
-                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), null, oldCertificate);
+                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), "", oldCertificate);
 
                     locationService.pushCertificateToLocation(cl.getLocation().getUuid(), certificate.getUuid(), pushRequest);
-                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Pushed to Location " + cl.getLocation().getName(), null, certificate);
+                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Pushed to Location " + cl.getLocation().getName(), "", certificate);
                 }
             }
 

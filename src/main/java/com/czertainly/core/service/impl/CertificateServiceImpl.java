@@ -148,11 +148,11 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         // remove certificate from Locations
-//        try {
-//            locationService.removeCertificateFromLocations(uuid);
-//        } catch (ConnectorException e) {
-//            logger.error("Failed to remove Certificate {} from Locations", uuid);
-//        }
+        try {
+            locationService.removeCertificateFromLocations(uuid);
+        } catch (ConnectorException e) {
+            logger.error("Failed to remove Certificate {} from Locations", uuid);
+        }
 
         if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
             CertificateContent content = certificateContentRepository

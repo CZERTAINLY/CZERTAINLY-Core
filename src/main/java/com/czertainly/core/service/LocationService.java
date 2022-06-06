@@ -17,11 +17,11 @@ public interface LocationService {
 
     List<LocationDto> listLocations(Boolean isEnabled);
 
-    LocationDto addLocation(AddLocationRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException, CertificateException;
+    LocationDto addLocation(AddLocationRequestDto dto) throws AlreadyExistException, LocationException, NotFoundException;
 
     LocationDto getLocation(String locationUuid) throws NotFoundException;
 
-    LocationDto editLocation(String locationUuid, EditLocationRequestDto dto) throws ConnectorException, com.czertainly.api.exception.CertificateException;
+    LocationDto editLocation(String locationUuid, EditLocationRequestDto dto) throws NotFoundException, LocationException;
 
     void removeLocation(String locationUuid) throws NotFoundException;
 
@@ -29,22 +29,22 @@ public interface LocationService {
 
     void disableLocation(String locationUuid) throws NotFoundException;
 
-    List<AttributeDefinition> listPushAttributes(String locationUuid) throws ConnectorException;
+    List<AttributeDefinition> listPushAttributes(String locationUuid) throws NotFoundException, LocationException;
 
-    List<AttributeDefinition> listCsrAttributes(String locationUuid) throws ConnectorException;
+    List<AttributeDefinition> listCsrAttributes(String locationUuid) throws NotFoundException, LocationException;
 
     List<Location> getCertificateLocations(String certificateUuid) throws NotFoundException;
 
-    LocationDto removeCertificateFromLocation(String locationUuid, String certificateUuid) throws ConnectorException;
+    LocationDto removeCertificateFromLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException;
 
-    void removeCertificateFromLocations(String certificateUuid) throws ConnectorException;
+    void removeCertificateFromLocations(String certificateUuid) throws NotFoundException;
 
-    LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws ConnectorException, LocationException;
+    LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException;
 
-    LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException, LocationException;
+    LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException;
 
-    LocationDto updateLocationContent(String locationUuid) throws ConnectorException, CertificateException;
+    LocationDto updateLocationContent(String locationUuid) throws NotFoundException, LocationException;
 
-    LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws ConnectorException, java.security.cert.CertificateException, AlreadyExistException, LocationException;
+    LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException;
 
 }

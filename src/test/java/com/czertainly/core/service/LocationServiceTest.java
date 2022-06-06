@@ -206,7 +206,7 @@ public class LocationServiceTest {
     }
 
     @Test
-    public void testAddLocation() throws ConnectorException, AlreadyExistException, CertificateException {
+    public void testAddLocation() throws NotFoundException, AlreadyExistException, LocationException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -247,7 +247,7 @@ public class LocationServiceTest {
 
     // TODO
     @Test
-    public void testEditLocation() throws ConnectorException, CertificateException {
+    public void testEditLocation() throws NotFoundException, LocationException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.okJson("[]")));

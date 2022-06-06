@@ -229,6 +229,18 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link LocationException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(LocationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleLocationException(LocationException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
      * Handler for {@link Exception}.
      *
      * @return

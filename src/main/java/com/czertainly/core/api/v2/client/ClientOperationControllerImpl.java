@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +22,7 @@ import java.security.cert.CertificateException;
 import java.util.List;
 
 @RestController("clientOperationControllerV2")
+@Secured({"ROLE_CLIENT"})
 public class ClientOperationControllerImpl implements ClientOperationController {
 
     @Autowired
