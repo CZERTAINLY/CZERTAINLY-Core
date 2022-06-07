@@ -171,10 +171,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
-    public ClientCertificateDataResponseDto renewCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
+    public ClientCertificateDataResponseDto renewCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
-        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
+
+        if(!ignoreAuthToRa) {
+            ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
+        }
+
         Certificate oldCertificate = certificateService.getCertificateEntity(certificateUuid);
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Renewing Certificate: ", oldCertificate.toString());

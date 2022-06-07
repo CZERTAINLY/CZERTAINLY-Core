@@ -298,12 +298,6 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public List<Location> getCertificateLocations(String certificateUuid) throws NotFoundException {
-        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
-        return certificate.getLocations().stream().map(CertificateLocation::getLocation).collect(Collectors.toList());
-    }
-
-    @Override
     public void removeCertificateFromLocations(String certificateUuid) throws NotFoundException {
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
 
@@ -383,61 +377,6 @@ public class LocationServiceImpl implements LocationService {
         logger.info("Certificate {} successfully pushed to Location {}", certificateUuid, location.getName());
 
         return maskSecret(location.mapToDto());
-    }
-
-    private void pushCertificate(PushCertificateRequestDto pushCertificateRequestDto, Location location, Certificate certificate,
-                                                       List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes) throws LocationException {
-        PushCertificateResponseDto pushCertificateResponseDto;
-        try {
-            pushCertificateResponseDto = locationApiClient.pushCertificateToLocation(
-                    location.getEntityInstanceReference().getConnector().mapToDto(),
-                    location.getEntityInstanceReference().getEntityInstanceUuid(),
-                    pushCertificateRequestDto
-            );
-        } catch (ConnectorException e) {
-            // record event in the certificate history
-            String message = "Failed to push to Location " + location.getName();
-            HashMap<String, Object> additionalInformation = new HashMap<>();
-            additionalInformation.put("locationUuid", location.getUuid());
-            additionalInformation.put("cause", e.getMessage());
-            certificateEventHistoryService.addEventHistory(
-                    CertificateEvent.UPDATE_LOCATION,
-                    CertificateEventStatus.FAILED,
-                    message,
-                    additionalInformation,
-                    certificate
-            );
-            logger.debug("Failed to push Certificate {} to Location {}, {}: {}",
-                    certificate.getUuid(), location.getName(), location.getUuid(), e.getMessage());
-            throw new LocationException("Failed to push Certificate " + certificate.getUuid() +
-                    " to Location " + location.getName());
-        }
-
-        CertificateLocation certificateLocation = new CertificateLocation();
-        certificateLocation.setLocation(location);
-        certificateLocation.setCertificate(certificate);
-        certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
-        certificateLocation.setPushAttributes(pushAttributes);
-        certificateLocation.setCsrAttributes(csrAttributes);
-
-        // TODO: response with the indication if the key is available for pushed certificate
-
-        certificateLocationRepository.save(certificateLocation);
-        location.getCertificates().add(certificateLocation);
-
-        locationRepository.save(location);
-
-        // save record into the certificate history
-        String message = "Pushed to Location " + location.getName();
-        HashMap<String, Object> additionalInformation = new HashMap<>();
-        additionalInformation.put("locationUuid", location.getUuid());
-        certificateEventHistoryService.addEventHistory(
-                CertificateEvent.UPDATE_LOCATION,
-                CertificateEventStatus.SUCCESS,
-                message,
-                additionalInformation,
-                certificate
-        );
     }
 
     @Override
@@ -562,15 +501,8 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + certificateLocation.getLocation().getName() + " does not support key management");
         }
 
-        try {
-            removeCertificateFromLocation(certificateLocation);
-        } catch (ConnectorException e) {
-            logger.debug("Failed to remove Certificate {} from Location {}, {}: {}",
-                    certificateLocation.getCertificate().getUuid(), certificateLocation.getLocation().getName(),
-                    certificateLocation.getLocation().getUuid(), e.getMessage());
-            throw new LocationException("Failed to remove Certificate " + certificateLocation.getCertificate().getUuid() +
-                    " from Location " + certificateLocation.getLocation().getName());
-        }
+        // remove the current certificate from location
+        removeCertificateFromLocation(certificateLocation.getLocation().getUuid(), certificateLocation.getCertificate().getUuid());
 
         GenerateCsrRequestDto generateCsrRequestDto = new GenerateCsrRequestDto();
         generateCsrRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
@@ -601,7 +533,7 @@ public class LocationServiceImpl implements LocationService {
             clientCertificateDataResponseDto = clientOperationService.renewCertificate(
                     certificateLocation.getCertificate().getRaProfile().getUuid(),
                     certificateLocation.getCertificate().getUuid(),
-                    clientCertificateRenewRequestDto
+                    clientCertificateRenewRequestDto, true
             );
         } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException e) {
             logger.debug("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() +
@@ -618,18 +550,34 @@ public class LocationServiceImpl implements LocationService {
         pushCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
         pushCertificateRequestDto.setPushAttributes(generateCsrResponseDto.getPushAttributes());
 
+        pushCertificate(
+                pushCertificateRequestDto, certificateLocation.getLocation(), certificate,
+                generateCsrResponseDto.getPushAttributes(), certificateLocation.getCsrAttributes()
+        );
+
+        logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), certificateLocation.getLocation().getName());
+
+        Location location = certificateLocation.getLocation();
+
+        return maskSecret(location.mapToDto());
+    }
+
+    // PRIVATE METHODS
+
+    private void pushCertificate(PushCertificateRequestDto pushCertificateRequestDto, Location location, Certificate certificate,
+                                 List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes) throws LocationException {
         PushCertificateResponseDto pushCertificateResponseDto;
         try {
             pushCertificateResponseDto = locationApiClient.pushCertificateToLocation(
-                    certificateLocation.getLocation().getEntityInstanceReference().getConnector().mapToDto(),
-                    certificateLocation.getLocation().getEntityInstanceReference().getEntityInstanceUuid(),
+                    location.getEntityInstanceReference().getConnector().mapToDto(),
+                    location.getEntityInstanceReference().getEntityInstanceUuid(),
                     pushCertificateRequestDto
             );
         } catch (ConnectorException e) {
             // record event in the certificate history
-            String message = "Failed to push to Location " + certificateLocation.getLocation().getName();
+            String message = "Failed to push to Location " + location.getName();
             HashMap<String, Object> additionalInformation = new HashMap<>();
-            additionalInformation.put("locationUuid", certificateLocation.getLocation().getUuid());
+            additionalInformation.put("locationUuid", location.getUuid());
             additionalInformation.put("cause", e.getMessage());
             certificateEventHistoryService.addEventHistory(
                     CertificateEvent.UPDATE_LOCATION,
@@ -639,26 +587,29 @@ public class LocationServiceImpl implements LocationService {
                     certificate
             );
             logger.debug("Failed to push Certificate {} to Location {}, {}: {}",
-                    certificate.getUuid(), certificateLocation.getLocation().getName(), certificateLocation.getLocation().getUuid(), e.getMessage());
+                    certificate.getUuid(), location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to push Certificate " + certificate.getUuid() +
-                    " to Location " + certificateLocation.getLocation().getName());
+                    " to Location " + location.getName());
         }
 
-        CertificateLocation newCertificateLocation = new CertificateLocation();
-        newCertificateLocation.setLocation(certificateLocation.getLocation());
-        newCertificateLocation.setCertificate(certificate);
-        newCertificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
-        newCertificateLocation.setPushAttributes(generateCsrResponseDto.getPushAttributes());
-        newCertificateLocation.setCsrAttributes(certificateLocation.getCsrAttributes());
+        CertificateLocation certificateLocation = new CertificateLocation();
+        certificateLocation.setLocation(location);
+        certificateLocation.setCertificate(certificate);
+        certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
+        certificateLocation.setPushAttributes(pushAttributes);
+        certificateLocation.setCsrAttributes(csrAttributes);
 
         // TODO: response with the indication if the key is available for pushed certificate
 
-        certificateLocationRepository.save(newCertificateLocation);
+        certificateLocationRepository.save(certificateLocation);
+        location.getCertificates().add(certificateLocation);
+
+        locationRepository.save(location);
 
         // save record into the certificate history
-        String message = "Pushed to Location " + certificateLocation.getLocation().getName();
+        String message = "Pushed to Location " + location.getName();
         HashMap<String, Object> additionalInformation = new HashMap<>();
-        additionalInformation.put("locationUuid", certificateLocation.getLocation().getUuid());
+        additionalInformation.put("locationUuid", location.getUuid());
         certificateEventHistoryService.addEventHistory(
                 CertificateEvent.UPDATE_LOCATION,
                 CertificateEventStatus.SUCCESS,
@@ -666,13 +617,7 @@ public class LocationServiceImpl implements LocationService {
                 additionalInformation,
                 certificate
         );
-
-        logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), newCertificateLocation.getLocation().getName());
-
-        return null;
     }
-
-    // PRIVATE METHODS
 
     private List<AttributeDefinition> validateAttributes(EntityInstanceReference entityInstanceReference, List<RequestAttributeDto> requestAttributes, String locationName) throws LocationException {
         List<AttributeDefinition> attributes;

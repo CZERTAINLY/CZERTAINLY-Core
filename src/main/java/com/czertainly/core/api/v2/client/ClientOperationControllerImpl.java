@@ -53,7 +53,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
             @RequestBody ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
-        return clientOperationService.renewCertificate(raProfileUuid, certificateUuid, request);
+        return clientOperationService.renewCertificate(raProfileUuid, certificateUuid, request, false);
     }
 
     @Override
