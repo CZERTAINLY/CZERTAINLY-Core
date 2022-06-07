@@ -137,6 +137,7 @@ public class AcmeServiceImpl implements AcmeService {
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
         logger.debug("Finalizing Order with ID: {}", orderId);
         extendedAcmeHelperService.finalizeOrder(order);
+        order.setStatus(OrderStatus.PROCESSING);
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
