@@ -22,9 +22,12 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 
 public class CrlUtil {
 	private static final Logger logger = LoggerFactory.getLogger(CrlUtil.class);
+	//CRL Timeout setting when initiating URL Connection. If the connection takes more than 30 seconds, it is determined as not reachable
+	private static final Integer CRL_CONNECTION_TIMEOUT = 30; //seconds
 
 	private CrlUtil() {}
 
@@ -34,7 +37,7 @@ public class CrlUtil {
 		byte[] crlDistributionPointDerEncodedArray = certificate
 				.getExtensionValue(Extension.cRLDistributionPoints.getId());
 		if (crlDistributionPointDerEncodedArray == null) {
-			return new ArrayList<String>();
+			return new ArrayList<>();
 		}
 		ASN1InputStream oAsnInStream = new ASN1InputStream(
 				new ByteArrayInputStream(crlDistributionPointDerEncodedArray));
@@ -69,15 +72,15 @@ public class CrlUtil {
 		return crlUrls;
 	}
 
-	public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, GeneralSecurityException {
+	public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, GeneralSecurityException, TimeoutException {
 		logger.debug("Initiating CRL check for {}", certificate.getSubjectDN());
 		logger.debug("CRL URL is {}", crlUrl);
-		X509CRL crl = null;
+		X509CRL crl;
 		URL url = new URL(crlUrl);
 		URLConnection connection = url.openConnection();
+		connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
 		CertificateFactory cf = CertificateFactory.getInstance("X509");
 		try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
-
 			crl = (X509CRL) cf.generateCRL(inStream);
 		}
 		logger.debug("Completed CRL check for {}", certificate.getSubjectDN());
