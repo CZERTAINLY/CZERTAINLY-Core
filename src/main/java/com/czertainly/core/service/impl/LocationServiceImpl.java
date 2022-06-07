@@ -363,14 +363,8 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + location.getName() + " does not support multiple entries");
         }
 
-        PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
-        pushCertificateRequestDto.setCertificate(certificate.getCertificateContent().getContent());
-        pushCertificateRequestDto.setCertificateType(CertificateType.X509);
-        pushCertificateRequestDto.setLocationAttributes(location.getRequestAttributes());
-        pushCertificateRequestDto.setPushAttributes(request.getAttributes());
-
-        pushCertificate(
-                pushCertificateRequestDto, location, certificate,
+        pushCertificateToLocation(
+                location, certificate,
                 request.getAttributes(), List.of()
         );
 
@@ -393,51 +387,18 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + location.getName() + " does not support multiple entries");
         }
 
-        GenerateCsrRequestDto generateCsrRequestDto = new GenerateCsrRequestDto();
-        generateCsrRequestDto.setLocationAttributes(location.getRequestAttributes());
-        generateCsrRequestDto.setCsrAttributes(request.getCsrAttributes());
-
-        GenerateCsrResponseDto generateCsrResponseDto;
-        try {
-            generateCsrResponseDto = locationApiClient.generateCsrLocation(
-                    location.getEntityInstanceReference().getConnector().mapToDto(),
-                    location.getEntityInstanceReference().getEntityInstanceUuid(),
-                    generateCsrRequestDto
-            );
-        } catch (ConnectorException e) {
-            logger.debug("Failed to generate CSR for the Location " + location.getName() + ", " + location.getUuid() +
-                    ", with Attributes " + request.getCsrAttributes() + ": " + e.getMessage());
-            throw new LocationException("Failed to generate CSR for Location " + location.getName());
-        }
-
+        // generate new CSR
+        GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(location, request.getCsrAttributes());
         logger.info("Received certificate signing request from Location {}", location.getName());
 
-        ClientCertificateSignRequestDto clientCertificateSignRequestDto = new ClientCertificateSignRequestDto();
-        clientCertificateSignRequestDto.setAttributes(request.getIssueAttributes());
-        // TODO: support for different types of certificate
-        clientCertificateSignRequestDto.setPkcs10(generateCsrResponseDto.getCsr());
-
-        ClientCertificateDataResponseDto clientCertificateDataResponseDto;
-        try {
-            clientCertificateDataResponseDto = clientOperationService.issueCertificate(
-                    request.getRaProfileUuid(), clientCertificateSignRequestDto, true);
-        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException e) {
-            logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
-                    ": " + e.getMessage());
-            throw new LocationException("Failed to issue Certificate for Location " + location.getName());
-        }
-
+        // issue new Certificate
+        ClientCertificateDataResponseDto clientCertificateDataResponseDto = issueCertificateForLocation(
+                location, generateCsrResponseDto.getCsr(), request.getIssueAttributes(), request.getRaProfileUuid());
         Certificate certificate = certificateService.getCertificateEntity(clientCertificateDataResponseDto.getUuid());
 
-        PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
-        pushCertificateRequestDto.setCertificate(clientCertificateDataResponseDto.getCertificateData());
-        // TODO: support for different types of certificate
-        pushCertificateRequestDto.setCertificateType(CertificateType.X509);
-        pushCertificateRequestDto.setLocationAttributes(location.getRequestAttributes());
-        pushCertificateRequestDto.setPushAttributes(generateCsrResponseDto.getPushAttributes());
-
-        pushCertificate(
-                pushCertificateRequestDto, location, certificate,
+        // push new Certificate to Location
+        pushCertificateToLocation(
+                location, certificate,
                 generateCsrResponseDto.getPushAttributes(), request.getCsrAttributes()
         );
 
@@ -464,8 +425,6 @@ public class LocationServiceImpl implements LocationService {
             logger.debug("Failed to get Location details: {}, {}, reason: {}", location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to get details for Location " + location.getName());
         }
-
-        //Location updatedLocation = updateLocationContent(location, locationDetailResponseDto);
 
         try {
             updateLocationContent(location, locationDetailResponseDto);
@@ -504,29 +463,71 @@ public class LocationServiceImpl implements LocationService {
         // remove the current certificate from location
         removeCertificateFromLocation(certificateLocation.getLocation().getUuid(), certificateLocation.getCertificate().getUuid());
 
+        // generate new CSR
+        GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(certificateLocation.getLocation(), certificateLocation.getCsrAttributes());
+        logger.info("Received certificate signing request from Location {}", certificateLocation.getLocation().getName());
+
+        // renew existing Certificate
+        ClientCertificateDataResponseDto clientCertificateDataResponseDto = renewCertificate(certificateLocation, generateCsrResponseDto.getCsr(), false);
+        Certificate certificate = certificateService.getCertificateEntity(clientCertificateDataResponseDto.getUuid());
+
+        // push renewed Certificate to Location
+        pushCertificateToLocation(
+                certificateLocation.getLocation(), certificate,
+                generateCsrResponseDto.getPushAttributes(), certificateLocation.getCsrAttributes()
+        );
+
+        logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), certificateLocation.getLocation().getName());
+
+        Location location = certificateLocation.getLocation();
+
+        return maskSecret(location.mapToDto());
+    }
+
+    // PRIVATE METHODS
+
+    private GenerateCsrResponseDto generateCsrLocation(Location location, List<RequestAttributeDto> csrAttributes) throws LocationException {
         GenerateCsrRequestDto generateCsrRequestDto = new GenerateCsrRequestDto();
-        generateCsrRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
-        generateCsrRequestDto.setCsrAttributes(certificateLocation.getCsrAttributes());
+        generateCsrRequestDto.setLocationAttributes(location.getRequestAttributes());
+        generateCsrRequestDto.setCsrAttributes(csrAttributes);
 
         GenerateCsrResponseDto generateCsrResponseDto;
         try {
             generateCsrResponseDto = locationApiClient.generateCsrLocation(
-                    certificateLocation.getLocation().getEntityInstanceReference().getConnector().mapToDto(),
-                    certificateLocation.getLocation().getEntityInstanceReference().getEntityInstanceUuid(),
+                    location.getEntityInstanceReference().getConnector().mapToDto(),
+                    location.getEntityInstanceReference().getEntityInstanceUuid(),
                     generateCsrRequestDto
             );
         } catch (ConnectorException e) {
-            logger.debug("Failed to generate CSR for the Location " + certificateLocation.getLocation().getName() +
-                    ", " + certificateLocation.getLocation().getUuid() +
-                    ", with Attributes " + certificateLocation.getCsrAttributes() + ": " + e.getMessage());
-            throw new LocationException("Failed to generate CSR for Location " + certificateLocation.getLocation().getName());
+            logger.debug("Failed to generate CSR for the Location " + location.getName() + ", " + location.getUuid() +
+                    ", with Attributes " + csrAttributes + ": " + e.getMessage());
+            throw new LocationException("Failed to generate CSR for Location " + location.getName());
         }
+        return generateCsrResponseDto;
+    }
 
-        logger.info("Received certificate signing request from Location {}", certificateLocation.getLocation().getName());
+    private ClientCertificateDataResponseDto issueCertificateForLocation(Location location, String csr, List<RequestAttributeDto> issueAttributes, String raProfileUuid) throws LocationException {
+        ClientCertificateSignRequestDto clientCertificateSignRequestDto = new ClientCertificateSignRequestDto();
+        clientCertificateSignRequestDto.setAttributes(issueAttributes);
+        // TODO: support for different types of certificate
+        clientCertificateSignRequestDto.setPkcs10(csr);
 
+        ClientCertificateDataResponseDto clientCertificateDataResponseDto;
+        try {
+            clientCertificateDataResponseDto = clientOperationService.issueCertificate(
+                    raProfileUuid, clientCertificateSignRequestDto, true);
+        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException e) {
+            logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
+                    ": " + e.getMessage());
+            throw new LocationException("Failed to issue Certificate for Location " + location.getName());
+        }
+        return clientCertificateDataResponseDto;
+    }
+
+    private ClientCertificateDataResponseDto renewCertificate(CertificateLocation certificateLocation, String csr, boolean replaceInLocation) throws LocationException {
         ClientCertificateRenewRequestDto clientCertificateRenewRequestDto = new ClientCertificateRenewRequestDto();
-        clientCertificateRenewRequestDto.setPkcs10(generateCsrResponseDto.getCsr());
-        clientCertificateRenewRequestDto.setReplaceInLocations(false);
+        clientCertificateRenewRequestDto.setPkcs10(csr);
+        clientCertificateRenewRequestDto.setReplaceInLocations(replaceInLocation);
 
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
@@ -540,32 +541,18 @@ public class LocationServiceImpl implements LocationService {
                     ", " + certificateLocation.getLocation().getUuid() + ": " + e.getMessage());
             throw new LocationException("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName());
         }
-
-        Certificate certificate = certificateService.getCertificateEntity(clientCertificateDataResponseDto.getUuid());
-
-        PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
-        pushCertificateRequestDto.setCertificate(clientCertificateDataResponseDto.getCertificateData());
-        // TODO: support for different types of certificate
-        pushCertificateRequestDto.setCertificateType(CertificateType.X509);
-        pushCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
-        pushCertificateRequestDto.setPushAttributes(generateCsrResponseDto.getPushAttributes());
-
-        pushCertificate(
-                pushCertificateRequestDto, certificateLocation.getLocation(), certificate,
-                generateCsrResponseDto.getPushAttributes(), certificateLocation.getCsrAttributes()
-        );
-
-        logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), certificateLocation.getLocation().getName());
-
-        Location location = certificateLocation.getLocation();
-
-        return maskSecret(location.mapToDto());
+        return clientCertificateDataResponseDto;
     }
 
-    // PRIVATE METHODS
-
-    private void pushCertificate(PushCertificateRequestDto pushCertificateRequestDto, Location location, Certificate certificate,
+    private void pushCertificateToLocation(Location location, Certificate certificate,
                                  List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes) throws LocationException {
+        PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
+        pushCertificateRequestDto.setCertificate(certificate.getCertificateContent().getContent());
+        // TODO: support for different types of certificate
+        pushCertificateRequestDto.setCertificateType(CertificateType.X509);
+        pushCertificateRequestDto.setLocationAttributes(location.getRequestAttributes());
+        pushCertificateRequestDto.setPushAttributes(pushAttributes);
+
         PushCertificateResponseDto pushCertificateResponseDto;
         try {
             pushCertificateResponseDto = locationApiClient.pushCertificateToLocation(
