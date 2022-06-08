@@ -99,12 +99,13 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     @Column(name = "group_id", insertable = false, updatable = false)
     private Long groupId;
 
-    @ManyToOne()
-    @JoinColumn(name = "entity_id")
-    private CertificateEntity entity;
-
-    @Column(name = "entity_id", insertable = false, updatable = false)
-    private Long entityId;
+    @OneToMany(
+            mappedBy = "certificate",
+            cascade = CascadeType.ALL
+            //orphanRemoval = true
+    )
+    @JsonBackReference
+    private Set<CertificateLocation> locations = new HashSet<>();
 
     @Column(name = "owner")
     private String owner;
@@ -161,9 +162,9 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         if (group != null) {
             dto.setGroup(group.mapToDto());
         }
-        if (entity != null) {
-            dto.setEntity(entity.mapToDto());
-        }
+//        if (locations != null) {
+//            dto.setLocations(locations.mapToDto());
+//        }
         try {
             dto.setCertificateValidationResult(MetaDefinitions.deserializeValidation(certificateValidationResult));
         }catch (IllegalStateException e){
@@ -371,14 +372,6 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.group = group;
     }
 
-    public CertificateEntity getEntity() {
-        return entity;
-    }
-
-    public void setEntity(CertificateEntity entity) {
-        this.entity = entity;
-    }
-
     public String getCertificateValidationResult() {
         return certificateValidationResult;
     }
@@ -393,5 +386,13 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     public void setEventHistories(Set<CertificateEventHistory> eventHistories) {
         this.eventHistories = eventHistories;
+    }
+
+    public Set<CertificateLocation> getLocations() {
+        return locations;
+    }
+
+    public void setLocations(Set<CertificateLocation> locations) {
+        this.locations = locations;
     }
 }

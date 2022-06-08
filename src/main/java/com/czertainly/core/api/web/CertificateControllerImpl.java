@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.certificate.BulkOperationStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.CertValidationService;
@@ -74,12 +75,6 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public void updateEntity(@PathVariable String uuid, @RequestBody CertificateUpdateEntityDto request)
-			throws NotFoundException {
-		certificateService.updateEntity(uuid, request);
-	}
-
-	@Override
 	public void updateOwner(@PathVariable String uuid, @RequestBody CertificateOwnerRequestDto request)
 			throws NotFoundException {
 		certificateService.updateOwner(uuid, request);
@@ -103,12 +98,6 @@ public class CertificateControllerImpl implements CertificateController {
 	public void bulkUpdateCertificateGroup(@RequestBody MultipleGroupUpdateDto request)
 			throws NotFoundException {
 		certificateService.bulkUpdateCertificateGroup(request);
-	}
-
-	@Override
-	public void bulkUpdateEntity(@RequestBody MultipleEntityUpdateDto request)
-			throws NotFoundException {
-		certificateService.bulkUpdateEntity(request);
 	}
 
 	@Override
@@ -154,6 +143,11 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
 		return certificateEventHistoryService.getCertificateEventHistory(uuid);
+	}
+
+	@Override
+	public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
+		return certificateService.listLocations(certificateUuid);
 	}
 
 }

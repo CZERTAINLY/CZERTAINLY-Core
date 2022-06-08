@@ -45,14 +45,11 @@ public class CertificateServiceTest {
     private RaProfileRepository raProfileRepository;
     @Autowired
     private GroupRepository groupRepository;
-    @Autowired
-    private EntityRepository entityRepository;
 
     private Certificate certificate;
     private CertificateContent certificateContent;
     private RaProfile raProfile;
     private CertificateGroup certificateGroup;
-    private CertificateEntity certificateEntity;
 
     private X509Certificate x509Cert;
 
@@ -73,9 +70,6 @@ public class CertificateServiceTest {
 
         certificateGroup = new CertificateGroup();
         certificateGroup = groupRepository.save(certificateGroup);
-
-        certificateEntity = new CertificateEntity();
-        certificateEntity = entityRepository.save(certificateEntity);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
@@ -217,29 +211,6 @@ public class CertificateServiceTest {
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateGroup(certificate.getUuid(), uuidDto));
     }
 
-    @Test
-    public void testUpdateCertificateEntity() throws NotFoundException {
-        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
-        uuidDto.setEntityUuid(certificateEntity.getUuid());
-
-        certificateService.updateEntity(certificate.getUuid(), uuidDto);
-
-        Assertions.assertEquals(certificateEntity, certificate.getEntity());
-    }
-
-    @Test
-    public void testUpdateCertificateEntity_certificateNotFound() {
-        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
-        uuidDto.setEntityUuid(certificateEntity.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateEntity("wrong-uuid", uuidDto));
-    }
-
-    @Test
-    public void testUpdateCertificateEntity_entityNotFound() {
-        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
-        uuidDto.setEntityUuid("wrong-uuid");
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateEntity(certificate.getUuid(), uuidDto));
-    }
 
     @Test
     public void testUpdateOwner() throws NotFoundException {
