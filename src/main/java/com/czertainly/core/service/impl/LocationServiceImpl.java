@@ -217,7 +217,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public List<AttributeDefinition> listPushAttributes(String locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuid(locationUuid)
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         try {
@@ -233,7 +233,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public List<AttributeDefinition> listCsrAttributes(String locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuid(locationUuid)
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         try {
@@ -249,7 +249,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public LocationDto removeCertificateFromLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuid(locationUuid)
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
@@ -303,6 +303,10 @@ public class LocationServiceImpl implements LocationService {
         Set<CertificateLocation> certificateLocations = certificate.getLocations();
         for (CertificateLocation cl : certificateLocations) {
             try {
+                if (!cl.getLocation().getEnabled()) {
+                    throw new NotFoundException(Location.class, cl.getLocation().getUuid());
+                }
+
                 removeCertificateFromLocation(cl);
                 certificateLocations.remove(cl);
 
@@ -340,7 +344,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuid(locationUuid)
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
@@ -374,7 +378,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuid(locationUuid)
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         if (!location.isSupportKeyManagement()) {
@@ -408,7 +412,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public LocationDto updateLocationContent(String locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuid(locationUuid)
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         EntityInstanceReference entityInstanceRef = location.getEntityInstanceReference();
@@ -439,6 +443,9 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
+        locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
+                .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
+
         CertificateLocation certificateLocation = getCertificateLocation(locationUuid, certificateUuid);
 
         // Check if everything is available to do the renewal

@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.core.dao.entity.Location;
+import com.czertainly.core.dao.entity.RaProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -15,5 +16,7 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
     Optional<Location> findByName(String name);
 
     List<Location> findByEnabled(Boolean isEnabled);
+
+    Optional<Location> findByUuidAndEnabledIsTrue(String uuid);
 
 }
