@@ -2,22 +2,14 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.AttributeDefinition;
 
 import com.czertainly.api.model.common.RequestAttributeDto;
-import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.service.ConnectorService;
@@ -41,12 +33,25 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     private static final Logger logger = LoggerFactory.getLogger(EntityInstanceServiceImpl.class);
 
     @Autowired
+    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
+    }
+    @Autowired
+    public void setConnectorService(ConnectorService connectorService) {
+        this.connectorService = connectorService;
+    }
+    @Autowired
+    public void setCredentialService(CredentialService credentialService) {
+        this.credentialService = credentialService;
+    }
+    @Autowired
+    public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
+        this.entityInstanceApiClient = entityInstanceApiClient;
+    }
+
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    @Autowired
     private ConnectorService connectorService;
-    @Autowired
     private CredentialService credentialService;
-    @Autowired
     private EntityInstanceApiClient entityInstanceApiClient;
 
     @Override
@@ -156,7 +161,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         if (!entityInstanceRef.getLocations().isEmpty()) {
             errors.add(ValidationError.create("Entity instance {} has {} dependent Locations", entityInstanceRef.getName(),
                     entityInstanceRef.getLocations().size()));
-            entityInstanceRef.getLocations().stream().forEach(c -> errors.add(ValidationError.create(c.getName())));
+            entityInstanceRef.getLocations().forEach(c -> errors.add(ValidationError.create(c.getName())));
         }
 
         if (!errors.isEmpty()) {
