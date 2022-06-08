@@ -17,6 +17,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 public class LocationManagementControllerImpl implements LocationManagementController {
@@ -29,13 +30,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     private LocationService locationService;
 
     @Override
-    public List<LocationDto> listLocations() {
-        return locationService.listLocation();
-    }
-
-    @Override
-    public List<LocationDto> listLocations(Boolean isEnabled) {
-        return locationService.listLocations(isEnabled);
+    public List<LocationDto> listLocations(Optional<Boolean> enabled) {
+        return locationService.listLocations(enabled);
     }
 
     @Override
@@ -104,7 +100,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public LocationDto updateLocationContent(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
+    public LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
         return locationService.renewCertificateInLocation(locationUuid, certificateUuid);
     }
 

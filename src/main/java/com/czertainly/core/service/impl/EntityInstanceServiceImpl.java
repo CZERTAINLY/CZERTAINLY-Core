@@ -183,13 +183,13 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public Boolean validateLocationAttributes(String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    public void validateLocationAttributes(String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
         Connector connector = entityInstance.getConnector();
 
-        return entityInstanceApiClient.validateLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid(),
+        entityInstanceApiClient.validateLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid(),
                 attributes);
     }
 }

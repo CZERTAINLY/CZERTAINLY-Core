@@ -97,9 +97,8 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    public List<LocationDto> listLocations(Boolean isEnabled) {
-        List<Location> locations = locationRepository.findByEnabled(isEnabled);
-        return locations.stream().map(Location::mapToDtoSimple).collect(Collectors.toList());
+    public List<LocationDto> listLocations(Optional<Boolean> enabled) {
+        return enabled.map(aBoolean -> locationRepository.findByEnabled(aBoolean).stream().map(Location::mapToDtoSimple).collect(Collectors.toList())).orElseGet(this::listLocation);
     }
 
     @Override
@@ -468,7 +467,7 @@ public class LocationServiceImpl implements LocationService {
         logger.info("Received certificate signing request from Location {}", certificateLocation.getLocation().getName());
 
         // renew existing Certificate
-        ClientCertificateDataResponseDto clientCertificateDataResponseDto = renewCertificate(certificateLocation, generateCsrResponseDto.getCsr(), false);
+        ClientCertificateDataResponseDto clientCertificateDataResponseDto = renewCertificate(certificateLocation, generateCsrResponseDto.getCsr());
         Certificate certificate = certificateService.getCertificateEntity(clientCertificateDataResponseDto.getUuid());
 
         // push renewed Certificate to Location
@@ -524,10 +523,10 @@ public class LocationServiceImpl implements LocationService {
         return clientCertificateDataResponseDto;
     }
 
-    private ClientCertificateDataResponseDto renewCertificate(CertificateLocation certificateLocation, String csr, boolean replaceInLocation) throws LocationException {
+    private ClientCertificateDataResponseDto renewCertificate(CertificateLocation certificateLocation, String csr) throws LocationException {
         ClientCertificateRenewRequestDto clientCertificateRenewRequestDto = new ClientCertificateRenewRequestDto();
         clientCertificateRenewRequestDto.setPkcs10(csr);
-        clientCertificateRenewRequestDto.setReplaceInLocations(replaceInLocation);
+        clientCertificateRenewRequestDto.setReplaceInLocations(false);
 
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
@@ -680,13 +679,10 @@ public class LocationServiceImpl implements LocationService {
                 entityInstanceRef.getEntityInstanceUuid());
         List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
-        if (Boolean.FALSE.equals(entityInstanceApiClient.validateLocationAttributes(
+        entityInstanceApiClient.validateLocationAttributes(
                 entityInstanceRef.getConnector().mapToDto(),
                 entityInstanceRef.getEntityInstanceUuid(),
-                attributes))) {
-
-            throw new ValidationException("Location attributes validation failed.");
-        }
+                attributes);
 
         return merged;
     }

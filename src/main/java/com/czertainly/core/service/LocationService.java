@@ -10,6 +10,7 @@ import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.dao.entity.Location;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface LocationService {
 
@@ -24,7 +25,7 @@ public interface LocationService {
      * @param isEnabled If true, only enabled locations are returned.
      * @return List of locations.
      */
-    List<LocationDto> listLocations(Boolean isEnabled);
+    List<LocationDto> listLocations(Optional<Boolean> enabled);
 
     /**
      * Add a new location.

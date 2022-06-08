@@ -23,5 +23,5 @@ public interface EntityInstanceService {
 
     List<AttributeDefinition> listLocationAttributes(String entityUuid) throws ConnectorException;
 
-    Boolean validateLocationAttributes(String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException;
+    void validateLocationAttributes(String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException;
 }
