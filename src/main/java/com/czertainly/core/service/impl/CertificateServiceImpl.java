@@ -164,7 +164,6 @@ public class CertificateServiceImpl implements CertificateService {
         } else {
             certificateRepository.delete(certificate);
         }
-
     }
 
     @Override
