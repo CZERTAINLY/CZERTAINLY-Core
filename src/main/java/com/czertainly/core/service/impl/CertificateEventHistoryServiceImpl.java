@@ -12,6 +12,7 @@ import com.czertainly.core.dao.repository.CertificateEventHistoryRepository;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.SearchService;
+import com.czertainly.core.util.MetaDefinitions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -38,6 +40,11 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     private SearchService searchService;
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateEventHistoryServiceImpl.class);
+
+    @Override
+    public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, HashMap<String, Object> additionalInformation, Certificate certificate) {
+        addEventHistory(event, status, message, MetaDefinitions.serialize(additionalInformation), certificate);
+    }
 
     @Override
     public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {

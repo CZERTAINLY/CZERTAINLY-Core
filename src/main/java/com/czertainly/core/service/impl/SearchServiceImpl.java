@@ -5,10 +5,8 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.search.*;
-import com.czertainly.core.dao.entity.CertificateEntity;
 import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.EntityRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.SearchService;
@@ -42,9 +40,6 @@ public class SearchServiceImpl implements SearchService {
 
     @Autowired
     private GroupRepository groupRepository;
-
-    @Autowired
-    private EntityRepository entityRepository;
 
     @Override
     public SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values, SearchableFieldType fieldType, List<SearchCondition> conditions) {
@@ -206,8 +201,6 @@ public class SearchServiceImpl implements SearchService {
                 List<String> whereObjects = new ArrayList<>();
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
                     whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getId).map(i -> i.toString()).collect(Collectors.toList()));
-                } else if (filter.getField().equals(SearchableFields.ENTITY_NAME)) {
-                    whereObjects.addAll(entityRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateEntity::getId).map(i -> i.toString()).collect(Collectors.toList()));
                 } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
                     whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getId).map(i -> i.toString()).collect(Collectors.toList()));
                 } else {
@@ -265,9 +258,6 @@ public class SearchServiceImpl implements SearchService {
                     if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
                         String raProfileId = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
                         qp += filter.getConditions().get(0).getCode() + " '" + raProfileId + "'";
-                    } else if (filter.getField().equals(SearchableFields.ENTITY_NAME)) {
-                        String entityId = entityRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
-                        qp += filter.getConditions().get(0).getCode() + " '" + entityId + "'";
                     } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
                         String groupId = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
                         qp += filter.getConditions().get(0).getCode() + " '" + groupId + "'";

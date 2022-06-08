@@ -9,7 +9,6 @@ import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateEntity;
 import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
@@ -91,7 +90,7 @@ public class GroupServiceImpl implements GroupService {
         for(String uuid: entityUuids){
             try{
                 CertificateGroup certificateGroup = groupRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(CertificateEntity.class, uuid));
+                        .orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
                 for(Certificate certificate: certificateRepository.findByGroup(certificateGroup)){
                     certificate.setGroup(null);
                     certificateRepository.save(certificate);

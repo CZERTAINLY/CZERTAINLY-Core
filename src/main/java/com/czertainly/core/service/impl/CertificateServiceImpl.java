@@ -1,25 +1,20 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.service.CertValidationService;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.SearchService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
@@ -69,9 +64,6 @@ public class CertificateServiceImpl implements CertificateService {
     private GroupRepository groupRepository;
 
     @Autowired
-    private EntityRepository entityRepository;
-
-    @Autowired
     private CertificateContentRepository certificateContentRepository;
 
     @Autowired
@@ -94,6 +86,10 @@ public class CertificateServiceImpl implements CertificateService {
     @Lazy
     @Autowired
     private SearchService searchService;
+
+    @Lazy
+    @Autowired
+    private LocationService locationService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -151,6 +147,13 @@ public class CertificateServiceImpl implements CertificateService {
             throw new ValidationException("Could not delete certificate", errors);
         }
 
+        // remove certificate from Locations
+        try {
+            locationService.removeCertificateFromLocations(uuid);
+        } catch (ConnectorException e) {
+            logger.error("Failed to remove Certificate {} from Locations", uuid);
+        }
+
         if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
             CertificateContent content = certificateContentRepository
                     .findById(certificate.getCertificateContent().getId()).orElse(null);
@@ -194,23 +197,6 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setGroup(certificateGroup);
         certificateRepository.save(certificate);
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateEntity(String uuid, CertificateUpdateEntityDto request) throws NotFoundException {
-        Certificate certificate = certificateRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        CertificateEntity certificateEntity = entityRepository.findByUuid(request.getEntityUuid())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getEntityUuid()));
-        String originalEntity = "undefined";
-        if (certificate.getEntity() != null) {
-            originalEntity = certificate.getEntity().getName();
-        }
-        certificate.setEntity(certificateEntity);
-        certificateRepository.save(certificate);
-        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, originalEntity + " -> " + certificateEntity.getName(), "", certificate);
-
     }
 
     @Override
@@ -275,30 +261,6 @@ public class CertificateServiceImpl implements CertificateService {
             String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(groupUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
-        }
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void bulkUpdateEntity(MultipleEntityUpdateDto request) throws NotFoundException {
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        CertificateEntity certificateEntity = entityRepository.findByUuid(request.getUuid())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-        if (request.getFilters() == null) {
-            List<Certificate> batchOperationList = new ArrayList<>();
-            for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, certificate.getEntity() != null ? certificate.getEntity().getName() : "undefined" + " -> " + certificateEntity.getName(), "", certificate));
-                certificate.setEntity(certificateEntity);
-                batchOperationList.add(certificate);
-                certificateRepository.saveAll(batchOperationList);
-                certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
-            }
-        } else {
-            String entityUpdateQuery = "UPDATE Certificate c SET c.entity = " + certificateEntity.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            certificateRepository.bulkUpdateQuery(entityUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Entity Name: " + certificateEntity.getName());
         }
     }
 
@@ -389,7 +351,6 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
     }
 
-
     @Override
     public List<SearchFieldDataDto> getSearchableFieldInformation() {
         return getSearchableFieldsMap();
@@ -449,6 +410,60 @@ public class CertificateServiceImpl implements CertificateService {
     private X509Certificate getX509(String certificate) throws CertificateException {
         return CertificateUtil.getX509Certificate(certificate.replace("-----BEGIN CERTIFICATE-----", "")
                 .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", ""));
+    }
+
+    @Override
+    public Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException {
+        Certificate entity = new Certificate();
+        String fingerprint;
+
+        // by default we are working with the X.509 certificate
+        if (certificateType == null) {
+            certificateType = CertificateType.X509;
+        }
+        if (!certificateType.equals(CertificateType.X509)) {
+            String message = "Unsupported type of the certificate: " + certificateType;
+            logger.debug(message);
+            throw new com.czertainly.api.exception.CertificateException(message);
+        } else {
+            X509Certificate certificate;
+            try {
+                certificate = getX509(certificateData);
+            } catch (CertificateException e) {
+                String message = "Failed to get parse the certificate " + certificateData + " > " + e.getMessage();
+                logger.error("message");
+                throw new com.czertainly.api.exception.CertificateException(message);
+            }
+            try {
+                fingerprint = CertificateUtil.getThumbprint(certificate.getEncoded());
+                Optional<Certificate> existingCertificate = certificateRepository.findByFingerprint(fingerprint);
+
+                if (existingCertificate.isPresent()) {
+                    logger.debug("Returning existing certificate with fingerprint {}", fingerprint);
+                    return existingCertificate.get();
+                }
+            } catch (NoSuchAlgorithmException | CertificateException e) {
+                String message = "Failed to get thumbprint for certificate " + certificate.getSerialNumber() + " > " + e.getMessage();
+                logger.error("message");
+                throw new com.czertainly.api.exception.CertificateException(message);
+            }
+
+            CertificateUtil.prepareCertificate(entity, certificate);
+            entity.setFingerprint(fingerprint);
+            entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
+
+            try {
+                certValidationService.validate(entity);
+            } catch (Exception e) {
+                logger.warn("Unable to validate certificate {}, {}", entity.getUuid(), e.getMessage());
+            }
+
+            certificateRepository.save(entity);
+
+            certificateEventHistoryService.addEventHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
+
+            return entity;
+        }
     }
 
     @Override
@@ -546,13 +561,20 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
+    @Override
+    public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
+        Certificate certificateEntity = certificateRepository.findByUuid(certificateUuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        return certificateEntity.getLocations().stream()
+                .map(CertificateLocation::getLocation)
+                .map(Location::mapToDtoSimple)
+                .collect(Collectors.toList());
+    }
+
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
 
         SearchFieldDataDto raProfileFilter = SearchLabelConstants.RA_PROFILE_NAME_FILTER;
         raProfileFilter.setValue(raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()));
-
-        SearchFieldDataDto entityFilter = SearchLabelConstants.ENTITY_NAME_FILTER;
-        entityFilter.setValue(entityRepository.findAll().stream().map(CertificateEntity::getName).collect(Collectors.toList()));
 
         SearchFieldDataDto groupFilter = SearchLabelConstants.GROUP_NAME_FILTER;
         groupFilter.setValue(groupRepository.findAll().stream().map(CertificateGroup::getName).collect(Collectors.toList()));
@@ -574,7 +596,6 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchLabelConstants.SERIAL_NUMBER_FILTER,
                 SearchLabelConstants.ISSUER_SERIAL_NUMBER_FILTER,
                 raProfileFilter,
-                entityFilter,
                 groupFilter,
                 SearchLabelConstants.OWNER_FILTER,
                 SearchLabelConstants.STATUS_FILTER,

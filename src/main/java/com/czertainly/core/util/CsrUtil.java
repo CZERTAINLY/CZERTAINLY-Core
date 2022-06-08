@@ -12,8 +12,14 @@ public class CsrUtil {
 
     public static JcaPKCS10CertificationRequest csrStringToJcaObject(String csr) throws IOException {
         csr = csr.replace("-----BEGIN CERTIFICATE REQUEST-----", "")
-                .replaceAll(System.lineSeparator(), "")
+                .replace("\r", "").replace("\n", "")
                 .replace("-----END CERTIFICATE REQUEST-----", "");
+
+        // some of the X.509 CSRs can have different headers and footers
+        csr = csr.replace("-----BEGIN NEW CERTIFICATE REQUEST-----", "")
+                .replace("\r", "").replace("\n", "")
+                .replace("-----END NEW CERTIFICATE REQUEST-----", "");
+
         logger.debug("Decoding Base64-encoded CSR: " + csr);
         byte[] decoded = Base64.getDecoder().decode(csr);
         return new JcaPKCS10CertificationRequest(decoded);

@@ -60,6 +60,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
+    private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+    @Autowired
     private ConnectorAuthService connectorAuthService;
     @Autowired
     private AuthorityInstanceApiClient authorityInstanceApiClient;
@@ -329,6 +331,14 @@ public class ConnectorServiceImpl implements ConnectorService {
                     "Connector {} has {} dependent Authority instances",
                     connector.getName(), connector.getAuthorityInstanceReferences().size()));
             connector.getAuthorityInstanceReferences().stream().forEach(
+                    c -> errors.add(ValidationError.create(c.getName())));
+        }
+
+        if (!connector.getEntityInstanceReferences().isEmpty()) {
+            errors.add(ValidationError.create(
+                    "Connector {} has {} dependent Entity instances",
+                    connector.getName(), connector.getEntityInstanceReferences().size()));
+            connector.getEntityInstanceReferences().stream().forEach(
                     c -> errors.add(ValidationError.create(c.getName())));
         }
 
@@ -651,6 +661,12 @@ public class ConnectorServiceImpl implements ConnectorService {
                         c -> errors.add(c.getName()));
             }
 
+            if (!connector.getEntityInstanceReferences().isEmpty()) {
+                errors.add("Entity instances: " + connector.getEntityInstanceReferences().size() + ". Names: ");
+                connector.getEntityInstanceReferences().stream().forEach(
+                        c -> errors.add(c.getName()));
+            }
+
             if (!errors.isEmpty()) {
                 ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
                 forceModal.setUuid(connector.getUuid());
@@ -694,6 +710,16 @@ public class ConnectorServiceImpl implements ConnectorService {
                     connector.getAuthorityInstanceReferences().removeAll(connector.getAuthorityInstanceReferences());
                     connectorRepository.save(connector);
                 }
+
+                if (!connector.getEntityInstanceReferences().isEmpty()) {
+                    for (EntityInstanceReference ref : connector.getEntityInstanceReferences()) {
+                        ref.setConnector(null);
+                        entityInstanceReferenceRepository.save(ref);
+                    }
+                    connector.getEntityInstanceReferences().removeAll(connector.getEntityInstanceReferences());
+                    connectorRepository.save(connector);
+                }
+
                 List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
                 connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
                 connectorRepository.delete(connector);

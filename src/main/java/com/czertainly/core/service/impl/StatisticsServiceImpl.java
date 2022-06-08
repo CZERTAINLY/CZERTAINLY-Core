@@ -3,16 +3,9 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateEntity;
-import com.czertainly.core.dao.entity.CertificateGroup;
-import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.StatisticsService;
-import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,9 +13,7 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Service
@@ -42,9 +33,6 @@ public class StatisticsServiceImpl implements StatisticsService {
     private GroupRepository groupRepository;
 
     @Autowired
-    private EntityRepository entityRepository;
-
-    @Autowired
     private RaProfileRepository raProfileRepository;
 
 
@@ -57,9 +45,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         dto.setTotalCertificates(getCertificateCount());
         dto.setTotalDiscoveries(getDiscoveryCount());
         dto.setTotalGroups(getCertificateGroupCount());
-        dto.setTotalEntities(getCertificateEntityCount());
         dto.setTotalRaProfiles(getRaProfileCount());
-        dto.setEntityStatByCertificateCount(getEntityStatByCertificateCount(dto));
         dto.setGroupStatByCertificateCount(getGroupStatByCertificateCount(dto));
         dto.setRaProfileStatByCertificateCount(getRaProfileStatByCertificateCount(dto));
         dto.setCertificateStatByType(getCertificateStatByType(dto));
@@ -83,10 +69,6 @@ public class StatisticsServiceImpl implements StatisticsService {
         return groupRepository.count();
     }
 
-    private long getCertificateEntityCount() {
-        return entityRepository.count();
-    }
-
     private long getRaProfileCount() {
         return raProfileRepository.count();
     }
@@ -96,15 +78,6 @@ public class StatisticsServiceImpl implements StatisticsService {
         var result = certificateRepository.getCertificatesCountByGroup();
         for (Object[] item : result) keys.add((long)item[0]);
         var labels = certificateRepository.getGroupNamesWithIds(keys);
-
-        return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
-    }
-
-    private Map<String, Long> getEntityStatByCertificateCount(StatisticsDto dto) {
-        List<Long> keys = new ArrayList<Long>();
-        var result = certificateRepository.getCertificatesCountByEntity();
-        for (Object[] item : result) keys.add((long)item[0]);
-        var labels = certificateRepository.getEntityNamesWithIds(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
     }
