@@ -2,24 +2,42 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.clients.LocationApiClient;
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.LocationException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.AttributeDefinition;
-import com.czertainly.api.model.common.BaseAttributeDefinitionTypes;
-import com.czertainly.api.model.common.RequestAttributeDto;
-import com.czertainly.api.model.common.ResponseAttributeDto;
-import com.czertainly.api.model.connector.entity.*;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.AttributeType;
+import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.connector.entity.CertificateLocationDto;
+import com.czertainly.api.model.connector.entity.GenerateCsrRequestDto;
+import com.czertainly.api.model.connector.entity.GenerateCsrResponseDto;
+import com.czertainly.api.model.connector.entity.LocationDetailRequestDto;
+import com.czertainly.api.model.connector.entity.LocationDetailResponseDto;
+import com.czertainly.api.model.connector.entity.PushCertificateRequestDto;
+import com.czertainly.api.model.connector.entity.PushCertificateResponseDto;
+import com.czertainly.api.model.connector.entity.RemoveCertificateRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateLocation;
+import com.czertainly.core.dao.entity.CertificateLocationId;
+import com.czertainly.core.dao.entity.EntityInstanceReference;
+import com.czertainly.core.dao.entity.Location;
 import com.czertainly.core.dao.repository.CertificateLocationRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
@@ -35,7 +53,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,7 +69,7 @@ public class LocationServiceImpl implements LocationService {
 
     private static final Logger logger = LoggerFactory.getLogger(LocationServiceImpl.class);
 
-    private static final List<BaseAttributeDefinitionTypes> TO_BE_MASKED = List.of(BaseAttributeDefinitionTypes.SECRET);
+    private static final List<AttributeType> TO_BE_MASKED = List.of(AttributeType.SECRET);
 
     @Autowired
     public void setLocationRepository(LocationRepository locationRepository) {
@@ -470,7 +495,7 @@ public class LocationServiceImpl implements LocationService {
         removeCertificateFromLocation(certificateLocation.getLocation().getUuid(), certificateLocation.getCertificate().getUuid());
 
         // generate new CSR
-        GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(certificateLocation.getLocation(), certificateLocation.getCsrAttributes());
+        GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(certificateLocation.getLocation(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
         logger.info("Received certificate signing request from Location {}", certificateLocation.getLocation().getName());
 
         // renew existing Certificate
@@ -480,7 +505,7 @@ public class LocationServiceImpl implements LocationService {
         // push renewed Certificate to Location
         pushCertificateToLocation(
                 certificateLocation.getLocation(), certificate,
-                generateCsrResponseDto.getPushAttributes(), certificateLocation.getCsrAttributes()
+                generateCsrResponseDto.getPushAttributes(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes())
         );
 
         logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), certificateLocation.getLocation().getName());
@@ -585,12 +610,27 @@ public class LocationServiceImpl implements LocationService {
                     " to Location " + location.getName());
         }
 
+        //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
+        //stored in the database
+        List<AttributeDefinition> fullPushAttributes;
+        List<AttributeDefinition> fullCsrAttributes;
+        try {
+            fullPushAttributes = listPushAttributes(location.getUuid());
+            fullCsrAttributes = listCsrAttributes(location.getUuid());
+        } catch (NotFoundException e) {
+            logger.error("Unable to find the location with uuid: {}", location.getUuid());
+            throw new LocationException("Failed to get Attributes for Location: " + location.getName());
+        }
+
+        List<AttributeDefinition> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
+        List<AttributeDefinition> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
+
         CertificateLocation certificateLocation = new CertificateLocation();
         certificateLocation.setLocation(location);
         certificateLocation.setCertificate(certificate);
         certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
-        certificateLocation.setPushAttributes(pushAttributes);
-        certificateLocation.setCsrAttributes(csrAttributes);
+        certificateLocation.setPushAttributes(mergedPushAttributes);
+        certificateLocation.setCsrAttributes(mergedCsrAttributes);
 
         // TODO: response with the indication if the key is available for pushed certificate
 
@@ -772,9 +812,35 @@ public class LocationServiceImpl implements LocationService {
     private LocationDto maskSecret(LocationDto locationDto){
         for(ResponseAttributeDto responseAttributeDto: locationDto.getAttributes()){
             if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setValue("************");
+                responseAttributeDto.setContent("************");
             }
         }
         return locationDto;
+    }
+
+    private List<AttributeDefinition> listPushAttributes(ConnectorDto connectorDto, String entityInstanceUuid) throws LocationException {
+
+        try {
+            return locationApiClient.listPushCertificateAttributes(
+                    connectorDto,
+                    entityInstanceUuid);
+        } catch (ConnectorException e) {
+            logger.debug("Failed to list push Attributes for Entity Instance {}: {}",
+                    entityInstanceUuid, e.getMessage());
+            throw new LocationException("Failed to list push Attributes for the Entity " + entityInstanceUuid);
+        }
+    }
+
+    private List<AttributeDefinition> listCsrAttributes(ConnectorDto connectorDto, String entityInstanceUuid) throws LocationException {
+
+        try {
+            return locationApiClient.listGenerateCsrAttributes(
+                    connectorDto,
+                    entityInstanceUuid);
+        } catch (ConnectorException e) {
+            logger.debug("Failed to list CSR Attributes for Entity Instance {}: {}",
+                    entityInstanceUuid, e.getMessage());
+            throw new LocationException("Failed to list CSR Attributes for the Entity " + entityInstanceUuid);
+        }
     }
 }

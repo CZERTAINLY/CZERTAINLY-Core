@@ -1,10 +1,21 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
-import com.czertainly.api.model.common.*;
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.AttributeCallback;
+import com.czertainly.api.model.common.attribute.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.AttributeType;
+import com.czertainly.api.model.common.attribute.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -38,7 +49,7 @@ import java.util.stream.Collectors;
 public class CredentialServiceImpl implements CredentialService {
 
     private static final Logger logger = LoggerFactory.getLogger(CredentialServiceImpl.class);
-    private static final List<BaseAttributeDefinitionTypes> TO_BE_MASKED = List.of(BaseAttributeDefinitionTypes.SECRET);
+    private static final List<AttributeType> TO_BE_MASKED = List.of(AttributeType.SECRET);
 
     @Autowired
     private CredentialRepository credentialRepository;
@@ -218,14 +229,14 @@ public class CredentialServiceImpl implements CredentialService {
         }
 
         for (AttributeDefinition attribute : attributes) {
-            if (!BaseAttributeDefinitionTypes.CREDENTIAL.equals(attribute.getType())) {
-                logger.trace("Attribute not of type {} but {}.", BaseAttributeDefinitionTypes.CREDENTIAL, attribute.getType());
+            if (!AttributeType.CREDENTIAL.equals(attribute.getType())) {
+                logger.trace("Attribute not of type {} but {}.", AttributeType.CREDENTIAL, attribute.getType());
                 continue;
             }
 
-            NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidValue(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
+            NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
             Credential credential = getCredentialEntity(credentialId.getUuid());
-            attribute.setValue(credential.mapToDto());
+            attribute.setContent(credential.mapToDto());
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
         }
     }
@@ -240,7 +251,7 @@ public class CredentialServiceImpl implements CredentialService {
 
         if (callback.getMappings() != null) {
             for (AttributeCallbackMapping mapping : callback.getMappings()) {
-                if (BaseAttributeDefinitionTypes.CREDENTIAL.equals(mapping.getAttributeType())) {
+                if (AttributeType.CREDENTIAL.equals(mapping.getAttributeType())) {
                     for (AttributeValueTarget target : mapping.getTargets()) {
                         switch (target) {
                             case PATH_VARIABLE:
@@ -284,7 +295,7 @@ public class CredentialServiceImpl implements CredentialService {
     private CredentialDto maskSecret(CredentialDto credentialDto){
         for(ResponseAttributeDto responseAttributeDto: credentialDto.getAttributes()){
             if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setValue("************");
+                responseAttributeDto.setContent("************");
             }
         }
         return credentialDto;
