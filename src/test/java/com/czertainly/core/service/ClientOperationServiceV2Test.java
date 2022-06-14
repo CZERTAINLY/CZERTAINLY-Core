@@ -218,12 +218,12 @@ public class ClientOperationServiceV2Test {
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        clientOperationService.renewCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request);
+        clientOperationService.renewCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request, false);
     }
 
     @Test
     public void testRenewCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate("wrong-name", null, null));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate("wrong-name", null, null, false));
     }
 
     @Test
