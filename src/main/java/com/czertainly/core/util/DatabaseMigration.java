@@ -33,7 +33,7 @@ public class DatabaseMigration {
      * Stores the checksum of a Java-based migration.
      */
     public enum JavaMigrationChecksums {
-        V202206151000__AttributeChanges(-829097871);
+        V202206151000__AttributeChanges(-994926303);
         private final int checksum;
 
         JavaMigrationChecksums(int checksum) {
