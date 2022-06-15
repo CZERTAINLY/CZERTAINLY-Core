@@ -3,23 +3,17 @@ package db.migration;
 import com.czertainly.core.util.AttributeMigrationUtils;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
-import org.flywaydb.core.internal.resolver.ChecksumCalculator;
 
-import org.flywaydb.core.internal.resource.filesystem.*;
-
-import java.io.BufferedInputStream;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Objects;
+import java.util.zip.CRC32;
 
 public class V202206151000__AttributeChanges extends BaseJavaMigration {
-    //Checksum to be added for the java migration. Derived from the time when the script is made and negated
+
     private static final String CREDENTIAL_TABLE_NAME = "credential";
     private static final String ACME_TABLE_NAME = "acme_profile";
     private static final String RA_TABLE_NAME = "ra_profile";
@@ -28,33 +22,25 @@ public class V202206151000__AttributeChanges extends BaseJavaMigration {
     private static final String CERTIFICATE_LOCATION_TABLE_NAME = "certificate_location";
 
     private static final String ATTRIBUTE_COLUMN_NAME = "attributes";
+
     @Override
-    public Integer getChecksum(){
+    public Integer getChecksum() {
         ClassLoader loader = V202206151000__AttributeChanges.class.getClassLoader();
         try {
-            BufferedInputStream a = (BufferedInputStream) loader.getResource("db/migration/V202206151000__AttributeChanges.class").getContent();
+            BufferedInputStream a = (BufferedInputStream) Objects.requireNonNull(loader.getResource("db/migration/V202206151000__AttributeChanges.class")).getContent();
             byte[] contents = new byte[1024];
             int bytesRead;
-            String strFileContents = "";
-            while (true) {
-                if (!((bytesRead = a.read(contents)) != -1)) break;
-                strFileContents += new String(contents, 0, bytesRead);
+            StringBuilder strFileContents = new StringBuilder();
+            while ((bytesRead = a.read(contents)) != -1) {
+                strFileContents.append(new String(contents, 0, bytesRead));
             }
 
-            BufferedWriter writer = new BufferedWriter(new FileWriter("test.class"));
-            writer.write(strFileContents);
-            writer.close();
-
-            FileSystemResource r = new FileSystemResource(null, "test.class", StandardCharsets.UTF_8);
-            Integer checksum = ChecksumCalculator.calculate(r);
-            File tempFile = new File("test.class");
-            tempFile.delete();
-            return checksum;
-
-        } catch (Exception e){
-            e.printStackTrace();
+            final CRC32 crc32 = new CRC32();
+            crc32.update(strFileContents.toString().getBytes());
+            return (int) crc32.getValue();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        return null;
     }
 
     public void migrate(Context context) throws Exception {
@@ -63,6 +49,8 @@ public class V202206151000__AttributeChanges extends BaseJavaMigration {
             applyRaProfileMigration(context);
             applyDiscoveryHistoryMigration(context);
             applyAcmeProfileMigration(context);
+            applyCertificateLocationMigration(context);
+            applyLocationMigration(context);
         }
     }
 
