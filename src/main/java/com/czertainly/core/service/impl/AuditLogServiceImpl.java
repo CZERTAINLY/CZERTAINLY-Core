@@ -1,6 +1,12 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.model.core.audit.*;
+import com.czertainly.api.model.core.audit.AuditLogDto;
+import com.czertainly.api.model.core.audit.AuditLogFilter;
+import com.czertainly.api.model.core.audit.AuditLogResponseDto;
+import com.czertainly.api.model.core.audit.ExportResultDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationStatusEnum;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.entity.QAuditLog;

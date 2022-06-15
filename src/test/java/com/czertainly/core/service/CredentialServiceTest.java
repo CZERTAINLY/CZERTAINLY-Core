@@ -6,7 +6,12 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
-import com.czertainly.api.model.common.*;
+import com.czertainly.api.model.common.attribute.AttributeCallback;
+import com.czertainly.api.model.common.attribute.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.AttributeType;
+import com.czertainly.api.model.common.attribute.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.dao.entity.Connector;
@@ -35,6 +40,8 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+
+;
 
 @SpringBootTest
 @Transactional
@@ -224,17 +231,21 @@ public class CredentialServiceTest {
     @Test
     public void testLoadFullData_attributes() throws NotFoundException {
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
+        HashMap<String, Object> content = new HashMap<>();
         nameAndUuidMap.put("uuid", credential.getUuid());
         nameAndUuidMap.put("name", credential.getName());
+        content.put("value", credential.getUuid());
+        content.put("data", nameAndUuidMap);
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap));
-        attrs.get(0).setType(BaseAttributeDefinitionTypes.CREDENTIAL);
+
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", content));
+        attrs.get(0).setType(AttributeType.CREDENTIAL);
 
         credentialService.loadFullCredentialData(attrs);
 
-        Assertions.assertTrue(attrs.get(0).getValue() instanceof CredentialDto);
+        Assertions.assertTrue(attrs.get(0).getContent() instanceof CredentialDto);
 
-        CredentialDto credentialDto = (CredentialDto) attrs.get(0).getValue();
+        CredentialDto credentialDto = (CredentialDto) attrs.get(0).getContent();
         Assertions.assertEquals(credential.getUuid(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -242,11 +253,15 @@ public class CredentialServiceTest {
     @Test
     public void testLoadFullData_attributesNotFound() throws NotFoundException {
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
+        HashMap<String, Object> contentMap = new HashMap<>();
         nameAndUuidMap.put("uuid", "wrong-uuid");
         nameAndUuidMap.put("name", "wrong-name");
+        contentMap.put("value","wrong-name");
+        contentMap.put("data",nameAndUuidMap);
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap));
-        attrs.get(0).setType(BaseAttributeDefinitionTypes.CREDENTIAL);
+
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", contentMap));
+        attrs.get(0).setType(AttributeType.CREDENTIAL);
 
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs));
     }
@@ -274,7 +289,7 @@ public class CredentialServiceTest {
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                BaseAttributeDefinitionTypes.CREDENTIAL,
+                AttributeType.CREDENTIAL,
                 credentialBodyKey,
                 AttributeValueTarget.BODY);
 
@@ -306,7 +321,7 @@ public class CredentialServiceTest {
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                BaseAttributeDefinitionTypes.CREDENTIAL,
+                AttributeType.CREDENTIAL,
                 credentialBodyKey,
                 AttributeValueTarget.BODY);
 
@@ -328,7 +343,7 @@ public class CredentialServiceTest {
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                BaseAttributeDefinitionTypes.CREDENTIAL,
+                AttributeType.CREDENTIAL,
                 credentialBodyKey,
                 AttributeValueTarget.BODY);
 

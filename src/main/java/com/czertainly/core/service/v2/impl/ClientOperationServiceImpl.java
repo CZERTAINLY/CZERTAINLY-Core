@@ -7,8 +7,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.AttributeDefinition;
-import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.connector.v2.CertRevocationDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
 import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
@@ -27,7 +27,6 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateLocation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
@@ -35,12 +34,14 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.LocationService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.util.*;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.CsrUtil;
+import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.ValidatorUtil;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -215,7 +216,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 logger.info("Replacing certificates in locations for certificate: " + certificate.getUuid());
                 for (CertificateLocation cl : oldCertificate.getLocations()) {
                     PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
-                    pushRequest.setAttributes(cl.getPushAttributes());
+                    pushRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(cl.getPushAttributes()));
 
                     locationService.removeCertificateFromLocation(cl.getLocation().getUuid(), oldCertificate.getUuid());
                     certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), "", oldCertificate);
