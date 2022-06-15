@@ -17,6 +17,7 @@ import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.AttributeType;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
 import com.czertainly.api.model.connector.entity.CertificateLocationDto;
 import com.czertainly.api.model.connector.entity.GenerateCsrRequestDto;
 import com.czertainly.api.model.connector.entity.GenerateCsrResponseDto;
@@ -812,7 +813,7 @@ public class LocationServiceImpl implements LocationService {
     private LocationDto maskSecret(LocationDto locationDto){
         for(ResponseAttributeDto responseAttributeDto: locationDto.getAttributes()){
             if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setContent("************");
+                responseAttributeDto.setContent(new BaseAttributeContent<String>(){{setValue("************");}});
             }
         }
         return locationDto;

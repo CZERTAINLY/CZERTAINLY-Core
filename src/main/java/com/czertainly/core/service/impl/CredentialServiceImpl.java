@@ -16,6 +16,7 @@ import com.czertainly.api.model.common.attribute.AttributeType;
 import com.czertainly.api.model.common.attribute.AttributeValueTarget;
 import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -295,7 +296,7 @@ public class CredentialServiceImpl implements CredentialService {
     private CredentialDto maskSecret(CredentialDto credentialDto){
         for(ResponseAttributeDto responseAttributeDto: credentialDto.getAttributes()){
             if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setContent("************");
+                responseAttributeDto.setContent(new BaseAttributeContent<String>(){{setValue("************");}});
             }
         }
         return credentialDto;
