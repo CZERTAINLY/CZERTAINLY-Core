@@ -4,7 +4,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CallbackController;
-import com.czertainly.api.model.common.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.service.CallbackService;
 import org.springframework.beans.factory.annotation.Autowired;

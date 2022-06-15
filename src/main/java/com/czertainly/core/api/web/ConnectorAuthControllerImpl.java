@@ -1,8 +1,8 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.ConnectorAuthController;
-import com.czertainly.api.model.common.AttributeDefinition;
-import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import org.springframework.beans.factory.annotation.Autowired;

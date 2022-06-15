@@ -1,13 +1,20 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.certificate.CertificateResponseDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateGroupDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
+import com.czertainly.api.model.client.certificate.MultipleGroupUpdateDto;
+import com.czertainly.api.model.client.certificate.MultipleRAProfileUpdateDto;
+import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
-import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;

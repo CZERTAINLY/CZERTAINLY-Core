@@ -3,7 +3,11 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.core.search.*;
+import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
+import com.czertainly.api.model.core.search.SearchCondition;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchableFieldType;
+import com.czertainly.api.model.core.search.SearchableFields;
 
 import java.util.List;  
 

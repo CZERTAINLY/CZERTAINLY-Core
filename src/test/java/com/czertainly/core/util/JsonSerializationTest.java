@@ -1,7 +1,7 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HashMap;
@@ -67,13 +66,13 @@ public class JsonSerializationTest {
 
     @Test
     public void testDeserializeRAProfileAttributes() {
-        String attrData = "[{ \"name\": \"tokenType\", \"value\": \"PEM\" },{ \"name\": \"description\", \"value\": \"DEMO RA Profile\" },{ \"name\": \"endEntityProfile\", \"value\": { \"id\": 0, \"name\": \"DemoTLSServerEndEntityProfile\" } },{ \"name\": \"certificateProfile\", \"value\": { \"id\": 0, \"name\": \"DemoTLSServerEECertificateProfile\" } },{ \"name\": \"certificationAuthority\", \"value\": { \"id\": 0, \"name\": \"DemoServerSubCA\" } },{ \"name\": \"sendNotifications\", \"value\": false },{ \"name\": \"keyRecoverable\", \"value\": true }]";
+        String attrData = "[{ \"name\": \"tokenType\", \"content\": { \"value\": \"PEM\" } }," + "{ \"name\": \"description\", \"content\": \"DEMO RA Profile\" }," + "{ \"name\": \"endEntityProfile\", \"content\": { \"value\": \"DemoTLSServerEndEntityProfile\", \"data\": { \"id\": 0, \"name\": \"DemoTLSServerEndEntityProfile\" } } }," + "{ \"name\": \"certificateProfile\", \"content\": \"DemoTLSServerEECertificateProfile\", \"data\": { \"id\": 0, \"name\": \"DemoTLSServerEECertificateProfile\" } }," + "{ \"name\": \"certificationAuthority\", \"content\": \"DemoServerSubCA\", \"data\": { \"id\": 0, \"name\": \"DemoServerSubCA\" } }," + "{ \"name\": \"sendNotifications\", \"content\": false }," + "{ \"name\": \"keyRecoverable\", \"content\": true }]";
 
         List<AttributeDefinition> attrs = AttributeDefinitionUtils.deserialize(attrData);
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals(7, attrs.size());
 
-        NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attrs));
+        NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdData("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attrs));
         Assertions.assertNotNull(endEntityProfile);
         Assertions.assertEquals(0, endEntityProfile.getId());
         Assertions.assertEquals("DemoTLSServerEndEntityProfile", endEntityProfile.getName());
@@ -90,7 +89,7 @@ public class JsonSerializationTest {
 
         List<AttributeDefinition> deserialized = AttributeDefinitionUtils.deserialize(serialized);
 
-        Serializable value = AttributeDefinitionUtils.getAttributeValue("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
+        Object value = AttributeDefinitionUtils.getAttributeContent("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
         Assertions.assertNotNull(value);
 
         CredentialDto converted = MAPPER.convertValue(value, CredentialDto.class);

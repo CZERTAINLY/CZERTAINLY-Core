@@ -1,10 +1,16 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.EmbeddedId;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.ManyToOne;
+import javax.persistence.MapsId;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -71,20 +77,20 @@ public class CertificateLocation implements Serializable {
         this.metadata = MetaDefinitions.serialize(metadata);
     }
 
-    public List<RequestAttributeDto> getPushAttributes() {
-        return AttributeDefinitionUtils.deserializeRequestAttributes(pushAttributes);
+    public List<AttributeDefinition> getPushAttributes() {
+        return AttributeDefinitionUtils.deserialize(pushAttributes);
     }
 
-    public void setPushAttributes(List<RequestAttributeDto> pushAttributes) {
-        this.pushAttributes = AttributeDefinitionUtils.serializeRequestAttributes(pushAttributes);
+    public void setPushAttributes(List<AttributeDefinition> pushAttributes) {
+        this.pushAttributes = AttributeDefinitionUtils.serialize(pushAttributes);
     }
 
-    public List<RequestAttributeDto> getCsrAttributes() {
-        return AttributeDefinitionUtils.deserializeRequestAttributes(csrAttributes);
+    public List<AttributeDefinition> getCsrAttributes() {
+        return AttributeDefinitionUtils.deserialize(csrAttributes);
     }
 
-    public void setCsrAttributes(List<RequestAttributeDto> csrAttributes) {
-        this.csrAttributes = AttributeDefinitionUtils.serializeRequestAttributes(csrAttributes);
+    public void setCsrAttributes(List<AttributeDefinition> csrAttributes) {
+        this.csrAttributes = AttributeDefinitionUtils.serialize(csrAttributes);
     }
 
     public boolean isWithKey() {

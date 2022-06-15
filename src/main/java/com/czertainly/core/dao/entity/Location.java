@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.AttributeDefinition;
-import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -13,7 +13,11 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Entity
 @Table(name = "location")
@@ -173,8 +177,8 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
             cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid());
             cilDto.setWithKey(certificateLocation.isWithKey());
-            cilDto.setPushAttributes(certificateLocation.getPushAttributes());
-            cilDto.setCsrAttributes(certificateLocation.getCsrAttributes());
+            cilDto.setPushAttributes(AttributeDefinitionUtils.getClientAttributes(certificateLocation.getPushAttributes()));
+            cilDto.setCsrAttributes(AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
 
             cilDtoList.add(cilDto);
         }
