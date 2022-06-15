@@ -74,7 +74,7 @@ public class V202206151000__AttributeChanges extends BaseJavaMigration {
 
     private void applyCertificateLocationMigration(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
-            try (ResultSet rows = select.executeQuery("select csr_attributes, push_attributes FROM certificate_location")) {
+            try (ResultSet rows = select.executeQuery("select location_id, certificate_id, csr_attributes, push_attributes FROM certificate_location")) {
                 List<String> migrationCommands = AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "push_attributes");
                 List<String> csrCommands = AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "csr_attributes");
                 executeCommands(select, migrationCommands);
