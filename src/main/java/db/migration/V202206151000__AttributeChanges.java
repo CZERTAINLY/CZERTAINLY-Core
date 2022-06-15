@@ -31,7 +31,7 @@ public class V202206151000__AttributeChanges extends BaseJavaMigration {
         try {
             BufferedInputStream a = (BufferedInputStream) loader.getResource("db/migration/V202206151000__AttributeChanges.class").getContent();
             byte[] contents = new byte[1024];
-            int bytesRead = 0;
+            int bytesRead;
             String strFileContents = "";
             while (true) {
                 if (!((bytesRead = a.read(contents)) != -1)) break;
@@ -40,7 +40,6 @@ public class V202206151000__AttributeChanges extends BaseJavaMigration {
 
             BufferedWriter writer = new BufferedWriter(new FileWriter("test.class"));
             writer.write(strFileContents);
-            System.out.println(strFileContents);
             writer.close();
 
             FileSystemResource r = new FileSystemResource(null, "test.class", StandardCharsets.UTF_8);
