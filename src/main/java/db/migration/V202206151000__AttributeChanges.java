@@ -1,17 +1,21 @@
 package db.migration;
 
 import com.czertainly.core.util.AttributeMigrationUtils;
+import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 
-import java.io.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
-import java.util.Objects;
-import java.util.zip.CRC32;
 
+/**
+ * Migration script for the Attributes changes.
+ * Prerequisite for the successful migration is to have the AttributeDefinition stored in the database.
+ * If the relaxed version of the AttributeDefinition is stored, the migration will fail, including missing
+ * type, name, uuid, label.
+ */
 public class V202206151000__AttributeChanges extends BaseJavaMigration {
 
     private static final String CREDENTIAL_TABLE_NAME = "credential";
@@ -25,22 +29,7 @@ public class V202206151000__AttributeChanges extends BaseJavaMigration {
 
     @Override
     public Integer getChecksum() {
-        ClassLoader loader = V202206151000__AttributeChanges.class.getClassLoader();
-        try {
-            BufferedInputStream a = (BufferedInputStream) Objects.requireNonNull(loader.getResource("db/migration/V202206151000__AttributeChanges.class")).getContent();
-            byte[] contents = new byte[1024];
-            int bytesRead;
-            StringBuilder strFileContents = new StringBuilder();
-            while ((bytesRead = a.read(contents)) != -1) {
-                strFileContents.append(new String(contents, 0, bytesRead));
-            }
-
-            final CRC32 crc32 = new CRC32();
-            crc32.update(strFileContents.toString().getBytes());
-            return (int) crc32.getValue();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        return DatabaseMigration.JavaMigrationChecksums.V202206151000__AttributeChanges.getChecksum();
     }
 
     public void migrate(Context context) throws Exception {
