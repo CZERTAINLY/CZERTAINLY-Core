@@ -1,13 +1,15 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.LocationException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.location.LocationDto;
-import com.czertainly.core.dao.entity.Location;
 
 import java.util.List;
 import java.util.Optional;

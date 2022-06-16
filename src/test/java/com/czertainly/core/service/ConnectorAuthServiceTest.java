@@ -2,8 +2,10 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.clients.BaseApiClient;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.AttributeDefinition;
-import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.content.FileAttributeContent;
 import com.czertainly.api.model.core.connector.AuthType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -20,7 +22,11 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 
-import static com.czertainly.api.clients.BaseApiClient.*;
+import static com.czertainly.api.clients.BaseApiClient.ATTRIBUTE_KEYSTORE;
+import static com.czertainly.api.clients.BaseApiClient.ATTRIBUTE_KEYSTORE_PASSWORD;
+import static com.czertainly.api.clients.BaseApiClient.ATTRIBUTE_KEYSTORE_TYPE;
+import static com.czertainly.api.clients.BaseApiClient.ATTRIBUTE_PASSWORD;
+import static com.czertainly.api.clients.BaseApiClient.ATTRIBUTE_USERNAME;
 import static com.czertainly.core.util.AttributeDefinitionUtils.createAttributes;
 
 @SpringBootTest
@@ -50,8 +56,10 @@ public class ConnectorAuthServiceTest {
     @Test
     public void testValidateBasicAuthAttributes() {
         List<RequestAttributeDto> attrs = new ArrayList<>();
-        attrs.addAll(createAttributes(ATTRIBUTE_USERNAME, "username"));
-        attrs.addAll(createAttributes(ATTRIBUTE_PASSWORD, "password"));
+
+
+        attrs.addAll(createAttributes(ATTRIBUTE_USERNAME, new BaseAttributeContent<String>(){{setValue("username");}}));
+        attrs.addAll(createAttributes(ATTRIBUTE_PASSWORD, new BaseAttributeContent<String>(){{setValue("password");}}));
 
         boolean result = connectorAuthService.validateBasicAuthAttributes(attrs);
         Assertions.assertTrue(result);
@@ -70,9 +78,10 @@ public class ConnectorAuthServiceTest {
         byte[] keyStoreData = keyStoreStream.readAllBytes();
 
         List<RequestAttributeDto> attrs = new ArrayList<>();
-        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_TYPE, "PKCS12"));
-        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE, Base64.getEncoder().encodeToString(keyStoreData)));
-        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_PASSWORD, "123456"));
+
+        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_TYPE, new BaseAttributeContent<>(){{setValue("PKCS12");}}));
+        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE, new FileAttributeContent(){{setValue(Base64.getEncoder().encodeToString(keyStoreData));}}));
+        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_PASSWORD, new BaseAttributeContent<>(){{setValue("123456");}}));
 
         boolean result = connectorAuthService.validateCertificateAttributes(attrs);
         Assertions.assertTrue(result);
@@ -88,8 +97,14 @@ public class ConnectorAuthServiceTest {
     @Test
     public void testValidateApiKeyAuthAttributes() {
         List<RequestAttributeDto> attrs = new ArrayList<>();
-        attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY, "apiKeySecret"));
-        attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY_HEADER, "X-API-KEY"));
+        BaseAttributeContent base = new BaseAttributeContent<String>();
+        base.setValue("apiKetTesting");
+
+        BaseAttributeContent header = new BaseAttributeContent<String>();
+        header.setValue("X-API-KEY");
+
+        attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY, base));
+        attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY_HEADER, header));
 
         boolean result = connectorAuthService.validateApiKeyAuthAttributes(attrs);
         Assertions.assertTrue(result);

@@ -14,7 +14,11 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Base64;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Class contains the common operations and helper functions to process the acme request

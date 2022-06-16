@@ -1,7 +1,6 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.core.dao.entity.Location;
-import com.czertainly.core.dao.entity.RaProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
