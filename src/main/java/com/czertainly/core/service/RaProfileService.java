@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.core.dao.entity.RaProfile;
 
 import java.util.List;
 
@@ -23,6 +24,8 @@ public interface RaProfileService {
     RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException;
 
     RaProfileDto getRaProfile(String uuid) throws NotFoundException;
+
+    RaProfile getRaProfileEntity(String uuid) throws NotFoundException;
 
     RaProfileDto editRaProfile(String uuid, EditRaProfileRequestDto dto) throws NotFoundException, ConnectorException;
 
@@ -49,4 +52,6 @@ public interface RaProfileService {
     List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException;
 
     List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException;
+
+    RaProfile updateRaProfileEntity(RaProfile raProfile);
 }

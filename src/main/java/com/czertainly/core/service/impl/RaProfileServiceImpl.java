@@ -294,7 +294,13 @@ public class RaProfileServiceImpl implements RaProfileService {
         return extendedAttributeService.listIssueCertificateAttributes(raProfile);
     }
 
-    private RaProfile getRaProfileEntity(String uuid) throws NotFoundException {
+    @Override
+    public RaProfile updateRaProfileEntity(RaProfile raProfile) {
+        raProfileRepository.save(raProfile);
+        return raProfile;
+    }
+
+    public RaProfile getRaProfileEntity(String uuid) throws NotFoundException {
         return raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
     }

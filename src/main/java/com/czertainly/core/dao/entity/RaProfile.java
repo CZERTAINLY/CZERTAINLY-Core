@@ -1,7 +1,9 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.api.model.core.raprofile.ReducedRaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
@@ -47,6 +49,10 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
 
     @Column(name = "enabled")
     private Boolean enabled;
+
+    @OneToOne
+    @JoinColumn(name = "compliance_profile_id")
+    private ComplianceProfile complianceProfile;
 
     @ManyToMany
     @JoinTable(
@@ -100,6 +106,24 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
         }
         dto.setEnabled(this.enabled);
 
+        return dto;
+    }
+
+
+    public ReducedRaProfileDto mapToDtoReduced() {
+        ReducedRaProfileDto dto = new ReducedRaProfileDto();
+        dto.setUuid(this.uuid);
+        dto.setName(this.name);
+        dto.setDescription(description);
+        dto.setEnabled(this.enabled);
+        return dto;
+    }
+
+    public SimplifiedRaProfileDto mapToDtoSimplified() {
+        SimplifiedRaProfileDto dto = new SimplifiedRaProfileDto();
+        dto.setUuid(this.uuid);
+        dto.setName(this.name);
+        dto.setEnabled(this.enabled);
         return dto;
     }
 
@@ -203,6 +227,14 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
 
     public void setRevokeCertificateAttributes(String revokeCertificateAttributes) {
         this.revokeCertificateAttributes = revokeCertificateAttributes;
+    }
+
+    public ComplianceProfile getComplianceProfile() {
+        return complianceProfile;
+    }
+
+    public void setComplianceProfile(ComplianceProfile complianceProfile) {
+        this.complianceProfile = complianceProfile;
     }
 
     @Override

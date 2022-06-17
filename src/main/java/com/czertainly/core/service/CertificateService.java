@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.CertificateResponseDto;
@@ -13,11 +14,12 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.RaProfile;
 
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -70,4 +72,17 @@ public interface CertificateService {
      * @throws NotFoundException
      */
     List<LocationDto> listLocations(String certificateUuid) throws NotFoundException;
+
+    /**
+     * Updates the Certificate with compliance status and compliance result
+     * @param uuid Uuid of the Certificate
+     * @param complianceStatus Overall status of the Compliance check
+     * @param result List of compliance responses from the connectors associated with the compliance profile
+     * @throws NotFoundException Thrown when the system is unable to find the certificate with the given Uuid
+     */
+    void updateComplianceReport(String uuid, ComplianceStatus complianceStatus,
+                                List<CertificateComplianceResultDto> result) throws NotFoundException;
+
+
+    List<Certificate> listCertificatesForRaProfile(RaProfile raProfile);
 }

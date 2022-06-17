@@ -1,14 +1,17 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.ComplianceUtil;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +19,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -123,6 +127,14 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
 
+    @Type(type = "jsonb")
+    @Column(name = "compliance_result", columnDefinition = "jsonb")
+    private CertificateComplianceStorageDto complianceResult;
+
+    @Column(name = "compliance_status")
+    @Enumerated(EnumType.STRING)
+    private ComplianceStatus complianceStatus;
+
     @JsonBackReference
     @OneToMany(mappedBy = "certificate")
     private Set<CertificateEventHistory> eventHistories = new HashSet<>();
@@ -152,6 +164,13 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         dto.setOwner(owner);
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
+        dto.setComplianceStatus(complianceStatus);
+//        try {
+//            dto.setComplianceResult(ComplianceUtil.deserializeComplianceResult(complianceResult));
+//        } catch (JsonProcessingException | IllegalArgumentException e) {
+//            logger.error(e.getMessage());
+//            logger.debug(dto.toString());
+//        }
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
             raDto.setName(raProfile.getName());
@@ -394,5 +413,32 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     public void setLocations(Set<CertificateLocation> locations) {
         this.locations = locations;
+    }
+
+//    public List<CertificateComplianceResultDto> getComplianceResult() {
+//        try {
+//            return ComplianceUtil.deserializeComplianceResult(complianceResult);
+//        } catch (JsonProcessingException | IllegalArgumentException e) {
+//            logger.debug("String input for deserializing compliance data: {}", complianceResult);
+//            logger.error("Unable to deserialize compliance result for {}: Error is {}", uuid, e.getMessage());
+//            return null;
+//        }
+//    }
+//
+//    public void setComplianceResult(List<CertificateComplianceResultDto> complianceResult) {
+//        try {
+//            this.complianceResult = ComplianceUtil.serializeComplianceResult(complianceResult);
+//        } catch (JsonProcessingException e) {
+//            logger.debug("Compliance Result is {}", complianceResult);
+//            logger.error("Unable to serialize compliance result for {}: Error is {}", uuid, e.getMessage());
+//        }
+//    }
+
+    public ComplianceStatus getComplianceStatus() {
+        return complianceStatus;
+    }
+
+    public void setComplianceStatus(ComplianceStatus complianceStatus) {
+        this.complianceStatus = complianceStatus;
     }
 }

@@ -1,38 +1,27 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.clients.ComplianceApiClient;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.connector.compliance.ComplianceRequestDto;
+import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
+import com.czertainly.api.model.connector.compliance.ComplianceResponseDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateEvent;
-import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
+import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.AdminRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ClientRepository;
-import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
-import com.czertainly.core.dao.repository.GroupRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.service.CertValidationService;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.LocationService;
-import com.czertainly.core.service.SearchService;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
@@ -99,6 +88,9 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private AdminRepository adminRepository;
 
+    @Autowired
+    private ComplianceService complianceService;
+
     @Lazy
     @Autowired
     private CertValidationService certValidationService;
@@ -125,6 +117,11 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     public CertificateDto getCertificate(String uuid) throws NotFoundException {
+        try {
+            complianceService.checkComplianceOfCertificate(getCertificateEntity(uuid));
+        } catch (ConnectorException e) {
+            e.printStackTrace();
+        }
         return getCertificateEntity(uuid).mapToDto();
     }
 
@@ -593,6 +590,18 @@ public class CertificateServiceImpl implements CertificateService {
                 .map(CertificateLocation::getLocation)
                 .map(Location::mapToDtoSimple)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void updateComplianceReport(String uuid, ComplianceStatus complianceStatus,
+                                       List<CertificateComplianceResultDto> result) throws NotFoundException {
+        Certificate certificate = getCertificateEntity(uuid);
+        certificate.setComplianceStatus(complianceStatus);
+    }
+
+    @Override
+    public List<Certificate> listCertificatesForRaProfile(RaProfile raProfile) {
+        return certificateRepository.findByRaProfile(raProfile);
     }
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {

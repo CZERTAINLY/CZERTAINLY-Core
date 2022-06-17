@@ -41,6 +41,7 @@ import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.service.ComplianceConnectorService;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CoreCallbackService;
@@ -91,6 +92,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     private ConnectorAuthService connectorAuthService;
     @Autowired
     private AuthorityInstanceApiClient authorityInstanceApiClient;
+    @Autowired
+    private ComplianceConnectorService complianceConnectorService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
@@ -245,6 +248,16 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         setFunctionGroups(request.getFunctionGroups(), connector);
 
+        if(request.getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
+                .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)){
+
+        }
+        try {
+            complianceConnectorService.addFetchGroupsAndRules(connector);
+        } catch (ConnectorException e) {
+            logger.error(e.getMessage());
+            logger.error("Unable to fetch groups and rules for Connector: {}", connector.getName());
+        }
         return connector.mapToDto();
     }
 
