@@ -32,6 +32,8 @@ public interface ConnectorService {
 
     List<ConnectorDto> listConnectorsByFunctionGroup(FunctionGroupCode functionGroup);
 
+    List<Connector> listConnectorEntityByFunctionGroup(FunctionGroupCode functionGroup);
+
     List<ConnectorDto> listConnectors(FunctionGroupCode functionGroup, String kind) throws NotFoundException;
 
     ConnectorDto getConnector(String uuid) throws NotFoundException, ConnectorException;

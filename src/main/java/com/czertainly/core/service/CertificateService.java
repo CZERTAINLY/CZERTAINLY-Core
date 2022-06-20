@@ -1,7 +1,6 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.CertificateResponseDto;
@@ -81,7 +80,7 @@ public interface CertificateService {
      * @throws NotFoundException Thrown when the system is unable to find the certificate with the given Uuid
      */
     void updateComplianceReport(String uuid, ComplianceStatus complianceStatus,
-                                List<CertificateComplianceResultDto> result) throws NotFoundException;
+                                CertificateComplianceStorageDto result) throws NotFoundException;
 
 
     List<Certificate> listCertificatesForRaProfile(RaProfile raProfile);

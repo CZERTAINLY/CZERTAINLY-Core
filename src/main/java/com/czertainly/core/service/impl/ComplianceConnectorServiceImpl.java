@@ -15,20 +15,28 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.ComplianceGroupRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
 import com.czertainly.core.service.ComplianceConnectorService;
+import com.czertainly.core.service.ComplianceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Service
+@Transactional
 public class ComplianceConnectorServiceImpl implements ComplianceConnectorService {
 
     private static final Logger logger = LoggerFactory.getLogger(ComplianceConnectorServiceImpl.class);
 
     @Autowired
     private ComplianceApiClient complianceApiClient;
+
+    @Autowired
+    private ComplianceService complianceService;
 
     @Autowired
     private ComplianceGroupRepository complianceGroupRepository;
@@ -67,7 +75,7 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
             throw new ValidationException(ValidationError.create("Compliance Groups from the connector contains duplicate UUIDs. UUIDs should be unique across the groups"));
         }
         for (ComplianceGroupsResponseDto group : groups) {
-            complianceGroupRepository.save(frameComplianceGroup(connector, kind, group));
+            complianceService.addComplianceGroup(frameComplianceGroup(connector, kind, group));
         }
     }
 
@@ -78,7 +86,7 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
             throw new ValidationException(ValidationError.create("Compliance Rules from the connector contains duplicate UUIDs. UUIDs should be unique across the rules"));
         }
         for (ComplianceRulesResponseDto rule : rules) {
-            complianceRuleRepository.save(frameComplianceRule(connector, kind, rule));
+            complianceService.addComplianceRule(frameComplianceRule(connector, kind, rule));
         }
     }
 
@@ -102,30 +110,15 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
         complianceRule.setUuid(rule.getUuid());
         complianceRule.setDecommissioned(false);
         complianceRule.setCertificateType(rule.getCertificateType());
+        complianceRule.setAttributes(rule.getAttributes());
         if (rule.getGroupUuid() != null && !rule.getGroupUuid().isEmpty()) {
-            if (complianceGroupExists(rule.getUuid(), connector, kind)) {
-                complianceRule.setGroup(getComplianceGroupEntity(rule.getUuid(), connector, kind));
+            if (complianceService.complianceGroupExists(rule.getGroupUuid(), connector, kind)) {
+                complianceRule.setGroup(complianceService.getComplianceGroupEntity(rule.getGroupUuid(), connector, kind));
             } else {
                 logger.warn("Compliance Rule: {}, tags unknown group:{}", rule.getUuid(), rule.getGroupUuid());
             }
         }
         return complianceRule;
-    }
-
-    private ComplianceGroup getComplianceGroupEntity(String uuid, Connector connector, String kind) throws NotFoundException {
-        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, uuid));
-    }
-
-    private Boolean complianceGroupExists(String uuid, Connector connector, String kind) {
-        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).isPresent();
-    }
-
-    private ComplianceRule getComplianceRuleEntity(String uuid, Connector connector, String kind) throws NotFoundException {
-        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
-    }
-
-    private Boolean complianceRuleExists(String uuid, Connector connector, String kind) {
-        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).isPresent();
     }
 
     private void updateGroups(Connector connector, String kind) throws ConnectorException {
@@ -140,21 +133,21 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
         List<String> currentGroupsInDatabase = complianceGroupRepository.findAll().stream().map(ComplianceGroup::getUuid).collect(Collectors.toList());
         currentGroupsInDatabase.removeAll(groups);
         for(String currentGroupUuid: currentGroupsInDatabase){
-            ComplianceGroup complianceGroup = getComplianceGroupEntity(currentGroupUuid, connector, kind);
+            ComplianceGroup complianceGroup = complianceService.getComplianceGroupEntity(currentGroupUuid, connector, kind);
             complianceGroup.setDecommissioned(true);
-            complianceGroupRepository.save(complianceGroup);
+            complianceService.addComplianceGroup(complianceGroup);
         }
     }
 
     private void updateGroups(Connector connector, String kind, List<ComplianceGroupsResponseDto> groups) throws NotFoundException {
         for(ComplianceGroupsResponseDto group : groups){
-            if(!complianceGroupExists(group.getUuid(), connector, kind)){
-                complianceGroupRepository.save(frameComplianceGroup(connector, kind, group));
+            if(!complianceService.complianceGroupExists(group.getUuid(), connector, kind)){
+                complianceService.addComplianceGroup(frameComplianceGroup(connector, kind, group));
             }else{
-                ComplianceGroup complianceGroup = getComplianceGroupEntity(group.getUuid(), connector, kind);
+                ComplianceGroup complianceGroup = complianceService.getComplianceGroupEntity(group.getUuid(), connector, kind);
                 complianceGroup.setName(group.getName());
                 complianceGroup.setDescription(group.getDescription());
-                complianceGroupRepository.save(complianceGroup);
+                complianceService.addComplianceGroup(complianceGroup);
             }
         }
     }
@@ -171,29 +164,29 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
         List<String> currentRulesInDatabase = complianceRuleRepository.findAll().stream().map(ComplianceRule::getUuid).collect(Collectors.toList());
         currentRulesInDatabase.removeAll(rules);
         for(String currentRuleUuid: currentRulesInDatabase){
-            ComplianceRule complianceRule = getComplianceRuleEntity(currentRuleUuid, connector, kind);
+            ComplianceRule complianceRule = complianceService.getComplianceRuleEntity(currentRuleUuid, connector, kind);
             complianceRule.setDecommissioned(true);
-            complianceRuleRepository.save(complianceRule);
+            complianceService.addComplianceRule(complianceRule);
         }
     }
 
     private void updateRules(Connector connector, String kind, List<ComplianceRulesResponseDto> rules) throws NotFoundException {
         for(ComplianceRulesResponseDto rule : rules){
-            if(!complianceRuleExists(rule.getUuid(), connector, kind)){
-                complianceRuleRepository.save(frameComplianceRule(connector, kind, rule));
+            if(!complianceService.complianceRuleExists(rule.getUuid(), connector, kind)){
+                complianceService.addComplianceRule(frameComplianceRule(connector, kind, rule));
             }else{
-                ComplianceRule complianceRule = getComplianceRuleEntity(rule.getUuid(), connector, kind);
+                ComplianceRule complianceRule = complianceService.getComplianceRuleEntity(rule.getUuid(), connector, kind);
                 complianceRule.setName(rule.getName());
                 complianceRule.setDescription(rule.getDescription());
                 complianceRule.setCertificateType(rule.getCertificateType());
                 if (rule.getGroupUuid() != null && !rule.getGroupUuid().isEmpty()) {
-                    if (complianceGroupExists(rule.getUuid(), connector, kind)) {
-                        complianceRule.setGroup(getComplianceGroupEntity(rule.getUuid(), connector, kind));
+                    if (complianceService.complianceGroupExists(rule.getUuid(), connector, kind)) {
+                        complianceRule.setGroup(complianceService.getComplianceGroupEntity(rule.getUuid(), connector, kind));
                     } else {
                         logger.warn("Compliance Rule: {}, tags unknown group:{}", rule.getUuid(), rule.getGroupUuid());
                     }
                 }
-                complianceRuleRepository.save(complianceRule);
+                complianceService.addComplianceRule(complianceRule);
             }
         }
     }

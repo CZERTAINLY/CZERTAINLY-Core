@@ -129,6 +129,28 @@ public class ConnectorServiceImpl implements ConnectorService {
         return connectors;
     }
 
+    @Override
+    public List<Connector> listConnectorEntityByFunctionGroup(FunctionGroupCode functionGroup) {
+        List<Connector> connectors = new ArrayList<>();
+
+        for (Connector connector : connectorRepository.findByStatus(ConnectorStatus.CONNECTED)) {
+            ConnectorDto connectorDto = connector.mapToDto();
+            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
+                if(functionGroup == FunctionGroupCode.AUTHORITY_PROVIDER){
+                    if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
+                        connectors.add(connector);
+                    }
+                }else {
+                    if (fg.getFunctionGroupCode() == functionGroup) {
+                        connectorDto.setFunctionGroups(Arrays.asList(fg));
+                        connectors.add(connector);
+                    }
+                }
+            }
+        }
+        return connectors;
+    }
+
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
@@ -218,6 +240,16 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         setFunctionGroups(functionGroupDtos, connector);
 
+        if(connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
+                .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)) {
+            try {
+                complianceConnectorService.addFetchGroupsAndRules(connector);
+            } catch (ConnectorException e) {
+                logger.error(e.getMessage());
+                logger.error("Unable to fetch groups and rules for Connector: {}", connector.getName());
+            }
+        }
+
         return connector.mapToDto();
     }
 
@@ -249,14 +281,13 @@ public class ConnectorServiceImpl implements ConnectorService {
         setFunctionGroups(request.getFunctionGroups(), connector);
 
         if(request.getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
-                .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)){
-
-        }
-        try {
-            complianceConnectorService.addFetchGroupsAndRules(connector);
-        } catch (ConnectorException e) {
-            logger.error(e.getMessage());
-            logger.error("Unable to fetch groups and rules for Connector: {}", connector.getName());
+                .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)) {
+            try {
+                complianceConnectorService.addFetchGroupsAndRules(connector);
+            } catch (ConnectorException e) {
+                logger.error(e.getMessage());
+                logger.error("Unable to fetch groups and rules for Connector: {}", connector.getName());
+            }
         }
         return connector.mapToDto();
     }

@@ -9,6 +9,7 @@ import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.connector.compliance.ComplianceGroupsResponseDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -111,12 +112,12 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public void addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException {
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
-        Boolean isAvail = complianceProfile.getComplianceGroups().stream().filter(r -> r.getUuid() == request.getGroupUuid() && r.getConnector().getUuid() == request.getConnectorUuid() && r.getKind() == request.getKind()).findFirst().isPresent();
+        Boolean isAvail = complianceProfile.getGroups().stream().filter(r -> r.getUuid().equals(request.getGroupUuid()) && r.getConnector().getUuid().equals(request.getConnectorUuid()) && r.getKind().equals(request.getKind())).findFirst().isPresent();
         if(isAvail){
             throw new AlreadyExistException("Selected group is already available in the Compliance Profile");
         }
         ComplianceGroup complianceGroup = getComplianceGroupEntity(request.getGroupUuid(), connector, request.getKind());
-        complianceProfile.getComplianceGroups().add(complianceGroup);
+        complianceProfile.getGroups().add(complianceGroup);
         complianceProfileRepository.save(complianceProfile);
     }
 
@@ -125,7 +126,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
         ComplianceGroup complianceGroup = getComplianceGroupEntity(request.getGroupUuid(), connector, request.getKind());
-        complianceProfile.getComplianceGroups().remove(complianceGroup);
+        complianceProfile.getGroups().remove(complianceGroup);
         complianceProfileRepository.save(complianceProfile);
     }
 
@@ -208,29 +209,32 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
-    public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<String> certificateType) throws ConnectorException {
+    public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws ConnectorException {
         List<ComplianceRulesListResponseDto> complianceRules = new ArrayList<>();
+        if(certificateType == null){
+            certificateType = Arrays.asList(CertificateType.class.getEnumConstants());
+        }
         if(complianceProviderUuid != null && !complianceProviderUuid.isEmpty()) {
-            ConnectorDto connector = connectorService.getConnector(complianceProviderUuid);
+            Connector connector = connectorService.getConnectorEntity(complianceProviderUuid);
             if (kind != null && !kind.isEmpty()) {
-                List<ComplianceRulesResponseDto> response = complianceApiClient.getComplianceRules(connector, kind, certificateType);
+                List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, kind, certificateType);
                 complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, kind));
             }
             else{
-                for(String connectorKind: connector.getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()){
-                    List<ComplianceRulesResponseDto> response = complianceApiClient.getComplianceRules(connector, connectorKind, certificateType);
+                for(String connectorKind: connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()){
+                    List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, connectorKind, certificateType);
                     complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, connectorKind));
                 }
             }
         }else{
-            for(ConnectorDto connector: connectorService.listConnectorsByFunctionGroup(FunctionGroupCode.COMPLIANCE_PROVIDER)){
+            for(Connector connector: connectorService.listConnectorEntityByFunctionGroup(FunctionGroupCode.COMPLIANCE_PROVIDER)){
                 if (kind != null && !kind.isEmpty()) {
-                    List<ComplianceRulesResponseDto> response = complianceApiClient.getComplianceRules(connector, kind, certificateType);
+                    List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, kind, certificateType);
                     complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, kind));
                 }
                 else{
-                    for(String connectorKind: connector.getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()){
-                        List<ComplianceRulesResponseDto> response = complianceApiClient.getComplianceRules(connector, connectorKind, certificateType);
+                    for(String connectorKind: connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()){
+                        List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, connectorKind, certificateType);
                         complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, connectorKind));
                     }
                 }
@@ -243,26 +247,26 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws ConnectorException {
         List<ComplianceGroupsListResponseDto> complianceGroups = new ArrayList<>();
         if(complianceProviderUuid != null && !complianceProviderUuid.isEmpty()) {
-            ConnectorDto connector = connectorService.getConnector(complianceProviderUuid);
+            Connector connector = connectorService.getConnectorEntity(complianceProviderUuid);
             if (kind != null && !kind.isEmpty()) {
-                List<ComplianceGroupsResponseDto> response = complianceApiClient.getComplianceGroups(connector, kind);
+                List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, kind);
                 complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, kind));
             }
             else{
-                for(String connectorKind: connector.getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()){
-                    List<ComplianceGroupsResponseDto> response = complianceApiClient.getComplianceGroups(connector, connectorKind);
+                for(String connectorKind: connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()){
+                    List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, connectorKind);
                     complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, connectorKind));
                 }
             }
         }else{
-            for(ConnectorDto connector: connectorService.listConnectorsByFunctionGroup(FunctionGroupCode.COMPLIANCE_PROVIDER)){
+            for(Connector connector: connectorService.listConnectorEntityByFunctionGroup(FunctionGroupCode.COMPLIANCE_PROVIDER)){
                 if (kind != null && !kind.isEmpty()) {
-                    List<ComplianceGroupsResponseDto> response = complianceApiClient.getComplianceGroups(connector, kind);
+                    List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, kind);
                     complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, kind));
                 }
                 else{
-                    for(String connectorKind: connector.getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()){
-                        List<ComplianceGroupsResponseDto> response = complianceApiClient.getComplianceGroups(connector, connectorKind);
+                    for(String connectorKind: connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()){
+                        List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, connectorKind);
                         complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, connectorKind));
                     }
                 }
@@ -310,7 +314,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                     List<ComplianceRulesResponseDto> connectorGroupRules = complianceApiClient.getComplianceGroupRules(connector.mapToDto(), request.getKind(), group);
                     for(ComplianceRulesResponseDto complianceRequestRulesDto: connectorGroupRules) {
                         ComplianceGroup complianceGroup = getComplianceGroupEntity(complianceRequestRulesDto.getUuid(), connector, request.getKind());
-                        profile.getComplianceGroups().add(complianceGroup);
+                        profile.getGroups().add(complianceGroup);
                     }
                 }
             }
@@ -335,21 +339,21 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         return complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
     }
 
-    private ComplianceRulesListResponseDto frameComplianceRulesResponseFromConnectorResponse(List<ComplianceRulesResponseDto> response, ConnectorDto connector, String kind){
+    private ComplianceRulesListResponseDto frameComplianceRulesResponseFromConnectorResponse(List<ComplianceRule> response, Connector connector, String kind){
         ComplianceRulesListResponseDto dto = new ComplianceRulesListResponseDto();
         dto.setConnectorName(connector.getName());
         dto.setConnectorUuid(connector.getUuid());
         dto.setKind(kind);
-        dto.setRules(response);
+        dto.setRules(response.stream().map(ComplianceRule::mapToComplianceResponse).collect(Collectors.toList()));
         return dto;
     }
 
-    private ComplianceGroupsListResponseDto frameComplianceGroupsResponseFromConnectorResponse(List<ComplianceGroupsResponseDto> response, ConnectorDto connector, String kind){
+    private ComplianceGroupsListResponseDto frameComplianceGroupsResponseFromConnectorResponse(List<ComplianceGroup> response, Connector connector, String kind){
         ComplianceGroupsListResponseDto dto = new ComplianceGroupsListResponseDto();
         dto.setConnectorName(connector.getName());
         dto.setConnectorUuid(connector.getUuid());
         dto.setKind(kind);
-        dto.setGroups(response);
+        dto.setGroups(response.stream().map(ComplianceGroup::mapToGroupResponse).collect(Collectors.toList()));
         return dto;
     }
 

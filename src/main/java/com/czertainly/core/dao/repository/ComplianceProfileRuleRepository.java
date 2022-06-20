@@ -16,11 +16,5 @@ public interface ComplianceProfileRuleRepository extends JpaRepository<Complianc
 
     Optional<ComplianceProfileRule> findByUuid(String uuid);
 
-    Optional<ComplianceProfileRule> findByComplianceProfile(ComplianceProfile complianceProfile);
-
-    Optional<ComplianceProfileRule> findByComplianceRule(ComplianceRule complianceRule);
-
     Optional<ComplianceProfileRule> findByComplianceProfileAndComplianceRule(ComplianceProfile complianceProfile, ComplianceRule complianceRule);
-
-    Optional<ComplianceProfileRule> findByComplianceProfileAndComplianceGroup(ComplianceProfile complianceProfile, ComplianceGroup complianceGroup);
 }

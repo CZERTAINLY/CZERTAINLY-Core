@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.core.service.ComplianceProfileService;
@@ -50,23 +51,23 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    public void addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException {
-
+    public void addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException {
+        complianceProfileService.addRule(uuid, request);
     }
 
     @Override
     public void removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
-
+        complianceProfileService.removeRule(uuid, request);
     }
 
     @Override
-    public void addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException {
-
+    public void addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException {
+        complianceProfileService.addGroup(uuid, request);
     }
 
     @Override
     public void removeGroup(String uuid, ComplianceGroupRequestDto request) throws NotFoundException {
-
+        complianceProfileService.removeGroup(uuid, request);
     }
 
     @Override
@@ -76,7 +77,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     public List<SimplifiedRaProfileDto> getAssociatedRAProfiles(String uuid) throws NotFoundException {
-        return null;
+        return complianceProfileService.getAssociatedRAProfiles(uuid);
     }
 
     @Override
@@ -90,7 +91,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<String> certificateType) throws NotFoundException, ConnectorException {
+    public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException, ConnectorException {
         return complianceProfileService.getComplianceRules(complianceProviderUuid, kind, certificateType);
     }
 

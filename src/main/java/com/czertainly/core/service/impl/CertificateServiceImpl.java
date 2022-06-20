@@ -1,18 +1,12 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.ComplianceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
-import com.czertainly.api.model.connector.compliance.ComplianceRequestDto;
-import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
-import com.czertainly.api.model.connector.compliance.ComplianceResponseDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.*;
-import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
-import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
@@ -594,9 +588,10 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public void updateComplianceReport(String uuid, ComplianceStatus complianceStatus,
-                                       List<CertificateComplianceResultDto> result) throws NotFoundException {
+                                       CertificateComplianceStorageDto result) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
         certificate.setComplianceStatus(complianceStatus);
+        certificate.setComplianceResult(result);
     }
 
     @Override

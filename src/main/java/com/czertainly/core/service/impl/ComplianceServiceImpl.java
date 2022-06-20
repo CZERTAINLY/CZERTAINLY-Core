@@ -6,7 +6,9 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.connector.compliance.ComplianceResponseDto;
+import com.czertainly.api.model.connector.compliance.ComplianceResponseRulesDto;
 import com.czertainly.api.model.core.certificate.CertificateComplianceResultDto;
+import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
@@ -14,8 +16,13 @@ import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.ComplianceGroup;
 import com.czertainly.core.dao.entity.ComplianceProfile;
+import com.czertainly.core.dao.entity.ComplianceRule;
+import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.ComplianceGroupRepository;
+import com.czertainly.core.dao.repository.ComplianceRuleRepository;
 import com.czertainly.core.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,10 +61,46 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Autowired
     private DiscoveryService discoveryService;
 
+    @Autowired
+    private ComplianceGroupRepository complianceGroupRepository;
+
+    @Autowired
+    private ComplianceRuleRepository complianceRuleRepository;
+
+    @Override
+    public ComplianceGroup getComplianceGroupEntity(String uuid, Connector connector, String kind) throws NotFoundException {
+        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, uuid));
+    }
+
+    @Override
+    public Boolean complianceGroupExists(String uuid, Connector connector, String kind) {
+        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).isPresent();
+    }
+
+    @Override
+    public ComplianceRule getComplianceRuleEntity(String uuid, Connector connector, String kind) throws NotFoundException {
+        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
+    }
+
+    @Override
+    public Boolean complianceRuleExists(String uuid, Connector connector, String kind) {
+        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).isPresent();
+    }
+
+    @Override
+    public void addComplianceGroup(ComplianceGroup complianceGroup) {
+        complianceGroupRepository.save(complianceGroup);
+    }
+
+    @Override
+    public void addComplianceRule(ComplianceRule complianceRule) {
+        complianceRuleRepository.save(complianceRule);
+    }
+
     @Override
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException {
         RaProfile raProfile = certificate.getRaProfile();
-        List<CertificateComplianceResultDto> complianceResults = new ArrayList<>();
+        CertificateComplianceStorageDto complianceResults = new CertificateComplianceStorageDto();
         List<ComplianceStatus> allStatuses = new ArrayList<>();
         if (raProfile == null) {
             logger.warn("Certificate with uuid: {} does not have any RA Profile association", certificate.getUuid());
@@ -77,9 +120,19 @@ public class ComplianceServiceImpl implements ComplianceService {
                     connector.getKind(),
                     complianceRequestDto
             );
-            complianceResults.add(formatComplianceResult(responseDto,
-                    connectorService.getConnector(connector.getConnectorUuid()),
-                    connector.getKind()));
+
+            for(ComplianceResponseRulesDto rule: responseDto.getRules()){
+                Long ruleId = getComplianceRuleEntity(rule.getUuid(),
+                        connectorService.getConnectorEntity(connector.getConnectorUuid()), connector.getKind()).getId();
+                switch(rule.getStatus()){
+                    case COMPLIANT:
+                        complianceResults.getOk().add(ruleId);
+                    case NON_COMPLIANT:
+                        complianceResults.getNok().add(ruleId);
+                    case NOT_APPLICABLE:
+                        complianceResults.getNa().add(ruleId);
+                }
+            }
             allStatuses.add(responseDto.getStatus());
         }
         ComplianceStatus overallStatus = computeOverallComplianceStatus(allStatuses);
@@ -114,7 +167,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     private void setComplianceForCertificate(String uuid, ComplianceStatus status,
-                                             List<CertificateComplianceResultDto> result) throws NotFoundException {
+                                             CertificateComplianceStorageDto result) throws NotFoundException {
         certificateService.updateComplianceReport(uuid, status, result);
     }
 

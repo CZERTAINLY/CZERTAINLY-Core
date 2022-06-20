@@ -1,6 +1,8 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -69,6 +71,19 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
         return complianceRulesDto;
     }
 
+    public ComplianceRulesResponseDto mapToComplianceResponse(){
+        ComplianceRulesResponseDto dto = new ComplianceRulesResponseDto();
+        dto.setName(name);
+        dto.setUuid(uuid);
+        dto.setDescription(description);
+        if(group != null ) {
+            dto.setGroupUuid(group.getUuid());
+        }
+        dto.setCertificateType(certificateType);
+        dto.setAttributes(getAttributes());
+        return dto;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -116,12 +131,12 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
         this.kind = kind;
     }
 
-    public List<RequestAttributeDto> getAttributes() {
-        return AttributeDefinitionUtils.deserializeRequestAttributes(attributes);
+    public List<AttributeDefinition> getAttributes() {
+        return AttributeDefinitionUtils.deserialize(attributes);
     }
 
-    public void setAttributes(List<RequestAttributeDto> attributes) {
-        this.attributes = AttributeDefinitionUtils.serializeRequestAttributes(attributes);
+    public void setAttributes(List<AttributeDefinition> attributes) {
+        this.attributes = AttributeDefinitionUtils.serialize(attributes);
     }
 
     public Connector getConnector() {
@@ -130,10 +145,6 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
 
     public void setConnector(Connector connector) {
         this.connector = connector;
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
     }
 
     public String getDescription() {

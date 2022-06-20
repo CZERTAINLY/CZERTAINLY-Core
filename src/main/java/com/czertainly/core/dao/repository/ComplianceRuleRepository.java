@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.ComplianceRule;
 import com.czertainly.core.dao.entity.Connector;
@@ -23,6 +24,8 @@ public interface ComplianceRuleRepository extends JpaRepository<ComplianceRule, 
     List<ComplianceRule> findByKind(String kind);
 
     List<ComplianceRule> findByConnectorAndKind(Connector connector, String kind);
+
+    List<ComplianceRule> findByConnectorAndKindAndCertificateTypeIn(Connector connector, String kind, List<CertificateType> certificateTypes);
 
     Optional<ComplianceRule> findByUuidAndConnectorAndKind(String uuid, Connector connector, String kind);
 

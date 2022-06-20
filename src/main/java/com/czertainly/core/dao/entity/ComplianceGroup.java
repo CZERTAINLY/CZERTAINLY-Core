@@ -1,16 +1,12 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
-import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.DtoMapper;
+import com.czertainly.api.model.connector.compliance.ComplianceGroupsResponseDto;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -46,9 +42,16 @@ public class ComplianceGroup implements Serializable {
     @OneToMany(mappedBy = "group")
     private Set<ComplianceRule> rules;
 
-    @JsonBackReference
-    @OneToMany(mappedBy = "complianceGroups")
+    @ManyToMany(mappedBy = "groups")
     private Set<ComplianceProfile> complianceProfiles;
+
+    public ComplianceGroupsResponseDto mapToGroupResponse(){
+        ComplianceGroupsResponseDto dto = new ComplianceGroupsResponseDto();
+        dto.setUuid(uuid);
+        dto.setName(name);
+        dto.setDescription(description);
+        return dto;
+    }
 
     @Override
     public String toString() {

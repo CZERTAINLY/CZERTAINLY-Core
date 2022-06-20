@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.compliance.*;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -26,12 +27,11 @@ public class ComplianceProfileRule extends Audited implements Serializable, DtoM
     @JoinColumn(name = "rule_id")
     private ComplianceRule complianceRule;
 
-    @Type(type = "jsonb")
-    @Column(columnDefinition = "jsonb")
-    private List<RequestAttributeDto> attributes;
+    @Column(name="attributes")
+    private String attributes;
 
     @OneToOne
-    @JoinColumn(name = "rule_id")
+    @JoinColumn(name = "compliance_profile_id")
     private ComplianceProfile complianceProfile;
 
     @Override
@@ -39,7 +39,7 @@ public class ComplianceProfileRule extends Audited implements Serializable, DtoM
         ComplianceRulesDto dto = new ComplianceRulesDto();
         dto.setName(complianceRule.getName());
         dto.setUuid(complianceRule.getUuid());
-        dto.setAttributes(attributes);
+        dto.setAttributes(getAttributes());
         dto.setDescription(complianceProfile.getDescription());
         return dto;
     }
@@ -71,11 +71,11 @@ public class ComplianceProfileRule extends Audited implements Serializable, DtoM
     }
 
     public List<RequestAttributeDto> getAttributes() {
-        return attributes;
+        return AttributeDefinitionUtils.deserializeRequestAttributes(attributes);
     }
 
     public void setAttributes(List<RequestAttributeDto> attributes) {
-        this.attributes = attributes;
+        this.attributes = AttributeDefinitionUtils.serializeRequestAttributes(attributes);
     }
 
     public ComplianceProfile getComplianceProfile() {

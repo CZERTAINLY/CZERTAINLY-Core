@@ -7,6 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.core.dao.entity.ComplianceProfile;
@@ -128,7 +129,7 @@ public interface ComplianceProfileService {
      * @return List of the rules for given connector and its kind
      * @throws ConnectorException Thrown when there are issues related to connector communication
      */
-    List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<String> certificateType) throws ConnectorException;
+    List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws ConnectorException;
 
     /**
      * List of all compliance groups from the compliance providers

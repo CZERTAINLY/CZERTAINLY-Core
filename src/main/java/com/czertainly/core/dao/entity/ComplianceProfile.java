@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.compliance.*;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -30,9 +31,12 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     @OneToMany(mappedBy = "complianceProfile")
     private Set<ComplianceProfileRule> complianceRules = new HashSet<>();
 
-    @ManyToOne
-    @JoinColumn(name = "compliance_group")
-    private Set<ComplianceGroup> complianceGroups;
+    @ManyToMany
+    @JoinTable(
+            name = "compliance_profile_2_compliance_group",
+            joinColumns = @JoinColumn(name = "profile_id"),
+            inverseJoinColumns = @JoinColumn(name = "group_id"))
+    private Set<ComplianceGroup> groups = new HashSet<>();
 
     @JsonBackReference
     @OneToMany(mappedBy = "complianceProfile")
@@ -62,6 +66,27 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
             rulesDtos.add(complianceConnectorAndRulesDto);
         }
         complianceProfileDto.setRules(rulesDtos);
+
+        Map<String, List<NameAndUuidDto>> locGroups = new HashMap<>();
+        for(ComplianceGroup complianceGroup: groups){
+            String groupKey = complianceGroup.getConnector().getUuid() + ":" + complianceGroup.getConnector().getName() + ":" + complianceGroup.getKind();
+            NameAndUuidDto uuidDto = new NameAndUuidDto();
+            uuidDto.setUuid(complianceGroup.getUuid());
+            uuidDto.setName(complianceProfileDto.getName());
+            locGroups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(uuidDto);
+        }
+        List<ComplianceConnectorAndGroupsDto> groupsDtos = new ArrayList<>();
+        for(Map.Entry<String, List<NameAndUuidDto>> entry : locGroups.entrySet()){
+            ComplianceConnectorAndGroupsDto grps = new ComplianceConnectorAndGroupsDto();
+            String[] nameSplits = entry.getKey().split(":");
+            grps.setConnectorName(nameSplits[1]);
+            grps.setKind(nameSplits[2]);
+            grps.setConnectorUuid(nameSplits[0]);
+            grps.setGroups(entry.getValue());
+            groupsDtos.add(grps);
+        }
+        complianceProfileDto.setGroups(groupsDtos);
+
         return complianceProfileDto;
     }
 
@@ -84,11 +109,22 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
             }
         }
 
+        Map<String, Integer> providerGroupSummary = new HashMap<>();
+        for(ComplianceGroup grp : groups){
+            String connectorName = grp.getConnector().getName();
+            if(providerGroupSummary.containsKey(connectorName)){
+                providerGroupSummary.put(connectorName, providerGroupSummary.get(connectorName) + 1);
+            } else {
+                providerGroupSummary.put(connectorName, 1);
+            }
+        }
+
         List<ComplianceProviderSummaryDto> complianceProviderSummaryDtoList = new ArrayList<>();
         for(String connectorName : providerSummary.keySet()){
             ComplianceProviderSummaryDto complianceProviderSummaryDto = new ComplianceProviderSummaryDto();
             complianceProviderSummaryDto.setConnectorName(connectorName);
             complianceProviderSummaryDto.setNumberOfRules(providerSummary.get(connectorName));
+            complianceProviderSummaryDto.setNumberOfGroups(providerGroupSummary.get(connectorName));
             complianceProviderSummaryDtoList.add(complianceProviderSummaryDto);
         }
         complianceProfileDto.setRules(complianceProviderSummaryDtoList);
@@ -146,11 +182,11 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
         this.raProfiles = raProfiles;
     }
 
-    public Set<ComplianceGroup> getComplianceGroups() {
-        return complianceGroups;
+    public Set<ComplianceGroup> getGroups() {
+        return groups;
     }
 
-    public void setComplianceGroups(Set<ComplianceGroup> complianceGroups) {
-        this.complianceGroups = complianceGroups;
+    public void setGroups(Set<ComplianceGroup> groups) {
+        this.groups = groups;
     }
 }
