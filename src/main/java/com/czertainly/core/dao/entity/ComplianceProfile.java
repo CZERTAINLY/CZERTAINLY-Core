@@ -1,7 +1,12 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.core.compliance.*;
+import com.czertainly.api.model.core.compliance.ComplianceConnectorAndGroupsDto;
+import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
+import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
+import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
+import com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto;
+import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -9,9 +14,18 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Compliance Profile entity storing the details of rules and groups associated with the compliance profile.
+ * It also holds the manyToMany relation with the RA Profile as they can have more than 1 RA Profile and vice versa
+ */
 @Entity
 @Table(name = "compliance_profile")
 public class ComplianceProfile extends Audited implements Serializable, DtoMapper<ComplianceProfileDto> {
@@ -28,7 +42,7 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     private String description;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "complianceProfile")
+    @OneToMany(mappedBy = "complianceProfile", cascade = CascadeType.ALL)
     private Set<ComplianceProfileRule> complianceRules = new HashSet<>();
 
     @ManyToMany
@@ -39,22 +53,24 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     private Set<ComplianceGroup> groups = new HashSet<>();
 
     @JsonBackReference
-    @OneToMany(mappedBy = "complianceProfile")
+    @ManyToMany(mappedBy = "complianceProfiles")
     private Set<RaProfile> raProfiles = new HashSet<>();
 
     @Override
     public ComplianceProfileDto mapToDto(){
         ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
         complianceProfileDto.setName(name);
+        complianceProfileDto.setDescription(description);
         complianceProfileDto.setUuid(uuid);
-        complianceProfileDto.setRaProfiles(raProfiles.stream().map(RaProfile::mapToDtoReduced).collect(Collectors.toList()));
+        complianceProfileDto.setRaProfiles(raProfiles.stream().map(RaProfile::mapToDtoSimplified).collect(Collectors.toList()));
         Map<String, List<ComplianceRulesDto>> rules = new HashMap<>();
-
+        //Frame a map with the Unique ID as Connector UUID, Name and Kind. This will later than be used to group the response
         for(ComplianceProfileRule complianceRule: complianceRules){
             ComplianceRule rul = complianceRule.getComplianceRule();
             String ruleKey = rul.getConnector().getUuid() + ":" + rul.getConnector().getName() + ":" + rul.getKind();
             rules.computeIfAbsent(ruleKey, k -> new ArrayList<>()).add(complianceRule.mapToDto());
         }
+
         List<ComplianceConnectorAndRulesDto> rulesDtos = new ArrayList<>();
         for(Map.Entry<String, List<ComplianceRulesDto>> entry : rules.entrySet()){
             ComplianceConnectorAndRulesDto complianceConnectorAndRulesDto = new ComplianceConnectorAndRulesDto();
@@ -91,7 +107,7 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     }
 
     /**
-     *
+     *MapToDto function concentrating on providing the values that are required only for the List API
      * @return ComplianceProfilesListDto with the response for listing operation
      */
     public ComplianceProfilesListDto ListMapToDTO(){

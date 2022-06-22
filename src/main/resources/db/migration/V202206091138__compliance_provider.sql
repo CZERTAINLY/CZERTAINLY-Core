@@ -70,6 +70,42 @@ CREATE TABLE "compliance_rule" (
 )
 ;
 
+CREATE TABLE "compliance_profile_2_compliance_group" (
+	"profile_id" BIGINT NULL DEFAULT NULL,
+	"group_id" BIGINT NULL DEFAULT NULL
+	);
+
+CREATE TABLE "ra_profile_2_compliance_profile" (
+	"ra_profile_id" BIGINT NULL DEFAULT NULL,
+	"compliance_profile_id" BIGINT NULL DEFAULT NULL
+	);
+
+
+alter table if exists ra_profile_2_compliance_profile
+    add constraint COMPLIANCE_PROFILE_TO_MAPPING_KEY
+    foreign key (compliance_profile_id)
+    references compliance_profile
+    ON DELETE CASCADE;
+
+alter table if exists ra_profile_2_compliance_profile
+    add constraint RA_PROFILE_TO_COMPLIANCE_MAPPING_KEY
+    foreign key (ra_profile_id)
+    references ra_profile
+    ON DELETE CASCADE;
+
+
+alter table if exists compliance_profile_2_compliance_group
+    add constraint COMPLIANCE_GROUP_TO_MAPPING_KEY
+    foreign key (group_id)
+    references compliance_group;
+
+alter table if exists compliance_profile_2_compliance_group
+    add constraint COMPLIANCE_PROFILE_TO_MAPPING_KEY
+    foreign key (profile_id)
+    references compliance_profile
+    ON DELETE CASCADE;
+
+
 alter table if exists compliance_profile
     add constraint COMPLIANCE_GROUP_TO_CONNECTOR
     foreign key (compliance_group_id)

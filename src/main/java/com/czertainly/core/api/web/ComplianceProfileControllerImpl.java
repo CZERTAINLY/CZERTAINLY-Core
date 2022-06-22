@@ -5,7 +5,14 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ComplianceProfileController;
-import com.czertainly.api.model.client.compliance.*;
+import com.czertainly.api.model.client.compliance.ComplianceGroupRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceGroupsListResponseDto;
+import com.czertainly.api.model.client.compliance.ComplianceProfileComplianceCheckDto;
+import com.czertainly.api.model.client.compliance.ComplianceProfileRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceRulesListResponseDto;
+import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.UuidDto;
@@ -91,18 +98,23 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException, ConnectorException {
+    public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException {
         return complianceProfileService.getComplianceRules(complianceProviderUuid, kind, certificateType);
     }
 
     @Override
-    public List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException, ConnectorException {
+    public List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException {
         return complianceProfileService.getComplianceGroups(complianceProviderUuid, kind);
     }
 
     @Override
     public void associateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException, ConnectorException {
         complianceProfileService.associateProfile(uuid, raProfiles);
+    }
+
+    @Override
+    public void checkCompliance(ComplianceProfileComplianceCheckDto request) throws NotFoundException {
+        complianceProfileService.checkCompliance(request);
     }
 
 }

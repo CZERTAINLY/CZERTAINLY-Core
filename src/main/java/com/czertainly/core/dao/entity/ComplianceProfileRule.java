@@ -1,19 +1,22 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
-import com.czertainly.api.model.core.compliance.*;
+import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-import org.hibernate.annotations.Type;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.List;
 
+/**
+ * Entity containing the relation between the Compliance Profile and the Rule. This has to be maintained separately
+ * considering that each rule can have its own attributes and values. And the values may be different for each compliance
+ * profile. This entity frames the relation with the Compliance Profile and the Compliance Rules discovered from the
+ * connector. In addition to that, it also stores the attributes needed for the rule
+ */
 @Entity
 @Table(name = "compliance_profile_rule")
 public class ComplianceProfileRule extends Audited implements Serializable, DtoMapper<ComplianceRulesDto> {

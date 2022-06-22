@@ -7,14 +7,10 @@ import com.czertainly.api.model.connector.compliance.ComplianceRequestDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.connector.compliance.ComplianceResponseDto;
 import com.czertainly.api.model.connector.compliance.ComplianceResponseRulesDto;
-import com.czertainly.api.model.core.certificate.CertificateComplianceResultDto;
 import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
-import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
-import com.czertainly.api.model.core.connector.ConnectorDto;
-import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.ComplianceGroup;
 import com.czertainly.core.dao.entity.ComplianceProfile;
@@ -23,7 +19,12 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.ComplianceGroupRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
-import com.czertainly.core.service.*;
+import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.ComplianceProfileService;
+import com.czertainly.core.service.ComplianceService;
+import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.service.DiscoveryService;
+import com.czertainly.core.service.RaProfileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,8 +33,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -88,17 +92,18 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    public void addComplianceGroup(ComplianceGroup complianceGroup) {
+    public void saveComplianceGroup(ComplianceGroup complianceGroup) {
         complianceGroupRepository.save(complianceGroup);
     }
 
     @Override
-    public void addComplianceRule(ComplianceRule complianceRule) {
+    public void saveComplianceRule(ComplianceRule complianceRule) {
         complianceRuleRepository.save(complianceRule);
     }
 
     @Override
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException {
+        logger.debug("Checking the Compliance of the Certificate: {}", certificate);
         RaProfile raProfile = certificate.getRaProfile();
         CertificateComplianceStorageDto complianceResults = new CertificateComplianceStorageDto();
         List<ComplianceStatus> allStatuses = new ArrayList<>();
@@ -106,62 +111,84 @@ public class ComplianceServiceImpl implements ComplianceService {
             logger.warn("Certificate with uuid: {} does not have any RA Profile association", certificate.getUuid());
             return;
         }
-        ComplianceProfile complianceProfile = raProfile.getComplianceProfile();
-        if (complianceProfile == null) {
+        Set<ComplianceProfile> complianceProfiles = raProfile.getComplianceProfiles();
+        if (complianceProfiles == null || complianceProfiles.isEmpty()) {
             logger.warn("Certificate with uuid: {} does not have any Compliance Profile association", certificate.getUuid());
             return;
         }
-        for (ComplianceConnectorAndRulesDto connector : complianceProfile.mapToDto().getRules()) {
-            ComplianceRequestDto complianceRequestDto = new ComplianceRequestDto();
-            complianceRequestDto.setCertificate(certificate.getCertificateContent().getContent());
-            complianceRequestDto.setRules(getComplianceRequestRules(connector.getRules()));
-            ComplianceResponseDto responseDto = complianceApiClient.checkCompliance(
-                    connectorService.getConnector(connector.getConnectorUuid()),
-                    connector.getKind(),
-                    complianceRequestDto
-            );
-
-            for(ComplianceResponseRulesDto rule: responseDto.getRules()){
-                Long ruleId = getComplianceRuleEntity(rule.getUuid(),
-                        connectorService.getConnectorEntity(connector.getConnectorUuid()), connector.getKind()).getId();
-                switch(rule.getStatus()){
-                    case COMPLIANT:
-                        complianceResults.getOk().add(ruleId);
-                    case NON_COMPLIANT:
-                        complianceResults.getNok().add(ruleId);
-                    case NOT_APPLICABLE:
-                        complianceResults.getNa().add(ruleId);
-                }
+        for (ComplianceProfile complianceProfile : complianceProfiles) {
+            logger.debug("Applying profile: {}", complianceProfile);
+            Set<ComplianceGroup> applicableGroups = complianceProfile.getGroups();
+            Map<String, List<ComplianceRulesDto>> groupRuleMap = new HashMap<>();
+            for(ComplianceGroup grp: applicableGroups){
+                groupRuleMap.computeIfAbsent(grp.getConnector().getUuid(), k -> new ArrayList<>()).addAll(grp.getRules().stream().map(ComplianceRule::mapToDto).collect(Collectors.toList()));
             }
-            allStatuses.add(responseDto.getStatus());
+
+            for (ComplianceConnectorAndRulesDto connector : complianceProfile.mapToDto().getRules()) {
+                logger.debug("Checking for Connector: {}", connector);
+                ComplianceRequestDto complianceRequestDto = new ComplianceRequestDto();
+                complianceRequestDto.setCertificate(certificate.getCertificateContent().getContent());
+                List<ComplianceRulesDto> applicableRules = connector.getRules();
+                if(groupRuleMap.containsKey(connector.getConnectorUuid())){
+                    applicableRules.addAll(groupRuleMap.get(connector.getConnectorUuid()));
+                }
+                complianceRequestDto.setRules(getComplianceRequestRules(applicableRules));
+                ComplianceResponseDto responseDto = complianceApiClient.checkCompliance(
+                        connectorService.getConnector(connector.getConnectorUuid()),
+                        connector.getKind(),
+                        complianceRequestDto
+                );
+                logger.debug("Certificate Compliance Response from Connector: {}", responseDto);
+
+                for (ComplianceResponseRulesDto rule : responseDto.getRules()) {
+                    Long ruleId = getComplianceRuleEntity(rule.getUuid(),
+                            connectorService.getConnectorEntity(connector.getConnectorUuid()), connector.getKind()).getId();
+                    switch (rule.getStatus()) {
+                        case OK:
+                            complianceResults.getOk().add(ruleId);
+                            break;
+                        case NOK:
+                            complianceResults.getNok().add(ruleId);
+                            break;
+                        case NA:
+                            complianceResults.getNa().add(ruleId);
+                    }
+                }
+                logger.debug("Status from the Connector: {}", responseDto.getStatus());
+                allStatuses.add(responseDto.getStatus());
+            }
         }
         ComplianceStatus overallStatus = computeOverallComplianceStatus(allStatuses);
+        logger.debug("Overall Status: {}", overallStatus);
         setComplianceForCertificate(certificate.getUuid(), overallStatus, complianceResults);
     }
 
     @Override
-    public void complianceCheckForRaProfile(String uuid) throws NotFoundException, ConnectorException {
+    public void complianceCheckForRaProfile(String uuid) throws ConnectorException {
         RaProfile raProfileDto = raProfileService.getRaProfileEntity(uuid);
+        logger.debug("Checking compliance for all the certificates in RA Profile");
         complianceCheckForRaProfile(raProfileDto);
     }
 
-    @Override
-    public void complianceCheckForDiscovery(String uuid) throws NotFoundException {
-        //TODO
-    }
 
     @Override
     public void complianceCheckForComplianceProfile(String uuid) throws ConnectorException {
         ComplianceProfile complianceProfile = complianceProfileService.getComplianceProfileEntity(uuid);
+        logger.debug("Checking the compliance for all the Certificates with profile: {}", complianceProfile);
         Set<RaProfile> raProfiles = complianceProfile.getRaProfiles();
-        for(RaProfile raProfile: raProfiles){
+        for (RaProfile raProfile : raProfiles) {
             complianceCheckForRaProfile(raProfile);
         }
     }
 
+    @Override
+    public ComplianceRule getComplianceRuleEntity(Long id) {
+        return complianceRuleRepository.getById(id);
+    }
+
     private void complianceCheckForRaProfile(RaProfile raProfile) throws ConnectorException {
         List<Certificate> certificates = certificateService.listCertificatesForRaProfile(raProfile);
-        for(Certificate certificate: certificates){
+        for (Certificate certificate : certificates) {
             checkComplianceOfCertificate(certificate);
         }
     }
@@ -179,32 +206,20 @@ public class ComplianceServiceImpl implements ComplianceService {
             dto.setAttributes(rule.getAttributes());
             dtos.add(dto);
         }
+        logger.debug("Compliance Rules to be validated: {}", dtos);
         return dtos;
     }
 
     private ComplianceStatus computeOverallComplianceStatus(List<ComplianceStatus> statuses) {
-        if (statuses.contains(ComplianceStatus.NON_COMPLIANT)) {
-            return ComplianceStatus.NON_COMPLIANT;
+        if (statuses.contains(ComplianceStatus.NOK)) {
+            return ComplianceStatus.NOK;
         }
-        if (statuses.stream().allMatch(s -> s.equals(ComplianceStatus.NOT_CHECKED) ||
-                s.equals(ComplianceStatus.UNKNOWN))) {
-            return ComplianceStatus.NOT_CHECKED;
+        if (statuses.stream().allMatch(s -> s.equals(ComplianceStatus.NA))) {
+            return ComplianceStatus.NA;
         }
-        if (statuses.stream().allMatch(s -> List.of(ComplianceStatus.COMPLIANT, ComplianceStatus.NOT_CHECKED,
-                ComplianceStatus.UNKNOWN).contains(s))) {
-            return ComplianceStatus.COMPLIANT;
+        if (statuses.stream().allMatch(s -> List.of(ComplianceStatus.OK, ComplianceStatus.NA).contains(s))) {
+            return ComplianceStatus.OK;
         }
-        return ComplianceStatus.UNKNOWN;
-    }
-
-    private CertificateComplianceResultDto formatComplianceResult(ComplianceResponseDto response,
-                                                                  ConnectorDto connector, String kind) {
-        CertificateComplianceResultDto complianceResultDto = new CertificateComplianceResultDto();
-        complianceResultDto.setConnectorName(connector.getName());
-        complianceResultDto.setConnectorUuid(connector.getUuid());
-        complianceResultDto.setKind(kind);
-        complianceResultDto.setStatus(response.getStatus());
-        complianceResultDto.setRules(response.getRules());
-        return complianceResultDto;
+        return ComplianceStatus.NA;
     }
 }

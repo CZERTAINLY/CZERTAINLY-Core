@@ -46,9 +46,11 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
 
     @Override
     public void addFetchGroupsAndRules(Connector connector) throws ConnectorException {
+        logger.info("Fetching rules and groups for the Compliance Provider: {}", connector);
         FunctionGroupDto functionGroupDto = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().orElse(null);
         if (functionGroupDto == null) {
             logger.info("Connector: {} does not implement Compliance Provider", connector.getName());
+            return;
         }
         for (String kind : functionGroupDto.getKinds()) {
             addGroups(connector, kind);
@@ -58,9 +60,11 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
 
     @Override
     public void updateGroupsAndRules(Connector connector) throws ConnectorException {
+        logger.info("Fetching the rules and groups of the Compliance Provider: {}", connector);
         FunctionGroupDto functionGroupDto = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().orElse(null);
         if (functionGroupDto == null) {
             logger.info("Connector: {} does not implement Compliance Provider", connector.getName());
+            return;
         }
         for (String kind : functionGroupDto.getKinds()) {
             updateGroups(connector, kind);
@@ -69,25 +73,35 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
     }
 
     private void addGroups(Connector connector, String kind) throws ConnectorException {
+        logger.info("Adding groups for the Connector: {}, Kind: {}", connector.getName(), kind);
         List<ComplianceGroupsResponseDto> groups = complianceApiClient.getComplianceGroups(connector.mapToDto(), kind);
+        logger.debug("Compliance Groups: {}", groups);
         List<String> groupUuids = groups.stream().map(ComplianceGroupsResponseDto::getUuid).collect(Collectors.toList());
         if (groupUuids.size() > new HashSet<>(groupUuids).size()) {
+            logger.error("Duplicate UUIDs found from the connector: UUIDs: {}", groupUuids);
             throw new ValidationException(ValidationError.create("Compliance Groups from the connector contains duplicate UUIDs. UUIDs should be unique across the groups"));
         }
         for (ComplianceGroupsResponseDto group : groups) {
-            complianceService.addComplianceGroup(frameComplianceGroup(connector, kind, group));
+            logger.debug("Saving group: {}", group);
+            complianceService.saveComplianceGroup(frameComplianceGroup(connector, kind, group));
         }
+        logger.info("Groups for the connector: {} added", connector.getName());
     }
 
     private void addRules(Connector connector, String kind) throws ConnectorException {
+        logger.info("Adding rules for the Connector: {}, Kind: {}", connector.getName(), kind);
         List<ComplianceRulesResponseDto> rules = complianceApiClient.getComplianceRules(connector.mapToDto(), kind, List.of());
+        logger.debug("Compliance Groups: {}", rules);
         List<String> ruleUuids = rules.stream().map(ComplianceRulesResponseDto::getUuid).collect(Collectors.toList());
         if (ruleUuids.size() > new HashSet<>(ruleUuids).size()) {
+            logger.error("Duplicate UUIDs found from the connector: UUIDs: {}", rules);
             throw new ValidationException(ValidationError.create("Compliance Rules from the connector contains duplicate UUIDs. UUIDs should be unique across the rules"));
         }
         for (ComplianceRulesResponseDto rule : rules) {
-            complianceService.addComplianceRule(frameComplianceRule(connector, kind, rule));
+            logger.debug("Saving group: {}", rule);
+            complianceService.saveComplianceRule(frameComplianceRule(connector, kind, rule));
         }
+        logger.info("Rules for the connector: {} saved", connector.getName());
     }
 
     private ComplianceGroup frameComplianceGroup(Connector connector, String kind, ComplianceGroupsResponseDto group) {
@@ -98,6 +112,7 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
         complianceGroup.setName(group.getName());
         complianceGroup.setUuid(group.getUuid());
         complianceGroup.setDecommissioned(false);
+        logger.debug("Compliance Group DAO: {}", complianceGroup);
         return complianceGroup;
     }
 
@@ -118,10 +133,12 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
                 logger.warn("Compliance Rule: {}, tags unknown group:{}", rule.getUuid(), rule.getGroupUuid());
             }
         }
+        logger.debug("Compliance Rule DAO: {}", complianceRule);
         return complianceRule;
     }
 
     private void updateGroups(Connector connector, String kind) throws ConnectorException {
+        logger.info("Updating Compliance Group for: {}", connector);
         List<ComplianceGroupsResponseDto> groups = complianceApiClient.getComplianceGroups(connector.mapToDto(), kind);
         List<String> groupUuids = groups.stream().map(ComplianceGroupsResponseDto::getUuid).collect(Collectors.toList());
         decommUnavailableGroups(groupUuids, connector, kind);
@@ -130,29 +147,33 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
     }
 
     private void decommUnavailableGroups(List<String> groups, Connector connector, String kind) throws NotFoundException {
+        logger.info("Preparing the decommision process for the groups that are removed from connector: {}", connector);
         List<String> currentGroupsInDatabase = complianceGroupRepository.findAll().stream().map(ComplianceGroup::getUuid).collect(Collectors.toList());
         currentGroupsInDatabase.removeAll(groups);
         for(String currentGroupUuid: currentGroupsInDatabase){
             ComplianceGroup complianceGroup = complianceService.getComplianceGroupEntity(currentGroupUuid, connector, kind);
+            logger.debug("Group: {} no longer available", complianceGroup);
             complianceGroup.setDecommissioned(true);
-            complianceService.addComplianceGroup(complianceGroup);
+            complianceService.saveComplianceGroup(complianceGroup);
         }
     }
 
     private void updateGroups(Connector connector, String kind, List<ComplianceGroupsResponseDto> groups) throws NotFoundException {
         for(ComplianceGroupsResponseDto group : groups){
             if(!complianceService.complianceGroupExists(group.getUuid(), connector, kind)){
-                complianceService.addComplianceGroup(frameComplianceGroup(connector, kind, group));
+                complianceService.saveComplianceGroup(frameComplianceGroup(connector, kind, group));
             }else{
+                logger.debug("New group found. Adding group: {}", group);
                 ComplianceGroup complianceGroup = complianceService.getComplianceGroupEntity(group.getUuid(), connector, kind);
                 complianceGroup.setName(group.getName());
                 complianceGroup.setDescription(group.getDescription());
-                complianceService.addComplianceGroup(complianceGroup);
+                complianceService.saveComplianceGroup(complianceGroup);
             }
         }
     }
 
     private void updateRules(Connector connector, String kind) throws ConnectorException {
+        logger.info("Updating Compliance Rules for: {}", connector);
         List<ComplianceRulesResponseDto> rules = complianceApiClient.getComplianceRules(connector.mapToDto(), kind, List.of());
         List<String> ruleUuids = rules.stream().map(ComplianceRulesResponseDto::getUuid).collect(Collectors.toList());
         decommUnavailableRules(ruleUuids, connector, kind);
@@ -161,19 +182,21 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
     }
 
     private void decommUnavailableRules(List<String> rules, Connector connector, String kind) throws NotFoundException {
+        logger.info("Preparing the decommision process for the rules that are removed from connector: {}", connector);
         List<String> currentRulesInDatabase = complianceRuleRepository.findAll().stream().map(ComplianceRule::getUuid).collect(Collectors.toList());
         currentRulesInDatabase.removeAll(rules);
         for(String currentRuleUuid: currentRulesInDatabase){
             ComplianceRule complianceRule = complianceService.getComplianceRuleEntity(currentRuleUuid, connector, kind);
+            logger.debug("Rule: {} no longer available", complianceRule);
             complianceRule.setDecommissioned(true);
-            complianceService.addComplianceRule(complianceRule);
+            complianceService.saveComplianceRule(complianceRule);
         }
     }
 
     private void updateRules(Connector connector, String kind, List<ComplianceRulesResponseDto> rules) throws NotFoundException {
         for(ComplianceRulesResponseDto rule : rules){
             if(!complianceService.complianceRuleExists(rule.getUuid(), connector, kind)){
-                complianceService.addComplianceRule(frameComplianceRule(connector, kind, rule));
+                complianceService.saveComplianceRule(frameComplianceRule(connector, kind, rule));
             }else{
                 ComplianceRule complianceRule = complianceService.getComplianceRuleEntity(rule.getUuid(), connector, kind);
                 complianceRule.setName(rule.getName());
@@ -186,7 +209,7 @@ public class ComplianceConnectorServiceImpl implements ComplianceConnectorServic
                         logger.warn("Compliance Rule: {}, tags unknown group:{}", rule.getUuid(), rule.getGroupUuid());
                     }
                 }
-                complianceService.addComplianceRule(complianceRule);
+                complianceService.saveComplianceRule(complianceRule);
             }
         }
     }

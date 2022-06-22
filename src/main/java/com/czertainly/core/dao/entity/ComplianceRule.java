@@ -1,7 +1,6 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
@@ -16,6 +15,11 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Entity containing the list of all discovered rules from a compliance provider. The rules are fetched from the compliance
+ * provider, and are stored in the core. They are then used to map the rules for profiles. These rules are also tagged with the
+ * group, if they belong to one.
+ */
 @Entity
 @Table(name = "compliance_rule")
 public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDto> {

@@ -9,6 +9,11 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Set;
 
+/**
+ * Entity storing the available groups obtained from the Compliance Provider. These entities have relations with the
+ * respective connector mapped to the connector table. If the user chooses to associate a group to a compliance profile,
+ * a foreign key relation of type manyToMany will be established using the table compliance_group_to_compliance_profile
+ */
 @Entity
 @Table(name = "compliance_group")
 public class ComplianceGroup implements Serializable {
@@ -42,6 +47,7 @@ public class ComplianceGroup implements Serializable {
     @OneToMany(mappedBy = "group")
     private Set<ComplianceRule> rules;
 
+    @JsonBackReference
     @ManyToMany(mappedBy = "groups")
     private Set<ComplianceProfile> complianceProfiles;
 

@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.RaProfileComplianceCheckDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -25,6 +26,7 @@ import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -32,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
@@ -60,6 +63,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
     private ExtendedAttributeService extendedAttributeService;
+    @Autowired
+    private ComplianceService complianceService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -298,6 +303,19 @@ public class RaProfileServiceImpl implements RaProfileService {
     public RaProfile updateRaProfileEntity(RaProfile raProfile) {
         raProfileRepository.save(raProfile);
         return raProfile;
+    }
+
+    @Override
+    @Async
+    public void checkCompliance(RaProfileComplianceCheckDto request) {
+        for(String uuid: request.getRaProfileUuids()){
+            logger.info("Checking compliance for RA Profile: {}", uuid);
+            try {
+                complianceService.complianceCheckForRaProfile(uuid);
+            }catch (Exception e){
+                logger.error("Compliance check failed.", e);
+            }
+        }
     }
 
     public RaProfile getRaProfileEntity(String uuid) throws NotFoundException {

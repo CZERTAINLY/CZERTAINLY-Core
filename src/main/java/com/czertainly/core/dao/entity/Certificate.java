@@ -171,13 +171,14 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         dto.setOwner(owner);
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
+        /**
+         * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
+         * When the details of the certificate is requested, the Service will transform the result into the user understandable
+         * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories
+         * like complainceRules etc., So only the overall status of the compliance will be set in the mapToDto function
+         */
         dto.setComplianceStatus(complianceStatus);
-//        try {
-//            dto.setComplianceResult(ComplianceUtil.deserializeComplianceResult(complianceResult));
-//        } catch (JsonProcessingException | IllegalArgumentException e) {
-//            logger.error(e.getMessage());
-//            logger.debug(dto.toString());
-//        }
+
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
             raDto.setName(raProfile.getName());

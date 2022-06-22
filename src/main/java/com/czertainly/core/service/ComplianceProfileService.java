@@ -4,7 +4,14 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.compliance.*;
+import com.czertainly.api.model.client.compliance.ComplianceGroupRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceGroupsListResponseDto;
+import com.czertainly.api.model.client.compliance.ComplianceProfileComplianceCheckDto;
+import com.czertainly.api.model.client.compliance.ComplianceProfileRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceRulesListResponseDto;
+import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -46,9 +53,9 @@ public interface ComplianceProfileService {
      * @param request Request containing the attributes to create a new compliance profile. See {@link ComplianceProfileRequestDto}
      * @return DTO of the new compliance profile that was created
      * @throws AlreadyExistException Thrown when an existing compliance profile is found with the same name
-     * @throws ConnectorException Thrown when there are problem related to connector communication
+     * @throws NotFoundException Thrown when a Rule or Group is not found
      */
-    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, ConnectorException;
+    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException;
 
     /**
      * Add a rule to a compliance profile
@@ -57,8 +64,9 @@ public interface ComplianceProfileService {
      * @param request Parameters for adding a new rule to the compliance profile. See {@link ComplianceRuleAdditionRequestDto}
      * @throws AlreadyExistException Thrown when the rule is already tagged with the Compliance Profile
      * @throws NotFoundException Thrown when unable to find the rule with the provided details
+     * @return Compliance Profile Dto
      */
-    void addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException;
+    ComplianceProfileDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException;
 
     /**
      * Remove a rule from a compliance profile
@@ -66,8 +74,9 @@ public interface ComplianceProfileService {
      * @param uuid Uuid of the compliance provider
      * @param request Parameters required to remove a specific rule from the compliance profile
      * @throws NotFoundException Thrown when the rule is not found with the profile
+     * @return Compliance Profile DTO
      */
-    void removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException;
+    ComplianceProfileDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException;
 
     /**
      * Add a group to a compliance profile
@@ -75,8 +84,9 @@ public interface ComplianceProfileService {
      * @param uuid Uuid of the compliance provider
      * @param request Parameters for adding a new group to the compliance profile. See {@link ComplianceGroupRequestDto}
      * @throws AlreadyExistException Thrown when the selected group is already associated
+     * @return
      */
-    void addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException;
+    ComplianceProfileDto addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException;
 
     /**
      * Delete a group from a compliance profile
@@ -84,14 +94,15 @@ public interface ComplianceProfileService {
      * @param uuid Uuid of the compliance provider
      * @param request Parameters for deleting group to the compliance profile. See {@link ComplianceGroupRequestDto}
      * @throws NotFoundException Thrown when the selected group is not found associated with the compliance profile
+     * @return Compliance Profile DTO
      */
-    void removeGroup(String uuid, ComplianceGroupRequestDto request) throws NotFoundException;
+    ComplianceProfileDto removeGroup(String uuid, ComplianceGroupRequestDto request) throws NotFoundException;
 
     /**
      * Get the list of associated RA Profile to the compliance profile
      * @param uuid Uuid of the compliance profile
      * @return List of RA Profiles associated with the compliance profile. {@link SimplifiedRaProfileDto}
-     * @throws NotFoundException
+     * @throws NotFoundException * @throws NotFoundException Thrown when a Rule or Group is not found
      */
     List<SimplifiedRaProfileDto> getAssociatedRAProfiles(String uuid) throws NotFoundException;
 
@@ -111,6 +122,7 @@ public interface ComplianceProfileService {
      *
      * @return  List of dependencies for profiles that has RA Profile associations. See {@link ForceDeleteMessageDto}
      * @throws ValidationException Thrown when the profiles are dependencies for other objects
+     * @throws NotFoundException Thrown when a Rule or Group is not found
      */
     List<ForceDeleteMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException;
 
@@ -129,7 +141,7 @@ public interface ComplianceProfileService {
      * @return List of the rules for given connector and its kind
      * @throws ConnectorException Thrown when there are issues related to connector communication
      */
-    List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws ConnectorException;
+    List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException;
 
     /**
      * List of all compliance groups from the compliance providers
@@ -139,7 +151,7 @@ public interface ComplianceProfileService {
      * @return List of compliance groups
      * @throws ConnectorException Thrown when there are issues with the connector communication and operations
      */
-    List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws ConnectorException;
+    List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException;
 
     /**
      * Associate a compliance profile to an RA Profile
@@ -149,4 +161,9 @@ public interface ComplianceProfileService {
      */
     void associateProfile(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
 
+    /**
+     * Check the compliance for all the certificates associated with the compliance profiles
+     * @param request Request parameter containing the list of UUIDs of the compliance profiles
+     */
+    void checkCompliance(ComplianceProfileComplianceCheckDto request);
 }

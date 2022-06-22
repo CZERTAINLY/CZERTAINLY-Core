@@ -242,6 +242,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         if(connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
                 .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)) {
+            logger.info("Connector Implements Compliance Provider. Initiating request to add the rules and group for: {}", connector);
             try {
                 complianceConnectorService.addFetchGroupsAndRules(connector);
             } catch (ConnectorException e) {
@@ -282,6 +283,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         if(request.getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
                 .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)) {
+            logger.info("Connector Implements Compliance Provider. Initiating request to add the rules and group for: {}", connector);
             try {
                 complianceConnectorService.addFetchGroupsAndRules(connector);
             } catch (ConnectorException e) {
@@ -320,6 +322,17 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setStatus(ConnectorStatus.CONNECTED);
         setFunctionGroups(functionGroupDtos, connector);
         connectorRepository.save(connector);
+
+        if(connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
+                .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)) {
+            logger.info("Connector Implements Compliance Provider. Initiating request to update the rules and group for: {}", connector);
+            try {
+                complianceConnectorService.updateGroupsAndRules(connector);
+            } catch (ConnectorException e) {
+                logger.error(e.getMessage());
+                logger.error("Unable to fetch groups and rules for Connector: {}", connector.getName());
+            }
+        }
 
         return connector.mapToDto();
     }

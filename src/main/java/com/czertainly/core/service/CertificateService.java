@@ -3,17 +3,12 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.certificate.CertificateResponseDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateGroupDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
-import com.czertainly.api.model.client.certificate.MultipleGroupUpdateDto;
-import com.czertainly.api.model.client.certificate.MultipleRAProfileUpdateDto;
-import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
-import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
-import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -82,6 +77,16 @@ public interface CertificateService {
     void updateComplianceReport(String uuid, ComplianceStatus complianceStatus,
                                 CertificateComplianceStorageDto result) throws NotFoundException;
 
-
+    /**
+     * List the available certificates that are associated with the RA Profile
+     * @param raProfile Ra Profile entity to search for the certificates
+     * @return List of Certificates
+     */
     List<Certificate> listCertificatesForRaProfile(RaProfile raProfile);
+
+    /**
+     * Initiates the compliance check for the certificates in the request
+     * @param request List of uuids of the certificate
+     */
+    void checkCompliance(CertificateComplianceCheckDto request);
 }
