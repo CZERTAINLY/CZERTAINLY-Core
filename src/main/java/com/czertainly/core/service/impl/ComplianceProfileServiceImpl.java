@@ -418,11 +418,12 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                     certificate.setComplianceStatus(null);
                     certificateService.updateCertificateEntity(certificate);
                 }
-            }
-            try {
-                complianceService.complianceCheckForRaProfile(raProfileUuid);
-            } catch (ConnectorException e) {
-                logger.error("Unable to check compliance: ", e);
+            }else {
+                try {
+                    complianceService.complianceCheckForRaProfile(raProfileUuid);
+                } catch (ConnectorException e) {
+                    logger.error("Unable to check compliance: ", e);
+                }
             }
             raProfileService.updateRaProfileEntity(raProfile);
         }
