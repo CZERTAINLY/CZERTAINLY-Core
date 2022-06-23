@@ -18,6 +18,7 @@ import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.ComplianceGroup;
 import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
@@ -28,6 +29,7 @@ import com.czertainly.core.dao.repository.ComplianceGroupRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
+import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.ConnectorService;
@@ -78,6 +80,9 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Autowired
     @Lazy
     private ComplianceService complianceService;
+
+    @Autowired
+    private CertificateService certificateService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
@@ -382,6 +387,37 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 }
             }else{
                 raProfile.setComplianceProfiles(new HashSet<>(Arrays.asList(complianceProfile)));
+            }
+            try {
+                complianceService.complianceCheckForRaProfile(raProfileUuid);
+            } catch (ConnectorException e) {
+                logger.error("Unable to check compliance: ", e);
+            }
+            raProfileService.updateRaProfileEntity(raProfile);
+        }
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CHANGE)
+    public void disassociateProfile(String uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
+        logger.info("Associate RA Profiles: {} to Compliance Profile: ", raprofile, uuid);
+        for(String raProfileUuid: raprofile.getRaProfileUuids()) {
+            RaProfile raProfile = raProfileService.getRaProfileEntity(raProfileUuid);
+            ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
+            if(raProfile.getComplianceProfiles() != null) {
+                if(!raProfile.getComplianceProfiles().contains(complianceProfile)) {
+                    continue;
+                }else {
+                    raProfile.getComplianceProfiles().remove(complianceProfile);
+                }
+            }
+            if(raProfile.getComplianceProfiles() != null || raProfile.getComplianceProfiles().isEmpty()){
+                List<Certificate> certificates = certificateService.listCertificatesForRaProfile(raProfile);
+                for(Certificate certificate: certificates){
+                    certificate.setComplianceResult(null);
+                    certificate.setComplianceStatus(null);
+                    certificateService.updateCertificateEntity(certificate);
+                }
             }
             try {
                 complianceService.complianceCheckForRaProfile(raProfileUuid);

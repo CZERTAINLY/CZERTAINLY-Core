@@ -168,4 +168,11 @@ public interface ComplianceProfileService {
      * @param request Request parameter containing the list of UUIDs of the compliance profiles
      */
     void checkCompliance(ComplianceProfileComplianceCheckDto request);
+
+    /**
+     * Disassociate Compliance Profiles from RA Profiles
+     * @param uuid Compliance Profile UUID
+     * @param raProfiles List of RA Profile UUIDs
+     */
+    void disassociateProfile(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
 }

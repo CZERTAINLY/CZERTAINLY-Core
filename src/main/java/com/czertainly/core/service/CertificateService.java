@@ -89,4 +89,10 @@ public interface CertificateService {
      * @param request List of uuids of the certificate
      */
     void checkCompliance(CertificateComplianceCheckDto request);
+
+    /**
+     * Update the Certificate Entity
+     * @param certificate Certificate entity to be updated
+     */
+    void updateCertificateEntity(Certificate certificate);
 }

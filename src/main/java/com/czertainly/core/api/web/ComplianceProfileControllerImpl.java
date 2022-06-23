@@ -113,6 +113,11 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
+    public void disassociateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException, ConnectorException {
+        complianceProfileService.disassociateProfile(uuid, raProfiles);
+    }
+
+    @Override
     public void checkCompliance(ComplianceProfileComplianceCheckDto request) throws NotFoundException {
         complianceProfileService.checkCompliance(request);
     }

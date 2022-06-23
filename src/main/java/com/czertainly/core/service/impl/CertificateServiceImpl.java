@@ -641,6 +641,11 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
+    @Override
+    public void updateCertificateEntity(Certificate certificate) {
+        certificateRepository.save(certificate);
+    }
+
     @Async
     private void checkCompliance(List<Certificate> certificates) {
         for (Certificate certificate: certificates) {

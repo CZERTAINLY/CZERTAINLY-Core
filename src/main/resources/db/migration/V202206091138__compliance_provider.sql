@@ -25,7 +25,6 @@ CREATE TABLE "compliance_profile" (
 	"i_upd" TIMESTAMP NOT NULL,
 	"name" VARCHAR NOT NULL,
 	"description" VARCHAR NULL DEFAULT NULL,
-	"compliance_group_id" BIGINT NULL DEFAULT NULL,
 	PRIMARY KEY ("id")
 )
 ;
