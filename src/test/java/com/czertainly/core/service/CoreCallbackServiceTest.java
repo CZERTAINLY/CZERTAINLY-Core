@@ -4,9 +4,12 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
+import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.service.impl.CoreCallbackServiceImpl;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,10 +43,10 @@ public class CoreCallbackServiceTest {
         RequestAttributeCallback callback = new RequestAttributeCallback();
         callback.setPathVariables(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, credential.getKind())));
 
-        List<NameAndUuidDto> credentials = coreCallbackService.coreGetCredentials(callback);
+        List<JsonAttributeContent> credentials = coreCallbackService.coreGetCredentials(callback);
         Assertions.assertNotNull(credentials);
         Assertions.assertFalse(credentials.isEmpty());
-        Assertions.assertEquals(credential.getUuid(), credentials.get(0).getUuid());
+        Assertions.assertEquals(credential.getUuid(), ((NameAndUuidDto) credentials.get(0).getData()).getUuid());
     }
 
     @Test
