@@ -18,8 +18,10 @@ import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.core.dao.entity.ComplianceProfile;
+import com.czertainly.core.dao.entity.Connector;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ComplianceProfileService {
     /**
@@ -175,4 +177,17 @@ public interface ComplianceProfileService {
      * @param raProfiles List of RA Profile UUIDs
      */
     void disassociateProfile(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
+
+    /**
+     * Check if the compliance provider is associated with any compliance profiles
+     * @param connector Connector Entity
+     * @return Is the connector tagged with any compliance profiles
+     */
+    Set<String> isComplianceProviderAssociated(Connector connector);
+
+    /**
+     * Remove all the association from the connector to Compliance Group and Rule
+     * @param connector Connector Entity
+     */
+    void nullifyComplianceProviderAssociation(Connector connector);
 }

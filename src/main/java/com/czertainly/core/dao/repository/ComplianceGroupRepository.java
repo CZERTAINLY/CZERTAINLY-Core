@@ -18,4 +18,6 @@ public interface ComplianceGroupRepository extends JpaRepository<ComplianceGroup
     List<ComplianceGroup> findByConnectorAndKind(Connector connector, String kind);
 
     Optional<ComplianceGroup> findByUuidAndConnectorAndKind(String uuid, Connector connector, String kind);
+
+    List<ComplianceGroup> findByConnector(Connector connector);
 }

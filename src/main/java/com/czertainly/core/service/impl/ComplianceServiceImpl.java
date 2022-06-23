@@ -133,6 +133,10 @@ public class ComplianceServiceImpl implements ComplianceService {
                 if(groupRuleMap.containsKey(connector.getConnectorUuid())){
                     applicableRules.addAll(groupRuleMap.get(connector.getConnectorUuid()));
                 }
+                if(applicableRules.isEmpty()){
+                    allStatuses.add(ComplianceStatus.NA);
+                    logger.debug("Compliance Profile {} does not have any rule for Connector:{}", complianceProfile.getName(), connector.getConnectorName());
+                }
                 complianceRequestDto.setRules(getComplianceRequestRules(applicableRules));
                 ComplianceResponseDto responseDto = complianceApiClient.checkCompliance(
                         connectorService.getConnectorEntity(connector.getConnectorUuid()).mapToDto(),
@@ -188,6 +192,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     public ComplianceRule getComplianceRuleEntity(Long id) {
         return complianceRuleRepository.getById(id);
     }
+
 
     private void complianceCheckForRaProfile(RaProfile raProfile) throws ConnectorException {
         List<Certificate> certificates = certificateService.listCertificatesForRaProfile(raProfile);

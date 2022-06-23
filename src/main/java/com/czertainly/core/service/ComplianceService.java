@@ -86,5 +86,4 @@ public interface ComplianceService {
      * @return ComplianceRule Entity
      */
     ComplianceRule getComplianceRuleEntity(Long id);
-
 }

@@ -134,9 +134,9 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateDto getCertificate(String uuid) throws NotFoundException {
         Certificate entity = getCertificateEntity(uuid);
         CertificateDto dto = entity.mapToDto();
-        if(entity.getComplianceResult() != null) {
+        if (entity.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(entity.getComplianceResult()));
-        }else{
+        } else {
             dto.setComplianceStatus(ComplianceStatus.NA);
         }
         return dto;
@@ -217,9 +217,9 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setRaProfile(raProfile);
         certificateRepository.save(certificate);
-        try{
+        try {
             complianceService.checkComplianceOfCertificate(certificate);
-        } catch (ConnectorException e){
+        } catch (ConnectorException e) {
             logger.error("Error when checking compliance: {}", e);
         }
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
@@ -648,7 +648,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Async
     private void checkCompliance(List<Certificate> certificates) {
-        for (Certificate certificate: certificates) {
+        for (Certificate certificate : certificates) {
             try {
                 complianceService.checkComplianceOfCertificate(certificate);
             } catch (ConnectorException e) {
@@ -762,37 +762,45 @@ public class CertificateServiceImpl implements CertificateService {
         logger.debug("Framing Compliance Result from stored data: {}", storageDto);
         List<CertificateComplianceResultDto> result = new ArrayList<>();
         for (Long ruleId : storageDto.getNok()) {
-            ComplianceRule rule = complianceService.getComplianceRuleEntity(ruleId);
-            CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
-            dto.setConnectorName(rule.getConnector().getName());
-            dto.setRuleName(rule.getName());
-            dto.setRuleDescription(rule.getDescription());
-            dto.setStatus(ComplianceRuleStatus.NOK);
-            result.add(dto);
+            try {
+                ComplianceRule rule = complianceService.getComplianceRuleEntity(ruleId);
+                CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
+                dto.setConnectorName(rule.getConnector().getName());
+                dto.setRuleName(rule.getName());
+                dto.setRuleDescription(rule.getDescription());
+                dto.setStatus(ComplianceRuleStatus.NOK);
+                result.add(dto);
+            } catch (Exception e) {
+                logger.debug("Rule may have been deleted: {}", ruleId);
+            }
         }
         for (Long ruleId : storageDto.getNa()) {
-            ComplianceRule rule = complianceService.getComplianceRuleEntity(ruleId);
-            CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
-            dto.setConnectorName(rule.getConnector().getName());
-            dto.setRuleName(rule.getName());
-            dto.setRuleDescription(rule.getDescription());
-            dto.setStatus(ComplianceRuleStatus.NA);
-            result.add(dto);
+            try {
+                ComplianceRule rule = complianceService.getComplianceRuleEntity(ruleId);
+                CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
+                dto.setConnectorName(rule.getConnector().getName());
+                dto.setRuleName(rule.getName());
+                dto.setRuleDescription(rule.getDescription());
+                dto.setStatus(ComplianceRuleStatus.NA);
+                result.add(dto);
+            } catch (Exception e) {
+                logger.debug("Rule may have been deleted: {}", ruleId);
+            }
         }
         logger.debug("Compliance Result: {}", result);
         return result;
     }
 
     @Async
-    private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter){
+    private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter) {
         List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
         CertificateComplianceCheckDto dto = new CertificateComplianceCheckDto();
         dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).collect(Collectors.toList()));
         checkCompliance(dto);
     }
 
-    private void certificateComplianceCheck(Certificate certificate){
-        if(certificate.getRaProfile() != null){
+    private void certificateComplianceCheck(Certificate certificate) {
+        if (certificate.getRaProfile() != null) {
             try {
                 complianceService.checkComplianceOfCertificate(certificate);
             } catch (ConnectorException e) {

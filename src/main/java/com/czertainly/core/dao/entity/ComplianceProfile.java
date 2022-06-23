@@ -115,23 +115,27 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
         complianceProfileDto.setName(name);
         complianceProfileDto.setUuid(uuid);
 
-        Map<String, Integer> providerSummary = new HashMap<>();
-        for(ComplianceProfileRule complianceRule : complianceRules){
-            String connectorName = complianceRule.getComplianceRule().getConnector().getName();
-            if(providerSummary.containsKey(connectorName)){
-                providerSummary.put(connectorName, providerSummary.get(connectorName) + 1);
-            } else {
-                providerSummary.put(connectorName, 1);
-            }
-        }
-
         Map<String, Integer> providerGroupSummary = new HashMap<>();
+        Map<String, Integer> providerGroupSummaryRules = new HashMap<>();
         for(ComplianceGroup grp : groups){
             String connectorName = grp.getConnector().getName();
             if(providerGroupSummary.containsKey(connectorName)){
                 providerGroupSummary.put(connectorName, providerGroupSummary.get(connectorName) + 1);
             } else {
                 providerGroupSummary.put(connectorName, 1);
+            }
+            List<Set<ComplianceRule>>  listRules = groups.stream().map(ComplianceGroup::getRules).collect(Collectors.toList());
+            Integer listRulesSize = listRules.stream().flatMap(Set::stream).collect(Collectors.toSet()).size();
+            providerGroupSummaryRules.put(connectorName, listRulesSize);
+        }
+
+        Map<String, Integer> providerSummary = new HashMap<>();
+        for(ComplianceProfileRule complianceRule : complianceRules){
+            String connectorName = complianceRule.getComplianceRule().getConnector().getName();
+            if(providerSummary.containsKey(connectorName)){
+                providerSummary.put(connectorName, providerSummary.get(connectorName) + 1);
+            } else {
+                providerSummary.put(connectorName, providerGroupSummaryRules.getOrDefault(connectorName, 1));
             }
         }
 

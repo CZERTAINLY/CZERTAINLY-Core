@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -427,6 +428,43 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             }
             raProfileService.updateRaProfileEntity(raProfile);
         }
+    }
+
+    @Override
+    public Set<String> isComplianceProviderAssociated(Connector connector) {
+        Set<String> errors = new HashSet<>();
+        //Check if the connector is being used in any of the compliance profile groups
+        for(ComplianceProfile complianceProfile: complianceProfileRepository.findAll()){
+            if(complianceProfile.getGroups().stream().map(ComplianceGroup::getConnector).collect(Collectors.toList()).contains(connector)){
+                errors.add(complianceProfile.getName());
+            }
+        }
+        //Check if the connector is being used in any of the compliance group association
+        for(ComplianceProfileRule complianceProfileRule: complianceProfileRuleRepository.findAll()){
+            if(complianceProfileRule.getComplianceRule().getConnector().getUuid().equals(connector.getUuid())){
+                errors.add(complianceProfileRule.getComplianceProfile().getName());
+            }
+        }
+        return errors;
+    }
+
+    @Override
+    public void nullifyComplianceProviderAssociation(Connector connector) {
+        //Delete all the group association for a connector
+        for(ComplianceProfile complianceProfile: complianceProfileRepository.findAll()){
+            if(complianceProfile.getGroups().stream().map(ComplianceGroup::getConnector).collect(Collectors.toList()).contains(connector)){
+                complianceProfile.getGroups().removeAll(complianceProfile.getGroups().stream().filter(r -> r.getConnector().getUuid().equals(connector.getUuid())).collect(Collectors.toSet()));
+            }
+        }
+        //delete all the rule association for the connector
+        for(ComplianceProfileRule complianceProfileRule: complianceProfileRuleRepository.findAll()){
+            if(complianceProfileRule.getComplianceRule().getConnector().getUuid().equals(connector.getUuid())){
+                complianceProfileRuleRepository.delete(complianceProfileRule);
+            }
+        }
+        //Delete all rules and Groups of the connector
+        complianceRuleRepository.deleteAll(complianceRuleRepository.findByConnector(connector));
+        complianceGroupRepository.deleteAll(complianceGroupRepository.findByConnector(connector));
     }
 
     @Override

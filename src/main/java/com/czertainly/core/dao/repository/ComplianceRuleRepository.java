@@ -21,4 +21,6 @@ public interface ComplianceRuleRepository extends JpaRepository<ComplianceRule, 
     List<ComplianceRule> findByConnectorAndKindAndCertificateTypeIn(Connector connector, String kind, List<CertificateType> certificateTypes);
 
     Optional<ComplianceRule> findByUuidAndConnectorAndKind(String uuid, Connector connector, String kind);
+
+    List<ComplianceRule> findByConnector(Connector connector);
 }
