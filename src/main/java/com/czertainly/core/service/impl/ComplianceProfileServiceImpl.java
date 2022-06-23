@@ -374,11 +374,12 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         for(String raProfileUuid: raprofile.getRaProfileUuids()) {
             RaProfile raProfile = raProfileService.getRaProfileEntity(raProfileUuid);
             ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
-            if(raProfile.getComplianceProfiles().contains(complianceProfile)){
-               continue;
-            }
             if(raProfile.getComplianceProfiles() != null) {
-                raProfile.getComplianceProfiles().add(complianceProfile);
+                if(raProfile.getComplianceProfiles().contains(complianceProfile)) {
+                    continue;
+                }else {
+                    raProfile.getComplianceProfiles().add(complianceProfile);
+                }
             }else{
                 raProfile.setComplianceProfiles(new HashSet<>(Arrays.asList(complianceProfile)));
             }
