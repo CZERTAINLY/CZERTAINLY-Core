@@ -10,6 +10,7 @@ import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.service.impl.CoreCallbackServiceImpl;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.mysema.commons.lang.Assert;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,20 @@ public class CoreCallbackServiceTest {
         Assertions.assertNotNull(credentials);
         Assertions.assertFalse(credentials.isEmpty());
         Assertions.assertEquals(credential.getUuid(), ((NameAndUuidDto) credentials.get(0).getData()).getUuid());
+    }
+
+
+    @Test
+    public void testCoreGetCredentialsUnknown() throws NotFoundException {
+        Credential credential = new Credential();
+        credential.setKind("certificate");
+        credential.setEnabled(true);
+        credentialRepository.save(credential);
+
+        RequestAttributeCallback callback = new RequestAttributeCallback();
+        callback.setPathVariables(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, "unknown")));
+
+        Assertions.assertThrows(NotFoundException.class, () -> coreCallbackService.coreGetCredentials(callback));
     }
 
     @Test

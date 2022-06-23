@@ -246,7 +246,7 @@ public class CredentialServiceTest {
 
         Assertions.assertTrue(attrs.get(0).getContent() instanceof JsonAttributeContent);
 
-        CredentialDto credentialDto = (CredentialDto) attrs.get(0).getContent();
+        CredentialDto credentialDto = (CredentialDto) ((JsonAttributeContent) attrs.get(0).getContent()).getData();
         Assertions.assertEquals(credential.getUuid(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
