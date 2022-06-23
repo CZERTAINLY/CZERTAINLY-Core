@@ -193,7 +193,6 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
     public Connector getConnectorEntity(String uuid) throws NotFoundException {
         return connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));

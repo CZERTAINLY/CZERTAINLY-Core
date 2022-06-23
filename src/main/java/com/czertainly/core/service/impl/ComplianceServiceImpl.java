@@ -29,6 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -134,7 +135,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                 }
                 complianceRequestDto.setRules(getComplianceRequestRules(applicableRules));
                 ComplianceResponseDto responseDto = complianceApiClient.checkCompliance(
-                        connectorService.getConnector(connector.getConnectorUuid()),
+                        connectorService.getConnectorEntity(connector.getConnectorUuid()).mapToDto(),
                         connector.getKind(),
                         complianceRequestDto
                 );
@@ -164,6 +165,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
+    @Async
     public void complianceCheckForRaProfile(String uuid) throws ConnectorException {
         RaProfile raProfileDto = raProfileService.getRaProfileEntity(uuid);
         logger.debug("Checking compliance for all the certificates in RA Profile");
@@ -172,6 +174,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
 
     @Override
+    @Async
     public void complianceCheckForComplianceProfile(String uuid) throws ConnectorException {
         ComplianceProfile complianceProfile = complianceProfileService.getComplianceProfileEntity(uuid);
         logger.debug("Checking the compliance for all the Certificates with profile: {}", complianceProfile);
@@ -200,7 +203,12 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private List<ComplianceRequestRulesDto> getComplianceRequestRules(List<ComplianceRulesDto> rules) {
         List<ComplianceRequestRulesDto> dtos = new ArrayList<>();
+        List<String> nonDuplicateUuids = new ArrayList<>();
         for (ComplianceRulesDto rule : rules) {
+            if(nonDuplicateUuids.contains(rule.getUuid())){
+                continue;
+            }
+            nonDuplicateUuids.add(rule.getUuid());
             ComplianceRequestRulesDto dto = new ComplianceRequestRulesDto();
             dto.setUuid(rule.getUuid());
             dto.setAttributes(rule.getAttributes());

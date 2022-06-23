@@ -54,8 +54,9 @@ public interface ComplianceProfileService {
      * @return DTO of the new compliance profile that was created
      * @throws AlreadyExistException Thrown when an existing compliance profile is found with the same name
      * @throws NotFoundException Thrown when a Rule or Group is not found
+     * @throws ValidationException Thrown when the attributes validations are failed for a rule in the request
      */
-    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException;
+    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException;
 
     /**
      * Add a rule to a compliance profile
@@ -64,9 +65,10 @@ public interface ComplianceProfileService {
      * @param request Parameters for adding a new rule to the compliance profile. See {@link ComplianceRuleAdditionRequestDto}
      * @throws AlreadyExistException Thrown when the rule is already tagged with the Compliance Profile
      * @throws NotFoundException Thrown when unable to find the rule with the provided details
+     * @throws ValidationException Thrown when the attribute validation fails for the given rule
      * @return Compliance Profile Dto
      */
-    ComplianceProfileDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException;
+    ComplianceProfileDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException;
 
     /**
      * Remove a rule from a compliance profile

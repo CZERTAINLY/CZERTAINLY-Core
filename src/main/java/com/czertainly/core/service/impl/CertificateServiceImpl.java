@@ -103,6 +103,7 @@ public class CertificateServiceImpl implements CertificateService {
     private AdminRepository adminRepository;
 
     @Autowired
+    @Lazy
     private ComplianceService complianceService;
 
     @Lazy
@@ -255,6 +256,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
     }
 
+    @Async
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
@@ -276,7 +278,7 @@ public class CertificateServiceImpl implements CertificateService {
             String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + raProfile.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(profileUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
-
+            bulkUpdateRaProfileComplianceCheck(request.getFilters());
         }
     }
 
@@ -639,6 +641,17 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
+    @Async
+    private void checkCompliance(List<Certificate> certificates) {
+        for (Certificate certificate: certificates) {
+            try {
+                complianceService.checkComplianceOfCertificate(certificate);
+            } catch (ConnectorException e) {
+                logger.error("Compliance check failed.", e);
+            }
+        }
+    }
+
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
 
         SearchFieldDataDto raProfileFilter = SearchLabelConstants.RA_PROFILE_NAME_FILTER;
@@ -763,6 +776,14 @@ public class CertificateServiceImpl implements CertificateService {
         }
         logger.debug("Compliance Result: {}", result);
         return result;
+    }
+
+    @Async
+    private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter){
+        List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
+        CertificateComplianceCheckDto dto = new CertificateComplianceCheckDto();
+        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).collect(Collectors.toList()));
+        checkCompliance(dto);
     }
 
     private void certificateComplianceCheck(Certificate certificate){

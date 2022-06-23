@@ -62,7 +62,7 @@ public class Application extends SpringBootServletInitializer {
 		executor.setCorePoolSize(POOL_SIZE);
 		executor.setMaxPoolSize(POOL_SIZE);
 		executor.setQueueCapacity(QUEUE_SIZE);
-		executor.setThreadNamePrefix("RAProfileCore-");
+		executor.setThreadNamePrefix("CZERTAINLYCore-");
 		executor.initialize();
 		return new DelegatingSecurityContextAsyncTaskExecutor(executor);
 	}
