@@ -12,6 +12,7 @@ import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.AttributeType;
 import com.czertainly.api.model.common.attribute.AttributeValueTarget;
 import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.dao.entity.Connector;
@@ -243,9 +244,9 @@ public class CredentialServiceTest {
 
         credentialService.loadFullCredentialData(attrs);
 
-        Assertions.assertTrue(attrs.get(0).getContent() instanceof CredentialDto);
+        Assertions.assertTrue(attrs.get(0).getContent() instanceof JsonAttributeContent);
 
-        CredentialDto credentialDto = (CredentialDto) attrs.get(0).getContent();
+        CredentialDto credentialDto = (CredentialDto) ((JsonAttributeContent) attrs.get(0).getContent()).getData();
         Assertions.assertEquals(credential.getUuid(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
