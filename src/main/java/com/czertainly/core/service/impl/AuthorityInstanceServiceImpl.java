@@ -84,7 +84,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceDto.setKind(authorityInstanceReference.getKind());
         if (authorityInstanceReference.getConnector() == null) {
             authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnectorName() + " (Deleted)");
-            authorityInstanceDto.setConnectorUuid("Connector not found");
+            authorityInstanceDto.setConnectorUuid("");
             logger.warn("Connector associated with the Authority: {} is not found. Unable to show details", authorityInstanceReference);
             return authorityInstanceDto;
         }
