@@ -78,21 +78,24 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
 
+        AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
+        authorityInstanceDto.setName(authorityInstanceReference.getName());
+        authorityInstanceDto.setUuid(authorityInstanceReference.getUuid());
+        authorityInstanceDto.setKind(authorityInstanceReference.getKind());
         if (authorityInstanceReference.getConnector() == null) {
-            throw new NotFoundException("Connector associated with the Authority is not found. Unable to show details");
+            authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnectorName() + " (Deleted)");
+            authorityInstanceDto.setConnectorUuid("");
+            logger.warn("Connector associated with the Authority: {} is not found. Unable to show details", authorityInstanceReference);
+            return authorityInstanceDto;
         }
 
         AuthorityProviderInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
                 authorityInstanceReference.getAuthorityInstanceUuid());
 
-        AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(authorityProviderInstanceDto.getAttributes()));
         authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
-        authorityInstanceDto.setUuid(authorityInstanceReference.getUuid());
+        authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnector().getName());
         authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid());
-        authorityInstanceDto.setKind(authorityInstanceReference.getKind());
-        authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnectorName());
-
         return authorityInstanceDto;
     }
 
@@ -173,19 +176,22 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     public void removeAuthorityInstance(String uuid) throws NotFoundException, ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        if(authorityInstanceRef.getConnector() != null) {
+            List<ValidationError> errors = new ArrayList<>();
+            if (!authorityInstanceRef.getRaProfiles().isEmpty()) {
+                errors.add(ValidationError.create("Authority instance {} has {} dependent RA profiles", authorityInstanceRef.getName(),
+                        authorityInstanceRef.getRaProfiles().size()));
+                authorityInstanceRef.getRaProfiles().stream().forEach(c -> errors.add(ValidationError.create(c.getName())));
+            }
 
-        List<ValidationError> errors = new ArrayList<>();
-        if (!authorityInstanceRef.getRaProfiles().isEmpty()) {
-            errors.add(ValidationError.create("Authority instance {} has {} dependent RA profiles", authorityInstanceRef.getName(),
-                    authorityInstanceRef.getRaProfiles().size()));
-            authorityInstanceRef.getRaProfiles().stream().forEach(c -> errors.add(ValidationError.create(c.getName())));
+            if (!errors.isEmpty()) {
+                throw new ValidationException("Could not delete Authority instance", errors);
+            }
+
+            authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
+        }else{
+            logger.debug("Deleting authority without connector: {}", authorityInstanceRef);
         }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete Authority instance", errors);
-        }
-
-        authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
 
         authorityInstanceReferenceRepository.delete(authorityInstanceRef);
     }
@@ -265,7 +271,9 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             } else {
                 deletableCredentials.add(authorityInstanceRef);
                 try {
-                    authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
+                    if(authorityInstanceRef.getConnector() != null) {
+                        authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
+                    }
                 }catch(ConnectorException e){
                     logger.error("Unable to delete authority with name {}", authorityInstanceRef.getName());
                 }
@@ -291,7 +299,9 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                     raProfileRepository.save(ref);
                 }
             }
+            if(authorityInstanceRef.getConnector() != null) {
                 authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
+            }
             authorityInstanceReferenceRepository.delete(authorityInstanceRef);
         }catch (ConnectorException e){
                 logger.warn("Unable to delete the Authority instance with uuid {}. It may have been deleted", uuid);
