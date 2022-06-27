@@ -199,6 +199,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", pkcs10);
+        additionalInformation.put("Parent Certificate UUID", oldCertificate.getUuid());
+        additionalInformation.put("Parent Certificate Serial Number", oldCertificate.getSerialNumber());
         Certificate certificate = null;
         CertificateDataResponseDto caResponse = null;
         try {
