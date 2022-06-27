@@ -2,6 +2,7 @@ package com.czertainly.core.service.v2.impl;
 
 import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -172,7 +173,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
-    public ClientCertificateDataResponseDto renewCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
+    public ClientCertificateDataResponseDto renewCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
@@ -199,6 +200,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", pkcs10);
+        additionalInformation.put("Parent Certificate UUID", oldCertificate.getUuid());
+        additionalInformation.put("Parent Certificate Serial Number", oldCertificate.getSerialNumber());
         Certificate certificate = null;
         CertificateDataResponseDto caResponse = null;
         try {
@@ -229,7 +232,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         } catch (Exception e){
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
             logger.error("Failed to renew Certificate", e.getMessage());
-            return null;
+            throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
         }
 
         logger.info("Certificate Renewed: {}", certificate);

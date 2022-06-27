@@ -1,6 +1,7 @@
 package com.czertainly.core.service.v2;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -30,7 +31,7 @@ public interface ClientOperationService {
     ClientCertificateDataResponseDto renewCertificate(
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException;
+            ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
 
     List<AttributeDefinition> listRevokeCertificateAttributes(
             String raProfileUuid) throws NotFoundException, ConnectorException;
