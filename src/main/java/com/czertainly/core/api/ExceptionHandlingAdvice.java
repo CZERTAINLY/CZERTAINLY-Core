@@ -241,6 +241,20 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link CertificateOperationException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(CertificateOperationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleCertificateOperationException(CertificateOperationException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+
+
+    /**
      * Handler for {@link Exception}.
      *
      * @return

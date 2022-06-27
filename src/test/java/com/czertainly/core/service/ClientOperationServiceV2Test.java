@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.NameAndIdDto;
@@ -220,7 +221,7 @@ public class ClientOperationServiceV2Test {
     }
 
     @Test
-    public void testRenewCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
+    public void testRenewCertificate() throws ConnectorException, CertificateException, AlreadyExistException, CertificateOperationException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))

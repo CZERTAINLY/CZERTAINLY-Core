@@ -1,6 +1,7 @@
 package com.czertainly.core.api.v2.client;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -52,7 +53,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateDataResponseDto renewCertificate(
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
-            @RequestBody ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
+            @RequestBody ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         return clientOperationService.renewCertificate(raProfileUuid, certificateUuid, request, false);
     }
 
