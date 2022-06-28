@@ -101,4 +101,7 @@ public class ApplicationConfig {
     public com.czertainly.api.clients.v2.CertificateApiClient certificateApiClientV2(WebClient webClient) {
         return new com.czertainly.api.clients.v2.CertificateApiClient(webClient);
     }
+
+    @Bean
+    public ComplianceApiClient complianceApiClient(WebClient webClient) { return new ComplianceApiClient(webClient); }
 }

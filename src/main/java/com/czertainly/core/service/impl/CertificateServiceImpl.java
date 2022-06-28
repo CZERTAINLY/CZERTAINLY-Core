@@ -10,11 +10,15 @@ import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpd
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.certificate.CertificateComplianceResultDto;
+import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -31,6 +35,7 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.LocationService;
 import com.czertainly.core.service.SearchService;
 import com.czertainly.core.util.CertificateUtil;
@@ -69,15 +74,13 @@ import java.util.stream.Collectors;
 @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
 public class CertificateServiceImpl implements CertificateService {
 
-    private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
-
     // Default page size for the certificate search API when page size is not provided
     public static final Integer DEFAULT_PAGE_SIZE = 10;
     // Maximum page size for search API operation
     public static final Integer MAX_PAGE_SIZE = 1000;
     // Default batch size to perform bulk delete operation on Certificates
     public static final Integer DELETE_BATCH_SIZE = 1000;
-
+    private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
     @Autowired
     private CertificateRepository certificateRepository;
 
@@ -98,6 +101,10 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private AdminRepository adminRepository;
+
+    @Autowired
+    @Lazy
+    private ComplianceService complianceService;
 
     @Lazy
     @Autowired
@@ -125,7 +132,14 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     public CertificateDto getCertificate(String uuid) throws NotFoundException {
-        return getCertificateEntity(uuid).mapToDto();
+        Certificate entity = getCertificateEntity(uuid);
+        CertificateDto dto = entity.mapToDto();
+        if (entity.getComplianceResult() != null) {
+            dto.setNonCompliantRules(frameComplianceResult(entity.getComplianceResult()));
+        } else {
+            dto.setComplianceStatus(ComplianceStatus.NA);
+        }
+        return dto;
     }
 
     @Override
@@ -203,6 +217,11 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificate.setRaProfile(raProfile);
         certificateRepository.save(certificate);
+        try {
+            complianceService.checkComplianceOfCertificate(certificate);
+        } catch (ConnectorException e) {
+            logger.error("Error when checking compliance: {}", e);
+        }
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
     }
 
@@ -235,9 +254,9 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setOwner(request.getOwner());
         certificateRepository.save(certificate);
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
-
     }
 
+    @Async
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
@@ -259,7 +278,7 @@ public class CertificateServiceImpl implements CertificateService {
             String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + raProfile.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(profileUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
-
+            bulkUpdateRaProfileComplianceCheck(request.getFilters());
         }
     }
 
@@ -483,7 +502,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
 
             certificateRepository.save(entity);
-
+            certificateComplianceCheck(entity);
             certificateEventHistoryService.addEventHistory(CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "", entity);
 
             return entity;
@@ -558,6 +577,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         Certificate entity = createCertificateEntity(x509Cert);
         certificateRepository.save(entity);
+        certificateComplianceCheck(entity);
         return entity;
     }
 
@@ -571,6 +591,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate entity = createCertificateEntity(x509Cert);
         entity.setMeta(meta);
         certificateRepository.save(entity);
+        certificateComplianceCheck(entity);
         return entity;
     }
 
@@ -593,6 +614,47 @@ public class CertificateServiceImpl implements CertificateService {
                 .map(CertificateLocation::getLocation)
                 .map(Location::mapToDtoSimple)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public void updateComplianceReport(String uuid, ComplianceStatus complianceStatus,
+                                       CertificateComplianceStorageDto result) throws NotFoundException {
+        Certificate certificate = getCertificateEntity(uuid);
+        certificate.setComplianceStatus(complianceStatus);
+        certificate.setComplianceResult(result);
+    }
+
+    @Override
+    public List<Certificate> listCertificatesForRaProfile(RaProfile raProfile) {
+        return certificateRepository.findByRaProfile(raProfile);
+    }
+
+    @Override
+    @Async
+    public void checkCompliance(CertificateComplianceCheckDto request) {
+        for (String uuid : request.getCertificateUuids()) {
+            try {
+                complianceService.checkComplianceOfCertificate(getCertificateEntity(uuid));
+            } catch (ConnectorException e) {
+                logger.error("Compliance check failed.", e);
+            }
+        }
+    }
+
+    @Override
+    public void updateCertificateEntity(Certificate certificate) {
+        certificateRepository.save(certificate);
+    }
+
+    @Async
+    private void checkCompliance(List<Certificate> certificates) {
+        for (Certificate certificate : certificates) {
+            try {
+                complianceService.checkComplianceOfCertificate(certificate);
+            } catch (ConnectorException e) {
+                logger.error("Compliance check failed.", e);
+            }
+        }
     }
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
@@ -694,6 +756,48 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
         return MetaDefinitions.serialize(meta);
+    }
+
+    private List<CertificateComplianceResultDto> frameComplianceResult(CertificateComplianceStorageDto storageDto) {
+        logger.debug("Framing Compliance Result from stored data: {}", storageDto);
+        List<CertificateComplianceResultDto> result = new ArrayList<>();
+        List<ComplianceRule> rules = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
+        List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
+        for (ComplianceRule complianceRule : rules) {
+            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
+        }
+        for (ComplianceRule complianceRule : naRules) {
+            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
+        }
+        logger.debug("Compliance Result: {}", result);
+        return result;
+    }
+
+    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceRule rule, ComplianceRuleStatus status){
+        CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
+        dto.setConnectorName(rule.getConnector().getName());
+        dto.setRuleName(rule.getName());
+        dto.setRuleDescription(rule.getDescription());
+        dto.setStatus(status);
+        return dto;
+    }
+
+    @Async
+    private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter) {
+        List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
+        CertificateComplianceCheckDto dto = new CertificateComplianceCheckDto();
+        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).collect(Collectors.toList()));
+        checkCompliance(dto);
+    }
+
+    private void certificateComplianceCheck(Certificate certificate) {
+        if (certificate.getRaProfile() != null) {
+            try {
+                complianceService.checkComplianceOfCertificate(certificate);
+            } catch (ConnectorException e) {
+                logger.error("Error when checking compliance");
+            }
+        }
     }
 
 

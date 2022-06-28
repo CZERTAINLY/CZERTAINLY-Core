@@ -1,14 +1,21 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
+import com.vladmihalcea.hibernate.type.json.JsonStringType;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.Type;
+import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.TypeDefs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +27,10 @@ import java.util.Set;
 
 @Entity
 @Table(name = "certificate")
+@TypeDefs({
+        @TypeDef(name = "json", typeClass = JsonStringType.class),
+        @TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
+})
 public class Certificate extends Audited implements Serializable, DtoMapper<CertificateDto> {
 
     private static final long serialVersionUID = -3048734620156664554L;
@@ -123,6 +134,14 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
 
+    @Type(type = "json")
+    @Column( name = "compliance_result", columnDefinition = "json" )
+    private CertificateComplianceStorageDto complianceResult;
+
+    @Column(name = "compliance_status")
+    @Enumerated(EnumType.STRING)
+    private ComplianceStatus complianceStatus;
+
     @JsonBackReference
     @OneToMany(mappedBy = "certificate")
     private Set<CertificateEventHistory> eventHistories = new HashSet<>();
@@ -152,6 +171,14 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         dto.setOwner(owner);
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
+        /**
+         * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
+         * When the details of the certificate is requested, the Service will transform the result into the user understandable
+         * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories
+         * like complainceRules etc., So only the overall status of the compliance will be set in the mapToDto function
+         */
+        dto.setComplianceStatus(complianceStatus);
+
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
             raDto.setName(raProfile.getName());
@@ -167,7 +194,7 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 //        }
         try {
             dto.setCertificateValidationResult(MetaDefinitions.deserializeValidation(certificateValidationResult));
-        }catch (IllegalStateException e){
+        } catch (IllegalStateException e) {
             logger.error(e.getMessage());
             logger.debug(dto.toString());
         }
@@ -192,16 +219,16 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         return commonName;
     }
 
+    public void setCommonName(String commonName) {
+        this.commonName = commonName;
+    }
+
     public String getIssuerCommonName() {
         return issuerCommonName;
     }
 
     public void setIssuerCommonName(String issuerCommonName) {
         this.issuerCommonName = issuerCommonName;
-    }
-
-    public void setCommonName(String commonName) {
-        this.commonName = commonName;
     }
 
     public String getSerialNumber() {
@@ -284,12 +311,12 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.fingerprint = fingerprint;
     }
 
-    public void setMeta(String meta) {
-        this.meta = meta;
-    }
-
     public String getMeta() {
         return meta;
+    }
+
+    public void setMeta(String meta) {
+        this.meta = meta;
     }
 
     public CertificateStatus getStatus() {
@@ -394,5 +421,37 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     public void setLocations(Set<CertificateLocation> locations) {
         this.locations = locations;
+    }
+
+    public Long getRaProfileId() {
+        return raProfileId;
+    }
+
+    public void setRaProfileId(Long raProfileId) {
+        this.raProfileId = raProfileId;
+    }
+
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
+    }
+
+    public CertificateComplianceStorageDto getComplianceResult() {
+        return complianceResult;
+    }
+
+    public void setComplianceResult(CertificateComplianceStorageDto complianceResult) {
+        this.complianceResult = complianceResult;
+    }
+
+    public ComplianceStatus getComplianceStatus() {
+        return complianceStatus;
+    }
+
+    public void setComplianceStatus(ComplianceStatus complianceStatus) {
+        this.complianceStatus = complianceStatus;
     }
 }

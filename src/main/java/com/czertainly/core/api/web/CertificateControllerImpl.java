@@ -150,4 +150,9 @@ public class CertificateControllerImpl implements CertificateController {
 		return certificateService.listLocations(certificateUuid);
 	}
 
+	@Override
+	public void checkCompliance(CertificateComplianceCheckDto request) throws NotFoundException {
+		certificateService.checkCompliance(request);
+	}
+
 }

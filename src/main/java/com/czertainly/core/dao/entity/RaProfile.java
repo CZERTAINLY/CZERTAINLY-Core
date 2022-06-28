@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -47,6 +48,13 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
 
     @Column(name = "enabled")
     private Boolean enabled;
+
+    @ManyToMany
+    @JoinTable(
+            name = "ra_profile_2_compliance_profile",
+            joinColumns = @JoinColumn(name = "ra_profile_id"),
+            inverseJoinColumns = @JoinColumn(name = "compliance_profile_id"))
+    private Set<ComplianceProfile> complianceProfiles;
 
     @ManyToMany
     @JoinTable(
@@ -100,6 +108,14 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
         }
         dto.setEnabled(this.enabled);
 
+        return dto;
+    }
+
+    public SimplifiedRaProfileDto mapToDtoSimplified() {
+        SimplifiedRaProfileDto dto = new SimplifiedRaProfileDto();
+        dto.setUuid(this.uuid);
+        dto.setName(this.name);
+        dto.setEnabled(this.enabled);
         return dto;
     }
 
@@ -203,6 +219,14 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
 
     public void setRevokeCertificateAttributes(String revokeCertificateAttributes) {
         this.revokeCertificateAttributes = revokeCertificateAttributes;
+    }
+
+    public Set<ComplianceProfile> getComplianceProfiles() {
+        return complianceProfiles;
+    }
+
+    public void setComplianceProfiles(Set<ComplianceProfile> complianceProfiles) {
+        this.complianceProfiles = complianceProfiles;
     }
 
     @Override

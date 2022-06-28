@@ -3,21 +3,17 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.certificate.CertificateResponseDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateGroupDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
-import com.czertainly.api.model.client.certificate.MultipleGroupUpdateDto;
-import com.czertainly.api.model.client.certificate.MultipleRAProfileUpdateDto;
-import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
-import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.RaProfile;
 
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -70,4 +66,33 @@ public interface CertificateService {
      * @throws NotFoundException
      */
     List<LocationDto> listLocations(String certificateUuid) throws NotFoundException;
+
+    /**
+     * Updates the Certificate with compliance status and compliance result
+     * @param uuid Uuid of the Certificate
+     * @param complianceStatus Overall status of the Compliance check
+     * @param result List of compliance responses from the connectors associated with the compliance profile
+     * @throws NotFoundException Thrown when the system is unable to find the certificate with the given Uuid
+     */
+    void updateComplianceReport(String uuid, ComplianceStatus complianceStatus,
+                                CertificateComplianceStorageDto result) throws NotFoundException;
+
+    /**
+     * List the available certificates that are associated with the RA Profile
+     * @param raProfile Ra Profile entity to search for the certificates
+     * @return List of Certificates
+     */
+    List<Certificate> listCertificatesForRaProfile(RaProfile raProfile);
+
+    /**
+     * Initiates the compliance check for the certificates in the request
+     * @param request List of uuids of the certificate
+     */
+    void checkCompliance(CertificateComplianceCheckDto request);
+
+    /**
+     * Update the Certificate Entity
+     * @param certificate Certificate entity to be updated
+     */
+    void updateCertificateEntity(Certificate certificate);
 }
