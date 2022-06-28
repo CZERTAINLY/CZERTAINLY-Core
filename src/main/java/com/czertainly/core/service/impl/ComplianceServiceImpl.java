@@ -107,7 +107,6 @@ public class ComplianceServiceImpl implements ComplianceService {
         logger.debug("Checking the Compliance of the Certificate: {}", certificate);
         RaProfile raProfile = certificate.getRaProfile();
         CertificateComplianceStorageDto complianceResults = new CertificateComplianceStorageDto();
-        List<ComplianceStatus> allStatuses = new ArrayList<>();
         if (raProfile == null) {
             logger.warn("Certificate with uuid: {} does not have any RA Profile association", certificate.getUuid());
             return;
@@ -134,8 +133,9 @@ public class ComplianceServiceImpl implements ComplianceService {
                     applicableRules.addAll(groupRuleMap.get(connector.getConnectorUuid()));
                 }
                 if(applicableRules.isEmpty()){
-                    allStatuses.add(ComplianceStatus.NA);
                     logger.debug("Compliance Profile {} does not have any rule for Connector:{}", complianceProfile.getName(), connector.getConnectorName());
+                    setComplianceForCertificate(certificate.getUuid(), ComplianceStatus.NA, complianceResults);
+                    return;
                 }
                 complianceRequestDto.setRules(getComplianceRequestRules(applicableRules));
                 ComplianceResponseDto responseDto = complianceApiClient.checkCompliance(
@@ -160,10 +160,9 @@ public class ComplianceServiceImpl implements ComplianceService {
                     }
                 }
                 logger.debug("Status from the Connector: {}", responseDto.getStatus());
-                allStatuses.add(responseDto.getStatus());
             }
         }
-        ComplianceStatus overallStatus = computeOverallComplianceStatus(allStatuses);
+        ComplianceStatus overallStatus = computeOverallComplianceStatus(complianceResults);
         logger.debug("Overall Status: {}", overallStatus);
         setComplianceForCertificate(certificate.getUuid(), overallStatus, complianceResults);
     }
@@ -228,14 +227,14 @@ public class ComplianceServiceImpl implements ComplianceService {
         return dtos;
     }
 
-    private ComplianceStatus computeOverallComplianceStatus(List<ComplianceStatus> statuses) {
-        if (statuses.contains(ComplianceStatus.NOK)) {
+    private ComplianceStatus computeOverallComplianceStatus(CertificateComplianceStorageDto dto) {
+        if(!dto.getNok().isEmpty()){
             return ComplianceStatus.NOK;
         }
-        if (statuses.stream().allMatch(s -> s.equals(ComplianceStatus.NA))) {
+        if(dto.getNok().isEmpty() && dto.getOk().isEmpty()){
             return ComplianceStatus.NA;
         }
-        if (statuses.stream().allMatch(s -> List.of(ComplianceStatus.OK, ComplianceStatus.NA).contains(s))) {
+        if(!dto.getOk().isEmpty()){
             return ComplianceStatus.OK;
         }
         return ComplianceStatus.NA;
