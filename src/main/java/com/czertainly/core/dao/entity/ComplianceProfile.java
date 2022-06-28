@@ -125,8 +125,12 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
                 providerGroupSummary.put(connectorName, 1);
             }
             List<Set<ComplianceRule>>  listRules = groups.stream().map(ComplianceGroup::getRules).collect(Collectors.toList());
-            Integer listRulesSize = listRules.stream().flatMap(Set::stream).collect(Collectors.toSet()).size();
-            providerGroupSummaryRules.put(connectorName, listRulesSize);
+            if(!listRules.isEmpty()){
+                Integer listRulesSize = listRules.stream().filter(r -> r != null).flatMap(Set::stream).collect(Collectors.toSet()).size();
+                providerGroupSummaryRules.put(connectorName, listRulesSize);
+            }else {
+                providerGroupSummaryRules.put(connectorName, 0);
+            }
         }
 
         Map<String, Integer> providerSummary = new HashMap<>();
