@@ -17,6 +17,7 @@ import com.czertainly.api.model.common.attribute.AttributeValueTarget;
 import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -237,7 +238,7 @@ public class CredentialServiceImpl implements CredentialService {
 
             NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
             Credential credential = getCredentialEntity(credentialId.getUuid());
-            attribute.setContent(credential.mapToDto());
+            attribute.setContent(new JsonAttributeContent(credentialId.getName(), credential.mapToDto()));
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
         }
     }

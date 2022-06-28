@@ -4,6 +4,7 @@ import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.clients.LocationApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CertificateException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.LocationException;
 import com.czertainly.api.exception.NotFoundException;
@@ -568,7 +569,7 @@ public class LocationServiceImpl implements LocationService {
                     certificateLocation.getCertificate().getUuid(),
                     clientCertificateRenewRequestDto, true
             );
-        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException e) {
+        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException | CertificateOperationException e) {
             logger.debug("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() +
                     ", " + certificateLocation.getLocation().getUuid() + ": " + e.getMessage());
             throw new LocationException("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName());

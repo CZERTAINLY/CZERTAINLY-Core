@@ -93,7 +93,7 @@ insert into endpoint (id,context,"method","name",required,function_group_id,uuid
 
 -- remove the old entity data that we do not need anymore
 
-drop sequence if exists endpoint_id_seq;
+drop sequence if exists entity_id_seq;
 
 alter table if exists certificate
     drop constraint FKdiwwxixt707t6nquu7d8k7gga;
