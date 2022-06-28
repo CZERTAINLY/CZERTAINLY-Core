@@ -107,12 +107,6 @@ alter table if exists compliance_profile_2_compliance_group
     references compliance_profile
     ON DELETE CASCADE;
 
-
-alter table if exists compliance_profile
-    add constraint COMPLIANCE_GROUP_TO_CONNECTOR
-    foreign key (compliance_group_id)
-    references compliance_group;
-
 alter table if exists compliance_group
     add constraint COMPLIANCE_GROUP_TO_CONNECTOR
     foreign key (connector_id)
