@@ -761,34 +761,25 @@ public class CertificateServiceImpl implements CertificateService {
     private List<CertificateComplianceResultDto> frameComplianceResult(CertificateComplianceStorageDto storageDto) {
         logger.debug("Framing Compliance Result from stored data: {}", storageDto);
         List<CertificateComplianceResultDto> result = new ArrayList<>();
-        for (Long ruleId : storageDto.getNok()) {
-            try {
-                ComplianceRule rule = complianceService.getComplianceRuleEntity(ruleId);
-                CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
-                dto.setConnectorName(rule.getConnector().getName());
-                dto.setRuleName(rule.getName());
-                dto.setRuleDescription(rule.getDescription());
-                dto.setStatus(ComplianceRuleStatus.NOK);
-                result.add(dto);
-            } catch (Exception e) {
-                logger.debug("Rule may have been deleted: {}", ruleId);
-            }
+        List<ComplianceRule> rules = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
+        List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
+        for (ComplianceRule complianceRule : rules) {
+            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
-        for (Long ruleId : storageDto.getNa()) {
-            try {
-                ComplianceRule rule = complianceService.getComplianceRuleEntity(ruleId);
-                CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
-                dto.setConnectorName(rule.getConnector().getName());
-                dto.setRuleName(rule.getName());
-                dto.setRuleDescription(rule.getDescription());
-                dto.setStatus(ComplianceRuleStatus.NA);
-                result.add(dto);
-            } catch (Exception e) {
-                logger.debug("Rule may have been deleted: {}", ruleId);
-            }
+        for (ComplianceRule complianceRule : naRules) {
+            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
         }
         logger.debug("Compliance Result: {}", result);
         return result;
+    }
+
+    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceRule rule, ComplianceRuleStatus status){
+        CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
+        dto.setConnectorName(rule.getConnector().getName());
+        dto.setRuleName(rule.getName());
+        dto.setRuleDescription(rule.getDescription());
+        dto.setStatus(status);
+        return dto;
     }
 
     @Async

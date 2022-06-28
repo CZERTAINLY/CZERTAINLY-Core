@@ -7,6 +7,8 @@ import com.czertainly.core.dao.entity.ComplianceGroup;
 import com.czertainly.core.dao.entity.ComplianceRule;
 import com.czertainly.core.dao.entity.Connector;
 
+import java.util.List;
+
 public interface ComplianceService {
     /**
      * Get the Compliance Group Entity
@@ -86,4 +88,11 @@ public interface ComplianceService {
      * @return ComplianceRule Entity
      */
     ComplianceRule getComplianceRuleEntity(Long id);
+
+    /**
+     * Get the list of rules based on the containing ids
+     * @param ids Ids of the entity
+     * @return List of compliance rule entity
+     */
+    List<ComplianceRule> getComplianceRuleEntityForIds(List<Long> ids);
 }

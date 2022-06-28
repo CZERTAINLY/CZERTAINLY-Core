@@ -193,6 +193,11 @@ public class ComplianceServiceImpl implements ComplianceService {
         return complianceRuleRepository.getById(id);
     }
 
+    @Override
+    public List<ComplianceRule> getComplianceRuleEntityForIds(List<Long> ids) {
+        return complianceRuleRepository.findByIdIn(ids);
+    }
+
 
     private void complianceCheckForRaProfile(RaProfile raProfile) throws ConnectorException {
         List<Certificate> certificates = certificateService.listCertificatesForRaProfile(raProfile);
