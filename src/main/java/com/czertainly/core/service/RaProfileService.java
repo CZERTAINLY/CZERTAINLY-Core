@@ -9,8 +9,10 @@ import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.RaProfileComplianceCheckDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.core.dao.entity.RaProfile;
 
 import java.util.List;
 
@@ -23,6 +25,8 @@ public interface RaProfileService {
     RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException;
 
     RaProfileDto getRaProfile(String uuid) throws NotFoundException;
+
+    RaProfile getRaProfileEntity(String uuid) throws NotFoundException;
 
     RaProfileDto editRaProfile(String uuid, EditRaProfileRequestDto dto) throws NotFoundException, ConnectorException;
 
@@ -49,4 +53,17 @@ public interface RaProfileService {
     List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException;
 
     List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException;
+
+    /**
+     * Save the RA Profile entity to the database
+     * @param raProfile RA profile entity
+     * @return RA Profile Entity
+     */
+    RaProfile updateRaProfileEntity(RaProfile raProfile);
+
+    /**
+     * Check the compliance for all the certificates associated with the RA Profile
+     * @param request DTO containing the list of RA Profile UUIDs for which the request has to be triggered
+     */
+    void checkCompliance(RaProfileComplianceCheckDto request);
 }
