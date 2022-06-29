@@ -274,7 +274,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                         )));
         raProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(
                 extendedAttributeService.mergeAndValidateRevokeAttributes(
-                        raProfile, request.getIssueCertificateAttributes()
+                        raProfile, request.getRevokeCertificateAttributes()
                         )));
         raProfileRepository.save(raProfile);
         return raProfile.mapToAcmeDto();

@@ -31,3 +31,5 @@ target/
 *.iml
 
 .DS_Store
+
+application-*.properties
