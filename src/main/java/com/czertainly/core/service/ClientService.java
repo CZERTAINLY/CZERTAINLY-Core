@@ -5,6 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.client.ClientDto;
 
@@ -36,7 +37,7 @@ public interface ClientService {
 
     void disableClient(String uuid) throws NotFoundException;
 
-    void bulkRemoveClient(List<String> clientUuids);
+    List<ForceDeleteMessageDto> bulkRemoveClient(List<String> clientUuids);
 
     void bulkDisableClient(List<String> clientUuids);
 
