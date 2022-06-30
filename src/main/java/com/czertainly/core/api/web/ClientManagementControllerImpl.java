@@ -6,11 +6,13 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ClientManagementController;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.core.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -71,8 +73,12 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    public void bulkRemoveClient(List<String> clientUuids) throws NotFoundException {
-        clientService.bulkRemoveClient(clientUuids);
+    public ResponseEntity<List<ForceDeleteMessageDto>> bulkRemoveClient(List<String> clientUuids) throws NotFoundException {
+        List<ForceDeleteMessageDto> messages = clientService.bulkRemoveClient(clientUuids);
+        if(messages.isEmpty()){
+            return ResponseEntity.ok().body(messages);
+        }
+        return ResponseEntity.status(HttpStatus.valueOf(422)).body(messages);
     }
 
     @Override

@@ -2,10 +2,12 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
@@ -64,18 +66,18 @@ public class ClientServiceImpl implements ClientService {
         if (StringUtils.isAnyBlank(request.getName())) {
             throw new ValidationException("clientCertificate and name must not be empty");
         }
-        
+
         String dn;
         String serialNumber;
-        
-        if (!StringUtils.isAnyBlank(request.getClientCertificate())) { 
-        	X509Certificate certificate = CertificateUtil.getX509Certificate(request.getClientCertificate());
-        	dn = CertificateUtil.getDnFromX509Certificate(certificate);
-        	serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
+
+        if (!StringUtils.isAnyBlank(request.getClientCertificate())) {
+            X509Certificate certificate = CertificateUtil.getX509Certificate(request.getClientCertificate());
+            dn = CertificateUtil.getDnFromX509Certificate(certificate);
+            serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
         } else {
-        	Certificate certificate = certificateService.getCertificateEntity(request.getCertificateUuid());
-        	dn = certificate.getSubjectDn();
-        	serialNumber = certificate.getSerialNumber();
+            Certificate certificate = certificateService.getCertificateEntity(request.getCertificateUuid());
+            dn = certificate.getSubjectDn();
+            serialNumber = certificate.getSerialNumber();
         }
 
         if (clientRepository.existsByName(request.getName())) {
@@ -132,6 +134,9 @@ public class ClientServiceImpl implements ClientService {
     public void removeClient(String uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
+        if (client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()) {
+            throw new ValidationException(ValidationError.create("Unable to delete Client. It has " + client.getRaProfiles().size() + " authorized RA Profiles"));
+        }
         clientRepository.delete(client);
     }
 
@@ -141,7 +146,7 @@ public class ClientServiceImpl implements ClientService {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
         List<SimplifiedRaProfileDto> profiles = new ArrayList<>();
-        for(RaProfile profile: client.getRaProfiles()){
+        for (RaProfile profile : client.getRaProfiles()) {
             SimplifiedRaProfileDto dto = new SimplifiedRaProfileDto();
             dto.setUuid(profile.getUuid());
             dto.setEnabled(profile.getEnabled());
@@ -198,28 +203,38 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
-    public void bulkRemoveClient(List<String> clientUuids) {
-        for(String uuid: clientUuids){
-            try{
+    public List<ForceDeleteMessageDto> bulkRemoveClient(List<String> clientUuids) {
+        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+        for (String uuid : clientUuids) {
+            try {
                 Client client = clientRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
+                if(client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()){
+                    ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
+                    forceModal.setUuid(client.getUuid());
+                    forceModal.setName(client.getName());
+                    forceModal.setMessage("Client has " + client.getRaProfiles().size() + " authorized RA Profile(s)");
+                    messages.add(forceModal);
+                    continue;
+                }
                 clientRepository.delete(client);
-            }catch(Exception e){
+            } catch (Exception e) {
                 logger.warn("Unable to delete the client with id {}", uuid);
             }
         }
+        return messages;
     }
 
     @Override
     public void bulkDisableClient(List<String> clientUuids) {
-        for(String uuid: clientUuids){
-            try{
+        for (String uuid : clientUuids) {
+            try {
                 Client client = clientRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
                 client.setEnabled(false);
                 clientRepository.save(client);
-            }catch (NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to disable the client with id {}", uuid);
             }
         }
@@ -227,14 +242,14 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     public void bulkEnableClient(List<String> clientUuids) {
-        for(String uuid: clientUuids){
-            try{
+        for (String uuid : clientUuids) {
+            try {
                 Client client = clientRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
                 client.setEnabled(true);
                 clientRepository.save(client);
-            }catch (NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to disable the client with id {}", uuid);
             }
         }
@@ -250,9 +265,9 @@ public class ClientServiceImpl implements ClientService {
     }
 
     private Client createClient(AddClientRequestDto requestDTO) throws CertificateException, NotFoundException, AlreadyExistException {
-    	Client client = new Client();
-    	Certificate certificate;
-        if((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
+        Client client = new Client();
+        Certificate certificate;
+        if ((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
             if (!requestDTO.getCertificateUuid().isEmpty()) {
                 certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
                 client.setCertificate(certificate);
@@ -275,7 +290,7 @@ public class ClientServiceImpl implements ClientService {
     private Client updateClient(Client client, EditClientRequestDto requestDTO) throws CertificateException, NotFoundException, AlreadyExistException {
         client.setDescription(requestDTO.getDescription());
         Certificate certificate;
-        if((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
+        if ((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
             if (!requestDTO.getCertificateUuid().isEmpty()) {
                 certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
                 client.setCertificate(certificate);
@@ -288,7 +303,7 @@ public class ClientServiceImpl implements ClientService {
             }
             client.setSerialNumber(certificate.getSerialNumber());
         }
-        if(requestDTO.getDescription() != null) {
+        if (requestDTO.getDescription() != null) {
             client.setDescription(requestDTO.getDescription());
         }
         return client;
