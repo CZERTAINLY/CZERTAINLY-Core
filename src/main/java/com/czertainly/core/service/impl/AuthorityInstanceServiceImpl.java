@@ -164,6 +164,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         credentialService.loadFullCredentialData(attributes);
 
         AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
+        authorityInstanceDto.setKind(ref.getKind());
+        authorityInstanceDto.setName(ref.getName());
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
         authorityInstanceApiClient.updateAuthorityInstance(connector.mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid(), authorityInstanceDto);
