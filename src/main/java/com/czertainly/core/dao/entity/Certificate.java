@@ -8,14 +8,11 @@ import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.SerializationUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
-import com.vladmihalcea.hibernate.type.json.JsonStringType;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
-import org.hibernate.annotations.TypeDefs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,10 +24,6 @@ import java.util.Set;
 
 @Entity
 @Table(name = "certificate")
-@TypeDefs({
-        @TypeDef(name = "json", typeClass = JsonStringType.class),
-        @TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
-})
 public class Certificate extends Audited implements Serializable, DtoMapper<CertificateDto> {
 
     private static final long serialVersionUID = -3048734620156664554L;
@@ -134,9 +127,8 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
 
-    @Type(type = "json")
-    @Column( name = "compliance_result", columnDefinition = "json" )
-    private CertificateComplianceStorageDto complianceResult;
+    @Column( name = "compliance_result")
+    private String complianceResult;
 
     @Column(name = "compliance_status")
     @Enumerated(EnumType.STRING)
@@ -440,11 +432,14 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     }
 
     public CertificateComplianceStorageDto getComplianceResult() {
-        return complianceResult;
+        if(complianceResult == null){
+            return null;
+        }
+        return (CertificateComplianceStorageDto) SerializationUtil.deserialize(complianceResult, CertificateComplianceStorageDto.class);
     }
 
     public void setComplianceResult(CertificateComplianceStorageDto complianceResult) {
-        this.complianceResult = complianceResult;
+        this.complianceResult = SerializationUtil.serialize(complianceResult);
     }
 
     public ComplianceStatus getComplianceStatus() {
