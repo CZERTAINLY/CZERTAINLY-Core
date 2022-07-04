@@ -432,6 +432,9 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     }
 
     public CertificateComplianceStorageDto getComplianceResult() {
+        if(complianceResult == null){
+            return null;
+        }
         return (CertificateComplianceStorageDto) SerializationUtil.deserialize(complianceResult, CertificateComplianceStorageDto.class);
     }
 
