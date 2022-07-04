@@ -135,4 +135,4 @@ alter table if exists compliance_rule
 
 
 alter table certificate add column compliance_status varchar;
-alter table certificate add column compliance_result json;
+alter table certificate add column compliance_result text;
