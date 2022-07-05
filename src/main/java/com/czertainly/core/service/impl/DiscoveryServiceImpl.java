@@ -187,6 +187,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
             dtoRequest.setName(request.getName());
+            dtoRequest.setKind(request.getKind());
 
             // Load complete credential data
             credentialService.loadFullCredentialData(attributes);
@@ -197,6 +198,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
             getRequest.setName(response.getName());
+            getRequest.setKind(request.getKind());
             getRequest.setStartIndex(0);
             getRequest.setEndIndex(MAXIMUM_CERTIFICATES_PER_PAGE);
 
