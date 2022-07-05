@@ -43,6 +43,7 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -65,10 +66,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
     }
+
+    @Lazy
     @Autowired
     public void setLocationService(LocationService locationService) {
         this.locationService = locationService;
     }
+
     @Autowired
     public void setCertificateService(CertificateService certificateService) {
         this.certificateService = certificateService;

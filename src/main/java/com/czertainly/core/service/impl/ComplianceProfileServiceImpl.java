@@ -69,6 +69,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Autowired
     private ComplianceGroupRepository complianceGroupRepository;
 
+    @Lazy
     @Autowired
     private ConnectorService connectorService;
 
