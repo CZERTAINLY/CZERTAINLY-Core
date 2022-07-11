@@ -469,6 +469,12 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    public void removeRulesAndGroupForEmptyConnector(Connector connector) {
+        complianceRuleRepository.deleteAll(complianceRuleRepository.findByConnector(connector));
+        complianceGroupRepository.deleteAll(complianceGroupRepository.findByConnector(connector));
+    }
+
+    @Override
     public void checkCompliance(ComplianceProfileComplianceCheckDto request) {
         for(String uuid: request.getComplianceProfileUuids()){
             try {

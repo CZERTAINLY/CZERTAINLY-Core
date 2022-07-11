@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
 import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
@@ -87,6 +88,7 @@ public class ClientOperationServiceV1Test {
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         authorityInstanceReference = new AuthorityInstanceReference();

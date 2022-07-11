@@ -242,7 +242,7 @@ public class ConnectorServiceTest {
 
         connectorService.approve(waitingConnector.getUuid());
 
-        Assertions.assertEquals(ConnectorStatus.REGISTERED, waitingConnector.getStatus());
+        Assertions.assertEquals(ConnectorStatus.CONNECTED, waitingConnector.getStatus());
     }
 
     @Test
