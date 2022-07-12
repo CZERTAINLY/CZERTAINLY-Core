@@ -98,6 +98,7 @@ public class ConnectorServiceComplexTest {
         Connector connector = new Connector();
         connector.setName("testConnector");
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         ConnectorDto dto = connectorService.getConnector(connector.getUuid());
@@ -194,6 +195,7 @@ public class ConnectorServiceComplexTest {
 
         Connector connector = new Connector();
         connector.setName("testConnector");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         addFunctionGroupToConnector(caFunctionGroup, Collections.singletonList(kindName), connector);

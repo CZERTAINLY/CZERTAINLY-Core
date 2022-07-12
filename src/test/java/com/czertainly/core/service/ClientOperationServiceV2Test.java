@@ -6,6 +6,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
@@ -108,6 +109,7 @@ public class ClientOperationServiceV2Test {
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         authorityInstanceReference = new AuthorityInstanceReference();

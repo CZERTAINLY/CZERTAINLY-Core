@@ -7,6 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.client.SimplifiedClientDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
@@ -93,6 +94,7 @@ public class RaProfileServiceTest {
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         authorityInstanceReference = new AuthorityInstanceReference();

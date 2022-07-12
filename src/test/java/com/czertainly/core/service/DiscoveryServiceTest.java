@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.core.dao.entity.Connector;
@@ -66,6 +67,7 @@ public class DiscoveryServiceTest {
         connector = new Connector();
         connector.setName("discoveryProviderConnector");
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         FunctionGroup functionGroup = new FunctionGroup();

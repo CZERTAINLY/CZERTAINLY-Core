@@ -190,4 +190,10 @@ public interface ComplianceProfileService {
      * @param connector Connector Entity
      */
     void nullifyComplianceProviderAssociation(Connector connector);
+
+    /**
+     * Removes the rules and groups tagged with a compliance connector
+     * @param connector Connector Entity
+     */
+    void removeRulesAndGroupForEmptyConnector(Connector connector);
 }

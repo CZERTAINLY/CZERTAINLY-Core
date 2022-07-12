@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
@@ -65,6 +66,7 @@ public class AuthorityInstanceServiceTest {
         connector.setUuid("123");
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         FunctionGroup functionGroup = new FunctionGroup();
