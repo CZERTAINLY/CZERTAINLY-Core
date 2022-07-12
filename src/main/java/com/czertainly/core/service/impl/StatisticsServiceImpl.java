@@ -82,7 +82,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private Map<String, Long> getGroupStatByCertificateCount(StatisticsDto dto) {
         List<Long> keys = new ArrayList<Long>();
         var result = certificateRepository.getCertificatesCountByGroup();
-        for (Object[] item : result) keys.add((long)item[0]);
+        for (Object[] item : result) keys.add((long) item[0]);
         var labels = certificateRepository.getGroupNamesWithIds(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
@@ -91,7 +91,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private Map<String, Long> getRaProfileStatByCertificateCount(StatisticsDto dto) {
         List<Long> keys = new ArrayList<Long>();
         var result = certificateRepository.getCertificatesCountByRaProfile();
-        for (Object[] item : result) keys.add((long)item[0]);
+        for (Object[] item : result) keys.add((long) item[0]);
         var labels = certificateRepository.getRaProfileNamesWithIds(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
@@ -114,7 +114,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         return getStatsMap(result, null, dto.getTotalCertificates(), "Unknown");
     }
-    
+
     private Map<String, Long> getCertificateStatByStatus() {
         var result = certificateRepository.getCertificatesCountByStatus();
 
@@ -125,11 +125,11 @@ public class StatisticsServiceImpl implements StatisticsService {
         long totalStatsCount = 0;
         Map<String, Long> stats = new HashMap<>();
 
-        LocalDateTime today =  LocalDateTime.now();
+        LocalDateTime today = LocalDateTime.now();
         LocalDateTime notBeforeTo = today;
         LocalDateTime notBeforeFrom = LocalDateTime.now();
-        int[] expiryInDays = { 10, 20, 30, 60, 90 };
-        for (Integer days: expiryInDays) {
+        int[] expiryInDays = {10, 20, 30, 60, 90};
+        for (Integer days : expiryInDays) {
             notBeforeTo = today.plusDays(days);
             var result = certificateRepository.getCertificatesCountByExpiryDate(java.sql.Timestamp.valueOf(notBeforeFrom), java.sql.Timestamp.valueOf(notBeforeTo));
             totalStatsCount += (long) result.get(0)[0];
@@ -145,13 +145,12 @@ public class StatisticsServiceImpl implements StatisticsService {
         long totalStatsCount = 0;
         Map<String, Long> stats = new HashMap<>();
 
-        if(resultLabels == null) {
+        if (resultLabels == null) {
             for (Object[] item : resultStats) {
                 totalStatsCount += (long) item[1];
                 stats.put(item[0].toString(), (long) item[1]);
             }
-        }
-        else {
+        } else {
             Map<Long, String> labels = new HashMap<>();
             for (Object[] item : resultLabels) labels.put((long) item[0], item[1].toString());
             for (Object[] item : resultStats) {
@@ -160,7 +159,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             }
         }
 
-        if(defaultLabel != null) stats.put(defaultLabel, totalCount - totalStatsCount);
+        if (defaultLabel != null) stats.put(defaultLabel, totalCount - totalStatsCount);
         return stats;
     }
 }

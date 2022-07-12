@@ -68,16 +68,6 @@ public interface CertificateService {
     List<LocationDto> listLocations(String certificateUuid) throws NotFoundException;
 
     /**
-     * Updates the Certificate with compliance status and compliance result
-     * @param uuid Uuid of the Certificate
-     * @param complianceStatus Overall status of the Compliance check
-     * @param result List of compliance responses from the connectors associated with the compliance profile
-     * @throws NotFoundException Thrown when the system is unable to find the certificate with the given Uuid
-     */
-    void updateComplianceReport(String uuid, ComplianceStatus complianceStatus,
-                                CertificateComplianceStorageDto result) throws NotFoundException;
-
-    /**
      * List the available certificates that are associated with the RA Profile
      * @param raProfile Ra Profile entity to search for the certificates
      * @return List of Certificates

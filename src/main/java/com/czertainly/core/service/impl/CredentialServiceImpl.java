@@ -35,7 +35,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
@@ -56,7 +55,6 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Autowired
     private CredentialRepository credentialRepository;
-    @Lazy
     @Autowired
     private ConnectorService connectorService;
     @Autowired
@@ -94,7 +92,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CREATE)
-    public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+    public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("Name must not be empty");
         }
@@ -124,7 +122,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CHANGE)
-    public CredentialDto updateCredential(String uuid, CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
+    public CredentialDto updateCredential(String uuid, CredentialUpdateRequestDto request) throws ConnectorException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -153,11 +151,6 @@ public class CredentialServiceImpl implements CredentialService {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
-
-        List<ValidationError> errors = new ArrayList<>();
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete Credential", errors);
-        }
 
         credentialRepository.delete(credential);
     }
@@ -296,10 +289,12 @@ public class CredentialServiceImpl implements CredentialService {
         }
     }
 
-    private CredentialDto maskSecret(CredentialDto credentialDto){
-        for(ResponseAttributeDto responseAttributeDto: credentialDto.getAttributes()){
-            if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setContent(new BaseAttributeContent<String>(){{setValue("************");}});
+    private CredentialDto maskSecret(CredentialDto credentialDto) {
+        for (ResponseAttributeDto responseAttributeDto : credentialDto.getAttributes()) {
+            if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
+                responseAttributeDto.setContent(new BaseAttributeContent<String>() {{
+                    setValue("************");
+                }});
             }
         }
         return credentialDto;

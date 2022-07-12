@@ -72,40 +72,6 @@ public class LocationServiceImpl implements LocationService {
     private static final Logger logger = LoggerFactory.getLogger(LocationServiceImpl.class);
 
     private static final List<AttributeType> TO_BE_MASKED = List.of(AttributeType.SECRET);
-
-    @Autowired
-    public void setLocationRepository(LocationRepository locationRepository) {
-        this.locationRepository = locationRepository;
-    }
-    @Autowired
-    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
-        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
-    }
-    @Autowired
-    public void setCertificateLocationRepository(CertificateLocationRepository certificateLocationRepository) {
-        this.certificateLocationRepository = certificateLocationRepository;
-    }
-    @Autowired
-    public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
-        this.entityInstanceApiClient = entityInstanceApiClient;
-    }
-    @Autowired
-    public void setLocationApiClient(LocationApiClient locationApiClient) {
-        this.locationApiClient = locationApiClient;
-    }
-    @Autowired
-    public void setCertificateService(CertificateService certificateService) {
-        this.certificateService = certificateService;
-    }
-    @Autowired
-    public void setClientOperationService(ClientOperationService clientOperationService) {
-        this.clientOperationService = clientOperationService;
-    }
-    @Autowired
-    public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
-        this.certificateEventHistoryService = certificateEventHistoryService;
-    }
-
     private LocationRepository locationRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private CertificateLocationRepository certificateLocationRepository;
@@ -114,6 +80,46 @@ public class LocationServiceImpl implements LocationService {
     private CertificateService certificateService;
     private ClientOperationService clientOperationService;
     private CertificateEventHistoryService certificateEventHistoryService;
+
+    @Autowired
+    public void setLocationRepository(LocationRepository locationRepository) {
+        this.locationRepository = locationRepository;
+    }
+
+    @Autowired
+    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setCertificateLocationRepository(CertificateLocationRepository certificateLocationRepository) {
+        this.certificateLocationRepository = certificateLocationRepository;
+    }
+
+    @Autowired
+    public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
+        this.entityInstanceApiClient = entityInstanceApiClient;
+    }
+
+    @Autowired
+    public void setLocationApiClient(LocationApiClient locationApiClient) {
+        this.locationApiClient = locationApiClient;
+    }
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+
+    @Autowired
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
+
+    @Autowired
+    public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
+        this.certificateEventHistoryService = certificateEventHistoryService;
+    }
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -578,7 +584,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private void pushCertificateToLocation(Location location, Certificate certificate,
-                                 List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes) throws LocationException {
+                                           List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes) throws LocationException {
         PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
         pushCertificateRequestDto.setCertificate(certificate.getCertificateContent().getContent());
         // TODO: support for different types of certificate
@@ -756,11 +762,11 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private void updateLocation(Location entity, EntityInstanceReference entityInstanceRef, EditLocationRequestDto dto,
-                                    List<AttributeDefinition> attributes, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException {
+                                List<AttributeDefinition> attributes, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException {
         entity.setDescription(dto.getDescription());
         entity.setAttributes(attributes);
         entity.setEntityInstanceReference(entityInstanceRef);
-        if(dto.isEnabled() != null) {
+        if (dto.isEnabled() != null) {
             entity.setEnabled(dto.isEnabled() != null && dto.isEnabled());
         }
         entity.setEntityInstanceName(entityInstanceRef.getName());
@@ -799,7 +805,7 @@ public class LocationServiceImpl implements LocationService {
         }
 
         Iterator<CertificateLocation> iterator = entity.getCertificates().iterator();
-        while(iterator.hasNext()) {
+        while (iterator.hasNext()) {
             CertificateLocation cl = iterator.next();
             if (!cls.contains(cl)) {
                 certificateLocationRepository.delete(cl);
@@ -811,10 +817,12 @@ public class LocationServiceImpl implements LocationService {
         locationRepository.save(entity);
     }
 
-    private LocationDto maskSecret(LocationDto locationDto){
-        for(ResponseAttributeDto responseAttributeDto: locationDto.getAttributes()){
-            if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setContent(new BaseAttributeContent<String>(){{setValue("************");}});
+    private LocationDto maskSecret(LocationDto locationDto) {
+        for (ResponseAttributeDto responseAttributeDto : locationDto.getAttributes()) {
+            if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
+                responseAttributeDto.setContent(new BaseAttributeContent<String>() {{
+                    setValue("************");
+                }});
             }
         }
         return locationDto;

@@ -15,12 +15,7 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeChallenge;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
-import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
-import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
-import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
-import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.service.acme.AcmeRaProfileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,17 +52,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     @Autowired
     private ExtendedAcmeHelperService extendedAcmeHelperService;
     @Autowired
-    private AcmeAccountRepository acmeAccountRepository;
-    @Autowired
-    private AcmeChallengeRepository acmeChallengeRepository;
-    @Autowired
-    private AcmeAuthorizationRepository acmeAuthorizationRepository;
-    @Autowired
-    private AcmeOrderRepository acmeOrderRepository;
-    @Autowired
     private RaProfileRepository raProfileRepository;
-    @Autowired
-    private AcmeProfileRepository acmeProfileRepository;
 
     @Override
     public ResponseEntity<Directory> getDirectory(String raProfileName) throws AcmeProblemDocumentException {
@@ -83,7 +68,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         String nonce = extendedAcmeHelperService.generateNonce();
         logger.debug("New Nonce: {}", nonce);
 
-        if(isHead){
+        if (isHead) {
             ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(NONCE_HEADER_NAME,
                     nonce).build();
         }
@@ -140,7 +125,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         return ResponseEntity
                 .ok()
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
-                .header("Link", "<"+challenge.getAuthorization().getUrl() + ">;rel=\"up\"")
+                .header("Link", "<" + challenge.getAuthorization().getUrl() + ">;rel=\"up\"")
                 .body(challenge.mapToDto());
     }
 
@@ -166,7 +151,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
         logger.debug("Order: {}", order);
         extendedAcmeHelperService.updateOrderStatusByExpiry(order);
-        if(order.getStatus().equals(OrderStatus.INVALID)){
+        if (order.getStatus().equals(OrderStatus.INVALID)) {
             logger.error("Order status is invalid: {}", order);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.SERVER_INTERNAL);
         }
@@ -197,21 +182,21 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
         return extendedAcmeHelperService.revokeCertificate();
     }
 
-    private void elevatePermission(){
+    private void elevatePermission() {
         Set<GrantedAuthority> authorities = new HashSet<>();
         authorities.add(new SimpleGrantedAuthority("ROLE_ACME"));
-        Authentication reAuth = new UsernamePasswordAuthenticationToken("ACME_USER","",authorities);
+        Authentication reAuth = new UsernamePasswordAuthenticationToken("ACME_USER", "", authorities);
         SecurityContextHolder.getContext().setAuthentication(reAuth);
         SecurityContextHolder.getContext().getAuthentication();
     }
 
-    private String getAcmeProfileName(String raProfileName) throws AcmeProblemDocumentException{
+    private String getAcmeProfileName(String raProfileName) throws AcmeProblemDocumentException {
         RaProfile raProfile = raProfileRepository.findByName(raProfileName).orElseThrow(() ->
                 new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                         new ProblemDocument("invalidRaProfile",
                                 "RA Profile Not Found",
                                 "RA Profile is not found")));
-        if(raProfile.getAcmeProfile() == null){
+        if (raProfile.getAcmeProfile() == null) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                     new ProblemDocument("acmeProfileNotTagged",
                             "ACME not activated",

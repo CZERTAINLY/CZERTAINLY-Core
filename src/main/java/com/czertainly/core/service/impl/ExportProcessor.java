@@ -24,6 +24,7 @@ public class ExportProcessor {
 
     private static final DateTimeFormatter EXPORT_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss");
     private static final CsvMapper CSV_MAPPER = new CsvMapper();
+
     static {
         CSV_MAPPER.findAndRegisterModules();
         CSV_MAPPER.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);

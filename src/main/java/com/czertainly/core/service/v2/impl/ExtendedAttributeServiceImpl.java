@@ -12,9 +12,7 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,17 +24,13 @@ import java.util.List;
 public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
 
     @Autowired
-    private RaProfileRepository raProfileRepository;
-    @Autowired
     private CertificateApiClient certificateApiClient;
-    @Autowired
-    private CertificateRepository certificateRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listIssueCertificateAttributes(RaProfile raProfile) throws NotFoundException, ConnectorException {
+    public List<AttributeDefinition> listIssueCertificateAttributes(RaProfile raProfile) throws ConnectorException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.listIssueCertificateAttributes(
@@ -46,7 +40,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateIssueCertificateAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
+    public boolean validateIssueCertificateAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.validateIssueCertificateAttributes(
@@ -73,7 +67,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listRevokeCertificateAttributes(RaProfile raProfile) throws NotFoundException, ConnectorException {
+    public List<AttributeDefinition> listRevokeCertificateAttributes(RaProfile raProfile) throws ConnectorException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.listRevokeCertificateAttributes(
@@ -83,7 +77,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateRevokeCertificateAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
+    public boolean validateRevokeCertificateAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.validateRevokeCertificateAttributes(
@@ -109,9 +103,9 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public void validateLegacyConnector(Connector connector) throws NotFoundException{
-        for(Connector2FunctionGroup fg: connector.getFunctionGroups()){
-            if(!connectorRepository.findConnectedByFunctionGroupAndKind(fg.getFunctionGroup(), "LegacyEjbca").isEmpty()){
+    public void validateLegacyConnector(Connector connector) throws NotFoundException {
+        for (Connector2FunctionGroup fg : connector.getFunctionGroups()) {
+            if (!connectorRepository.findConnectedByFunctionGroupAndKind(fg.getFunctionGroup(), "LegacyEjbca").isEmpty()) {
                 throw new NotFoundException("Legacy Authority. V2 Implementation not found on the connector");
             }
         }

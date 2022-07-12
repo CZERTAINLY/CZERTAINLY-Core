@@ -16,7 +16,6 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.CertificateService;
@@ -47,8 +46,6 @@ public class ClientServiceImpl implements ClientService {
     private ClientRepository clientRepository;
     @Autowired
     private RaProfileRepository raProfileRepository;
-    @Autowired
-    private CertificateRepository certificateRepository;
     @Autowired
     private CertificateService certificateService;
 
@@ -209,7 +206,7 @@ public class ClientServiceImpl implements ClientService {
             try {
                 Client client = clientRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
-                if(client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()){
+                if (client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()) {
                     ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
                     forceModal.setUuid(client.getUuid());
                     forceModal.setName(client.getName());
@@ -270,14 +267,13 @@ public class ClientServiceImpl implements ClientService {
         if ((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
             if (!requestDTO.getCertificateUuid().isEmpty()) {
                 certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
-                client.setCertificate(certificate);
 
             } else {
                 UploadCertificateRequestDto request = new UploadCertificateRequestDto();
                 request.setCertificate(requestDTO.getClientCertificate());
                 certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
-                client.setCertificate(certificate);
             }
+            client.setCertificate(certificate);
             client.setSerialNumber(certificate.getSerialNumber());
         }
         client.setName(requestDTO.getName());
@@ -293,14 +289,13 @@ public class ClientServiceImpl implements ClientService {
         if ((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
             if (!requestDTO.getCertificateUuid().isEmpty()) {
                 certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
-                client.setCertificate(certificate);
 
             } else {
                 UploadCertificateRequestDto request = new UploadCertificateRequestDto();
                 request.setCertificate(requestDTO.getClientCertificate());
                 certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
-                client.setCertificate(certificate);
             }
+            client.setCertificate(certificate);
             client.setSerialNumber(certificate.getSerialNumber());
         }
         if (requestDTO.getDescription() != null) {

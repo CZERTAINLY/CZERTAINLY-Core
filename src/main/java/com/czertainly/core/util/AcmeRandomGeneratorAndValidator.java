@@ -14,18 +14,15 @@ import java.security.SecureRandom;
  */
 public class AcmeRandomGeneratorAndValidator {
 
-    private static final Logger logger = LoggerFactory.getLogger(AcmeRandomGeneratorAndValidator.class);
-
     private static final Integer NONCE_SIZE = 32;
     private static final Integer RANDOM_ID_SIZE = 8;
-    private static final Integer RANDOM_CHALLANGE_TOKEN_SIZE = 64;
+    private static final Integer RANDOM_CHALLENGE_TOKEN_SIZE = 64;
 
     public static String generateNonce(){
         SecureRandom secureRandom = new SecureRandom();
         byte[] nonceArray = new byte[NONCE_SIZE];
         secureRandom.nextBytes(nonceArray);
-        String nonce = Base64URL.encode(nonceArray).toString();
-        return nonce;
+        return Base64URL.encode(nonceArray).toString();
     }
 
     public static String generateRandomId(){
@@ -38,7 +35,7 @@ public class AcmeRandomGeneratorAndValidator {
 
     public static String generateRandomTokenForValidation(PublicKey publicKey) {
         SecureRandom secureRandom = new SecureRandom();
-        byte[] randomArray = new byte[RANDOM_CHALLANGE_TOKEN_SIZE];
+        byte[] randomArray = new byte[RANDOM_CHALLENGE_TOKEN_SIZE];
         secureRandom.nextBytes(randomArray);
         String randomId = Base64URL.encode(randomArray).toString();
         return randomId.replace("/","0");

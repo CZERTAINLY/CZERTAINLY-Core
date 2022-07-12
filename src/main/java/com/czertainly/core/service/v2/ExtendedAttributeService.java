@@ -12,18 +12,18 @@ import java.util.List;
 
 public interface ExtendedAttributeService {
     List<AttributeDefinition> listIssueCertificateAttributes(
-            RaProfile raProfileUuid) throws NotFoundException, ConnectorException;
+            RaProfile raProfileUuid) throws ConnectorException;
 
     boolean validateIssueCertificateAttributes(
             RaProfile raProfileUuid,
-            List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException;
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException;
 
     List<AttributeDefinition> listRevokeCertificateAttributes(
-            RaProfile raProfileUuid) throws NotFoundException, ConnectorException;
+            RaProfile raProfileUuid) throws ConnectorException;
 
     boolean validateRevokeCertificateAttributes(
             RaProfile raProfileUuid,
-            List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException;
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException;
 
     List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException;
 

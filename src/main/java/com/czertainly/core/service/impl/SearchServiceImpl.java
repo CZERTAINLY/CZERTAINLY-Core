@@ -75,7 +75,7 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public String getCompleteSearchQuery(List<SearchFilterRequestDto> filters, String entity, String joinQuery, List<SearchFieldDataDto> originalJson, Boolean conditionOnly, Boolean nativeCode) {
 
-        String sqlQuery = !conditionOnly ? "select c from " + entity + " c": "";
+        String sqlQuery = !conditionOnly ? "select c from " + entity + " c" : "";
         logger.debug("Executing query: {}", sqlQuery);
         if (!filters.isEmpty()) {
             sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, joinQuery, conditionOnly, nativeCode);
@@ -85,7 +85,7 @@ public class SearchServiceImpl implements SearchService {
 
 
     @Override
-    public Object customQueryExecutor(String sqlQuery){
+    public Object customQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
@@ -95,14 +95,14 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public Object nativeQueryExecutor(String sqlQuery){
+    public Object nativeQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createNativeQuery(sqlQuery);
         Object result = null;
         try {
             result = query.getResultList();
-        }catch (PersistenceException e){
+        } catch (PersistenceException e) {
             logger.warn("Result is empty: {}", e.getMessage());
         }
         entityManager.close();
@@ -111,14 +111,14 @@ public class SearchServiceImpl implements SearchService {
 
     @Override
     @Async("threadPoolTaskExecutor")
-    public Object asyncNativeQueryExecutor(String sqlQuery){
+    public Object asyncNativeQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createNativeQuery(sqlQuery);
         Object result = null;
         try {
             result = query.getResultList();
-        }catch (PersistenceException e){
+        } catch (PersistenceException e) {
             logger.warn("Result is empty: {}", e.getMessage());
         }
         entityManager.close();
@@ -169,11 +169,11 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode) throws ValidationException {
         String query;
-        if(joinQuery.isEmpty()) {
+        if (joinQuery.isEmpty()) {
             query = (!conditionOnly ? "select c from " + entity + " c " : "") + " WHERE";
-        }else{
+        } else {
             query = (!conditionOnly ? "select c from " + entity + " c " : " ") + joinQuery;
-            if(!conditions.isEmpty()){
+            if (!conditions.isEmpty()) {
                 query += " AND ";
             }
         }
@@ -199,9 +199,9 @@ public class SearchServiceImpl implements SearchService {
             if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(filter.getField())) {
                 qp += " c.certificateValidationResult ";
             } else {
-                if(nativeCode) {
+                if (nativeCode) {
                     qp += " c." + filter.getField().getNativeCode() + " ";
-                }else{
+                } else {
                     qp += " c." + filter.getField().getCode() + " ";
                 }
             }
