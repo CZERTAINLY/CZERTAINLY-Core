@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
 import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -63,7 +65,13 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CREATE)
     public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         if (request.getName() == null || request.getName().isEmpty()) {
-            throw new ValidationException("Name cannot be empty");
+            throw new ValidationException(ValidationError.create("Name cannot be empty"));
+        }
+        if (request.getValidity() != null && request.getValidity() < 0) {
+            throw new ValidationException(ValidationError.create("Order Validity cannot be less than 0"));
+        }
+        if (request.getRetryInterval() != null && request.getRetryInterval() < 0) {
+            throw new ValidationException(ValidationError.create("Retry Interval cannot be less than 0"));
         }
         logger.info("Creating a new ACME Profile");
 
@@ -77,8 +85,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setDescription(request.getDescription());
         acmeProfile.setDnsResolverIp(request.getDnsResolverIp());
         acmeProfile.setDnsResolverPort(request.getDnsResolverPort());
-        acmeProfile.setRetryInterval(request.getRetryInterval());
-        acmeProfile.setValidity(request.getValidity());
+        acmeProfile.setRetryInterval(Optional.ofNullable(request.getRetryInterval()).orElse(36000));
+        acmeProfile.setValidity(Optional.ofNullable(request.getValidity()).orElse(30));
         acmeProfile.setWebsite(request.getWebsiteUrl());
         acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
         acmeProfile.setRequireContact(request.isRequireContact());
@@ -128,9 +136,15 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             acmeProfile.setDnsResolverPort(request.getDnsResolverPort());
         }
         if (request.getRetryInterval() != null) {
+            if (request.getRetryInterval() < 0) {
+                throw new ValidationException(ValidationError.create("Retry Interval cannot be less than 0"));
+            }
             acmeProfile.setRetryInterval(request.getRetryInterval());
         }
         if (request.getValidity() != null) {
+            if (request.getValidity() < 0) {
+                throw new ValidationException(ValidationError.create("Order Validity cannot be less than 0"));
+            }
             acmeProfile.setValidity(request.getValidity());
         }
         if (request.getTermsOfServiceUrl() != null) {
