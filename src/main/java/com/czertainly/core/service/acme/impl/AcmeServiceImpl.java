@@ -126,7 +126,6 @@ public class AcmeServiceImpl implements AcmeService {
 
     @Override
     public ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException {
-        elevatePermission();
         extendedAcmeHelperService.initialize(jwsBody);
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
         logger.debug("Finalizing Order with ID: {}", orderId);
@@ -161,7 +160,6 @@ public class AcmeServiceImpl implements AcmeService {
 
     @Override
     public ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId) throws NotFoundException, CertificateException {
-        elevatePermission();
         logger.info("Downloading the Certificate with ID: {}", certificateId);
         ByteArrayResource byteArrayResource = extendedAcmeHelperService.getCertificateResource(certificateId);
         return ResponseEntity
@@ -173,16 +171,7 @@ public class AcmeServiceImpl implements AcmeService {
 
     @Override
     public ResponseEntity<?> revokeCertificate(String acmeProfileName, String jwsBody) throws AcmeProblemDocumentException, ConnectorException, CertificateException {
-        elevatePermission();
         extendedAcmeHelperService.initialize(jwsBody);
         return extendedAcmeHelperService.revokeCertificate();
-    }
-
-    private void elevatePermission() {
-        Set<GrantedAuthority> authorities = new HashSet<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_ACME"));
-        Authentication reAuth = new UsernamePasswordAuthenticationToken("ACME_USER", "", authorities);
-        SecurityContextHolder.getContext().setAuthentication(reAuth);
-        SecurityContextHolder.getContext().getAuthentication();
     }
 }
