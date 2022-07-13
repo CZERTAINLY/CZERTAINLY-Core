@@ -1,7 +1,6 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.AttributeApiClient;
-import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.clients.HealthApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
@@ -41,12 +40,10 @@ import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
-import com.czertainly.core.service.ComplianceConnectorService;
 import com.czertainly.core.service.ComplianceProfileService;
+import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CoreCallbackService;
-import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
 import org.apache.commons.lang3.StringUtils;
@@ -58,7 +55,14 @@ import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 
 import javax.transaction.Transactional;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -80,10 +84,6 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Autowired
     private HealthApiClient healthApiClient;
     @Autowired
-    private CoreCallbackService coreCallbackService;
-    @Autowired
-    private CredentialService credentialService;
-    @Autowired
     private CredentialRepository credentialRepository;
     @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
@@ -91,10 +91,9 @@ public class ConnectorServiceImpl implements ConnectorService {
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     @Autowired
     private ConnectorAuthService connectorAuthService;
+
     @Autowired
-    private AuthorityInstanceApiClient authorityInstanceApiClient;
-    @Autowired
-    private ComplianceConnectorService complianceConnectorService;
+    private ComplianceService complianceService;
     @Autowired
     private ComplianceProfileService complianceProfileService;
 
@@ -118,12 +117,12 @@ public class ConnectorServiceImpl implements ConnectorService {
             for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
                 if (functionGroup == FunctionGroupCode.AUTHORITY_PROVIDER) {
                     if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
-                        connectorDto.setFunctionGroups(Arrays.asList(fg));
+                        connectorDto.setFunctionGroups(List.of(fg));
                         connectors.add(connectorDto);
                     }
                 } else {
                     if (fg.getFunctionGroupCode() == functionGroup) {
-                        connectorDto.setFunctionGroups(Arrays.asList(fg));
+                        connectorDto.setFunctionGroups(List.of(fg));
                         connectors.add(connectorDto);
                     }
                 }
@@ -145,7 +144,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                     }
                 } else {
                     if (fg.getFunctionGroupCode() == functionGroup) {
-                        connectorDto.setFunctionGroups(Arrays.asList(fg));
+                        connectorDto.setFunctionGroups(List.of(fg));
                         connectors.add(connector);
                     }
                 }
@@ -333,10 +332,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         }
 
         // removing phase
-        Iterator<Connector2FunctionGroup> functionGroupsIterator = new HashSet<>(connector.getFunctionGroups()).iterator();
-        while (functionGroupsIterator.hasNext()) {
-            Connector2FunctionGroup c2fg = functionGroupsIterator.next();
-
+        for (Connector2FunctionGroup c2fg : new HashSet<>(connector.getFunctionGroups())) {
             Optional<FunctionGroupDto> dto = functionGroups.stream()
                     .filter(fg -> fg.getUuid().equals(c2fg.getFunctionGroup().getUuid()))
                     .findFirst();
@@ -384,7 +380,7 @@ public class ConnectorServiceImpl implements ConnectorService {
             errors.add(ValidationError.create(
                     "Connector {} has {} dependent credentials",
                     connector.getName(), connector.getCredentials().size()));
-            connector.getCredentials().stream().forEach(
+            connector.getCredentials().forEach(
                     c -> errors.add(ValidationError.create(c.getName())));
         }
 
@@ -392,7 +388,7 @@ public class ConnectorServiceImpl implements ConnectorService {
             errors.add(ValidationError.create(
                     "Connector {} has {} dependent Authority instances",
                     connector.getName(), connector.getAuthorityInstanceReferences().size()));
-            connector.getAuthorityInstanceReferences().stream().forEach(
+            connector.getAuthorityInstanceReferences().forEach(
                     c -> errors.add(ValidationError.create(c.getName())));
         }
 
@@ -400,7 +396,7 @@ public class ConnectorServiceImpl implements ConnectorService {
             errors.add(ValidationError.create(
                     "Connector {} has {} dependent Entity instances",
                     connector.getName(), connector.getEntityInstanceReferences().size()));
-            connector.getEntityInstanceReferences().stream().forEach(
+            connector.getEntityInstanceReferences().forEach(
                     c -> errors.add(ValidationError.create(c.getName())));
         }
 
@@ -500,9 +496,9 @@ public class ConnectorServiceImpl implements ConnectorService {
             logger.info("Connector Implements Compliance Provider. Initiating request to update the rules and group for: {}", connector);
             try {
                 if (update) {
-                    complianceConnectorService.updateGroupsAndRules(connector);
+                    complianceService.updateGroupsAndRules(connector);
                 } else {
-                    complianceConnectorService.addFetchGroupsAndRules(connector);
+                    complianceService.addFetchGroupsAndRules(connector);
                 }
             } catch (ConnectorException e) {
                 logger.error(e.getMessage());
@@ -743,19 +739,19 @@ public class ConnectorServiceImpl implements ConnectorService {
 
             if (!connector.getCredentials().isEmpty()) {
                 errors.add("Dependent Credentials: " + connector.getCredentials().size() + ". Names: ");
-                connector.getCredentials().stream().forEach(
+                connector.getCredentials().forEach(
                         c -> errors.add(c.getName()));
             }
 
             if (!connector.getAuthorityInstanceReferences().isEmpty()) {
                 errors.add("Authority instances: " + connector.getAuthorityInstanceReferences().size() + ". Names: ");
-                connector.getAuthorityInstanceReferences().stream().forEach(
+                connector.getAuthorityInstanceReferences().forEach(
                         c -> errors.add(c.getName()));
             }
 
             if (!connector.getEntityInstanceReferences().isEmpty()) {
                 errors.add("Entity instances: " + connector.getEntityInstanceReferences().size() + ". Names: ");
-                connector.getEntityInstanceReferences().stream().forEach(
+                connector.getEntityInstanceReferences().forEach(
                         c -> errors.add(c.getName()));
             }
 

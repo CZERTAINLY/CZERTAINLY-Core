@@ -64,7 +64,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
-    public ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws NotFoundException, AlreadyExistException, CertificateException, ConnectorException {
+    public ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -90,7 +90,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
         }
 
@@ -101,7 +101,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
-    public void revokeCertificate(String raProfileName, ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
+    public void revokeCertificate(String raProfileName, ClientCertificateRevocationDto request) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -122,7 +122,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
-    public List<ClientEndEntityDto> listEntities(String raProfileName) throws NotFoundException, ConnectorException {
+    public List<ClientEndEntityDto> listEntities(String raProfileName) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -133,13 +133,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 getEndEntityProfileName(raProfile));
 
         return endEntities == null ? null : endEntities.stream()
-                .map(e -> mapEndEntity(e))
+                .map(this::mapEndEntity)
                 .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CREATE)
-    public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws NotFoundException, ConnectorException {
+    public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -162,7 +162,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
-    public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws NotFoundException, ConnectorException {
+    public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -178,7 +178,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CHANGE)
-    public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws NotFoundException, ConnectorException {
+    public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -201,7 +201,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.DELETE)
-    public void revokeAndDeleteEndEntity(String raProfileName, String username) throws NotFoundException, ConnectorException {
+    public void revokeAndDeleteEndEntity(String raProfileName, String username) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -215,7 +215,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ACCESS, operation = OperationType.RESET)
-    public void resetPassword(String raProfileName, String username) throws NotFoundException, ConnectorException {
+    public void resetPassword(String raProfileName, String username) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));

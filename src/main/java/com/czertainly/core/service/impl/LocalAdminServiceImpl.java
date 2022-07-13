@@ -109,7 +109,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         Admin model = new Admin();
 
         Certificate certificate;
-        if(StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
+        if (StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
             certificate = certificateRepository
                     .findByUuid(requestDTO.getCertificateUuid())
                     .orElseThrow(() -> new NotFoundException(Certificate.class, requestDTO.getCertificateUuid()));
@@ -172,6 +172,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
 
     /**
      * This method checks if current request comes from same host.
+     *
      * @throws InsufficientAuthenticationException
      */
     private void checkHost() {

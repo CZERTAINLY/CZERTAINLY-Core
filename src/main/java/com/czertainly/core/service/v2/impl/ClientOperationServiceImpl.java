@@ -57,11 +57,20 @@ import java.util.List;
 @Transactional
 public class ClientOperationServiceImpl implements ClientOperationService {
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
+    private RaProfileRepository raProfileRepository;
+    private CertificateRepository certificateRepository;
+    private LocationService locationService;
+    private CertificateService certificateService;
+    private CertificateEventHistoryService certificateEventHistoryService;
+    private ExtendedAttributeService extendedAttributeService;
+    private CertValidationService certValidationService;
+    private CertificateApiClient certificateApiClient;
 
     @Autowired
     public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
         this.raProfileRepository = raProfileRepository;
     }
+
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
@@ -77,36 +86,30 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     public void setCertificateService(CertificateService certificateService) {
         this.certificateService = certificateService;
     }
+
     @Autowired
     public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
         this.certificateEventHistoryService = certificateEventHistoryService;
     }
+
     @Autowired
     public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
         this.extendedAttributeService = extendedAttributeService;
     }
+
     @Autowired
     public void setCertValidationService(CertValidationService certValidationService) {
         this.certValidationService = certValidationService;
     }
+
     @Autowired
     public void setCertificateApiClient(CertificateApiClient certificateApiClient) {
         this.certificateApiClient = certificateApiClient;
     }
 
-    private RaProfileRepository raProfileRepository;
-    private CertificateRepository certificateRepository;
-    private LocationService locationService;
-    private CertificateService certificateService;
-    private CertificateEventHistoryService certificateEventHistoryService;
-    private ExtendedAttributeService extendedAttributeService;
-    private CertValidationService certValidationService;
-    private CertificateApiClient certificateApiClient;
-
-
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listIssueCertificateAttributes(String raProfileUuid) throws NotFoundException, ConnectorException {
+    public List<AttributeDefinition> listIssueCertificateAttributes(String raProfileUuid) throws ConnectorException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
@@ -115,7 +118,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateIssueCertificateAttributes(String raProfileUuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
+    public boolean validateIssueCertificateAttributes(String raProfileUuid, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
@@ -124,11 +127,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
-    public ClientCertificateDataResponseDto issueCertificate(String raProfileUuid, ClientCertificateSignRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
+    public ClientCertificateDataResponseDto issueCertificate(String raProfileUuid, ClientCertificateSignRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
-        if(!ignoreAuthToRa) {
+        if (!ignoreAuthToRa) {
             ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         }
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
@@ -165,7 +168,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
@@ -177,11 +180,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
-    public ClientCertificateDataResponseDto renewCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+    public ClientCertificateDataResponseDto renewCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
-        if(!ignoreAuthToRa) {
+        if (!ignoreAuthToRa) {
             ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         }
 
@@ -233,7 +236,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 }
             }
 
-        } catch (Exception e){
+        } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
             logger.error("Failed to renew Certificate", e.getMessage());
             throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
@@ -247,7 +250,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
@@ -259,7 +262,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listRevokeCertificateAttributes(String raProfileUuid) throws NotFoundException, ConnectorException {
+    public List<AttributeDefinition> listRevokeCertificateAttributes(String raProfileUuid) throws ConnectorException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
@@ -268,7 +271,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateRevokeCertificateAttributes(String raProfileUuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
+    public boolean validateRevokeCertificateAttributes(String raProfileUuid, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
@@ -277,10 +280,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
-    public void revokeCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRevocationDto request, Boolean ignoreAuthToRa) throws NotFoundException, ConnectorException {
+    public void revokeCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRevocationDto request, Boolean ignoreAuthToRa) throws ConnectorException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
-        if(!ignoreAuthToRa) {
+        if (!ignoreAuthToRa) {
             ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         }
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
@@ -298,7 +301,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
             certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked", "", certificate);
-        }catch (Exception e){
+        } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "", certificate);
             logger.error(e.getMessage());
             return;
@@ -306,7 +309,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         try {
             certificate.setStatus(CertificateStatus.REVOKED);
             certificateRepository.save(certificate);
-        }catch(Exception e) {
+        } catch (Exception e) {
             logger.warn(e.getMessage());
         }
     }

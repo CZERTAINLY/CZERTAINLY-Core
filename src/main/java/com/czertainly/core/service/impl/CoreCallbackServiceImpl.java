@@ -29,7 +29,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
     @Override
     public List<JsonAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws NotFoundException, ValidationException {
         if (callback.getPathVariables() == null ||
-            callback.getPathVariables().get(CREDENTIAL_KIND_PATH_VARIABLE) == null) {
+                callback.getPathVariables().get(CREDENTIAL_KIND_PATH_VARIABLE) == null) {
             throw new ValidationException(ValidationError.create("Required path variable credentialKind not found in backhook."));
         }
 
