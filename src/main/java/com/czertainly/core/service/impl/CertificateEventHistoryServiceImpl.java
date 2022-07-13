@@ -9,8 +9,8 @@ import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateEventHistory;
 import com.czertainly.core.dao.repository.CertificateEventHistoryRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.SearchService;
 import com.czertainly.core.util.MetaDefinitions;
 import org.slf4j.Logger;
@@ -29,16 +29,13 @@ import java.util.stream.Collectors;
 @Transactional
 public class CertificateEventHistoryServiceImpl implements CertificateEventHistoryService {
 
+    private static final Logger logger = LoggerFactory.getLogger(CertificateEventHistoryServiceImpl.class);
     @Autowired
-    private CertificateService certificateService;
-
+    private CertificateRepository certificateRepository;
     @Autowired
     private CertificateEventHistoryRepository certificateEventHistoryRepository;
-
     @Autowired
     private SearchService searchService;
-
-    private static final Logger logger = LoggerFactory.getLogger(CertificateEventHistoryServiceImpl.class);
 
     @Override
     public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, HashMap<String, Object> additionalInformation, Certificate certificate) {
@@ -69,20 +66,20 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
 
     @Override
     public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException {
-        Certificate certificate = certificateService.getCertificateEntity(uuid);
+        Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         return certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream().map(CertificateEventHistory::mapToDto).collect(Collectors.toList());
     }
 
     @Override
     @Async("threadPoolTaskExecutor")
-    public void asyncSaveAllInBatch(List<CertificateEventHistory> certificateEventHistories){
+    public void asyncSaveAllInBatch(List<CertificateEventHistory> certificateEventHistories) {
         certificateEventHistoryRepository.saveAll(certificateEventHistories);
         logger.info("Inserted {} record into the database", certificateEventHistories.size());
     }
 
     @Override
     @Async("threadPoolTaskExecutor")
-    public void addEventHistoryForRequest(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson, CertificateEvent event, CertificateEventStatus status, String message){
+    public void addEventHistoryForRequest(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson, CertificateEvent event, CertificateEventStatus status, String message) {
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(filters, "Certificate", originalJson)) {
             batchHistoryOperationList.add(getEventHistory(event, status, message, "", certificate));

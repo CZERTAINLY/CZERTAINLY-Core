@@ -29,6 +29,11 @@ import com.nimbusds.jose.util.Base64URL;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 import org.springframework.web.servlet.HandlerMapping;
@@ -43,7 +48,9 @@ import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 
@@ -81,6 +88,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         }
         logger.info("ACME Request from " + request.getRemoteAddr() + " for " + requestUri);
         try {
+            elevatePermission();
             raProfileBased = requestUri.contains("/raProfile/");
             filterChain.doFilter(requestWrapper, responseWrapper);
             Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
@@ -370,5 +378,13 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
         }
         // For revocation handle the verification inside the service
+    }
+
+    private void elevatePermission() {
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        authorities.add(new SimpleGrantedAuthority("ROLE_ACME"));
+        Authentication reAuth = new UsernamePasswordAuthenticationToken("ACME_USER", "", authorities);
+        SecurityContextHolder.getContext().setAuthentication(reAuth);
+        SecurityContextHolder.getContext().getAuthentication();
     }
 }

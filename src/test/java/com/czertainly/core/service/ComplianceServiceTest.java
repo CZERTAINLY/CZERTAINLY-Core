@@ -53,7 +53,6 @@ public class ComplianceServiceTest {
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
-    @Lazy
     private ComplianceService complianceService;
     @Autowired
     private ComplianceGroupRepository complianceGroupRepository;

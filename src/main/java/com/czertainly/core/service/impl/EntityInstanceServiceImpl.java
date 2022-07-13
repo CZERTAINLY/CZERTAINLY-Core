@@ -34,28 +34,30 @@ import java.util.stream.Collectors;
 public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     private static final Logger logger = LoggerFactory.getLogger(EntityInstanceServiceImpl.class);
+    private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+    private ConnectorService connectorService;
+    private CredentialService credentialService;
+    private EntityInstanceApiClient entityInstanceApiClient;
 
     @Autowired
     public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
         this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
     }
+
     @Autowired
     public void setConnectorService(ConnectorService connectorService) {
         this.connectorService = connectorService;
     }
+
     @Autowired
     public void setCredentialService(CredentialService credentialService) {
         this.credentialService = credentialService;
     }
+
     @Autowired
     public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
         this.entityInstanceApiClient = entityInstanceApiClient;
     }
-
-    private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    private ConnectorService connectorService;
-    private CredentialService credentialService;
-    private EntityInstanceApiClient entityInstanceApiClient;
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)

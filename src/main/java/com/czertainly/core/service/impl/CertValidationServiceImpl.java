@@ -10,16 +10,10 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.service.CertValidationService;
-import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CrlUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.OcspUtil;
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1String;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,22 +21,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringWriter;
 import java.net.SocketTimeoutException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
@@ -58,9 +39,6 @@ public class CertValidationServiceImpl implements CertValidationService {
     private static final Logger logger = LoggerFactory.getLogger(CertValidationServiceImpl.class);
 
     private static final int DAYS_TO_EXPIRE = 30;
-
-    @Autowired
-    private CertificateService certificateService;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -105,15 +83,11 @@ public class CertValidationServiceImpl implements CertValidationService {
                         certificateValidation(crt, chainCerts.get(i + 1));
                     }
                 } else {
-                    if (downloadUploadChain(certificate)) {
-                        reValidate(certificate);
+                    if (chainCerts.size() > i + 1) {
+                        certificateValidation(crt, chainCerts.get(i + 1), true);
                     } else {
-                        if (chainCerts.size() > i + 1) {
-                            certificateValidation(crt, chainCerts.get(i + 1), true);
-                        } else {
-                            logger.warn("Incomplete Chain");
-                            certificateValidation(crt, null, true);
-                        }
+                        logger.warn("Incomplete Chain");
+                        certificateValidation(crt, null, true);
                     }
                 }
             }
@@ -125,143 +99,10 @@ public class CertValidationServiceImpl implements CertValidationService {
         return lastCert.getSubjectDn().equals(lastCert.getIssuerDn());
     }
 
-    private void reValidate(Certificate certificate) throws NotFoundException, CertificateException, IOException {
-        logger.debug("Initiating the certificate validation");
-        List<Certificate> chainCerts = getCertificateChain(certificate);
-        for (int i = 0; i < chainCerts.size(); i++) {
-            Certificate crt = chainCerts.get(i);
-            if (crt.getSubjectDn().equals(crt.getIssuerDn())) {
-                checkSelfSignedCertificate(crt);
-            } else {
-                if (checkFullChain(chainCerts)) {
-                    if (chainCerts.size() > i + 1) {
-                        certificateValidation(crt, chainCerts.get(i + 1));
-                    } else {
-                        checkSelfSignedCertificate(crt);
-                    }
-
-                }
-            }
-        }
-    }
-
-    private boolean downloadUploadChain(Certificate certificate) {
-        List<String> chainCertificates = downloadChainFromAia(certificate);
-        List<Certificate> uploadedCertificate = new ArrayList<>();
-        if (chainCertificates.isEmpty()) {
-            return false;
-        }
-
-        for (String cert : chainCertificates) {
-            try {
-                uploadedCertificate.add(certificateService.checkCreateCertificate(cert));
-            } catch (Exception e) {
-                logger.error("Chain already exists");
-            }
-        }
-
-        if (!uploadedCertificate.isEmpty()) {
-            certificateService.updateIssuer();
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    private List<String> downloadChainFromAia(Certificate certificate) {
-        List<String> chainCertificates = new ArrayList<>();
-        String oldChainUrl = "";
-        String chainUrl = "";
-        try {
-            X509Certificate certX509 = getX509(certificate.getCertificateContent().getContent());
-            while (true) {
-                chainUrl = OcspUtil.getChainFromAia(certX509);
-                if (oldChainUrl.equals(chainUrl)) {
-                    break;
-                }
-                oldChainUrl = chainUrl;
-                if (chainUrl == null || chainUrl.isEmpty()) {
-                    break;
-                }
-                String chainContent = downloadChain(chainUrl);
-                if (chainContent.equals("")) {
-                    break;
-                }
-                chainCertificates.add(chainContent);
-                certX509 = getX509(chainContent);
-            }
-
-        } catch (Exception e) {
-            logger.warn("Unable to get the chain of certificate from Authority Information Access");
-        }
-        return chainCertificates;
-    }
-
-    private String downloadChain(String chainUrl) {
-        try {
-            URL url = new URL(chainUrl);
-            URLConnection urlConnection = url.openConnection();
-            urlConnection.setConnectTimeout(1000);
-            urlConnection.setReadTimeout(1000);
-            String fileName = chainUrl.split("/")[chainUrl.split("/").length - 1];
-            try (InputStream in = url.openStream();
-                 ReadableByteChannel rbc = Channels.newChannel(in);
-                 FileOutputStream fos = new FileOutputStream(fileName)) {
-                fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-            } catch (Exception e) {
-                logger.error(e.getMessage());
-                return "";
-            }
-            CertificateFactory fac = CertificateFactory.getInstance("X509");
-            FileInputStream is = new FileInputStream(fileName);
-            X509Certificate cert = (X509Certificate) fac.generateCertificate(is);
-            final StringWriter writer = new StringWriter();
-            final JcaPEMWriter pemWriter = new JcaPEMWriter(writer);
-            pemWriter.writeObject(cert);
-            pemWriter.flush();
-            pemWriter.close();
-            writer.close();
-            is.close();
-            Path path = Paths.get(fileName);
-            Files.deleteIfExists(path);
-            return writer.toString();
-        } catch (Exception e) {
-            logger.error(e.getMessage());
-        }
-        return "";
-    }
-
-    private ASN1Primitive toDERObject(byte[] data) throws IOException {
-        ByteArrayInputStream inStream = new ByteArrayInputStream(data);
-        ASN1InputStream asnInputStream = new ASN1InputStream(inStream);
-
-        return asnInputStream.readObject();
-    }
-
-    private String Asn1ConversionChecker(byte[] rawData) {
-        try {
-            ASN1Primitive derObject = toDERObject(rawData);
-            if (derObject instanceof DEROctetString) {
-                DEROctetString derOctetString = (DEROctetString) derObject;
-
-                derObject = toDERObject(derOctetString.getOctets());
-                if (derObject instanceof ASN1String) {
-                    ASN1String s = (ASN1String) derObject;
-                    return s.getString();
-                } else {
-                    return new String(rawData);
-                }
-
-            }
-            return new String(rawData);
-        } catch (IOException e) {
-            return new String(rawData);
-        }
-    }
 
     private void checkSelfSignedCertificate(Certificate certificate) {
         Map<String, CertificateValidationDto> validationOutput = getValidationInitialOutput();
-        X509Certificate x509 = null;
+        X509Certificate x509;
         try {
             x509 = getX509(certificate.getCertificateContent().getContent());
         } catch (CertificateException e) {
@@ -290,10 +131,12 @@ public class CertValidationServiceImpl implements CertValidationService {
         }
         if (validTill < TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE) && validTill > 0) {
             status = CertificateStatus.EXPIRING;
+            certificate.setStatus(status);
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.EXPIRING, "Expiring in " + convertMillisecondsToTimeString(validTill)));
         }
         if (validTill > TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
             status = CertificateStatus.VALID;
+            certificate.setStatus(status);
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Certificate validity check completed successfully"));
         }
         if (validTill <= 0) {
@@ -342,7 +185,9 @@ public class CertValidationServiceImpl implements CertValidationService {
                 && toCheckCertificate.getIssuerSerialNumber().length() > 5) {
             try {
                 chainCertificates.add(
-                        certificateService.getCertificateEntityBySerial(toCheckCertificate.getIssuerSerialNumber()));
+                        certificateRepository.findBySerialNumberIgnoreCase(toCheckCertificate.getIssuerSerialNumber())
+                                .orElseThrow(() -> new NotFoundException(Certificate.class,
+                                        toCheckCertificate.getIssuerSerialNumber())));
             } catch (NotFoundException e) {
                 logger.error("Unable to find the chain of {}", toCheckCertificate.getCommonName());
             } catch (NullPointerException e) {
@@ -414,7 +259,6 @@ public class CertValidationServiceImpl implements CertValidationService {
             validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.WARNING, "No OCSP URL in certificate"));
         } else {
             try {
-                Boolean isRevoked = false;
                 String ocspOutput = "";
                 String ocspMessage = "";
                 for (String ocspUrl : ocspUrls) {
@@ -424,7 +268,6 @@ public class CertValidationServiceImpl implements CertValidationService {
                         ocspOutput = "Success";
                         ocspMessage += "OCSP verification success from " + ocspUrl;
                     } else if (ocspStatus.equals("Failed")) {
-                        isRevoked = true;
                         ocspOutput = "Failed";
                         ocspMessage += "Certificate was revoked according to information from OCSP.\nOCSP URL: " + ocspUrl;
                         break;
@@ -597,7 +440,6 @@ public class CertValidationServiceImpl implements CertValidationService {
             validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.NOT_CHECKED, "Issuer information unavailable"));
         } else {
             try {
-                Boolean isRevoked = false;
                 String ocspOutput = "";
                 String ocspMessage = "";
                 for (String ocspUrl : ocspUrls) {
@@ -607,7 +449,6 @@ public class CertValidationServiceImpl implements CertValidationService {
                         ocspOutput = "Success";
                         ocspMessage += "OCSP verification successful from " + ocspUrl;
                     } else if (ocspStatus.equals("Failed")) {
-                        isRevoked = true;
                         ocspOutput = "Failed";
                         ocspMessage += "Certificate was revoked according to information from OCSP.\nOCSP URL: " + ocspUrl;
                         break;
