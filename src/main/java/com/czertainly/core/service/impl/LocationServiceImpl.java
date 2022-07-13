@@ -817,12 +817,10 @@ public class LocationServiceImpl implements LocationService {
         locationRepository.save(entity);
     }
 
-    private LocationDto maskSecret(LocationDto locationDto) {
-        for (ResponseAttributeDto responseAttributeDto : locationDto.getAttributes()) {
-            if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
-                responseAttributeDto.setContent(new BaseAttributeContent<String>() {{
-                    setValue("************");
-                }});
+    private LocationDto maskSecret(LocationDto locationDto){
+        for(ResponseAttributeDto responseAttributeDto: locationDto.getAttributes()){
+            if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
+                responseAttributeDto.setContent(new BaseAttributeContent<String>(){{setValue(null);}});
             }
         }
         return locationDto;
