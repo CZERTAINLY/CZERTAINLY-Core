@@ -290,6 +290,10 @@ public class CredentialServiceTest {
         nameAndUuidMap.put("uuid", credential.getUuid());
         nameAndUuidMap.put("name", credential.getName());
 
+        HashMap<String, Serializable> attrib = new HashMap<>();
+        attrib.put("value", credential.getName());
+        attrib.put("data", nameAndUuidMap);
+
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
                 AttributeType.CREDENTIAL,
@@ -297,7 +301,7 @@ public class CredentialServiceTest {
                 AttributeValueTarget.BODY);
 
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
-        requestBodyMap.put(credentialBodyKey, nameAndUuidMap);
+        requestBodyMap.put(credentialBodyKey, attrib);
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
@@ -315,12 +319,16 @@ public class CredentialServiceTest {
     }
 
     @Test
-    public void testLoadFullData_callbackNotFound() {
+    public void testLoadFullData_callbackValidation() {
         String credentialBodyKey = "testCredential";
 
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
         nameAndUuidMap.put("uuid", "wrong-uuid");
         nameAndUuidMap.put("name", "wrong-name");
+
+        HashMap<String, Serializable> attrib = new HashMap<>();
+        attrib.put("value", "wrong-uuid");
+        attrib.put("data", nameAndUuidMap);
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
@@ -329,7 +337,6 @@ public class CredentialServiceTest {
                 AttributeValueTarget.BODY);
 
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
-        requestBodyMap.put(credentialBodyKey, nameAndUuidMap);
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
@@ -337,7 +344,7 @@ public class CredentialServiceTest {
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
         requestAttributeCallback.setRequestBody(requestBodyMap);
 
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
+        Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
     }
 
     @Test
