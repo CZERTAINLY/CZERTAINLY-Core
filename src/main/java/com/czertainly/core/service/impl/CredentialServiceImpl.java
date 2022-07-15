@@ -262,13 +262,13 @@ public class CredentialServiceImpl implements CredentialService {
 
                                 Serializable bodyKeyValue = requestAttributeCallback.getRequestBody().get(mapping.getTo());
 
-                                NameAndUuidDto nameAndUuidDto;
-
+                                String credentialUuid;
                                 if (bodyKeyValue instanceof NameAndUuidDto) {
-                                    nameAndUuidDto = (NameAndUuidDto) bodyKeyValue;
-                                } else if (bodyKeyValue instanceof Map) {
+                                    credentialUuid = ((NameAndUuidDto) bodyKeyValue).getUuid();
+                                }
+                                else if (bodyKeyValue instanceof Map) {
                                     try {
-                                        nameAndUuidDto = new ObjectMapper().convertValue(bodyKeyValue, NameAndUuidDto.class);
+                                        credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, JsonAttributeContent.class)).getData()).get("uuid");
                                     } catch (Exception e) {
                                         logger.error(e.getMessage(), e);
                                         throw new ValidationException(ValidationError.create(
@@ -279,7 +279,7 @@ public class CredentialServiceImpl implements CredentialService {
                                             "Invalid value {}. Instance of {} is expected.", bodyKeyValue, NameAndUuidDto.class));
                                 }
 
-                                CredentialDto credential = getCredentialEntity(nameAndUuidDto.getUuid()).mapToDto();
+                                CredentialDto credential = getCredentialEntity(credentialUuid).mapToDto();
                                 requestAttributeCallback.getRequestBody().put(mapping.getTo(), credential);
                                 break;
                         }

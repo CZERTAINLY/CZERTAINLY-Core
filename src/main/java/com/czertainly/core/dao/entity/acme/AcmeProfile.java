@@ -127,7 +127,6 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
                 .append("termsOfServiceUrl", termsOfServiceUrl)
                 .append("dnsResolverIp", dnsResolverIp)
                 .append("dnsResolverPort", dnsResolverPort)
-                .append("raProfileUuid", raProfile.getUuid())
                 .append("termsOfServiceChangeUrl", termsOfServiceChangeUrl)
                 .append("issueCertificateAttributes", issueCertificateAttributes)
                 .append("revokeCertificateAttributes", revokeCertificateAttributes)
