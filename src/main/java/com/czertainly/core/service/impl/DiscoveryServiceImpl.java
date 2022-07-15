@@ -103,7 +103,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public void removeDiscovery(String uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
-        Connector connector = connectorService.getConnectorEntity(discovery.getConnectorUuid());
         for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
             try {
                 discoveryCertificateRepository.delete(cert);
@@ -127,6 +126,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             discoveryRepository.delete(discovery);
+            Connector connector = connectorService.getConnectorEntity(discovery.getConnectorUuid());
             discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
@@ -148,7 +148,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 logger.warn("Unable to find the discovery with ID {}. It may have deleted", uuid);
                 continue;
             }
-            Connector connector = connectorService.getConnectorEntity(discovery.getConnectorUuid());
+
             for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
                 try {
                     discoveryCertificateRepository.delete(cert);
@@ -172,6 +172,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             try {
                 String referenceUuid = discovery.getDiscoveryConnectorReference();
                 discoveryRepository.delete(discovery);
+                Connector connector = connectorService.getConnectorEntity(discovery.getConnectorUuid());
                 discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
             } catch (ConnectorException e) {
                 logger.warn("Failed to delete discovery in the connector. But core history is deleted");
@@ -333,6 +334,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 additionalInfo.putAll(certificate.getMeta());
                 certificateEventHistoryService.addEventHistory(CertificateEvent.DISCOVERY, CertificateEventStatus.SUCCESS, "Discovered from Connector: " + modal.getConnectorName(), MetaDefinitions.serialize(additionalInfo), entry);
             } catch (Exception e) {
+                logger.error(e.getMessage());
                 logger.error("Unable to create certificate for " + modal.toString());
             }
         }
