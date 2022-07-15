@@ -263,7 +263,6 @@ public class CredentialServiceImpl implements CredentialService {
                                 Serializable bodyKeyValue = requestAttributeCallback.getRequestBody().get(mapping.getTo());
 
                                 String credentialUuid;
-                                System.out.println();
                                 if (bodyKeyValue instanceof NameAndUuidDto) {
                                     credentialUuid = ((NameAndUuidDto) bodyKeyValue).getUuid();
                                 }
