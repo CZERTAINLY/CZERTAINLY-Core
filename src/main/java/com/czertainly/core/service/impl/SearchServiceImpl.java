@@ -196,14 +196,16 @@ public class SearchServiceImpl implements SearchService {
         }
         for (SearchFieldDataDto filter : iterableJson) {
             String qp = "";
+            String ntvCode = "";
             if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(filter.getField())) {
                 qp += " c.certificateValidationResult ";
             } else {
                 if (nativeCode) {
-                    qp += " c." + filter.getField().getNativeCode() + " ";
+                    ntvCode = filter.getField().getNativeCode();
                 } else {
-                    qp += " c." + filter.getField().getCode() + " ";
+                    ntvCode = filter.getField().getCode();
                 }
+                qp += " c." + ntvCode  + " ";
             }
             if (filter.isMultiValue() && !(filter.getValue() instanceof String)) {
                 List<String> whereObjects = new ArrayList<>();
@@ -256,6 +258,13 @@ public class SearchServiceImpl implements SearchService {
                     }
                 } else if (filter.getConditions().get(0).equals(SearchCondition.CONTAINS) || filter.getConditions().get(0).equals(SearchCondition.NOT_CONTAINS)) {
                     qp += filter.getConditions().get(0).getCode() + " '%" + filter.getValue().toString() + "%'";
+                    try{
+                        if(filter.getConditions().get(0).equals(SearchCondition.NOT_CONTAINS)) {
+                            qp += " or " + ntvCode + " IS NULL ";
+                        }
+                    }catch (Exception e){
+                        logger.warn("Unable to add empty query");
+                    }
                 } else if (filter.getConditions().get(0).equals(SearchCondition.STARTS_WITH)) {
                     qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "%'";
                 } else if (filter.getConditions().get(0).equals(SearchCondition.ENDS_WITH)) {
