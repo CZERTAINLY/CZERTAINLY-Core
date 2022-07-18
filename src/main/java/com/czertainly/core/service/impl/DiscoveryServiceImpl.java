@@ -59,8 +59,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
     private static final Integer MAXIMUM_CERTIFICATES_PER_PAGE = 100;
-    private static final Integer SLEEP_TIME = 30 * 100;
-    private static final Long MAXIMUM_WAIT_TIME = (long) (6 * 60 * 60); // Hours * Minutes * Seconds *
+    private static final Integer SLEEP_TIME = 5 * 1000; // Seconds * Milliseconds - Retry of discovery for every 5 Seconds
+    private static final Long MAXIMUM_WAIT_TIME = (long) (6 * 60 * 60); // Hours * Minutes * Seconds
     @Autowired
     private DiscoveryRepository discoveryRepository;
     @Autowired
@@ -230,7 +230,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     isReachedMaxTime = true;
                     modal.setStatus(DiscoveryStatus.WARNING);
                     modal.setMessage(
-                            "Discovery exceeded maximum time of 6 hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
+                            "Discovery exceeded maximum time of " + MAXIMUM_WAIT_TIME/(60*60) + " hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
                 }
                 discoveryRepository.save(modal);
                 oldCertificateCount = response.getTotalCertificatesDiscovered();
@@ -246,9 +246,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
                     updateDiscovery(modal, response);
-                    logger.error("Too many content in response. Maximum processable is 100");
+                    logger.error("Too many content in response. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
                     throw new InterruptedException(
-                            "Too many content in response to process. Maximum processable is 100");
+                            "Too many content in response to process. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
                 }
                 currentTotal += MAXIMUM_CERTIFICATES_PER_PAGE;
                 certificatesDiscovered.addAll(response.getCertificateData());
