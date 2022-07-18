@@ -82,16 +82,31 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 
 `Core` is provided as a Docker container. Use the 3keycompany/czertainly-core:tagname to pull the required image from the repository. It can be configured using the following environment variables:
 
-| Variable | Description | Required | Default value |
-| --- | --- | --- | --- |
-| `JDBC_URL` | JDBC URL for database access | Yes | N/A |
-| `JDBC_USERNAME` | Username to access the database | Yes | N/A |
-| `JDBC_PASSWORD` | Password to access the database | Yes | N/A |
-| `DB_SCHEMA` | Database schema to use | No | ejbca |
-| `PORT` | Port where the service is exposed | No | 8080 |
-| `HEADER_NAME` | Name of the header where the certificate of the client can be found | No | X-APP-CERTIFICATE |
-| `HEADER_ENABLED` | True if the certificate should be get from the header | Yes | N/A |
-| `TS_PASSWORD` | Password for the trusted certificate store | Yes | Any |
+| Variable         | Description                                                         | Required | Default value     |
+|------------------|---------------------------------------------------------------------|----------|-------------------|
+| `JDBC_URL`       | JDBC URL for database access                                        | Yes      | N/A               |
+| `JDBC_USERNAME`  | Username to access the database                                     | Yes      | N/A               |
+| `JDBC_PASSWORD`  | Password to access the database                                     | Yes      | N/A               |
+| `DB_SCHEMA`      | Database schema to use                                              | No       | ejbca             |
+| `PORT`           | Port where the service is exposed                                   | No       | 8080              |
+| `HEADER_NAME`    | Name of the header where the certificate of the client can be found | No       | X-APP-CERTIFICATE |
+| `HEADER_ENABLED` | True if the certificate should be get from the header               | Yes      | N/A               |
+| `TS_PASSWORD`    | Password for the trusted certificate store                          | Yes      | Any               |
+
+### Proxy settings
+
+You may need to configure proxy to allow `Core` to communicate with external systems.
+To enable proxy, use the following environment variables for docker container:
+
+| Variable               | Description                                                                 | Required | Default value                   |
+|------------------------|-----------------------------------------------------------------------------|----------|---------------------------------|
+| `HTTP_PROXY_HOST`      | The hostname, or address, of the http proxy server                          | No       | N/A                             |
+| `HTTP_PROXY_PORT`      | The port number of the http proxy server                                    | No       | 80                              |
+| `HTTPS_PROXY_HOST`     | The hostname, or address, of the https proxy server                         | No       | N/A                             |
+| `HTTPS_PROXY_PORT`     | The port number of the https proxy server                                   | No       | 443                             |
+| `HTTP_NONPROXY_HOSTS`  | Indicates the hosts that should be accessed without going through the proxy | No       | localhost&#124;127.*&#124;[::1] |
+
+The list of hosts in the `HTTP_NONPROXY_HOSTS` is separated by the `|` character. In addition, the wildcard character `*` can be used for pattern matching. For example `-Dhttp.nonProxyHosts=*.foo.com|localhost` will indicate that every host in the foo.com domain and the localhost should be accessed directly even if a proxy server is specified.
 
 ## Monitoring and reporting
 
