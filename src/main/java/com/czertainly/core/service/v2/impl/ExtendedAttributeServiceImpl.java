@@ -3,6 +3,7 @@ package com.czertainly.core.service.v2.impl;
 import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
@@ -51,6 +52,9 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
 
     @Override
     public List<AttributeDefinition> mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
+        if(raProfile.getAuthorityInstanceReference().getConnector() == null){
+            throw new ValidationException(ValidationError.create("Connector of the Authority is not available / deleted"));
+        }
         List<AttributeDefinition> definitions = certificateApiClient.listIssueCertificateAttributes(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
