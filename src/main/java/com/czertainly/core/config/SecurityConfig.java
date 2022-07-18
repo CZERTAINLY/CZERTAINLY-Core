@@ -20,7 +20,7 @@ import org.springframework.security.web.authentication.preauth.x509.X509Authenti
 
 
 @Configuration
-@EnableWebSecurity
+@EnableWebSecurity(debug = true)
 @EnableGlobalMethodSecurity(securedEnabled = true)
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
@@ -91,7 +91,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             http
                     .antMatcher("/v1/local/**")
                     .authorizeRequests()
-                    .anyRequest().hasIpAddress("127.0.0.1")
+                    .anyRequest().access("hasIpAddress('127.0.0.1') or hasIpAddress('0:0:0:0:0:0:0:1')")
                     .and()
                     .csrf().disable()
                     .cors().disable()

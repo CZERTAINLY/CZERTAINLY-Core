@@ -185,7 +185,9 @@ public class LocalAdminServiceImpl implements LocalAdminService {
 
             HttpServletRequest request = ((ServletRequestAttributes) attrs).getRequest();
             if ("localhost".equals(request.getRemoteHost()) ||
-                    "127.0.0.1".equals(request.getRemoteHost())) {
+                    "127.0.0.1".equals(request.getRemoteHost()) ||
+                    "0:0:0:0:0:0:0:1".equals(request.getRemoteHost())
+            ) {
                 logger.info("Request comes from localhost");
             } else if (InetAddress.getLocalHost().getHostName().equals(request.getRemoteHost())) {
                 logger.info("Request comes from same host");
