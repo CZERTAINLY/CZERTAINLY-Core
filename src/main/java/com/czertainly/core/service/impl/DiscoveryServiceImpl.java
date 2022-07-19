@@ -5,7 +5,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
-import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
@@ -18,12 +18,21 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.DiscoveryCertificate;
+import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
-import com.czertainly.core.service.*;
+import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
+import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.service.CredentialService;
+import com.czertainly.core.service.DiscoveryService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -36,7 +45,11 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.security.cert.X509Certificate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,7 +58,9 @@ import java.util.stream.Collectors;
 public class DiscoveryServiceImpl implements DiscoveryService {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
-
+    private static final Integer MAXIMUM_CERTIFICATES_PER_PAGE = 100;
+    private static final Integer SLEEP_TIME = 5 * 1000; // Seconds * Milliseconds - Retry of discovery for every 5 Seconds
+    private static final Long MAXIMUM_WAIT_TIME = (long) (6 * 60 * 60); // Hours * Minutes * Seconds
     @Autowired
     private DiscoveryRepository discoveryRepository;
     @Autowired
@@ -67,10 +82,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     private CertValidationService certValidationService;
 
-    private static final Integer MAXIMUM_CERTIFICATES_PER_PAGE = 100;
-    private static final Integer SLEEP_TIME = 30 * 100;
-    private static final Long MAXIMUM_WAIT_TIME = (long) (6 * 60 * 60); // Hours * Minutes * Seconds *
-
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     public List<DiscoveryHistoryDto> listDiscovery() {
@@ -91,46 +102,53 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     public void removeDiscovery(String uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+                .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
         for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
-        	try {
-        		discoveryCertificateRepository.delete(cert);
-        	}catch(Exception e) {
-        		//todo
+            try {
+                discoveryCertificateRepository.delete(cert);
+            } catch (Exception e) {
+                //todo
                 logger.error(e.getMessage(), e);
-        	}
+            }
             if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null) {
                 CertificateContent content = certificateContentRepository.findById(cert.getCertificateContent().getId())
                         .orElse(null);
                 if (content != null) {
-                	try {
-                		certificateContentRepository.delete(content);
-                	}catch(Exception e) {
-                		logger.warn("Failed to delete the certificate.");
-                		logger.warn(e.getMessage());
-                	}
+                    try {
+                        certificateContentRepository.delete(content);
+                    } catch (Exception e) {
+                        logger.warn("Failed to delete the certificate.");
+                        logger.warn(e.getMessage());
+                    }
                 }
             }
         }
         try {
+            String referenceUuid = discovery.getDiscoveryConnectorReference();
             discoveryRepository.delete(discovery);
-        }catch (Exception e){
-        	logger.warn(e.getMessage());
+            Connector connector = connectorService.getConnectorEntity(discovery.getConnectorUuid());
+            discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
+        } catch (ConnectorException e) {
+            logger.warn("Failed to delete discovery in the connector. But core history is deleted");
+            logger.warn(e.getMessage());
+        }catch (Exception e) {
+            logger.warn(e.getMessage());
         }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     public void bulkRemoveDiscovery(List<String> discoveryUuids) throws NotFoundException {
-        for(String uuid: discoveryUuids) {
+        for (String uuid : discoveryUuids) {
             DiscoveryHistory discovery;
             try {
                 discovery = discoveryRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
-            }catch (NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to find the discovery with ID {}. It may have deleted", uuid);
                 continue;
             }
+
             for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
                 try {
                     discoveryCertificateRepository.delete(cert);
@@ -152,7 +170,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 }
             }
             try {
+                String referenceUuid = discovery.getDiscoveryConnectorReference();
                 discoveryRepository.delete(discovery);
+                Connector connector = connectorService.getConnectorEntity(discovery.getConnectorUuid());
+                discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
+            } catch (ConnectorException e) {
+                logger.warn("Failed to delete discovery in the connector. But core history is deleted");
+                logger.warn(e.getMessage());
             } catch (Exception e) {
                 logger.warn(e.getMessage());
             }
@@ -163,7 +187,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Async("threadPoolTaskExecutor")
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
-            throws NotFoundException, ConnectorException {
+            throws ConnectorException {
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 request.getConnectorUuid(),
@@ -174,6 +198,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
             dtoRequest.setName(request.getName());
+            dtoRequest.setKind(request.getKind());
 
             // Load complete credential data
             credentialService.loadFullCredentialData(attributes);
@@ -182,8 +207,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
+            modal.setDiscoveryConnectorReference(response.getUuid());
+            discoveryRepository.save(modal);
+
             DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
             getRequest.setName(response.getName());
+            getRequest.setKind(request.getKind());
             getRequest.setStartIndex(0);
             getRequest.setEndIndex(MAXIMUM_CERTIFICATES_PER_PAGE);
 
@@ -201,7 +230,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     isReachedMaxTime = true;
                     modal.setStatus(DiscoveryStatus.WARNING);
                     modal.setMessage(
-                            "Discovery exceeded maximum time of 6 hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
+                            "Discovery exceeded maximum time of " + MAXIMUM_WAIT_TIME/(60*60) + " hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
                 }
                 discoveryRepository.save(modal);
                 oldCertificateCount = response.getTotalCertificatesDiscovered();
@@ -217,9 +246,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
                     updateDiscovery(modal, response);
-                    logger.error("Too many content in response. Maximum processable is 100");
+                    logger.error("Too many content in response. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
                     throw new InterruptedException(
-                            "Too many content in response to process. Maximum processable is 100");
+                            "Too many content in response to process. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
                 }
                 currentTotal += MAXIMUM_CERTIFICATES_PER_PAGE;
                 certificatesDiscovered.addAll(response.getCertificateData());
@@ -285,7 +314,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     private List<Certificate> updateCertificates(List<DiscoveryProviderCertificateDataDto> certificatesDiscovered,
-                                            DiscoveryHistory modal) {
+                                                 DiscoveryHistory modal) {
         List<Certificate> allCerts = new ArrayList<>();
         if (certificatesDiscovered.isEmpty()) {
             logger.warn("No certificates were given by the provider for the discovery");
@@ -293,20 +322,21 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
 
         for (DiscoveryProviderCertificateDataDto certificate : certificatesDiscovered) {
-        	try {
-            X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getBase64Content());
-            Certificate entry = certificateService.createCertificateEntity(x509Cert);
-            updateMeta(entry, certificate, modal);
-            allCerts.add(entry);
-            createDiscoveryCertificate(entry, modal);
-            Map<String, Object> additionalInfo = new HashMap<>();
-            additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
-            additionalInfo.put("Discovery Kind", modal.getKind());
-            additionalInfo.putAll(certificate.getMeta());
+            try {
+                X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getBase64Content());
+                Certificate entry = certificateService.createCertificateEntity(x509Cert);
+                updateMeta(entry, certificate, modal);
+                allCerts.add(entry);
+                createDiscoveryCertificate(entry, modal);
+                Map<String, Object> additionalInfo = new HashMap<>();
+                additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
+                additionalInfo.put("Discovery Kind", modal.getKind());
+                additionalInfo.putAll(certificate.getMeta());
                 certificateEventHistoryService.addEventHistory(CertificateEvent.DISCOVERY, CertificateEventStatus.SUCCESS, "Discovered from Connector: " + modal.getConnectorName(), MetaDefinitions.serialize(additionalInfo), entry);
-        	}catch(Exception e) {
-        		logger.error("Unable to create certificate for " + modal.toString());
-        	}
+            } catch (Exception e) {
+                logger.error(e.getMessage());
+                logger.error("Unable to create certificate for " + modal.toString());
+            }
         }
         return allCerts;
     }
@@ -326,7 +356,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private void updateMeta(Certificate modal, DiscoveryProviderCertificateDataDto certificate, DiscoveryHistory history) {
         Map<String, Object> meta = new HashMap<>();
         if (certificate.getMeta() != null) {
-        	meta = certificate.getMeta();
+            meta = certificate.getMeta();
         }
         try {
             for (Map.Entry<String, Object> entry : MetaDefinitions.deserialize(modal.getMeta()).entrySet()) {

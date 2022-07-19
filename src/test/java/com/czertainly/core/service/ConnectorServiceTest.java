@@ -6,9 +6,9 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
-import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.HealthStatus;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -242,7 +242,7 @@ public class ConnectorServiceTest {
 
         connectorService.approve(waitingConnector.getUuid());
 
-        Assertions.assertEquals(ConnectorStatus.REGISTERED, waitingConnector.getStatus());
+        Assertions.assertEquals(ConnectorStatus.CONNECTED, waitingConnector.getStatus());
     }
 
     @Test

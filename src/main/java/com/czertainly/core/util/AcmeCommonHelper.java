@@ -14,7 +14,11 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.Base64;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Class contains the common operations and helper functions to process the acme request
@@ -23,14 +27,14 @@ public class AcmeCommonHelper {
 
     private static final Integer COMMON_EXPIRES_IN_SECONDS = 10 * 60 * 60;
 
-    public static Date getDefaultExpires(){
+    public static Date getDefaultExpires() {
         return new Date(new Date().getTime() + COMMON_EXPIRES_IN_SECONDS);
     }
 
     public static String keyAuthorizationGenerator(String token, String publicKey) throws NoSuchAlgorithmException {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hash = digest.digest(publicKey.getBytes(StandardCharsets.UTF_8));
-        return token + "." + Base64.getEncoder().encodeToString(hash).replace("=","");
+        return token + "." + Base64.getEncoder().encodeToString(hash).replace("=", "");
     }
 
     public static String createKeyAuthorization(String token, PublicKey publicKey) throws IllegalArgumentException {
@@ -43,25 +47,16 @@ public class AcmeCommonHelper {
 
     public static JWK getJwkFromPublicKey(PublicKey publicKey) throws IllegalArgumentException {
         if (publicKey instanceof ECPublicKey) {
-            return (new ECKey.Builder(Curve.P_256, (ECPublicKey)publicKey)).build();
+            return (new ECKey.Builder(Curve.P_256, (ECPublicKey) publicKey)).build();
         } else if (publicKey instanceof RSAPublicKey) {
-            return (new com.nimbusds.jose.jwk.RSAKey.Builder((RSAPublicKey)publicKey)).build();
+            return (new com.nimbusds.jose.jwk.RSAKey.Builder((RSAPublicKey) publicKey)).build();
         } else {
             throw new IllegalArgumentException("Unsupported public key type.");
         }
     }
 
-    private Map<String, Object> generateJWK(PublicKey publicKey){
-        RSAPublicKey rsa = (RSAPublicKey) publicKey;
-        Map<String, Object> values = new HashMap<>();
-        values.put("kty", rsa.getAlgorithm()); // getAlgorithm() returns kty not algorithm
-        values.put("n",Base64.getUrlEncoder().encodeToString(rsa.getModulus().toByteArray()));
-        values.put("e",Base64.getUrlEncoder().encodeToString(rsa.getPublicExponent().toByteArray()));
-        return values;
-    }
-
-    public static String getStringFromDate(Date date){
-        if(date == null){
+    public static String getStringFromDate(Date date) {
+        if (date == null) {
             return null;
         }
         DateTimeFormatter formatter = DateTimeFormatter
@@ -70,8 +65,8 @@ public class AcmeCommonHelper {
         return formatter.format(date.toInstant());
     }
 
-    public static Date getDateFromString(String date){
-        if(date == null || date.isEmpty()){
+    public static Date getDateFromString(String date) {
+        if (date == null || date.isEmpty()) {
             return null;
         }
         DateTimeFormatter formatter = DateTimeFormatter
@@ -85,5 +80,14 @@ public class AcmeCommonHelper {
         calendar.setTime(date);
         calendar.add(Calendar.SECOND, seconds);
         return calendar.getTime();
+    }
+
+    private Map<String, Object> generateJWK(PublicKey publicKey) {
+        RSAPublicKey rsa = (RSAPublicKey) publicKey;
+        Map<String, Object> values = new HashMap<>();
+        values.put("kty", rsa.getAlgorithm()); // getAlgorithm() returns kty not algorithm
+        values.put("n", Base64.getUrlEncoder().encodeToString(rsa.getModulus().toByteArray()));
+        values.put("e", Base64.getUrlEncoder().encodeToString(rsa.getPublicExponent().toByteArray()));
+        return values;
     }
 }

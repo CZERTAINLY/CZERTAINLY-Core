@@ -10,8 +10,9 @@ import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
-import com.czertainly.api.model.common.AttributeDefinition;
-import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.client.raprofile.RaProfileComplianceCheckDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
@@ -25,6 +26,7 @@ import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -32,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
@@ -60,6 +63,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
     private ExtendedAttributeService extendedAttributeService;
+    @Autowired
+    private ComplianceService complianceService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -77,7 +82,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CREATE)
-    public RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException {
+    public RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException {
         if (StringUtils.isBlank(dto.getName())) {
             throw new ValidationException("RA profile name must not be empty");
         }
@@ -108,7 +113,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CHANGE)
-    public RaProfileDto editRaProfile(String uuid, EditRaProfileRequestDto dto) throws NotFoundException, ConnectorException {
+    public RaProfileDto editRaProfile(String uuid, EditRaProfileRequestDto dto) throws ConnectorException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
 
@@ -146,11 +151,11 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
         List<AcmeProfile> acmeProfiles = acmeProfileRepository.findByRaProfile(raProfile);
-        for(AcmeProfile acmeProfile: acmeProfiles){
+        for (AcmeProfile acmeProfile : acmeProfiles) {
             acmeProfile.setRaProfile(null);
             acmeProfileRepository.save(acmeProfile);
         }
-        for(Certificate certificate: certificateRepository.findByRaProfile(raProfile)){
+        for (Certificate certificate : certificateRepository.findByRaProfile(raProfile)) {
             certificate.setRaProfile(null);
             certificateRepository.save(certificate);
         }
@@ -164,7 +169,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
         List<SimplifiedClientDto> clients = new ArrayList<>();
-        for(Client client : raProfile.getClients()){
+        for (Client client : raProfile.getClients()) {
             SimplifiedClientDto dto = new SimplifiedClientDto();
             dto.setUuid(client.getUuid());
             dto.setName(client.getName());
@@ -202,7 +207,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
                 List<AcmeProfile> acmeProfiles = acmeProfileRepository.findByRaProfile(raProfile);
-                for(AcmeProfile acmeProfile: acmeProfiles){
+                for (AcmeProfile acmeProfile : acmeProfiles) {
                     acmeProfile.setRaProfile(null);
                     acmeProfileRepository.save(acmeProfile);
                 }
@@ -212,7 +217,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 }
 
                 raProfileRepository.delete(raProfile);
-            } catch (NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to find RA Profile with uuid {}. It may have already been deleted", uuid);
             }
         }
@@ -228,7 +233,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
                 entity.setEnabled(false);
                 raProfileRepository.save(entity);
-            }catch (NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to disable RA Profile with uuid {}. It may have been deleted", uuid);
             }
         }
@@ -267,8 +272,8 @@ public class RaProfileServiceImpl implements RaProfileService {
                         )));
         raProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(
                 extendedAttributeService.mergeAndValidateRevokeAttributes(
-                        raProfile, request.getIssueCertificateAttributes()
-                        )));
+                        raProfile, request.getRevokeCertificateAttributes()
+                )));
         raProfileRepository.save(raProfile);
         return raProfile.mapToAcmeDto();
     }
@@ -283,18 +288,37 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
-    public List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
+    public List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         return extendedAttributeService.listRevokeCertificateAttributes(raProfile);
     }
 
     @Override
-    public List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
+    public List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         return extendedAttributeService.listIssueCertificateAttributes(raProfile);
     }
 
-    private RaProfile getRaProfileEntity(String uuid) throws NotFoundException {
+    @Override
+    public RaProfile updateRaProfileEntity(RaProfile raProfile) {
+        raProfileRepository.save(raProfile);
+        return raProfile;
+    }
+
+    @Override
+    @Async
+    public void checkCompliance(RaProfileComplianceCheckDto request) {
+        for (String uuid : request.getRaProfileUuids()) {
+            logger.info("Checking compliance for RA Profile: {}", uuid);
+            try {
+                complianceService.complianceCheckForRaProfile(uuid);
+            } catch (Exception e) {
+                logger.error("Compliance check failed.", e);
+            }
+        }
+    }
+
+    public RaProfile getRaProfileEntity(String uuid) throws NotFoundException {
         return raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
     }
@@ -315,7 +339,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         entity.setDescription(dto.getDescription());
         entity.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         entity.setAuthorityInstanceReference(authorityInstanceRef);
-        if(dto.isEnabled() != null) {
+        if (dto.isEnabled() != null) {
             entity.setEnabled(dto.isEnabled() != null && dto.isEnabled());
         }
         entity.setAuthorityInstanceName(authorityInstanceRef.getName());

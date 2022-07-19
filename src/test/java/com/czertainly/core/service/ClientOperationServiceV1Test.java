@@ -8,8 +8,19 @@ import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
 import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.core.dao.entity.AuthorityInstanceReference;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.Client;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ClientRepository;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -30,6 +41,8 @@ import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 @SpringBootTest
 @Transactional
@@ -75,6 +88,7 @@ public class ClientOperationServiceV1Test {
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         authorityInstanceReference = new AuthorityInstanceReference();
@@ -87,8 +101,13 @@ public class ClientOperationServiceV1Test {
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile.setEnabled(true);
 
+        Map<String, Object> contentMap = new HashMap<>();
+        contentMap.put("value", 1);
+        contentMap.put("data", new NameAndIdDto(1, "profile"));
+
+
         raProfile.setAttributes(AttributeDefinitionUtils.serialize(
-                AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("endEntityProfile", new NameAndIdDto(1, "profile")))
+                AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("endEntityProfile", contentMap))
         ));
 
         raProfile = raProfileRepository.save(raProfile);

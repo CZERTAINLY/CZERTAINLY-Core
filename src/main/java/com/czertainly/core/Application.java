@@ -9,13 +9,13 @@ import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.lang.NonNull;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.task.DelegatingSecurityContextAsyncTaskExecutor;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
-import javax.annotation.Nonnull;
 import java.util.Map;
 
 @SpringBootApplication
@@ -37,9 +37,9 @@ public class Application extends SpringBootServletInitializer {
     }
 
 	static class ContextCopyingDecorator implements TaskDecorator {
-		@Nonnull
+		@NonNull
 		@Override
-		public Runnable decorate(@Nonnull Runnable runnable) {
+		public Runnable decorate(@NonNull Runnable runnable) {
 			RequestAttributes context =
 					RequestContextHolder.currentRequestAttributes();
 			Map<String, String> contextMap = MDC.getCopyOfContextMap();
@@ -62,7 +62,7 @@ public class Application extends SpringBootServletInitializer {
 		executor.setCorePoolSize(POOL_SIZE);
 		executor.setMaxPoolSize(POOL_SIZE);
 		executor.setQueueCapacity(QUEUE_SIZE);
-		executor.setThreadNamePrefix("RAProfileCore-");
+		executor.setThreadNamePrefix("CZERTAINLYCore-");
 		executor.initialize();
 		return new DelegatingSecurityContextAsyncTaskExecutor(executor);
 	}

@@ -2,14 +2,28 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.CertificateApiClient;
 import com.czertainly.api.clients.EndEntityApiClient;
-import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.authority.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
+import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
+import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDto;
+import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
+import com.czertainly.api.model.client.authority.ClientEndEntityDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
-import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.authority.*;
+import com.czertainly.api.model.core.authority.AddEndEntityRequestDto;
+import com.czertainly.api.model.core.authority.CertRevocationDto;
+import com.czertainly.api.model.core.authority.CertificateSignRequestDto;
+import com.czertainly.api.model.core.authority.CertificateSignResponseDto;
+import com.czertainly.api.model.core.authority.EditEndEntityRequestDto;
+import com.czertainly.api.model.core.authority.EndEntityDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -50,7 +64,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
-    public ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws NotFoundException, AlreadyExistException, CertificateException, ConnectorException {
+    public ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -76,7 +90,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
         }
 
@@ -87,7 +101,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
-    public void revokeCertificate(String raProfileName, ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
+    public void revokeCertificate(String raProfileName, ClientCertificateRevocationDto request) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -108,7 +122,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
-    public List<ClientEndEntityDto> listEntities(String raProfileName) throws NotFoundException, ConnectorException {
+    public List<ClientEndEntityDto> listEntities(String raProfileName) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -119,13 +133,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 getEndEntityProfileName(raProfile));
 
         return endEntities == null ? null : endEntities.stream()
-                .map(e -> mapEndEntity(e))
+                .map(this::mapEndEntity)
                 .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CREATE)
-    public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws NotFoundException, ConnectorException {
+    public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -148,7 +162,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
-    public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws NotFoundException, ConnectorException {
+    public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -164,7 +178,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CHANGE)
-    public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws NotFoundException, ConnectorException {
+    public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -187,7 +201,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.DELETE)
-    public void revokeAndDeleteEndEntity(String raProfileName, String username) throws NotFoundException, ConnectorException {
+    public void revokeAndDeleteEndEntity(String raProfileName, String username) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -201,7 +215,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ACCESS, operation = OperationType.RESET)
-    public void resetPassword(String raProfileName, String username) throws NotFoundException, ConnectorException {
+    public void resetPassword(String raProfileName, String username) throws ConnectorException {
         ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
@@ -221,7 +235,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
 
         try {
-            NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdValue("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attributes));
+            NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdData("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attributes));
             return endEntityProfile.getName();
         } catch (Exception e) {
             throw new ValidationException(ValidationError.create("EndEntityProfile could not be retrieved from attributes. {}", e.getMessage()));

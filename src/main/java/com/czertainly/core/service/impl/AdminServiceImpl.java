@@ -13,7 +13,6 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Admin;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.AdminRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.service.AdminService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.util.CertificateUtil;
@@ -39,8 +38,6 @@ public class AdminServiceImpl implements AdminService {
 
     @Autowired
     private AdminRepository adminRepository;
-    @Autowired
-    private CertificateRepository certificateRepository;
     @Autowired
     private CertificateService certificateService;
 
@@ -74,15 +71,15 @@ public class AdminServiceImpl implements AdminService {
         if (adminRepository.existsByUsername(request.getUsername())) {
             throw new AlreadyExistException(Admin.class, request.getUsername());
         }
-        
+
         String serialNumber;
-        
-        if (!StringUtils.isAnyBlank(request.getAdminCertificate())) { 
-        	X509Certificate certificate = CertificateUtil.getX509Certificate(request.getAdminCertificate());
-        	serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
+
+        if (!StringUtils.isAnyBlank(request.getAdminCertificate())) {
+            X509Certificate certificate = CertificateUtil.getX509Certificate(request.getAdminCertificate());
+            serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
         } else {
-        	Certificate certificate = certificateService.getCertificateEntity(request.getCertificateUuid());
-        	serialNumber = certificate.getSerialNumber();
+            Certificate certificate = certificateService.getCertificateEntity(request.getCertificateUuid());
+            serialNumber = certificate.getSerialNumber();
         }
 
         if (adminRepository.findBySerialNumber(serialNumber).isPresent()) {
@@ -183,13 +180,12 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DELETE)
     public void bulkRemoveAdmin(List<String> adminUuids) {
-        for(String uuid: adminUuids){
-            try{
+        for (String uuid : adminUuids) {
+            try {
                 Admin admin = adminRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
                 adminRepository.delete(admin);
-            }
-            catch (NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to delete the admin with id {}", uuid);
             }
         }
@@ -198,14 +194,14 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DISABLE)
     public void bulkDisableAdmin(List<String> adminUuids) {
-        for(String uuid: adminUuids){
-            try{
+        for (String uuid : adminUuids) {
+            try {
                 Admin admin = adminRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
 
                 admin.setEnabled(false);
                 adminRepository.save(admin);
-            }catch(NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to disable admin with id {}", uuid);
             }
         }
@@ -214,14 +210,14 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.ENABLE)
     public void bulkEnableAdmin(List<String> adminUuids) {
-        for(String uuid: adminUuids){
-            try{
+        for (String uuid : adminUuids) {
+            try {
                 Admin admin = adminRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
 
                 admin.setEnabled(true);
                 adminRepository.save(admin);
-            }catch(NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to enable admin with id {}", uuid);
             }
         }
@@ -229,20 +225,22 @@ public class AdminServiceImpl implements AdminService {
 
     private Admin createAdmin(AddAdminRequestDto requestDTO) throws CertificateException, AlreadyExistException, NotFoundException {
         Admin model = new Admin();
-        
+
         Certificate certificate;
         if (StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
-        	certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
-        	model.setCertificate(certificate);
+            certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
         } else {
-        	X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getAdminCertificate());
-        	if (certificateRepository.findBySerialNumberIgnoreCase(x509Cert.getSerialNumber().toString(16)).isPresent()) {
+            X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getAdminCertificate());
+            try {
+                certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
                 throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
+            } catch (NotFoundException e) {
+                logger.debug("New Certificate uploaded for admin");
             }
-        	certificate = certificateService.createCertificateEntity(x509Cert);
-        	certificateRepository.save(certificate);
-        	model.setCertificate(certificate);
+            certificate = certificateService.createCertificateEntity(x509Cert);
+            certificateService.updateCertificateEntity(certificate);
         }
+        model.setCertificate(certificate);
         model.setUsername(requestDTO.getUsername());
         model.setName(requestDTO.getName());
         model.setDescription(requestDTO.getDescription());
@@ -255,26 +253,28 @@ public class AdminServiceImpl implements AdminService {
     }
 
     private Admin updateAdmin(Admin admin, EditAdminRequestDto dto) throws CertificateException, NotFoundException, AlreadyExistException {
-    	
-    	Certificate certificate;
-        if((dto.getAdminCertificate() != null && !dto.getAdminCertificate().isEmpty()) || (dto.getCertificateUuid() != null && !dto.getCertificateUuid().isEmpty())) {
+
+        Certificate certificate;
+        if ((dto.getAdminCertificate() != null && !dto.getAdminCertificate().isEmpty()) || (dto.getCertificateUuid() != null && !dto.getCertificateUuid().isEmpty())) {
             if (!dto.getCertificateUuid().isEmpty()) {
                 certificate = certificateService.getCertificateEntity(dto.getCertificateUuid());
-                admin.setCertificate(certificate);
 
             } else {
                 X509Certificate x509Cert = CertificateUtil.parseCertificate(dto.getAdminCertificate());
-                if (certificateRepository.findBySerialNumberIgnoreCase(x509Cert.getSerialNumber().toString(16)).isPresent()) {
+                try {
+                    certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
                     throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
+                } catch (NotFoundException e) {
+                    logger.debug("New Certificate uploaded for admin");
                 }
 
                 certificate = certificateService.createCertificateEntity(x509Cert);
-                certificateRepository.save(certificate);
-                admin.setCertificate(certificate);
+                certificateService.updateCertificateEntity(certificate);
             }
+            admin.setCertificate(certificate);
             admin.setSerialNumber(certificate.getSerialNumber());
         }
-        
+
         admin.setName(dto.getName());
         admin.setDescription(dto.getDescription());
         if (dto.getRole() != null) {
@@ -282,7 +282,7 @@ public class AdminServiceImpl implements AdminService {
         }
         admin.setEmail(dto.getEmail());
         admin.setSurname(dto.getSurname());
-        
+
         return admin;
     }
 }

@@ -9,7 +9,7 @@ import java.util.Base64;
 
 public class AcmePublicKeyProcessor {
 
-    public static String publicKeyPemStringFromObject(PublicKey publicKey){
+    public static String publicKeyPemStringFromObject(PublicKey publicKey) {
         byte[] pubKeyBytes = publicKey.getEncoded();
         String pubKeyString = Base64.getEncoder().encodeToString(pubKeyBytes);
         return pubKeyString;

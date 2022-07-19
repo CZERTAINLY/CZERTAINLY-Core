@@ -1,16 +1,28 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.common.AttributeDefinition;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.entity.AuthorityInstanceReference;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.Client;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ClientRepository;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -97,6 +109,7 @@ public class ClientOperationServiceV2Test {
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         authorityInstanceReference = new AuthorityInstanceReference();
@@ -210,7 +223,7 @@ public class ClientOperationServiceV2Test {
     }
 
     @Test
-    public void testRenewCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
+    public void testRenewCertificate() throws ConnectorException, CertificateException, AlreadyExistException, CertificateOperationException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
@@ -218,12 +231,12 @@ public class ClientOperationServiceV2Test {
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        clientOperationService.renewCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request);
+        clientOperationService.renewCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request, false);
     }
 
     @Test
     public void testRenewCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate("wrong-name", null, null));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate("wrong-name", null, null, false));
     }
 
     @Test

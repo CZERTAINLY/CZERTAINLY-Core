@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Service;
 import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,15 +39,13 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
 
     private static final Logger logger = LoggerFactory.getLogger(AcmeProfileServiceImpl.class);
-
+    private static final String NONE_CONSTANT = "NONE";
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
     private RaProfileRepository raProfileRepository;
     @Autowired
     private ExtendedAttributeService extendedAttributeService;
-
-    private static final String NONE_CONSTANT = "NONE";
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
@@ -64,8 +64,14 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CREATE)
     public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
-        if(request.getName() == null || request.getName().isEmpty()){
-            throw new ValidationException("Name cannot be empty");
+        if (request.getName() == null || request.getName().isEmpty()) {
+            throw new ValidationException(ValidationError.create("Name cannot be empty"));
+        }
+        if (request.getValidity() != null && request.getValidity() < 0) {
+            throw new ValidationException(ValidationError.create("Order Validity cannot be less than 0"));
+        }
+        if (request.getRetryInterval() != null && request.getRetryInterval() < 0) {
+            throw new ValidationException(ValidationError.create("Retry Interval cannot be less than 0"));
         }
         logger.info("Creating a new ACME Profile");
 
@@ -79,15 +85,15 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setDescription(request.getDescription());
         acmeProfile.setDnsResolverIp(request.getDnsResolverIp());
         acmeProfile.setDnsResolverPort(request.getDnsResolverPort());
-        acmeProfile.setRetryInterval(request.getRetryInterval());
-        acmeProfile.setValidity(request.getValidity());
+        acmeProfile.setRetryInterval(Optional.ofNullable(request.getRetryInterval()).orElse(36000));
+        acmeProfile.setValidity(Optional.ofNullable(request.getValidity()).orElse(30));
         acmeProfile.setWebsite(request.getWebsiteUrl());
         acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
         acmeProfile.setRequireContact(request.isRequireContact());
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setDisableNewOrders(false);
 
-        if(request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)){
+        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)) {
             RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
             acmeProfile.setRaProfile(raProfile);
             acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
@@ -101,52 +107,56 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
     public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        if(request.isRequireContact() != null){
+        if (request.isRequireContact() != null) {
             acmeProfile.setRequireContact(request.isRequireContact());
         }
-        if(request.isRequireTermsOfService() != null){
+        if (request.isRequireTermsOfService() != null) {
             acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         }
-        if(request.isTermsOfServiceChangeDisable() != null){
+        if (request.isTermsOfServiceChangeDisable() != null) {
             acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
-        if(request.getRaProfileUuid() != null){
-            if(request.getRaProfileUuid().equals(NONE_CONSTANT)){
+        if (request.getRaProfileUuid() != null) {
+            if (request.getRaProfileUuid().equals(NONE_CONSTANT)) {
                 acmeProfile.setRaProfile(null);
-            }else {
-                if(acmeProfile.getRaProfile() == null || !request.getRaProfileUuid().equals(acmeProfile.getRaProfile().getUuid())) {
-                    RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
-                    acmeProfile.setRaProfile(raProfile);
-                    acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-                    acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
-                }
+            } else {
+                RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
+                acmeProfile.setRaProfile(raProfile);
+                acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
+                acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
             }
         }
-        if(request.getDescription() != null){
+        if (request.getDescription() != null) {
             acmeProfile.setDescription(request.getDescription());
         }
-        if(request.getDnsResolverIp() != null){
+        if (request.getDnsResolverIp() != null) {
             acmeProfile.setDnsResolverIp(request.getDnsResolverIp());
         }
-        if(request.getDnsResolverPort() != null){
+        if (request.getDnsResolverPort() != null) {
             acmeProfile.setDnsResolverPort(request.getDnsResolverPort());
         }
-        if(request.getRetryInterval() != null){
+        if (request.getRetryInterval() != null) {
+            if (request.getRetryInterval() < 0) {
+                throw new ValidationException(ValidationError.create("Retry Interval cannot be less than 0"));
+            }
             acmeProfile.setRetryInterval(request.getRetryInterval());
         }
-        if(request.getValidity() != null){
+        if (request.getValidity() != null) {
+            if (request.getValidity() < 0) {
+                throw new ValidationException(ValidationError.create("Order Validity cannot be less than 0"));
+            }
             acmeProfile.setValidity(request.getValidity());
         }
-        if(request.getTermsOfServiceUrl() != null){
+        if (request.getTermsOfServiceUrl() != null) {
             acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
         }
-        if(request.getWebsiteUrl() != null){
+        if (request.getWebsiteUrl() != null) {
             acmeProfile.setWebsite(request.getWebsiteUrl());
         }
-        if(request.isTermsOfServiceChangeDisable() != null){
+        if (request.isTermsOfServiceChangeDisable() != null) {
             acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
-        if(request.getTermsOfServiceChangeUrl() != null){
+        if (request.getTermsOfServiceChangeUrl() != null) {
             acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
         }
         acmeProfileRepository.save(acmeProfile);
@@ -159,7 +169,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         List<ForceDeleteMessageDto> messages = new ArrayList<>();
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
-        if(!raProfiles.isEmpty()){
+        if (!raProfiles.isEmpty()) {
             List<String> errors = new ArrayList<>();
             errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
             raProfiles.stream().forEach(c -> errors.add(c.getName()));
@@ -168,7 +178,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             forceModal.setName(acmeProfile.getName());
             forceModal.setMessage(String.join(", ", errors));
             messages.add(forceModal);
-        }else {
+        } else {
             acmeProfileRepository.delete(acmeProfile);
         }
         return messages;
@@ -239,7 +249,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
                 List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
-                if(!raProfiles.isEmpty()){
+                if (!raProfiles.isEmpty()) {
                     List<String> errors = new ArrayList<>();
                     errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
                     raProfiles.stream().forEach(c -> errors.add(c.getName()));
@@ -248,7 +258,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
                     forceModal.setName(acmeProfile.getName());
                     forceModal.setMessage(String.join(",", errors));
                     messages.add(forceModal);
-                }else {
+                } else {
                     deletableAcmeProfiles.add(acmeProfile);
                 }
             } catch (NotFoundException e) {
@@ -274,7 +284,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
                 List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
-                for(RaProfile raProfile: raProfiles){
+                for (RaProfile raProfile : raProfiles) {
                     raProfile.setAcmeProfile(null);
                     raProfileRepository.save(raProfile);
                 }
