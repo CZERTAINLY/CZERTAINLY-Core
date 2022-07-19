@@ -10,16 +10,18 @@ There are 2 types of communication that the `Core` is responsible for:
 
 `Core` is performing consistent operation on top of the certificates. The management of certificates is abstracted through CZERTAINLY objects, for example:
 
-| Object | Short description |
-| ---------------- | ----------- |
-| `Connector` | Provides with the functionality for specific technologies (defined by `Function Group` and supported `Kinds`) |
-| `Credential` | `Credential` of various types to be used by `Connectors` and other objects |
-| `Authority` | Representing certification authority access |
-| `RA profile` | Configuration of the service for certificate lifecycle management (abstraction of `Attributes` for specific certificate type, including available APIs) |
-| `Discovery` | Schedule discovery process for searching of certificates in various sources |
-| `Certificate` | `Certificate` consisting of `Attributes` and related metadata |
-| `Entity` | Represents the entity that is going to use the certificates |
-| `Group` | Grouping of different certificates based on different requirements |
+| Object               | Short description                                                                                                                                      |
+|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Connector`          | Provides with the functionality for specific technologies (defined by `Function Group` and supported `Kinds`)                                          |
+| `Credential`         | `Credential` of various types to be used by `Connectors` and other objects                                                                             |
+| `Authority`          | Representing certification authority access                                                                                                            |
+| `RA Profile`         | Configuration of the service for certificate lifecycle management (abstraction of `Attributes` for specific certificate type, including available APIs) |
+| `Discovery`          | Schedule discovery process for searching of certificates in various sources                                                                            |
+| `Certificate`        | `Certificate` consisting of `Attributes` and related metadata                                                                                          |
+| `Entity`             | Represents the entity that is can use the certificates                                                                                                 |
+| `Location`           | Location on the `Entity` where is certificate stored                                                                                                   |
+| `Group`              | Grouping of different certificates based on different requirements                                                                                     |
+| `Compliance Profile` | Matching rules for the certificate to assess compliance                                                                                                | 
 
 ## RA profile
 
@@ -62,7 +64,7 @@ Operations can be automated by the `Core`, but also can be performed manually by
 `Certificate` has relations to other objects that helps with the management and automation of the `Certificate` lifecycle:
 
 ```
-Entity------------\
+Location----------\
                    \
 Group--------------\\
                     certificate-------RA profile

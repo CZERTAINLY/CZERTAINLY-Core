@@ -3,15 +3,15 @@ changelog:
     labels:
       - ignore-for-release
   categories:
-    - title: New features
+    - title: New Features 🦾
       labels:
         - new-feature
-    - title: Enhancements
+    - title: Enhancements 🛠
       labels:
         - enhancement
-    - title: Bug fixes
+    - title: Bug Fixes 🔩
       labels:
         - bug
-    - title: Other
+    - title: Other 🗄
       labels:
         - "*"
