@@ -292,7 +292,7 @@ public class CredentialServiceImpl implements CredentialService {
     private CredentialDto maskSecret(CredentialDto credentialDto){
         for(ResponseAttributeDto responseAttributeDto: credentialDto.getAttributes()){
             if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setContent(new BaseAttributeContent<String>(){{setValue(null);}});
+                responseAttributeDto.setContent(new BaseAttributeContent<String>(null));
             }
         }
         return credentialDto;
