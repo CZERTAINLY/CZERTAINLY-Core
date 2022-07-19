@@ -3,7 +3,12 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.authority.*;
+import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
+import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
+import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDto;
+import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
+import com.czertainly.api.model.client.authority.ClientEndEntityDto;
 
 import java.security.cert.CertificateException;
 import java.util.List;

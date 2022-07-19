@@ -29,7 +29,6 @@ public class StatisticsServiceTest {
         Assertions.assertNotNull(result);
         Assertions.assertEquals(0l, result.getTotalCertificates());
         Assertions.assertEquals(0l, result.getTotalGroups());
-        Assertions.assertEquals(0l, result.getTotalEntities());
     }
 
     @Test
@@ -40,6 +39,5 @@ public class StatisticsServiceTest {
         Assertions.assertNotNull(result);
         Assertions.assertEquals(0l, result.getTotalCertificates());
         Assertions.assertEquals(1l, result.getTotalGroups());
-        Assertions.assertEquals(0l, result.getTotalEntities());
     }
 }

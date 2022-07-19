@@ -2,7 +2,10 @@ package com.czertainly.core.dao.repository;
 
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,7 +14,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
-import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -32,7 +34,6 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long>,
 
     List<Certificate> findByRaProfile(RaProfile raProfile);
     List<Certificate> findByGroup(CertificateGroup group);
-    List<Certificate> findByEntity(CertificateEntity entity);
 
     @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
     List<String> findDistinctSignatureAlgorithm();
@@ -67,12 +68,6 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long>,
 
     @Query("SELECT g.id, g.name FROM CertificateGroup g WHERE g.id IN ?1")
     List<Object[]> getGroupNamesWithIds(List<Long> ids);
-
-    @Query(value = "SELECT c.entityId, COUNT(c.entityId) FROM Certificate AS c WHERE c.entityId IS NOT NULL GROUP BY c.entityId")
-    List<Object[]> getCertificatesCountByEntity();
-
-    @Query("SELECT e.id, e.name FROM CertificateEntity e WHERE e.id IN ?1")
-    List<Object[]> getEntityNamesWithIds(List<Long> ids);
 
     @Query(value = "SELECT c.raProfileId, COUNT(c.raProfileId) FROM Certificate AS c WHERE c.raProfileId IS NOT NULL GROUP BY c.raProfileId")
     List<Object[]> getCertificatesCountByRaProfile();

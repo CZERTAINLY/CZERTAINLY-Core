@@ -7,7 +7,11 @@ import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
-import com.czertainly.api.model.core.connector.*;
+import com.czertainly.api.model.core.connector.AuthType;
+import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.FunctionGroup;
@@ -94,6 +98,7 @@ public class ConnectorServiceComplexTest {
         Connector connector = new Connector();
         connector.setName("testConnector");
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         ConnectorDto dto = connectorService.getConnector(connector.getUuid());
@@ -190,6 +195,7 @@ public class ConnectorServiceComplexTest {
 
         Connector connector = new Connector();
         connector.setName("testConnector");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         addFunctionGroupToConnector(caFunctionGroup, Collections.singletonList(kindName), connector);

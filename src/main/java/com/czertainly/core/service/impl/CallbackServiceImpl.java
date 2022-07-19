@@ -5,9 +5,9 @@ import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.AttributeCallback;
-import com.czertainly.api.model.common.AttributeDefinition;
-import com.czertainly.api.model.common.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.AttributeCallback;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -20,8 +20,6 @@ import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CoreCallbackService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
@@ -33,7 +31,6 @@ import java.util.List;
 @Transactional
 @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class CallbackServiceImpl implements CallbackService {
-    private static final Logger logger = LoggerFactory.getLogger(CallbackServiceImpl.class);
 
     @Autowired
     private ConnectorService connectorService;
@@ -51,7 +48,7 @@ public class CallbackServiceImpl implements CallbackService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
-    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException {
+    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
         Connector connector = connectorService.getConnectorEntity(uuid);
         List<AttributeDefinition> definitions;
         definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
@@ -71,7 +68,7 @@ public class CallbackServiceImpl implements CallbackService {
     @Override
     @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT"})
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
-    public Object raProfileCallback(String authorityUuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException {
+    public Object raProfileCallback(String authorityUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
         List<AttributeDefinition> definitions;
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(authorityUuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
@@ -90,8 +87,8 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     private AttributeDefinition getAttributeByName(String name, List<AttributeDefinition> attributes) throws NotFoundException {
-        for(AttributeDefinition attributeDefinition: attributes){
-            if(attributeDefinition.getName().equals(name)){
+        for (AttributeDefinition attributeDefinition : attributes) {
+            if (attributeDefinition.getName().equals(name)) {
                 return attributeDefinition;
             }
         }

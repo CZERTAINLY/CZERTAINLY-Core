@@ -5,12 +5,17 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.acme.AcmeController;
-import com.czertainly.api.model.core.acme.*;
+import com.czertainly.api.model.core.acme.Account;
+import com.czertainly.api.model.core.acme.Authorization;
+import com.czertainly.api.model.core.acme.Challenge;
+import com.czertainly.api.model.core.acme.Directory;
+import com.czertainly.api.model.core.acme.Order;
 import com.czertainly.core.service.acme.AcmeService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@Secured({"ROLE_ACME"})
 public class AcmeControllerImpl implements AcmeController {
 
     @ModelAttribute
@@ -110,7 +116,7 @@ public class AcmeControllerImpl implements AcmeController {
     }
 
     @Override
-    public ResponseEntity<Order> finalize(String acmeProfileName, String orderId, String jwsBody) throws
+    public ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String jwsBody) throws
             AcmeProblemDocumentException, ConnectorException, JsonProcessingException, CertificateException, AlreadyExistException {
         return acmeService.finalizeOrder(acmeProfileName, orderId, jwsBody);
     }

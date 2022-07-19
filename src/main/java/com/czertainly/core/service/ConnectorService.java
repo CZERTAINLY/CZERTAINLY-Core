@@ -4,10 +4,14 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.connector.*;
-import com.czertainly.api.model.common.AttributeDefinition;
+import com.czertainly.api.model.client.connector.ConnectDto;
+import com.czertainly.api.model.client.connector.ConnectRequestDto;
+import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
+import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.common.HealthDto;
-import com.czertainly.api.model.common.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.BaseFunctionGroupDto;
@@ -27,6 +31,8 @@ public interface ConnectorService {
     Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAllAttributesOfConnector(String uuid) throws NotFoundException, ConnectorException;
 
     List<ConnectorDto> listConnectorsByFunctionGroup(FunctionGroupCode functionGroup);
+
+    List<Connector> listConnectorEntityByFunctionGroup(FunctionGroupCode functionGroup);
 
     List<ConnectorDto> listConnectors(FunctionGroupCode functionGroup, String kind) throws NotFoundException;
 

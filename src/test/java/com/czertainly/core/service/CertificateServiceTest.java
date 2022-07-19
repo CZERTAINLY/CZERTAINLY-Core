@@ -2,13 +2,24 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.certificate.CertificateResponseDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateGroupDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
+import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.GroupRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -45,14 +56,11 @@ public class CertificateServiceTest {
     private RaProfileRepository raProfileRepository;
     @Autowired
     private GroupRepository groupRepository;
-    @Autowired
-    private EntityRepository entityRepository;
 
     private Certificate certificate;
     private CertificateContent certificateContent;
     private RaProfile raProfile;
     private CertificateGroup certificateGroup;
-    private CertificateEntity certificateEntity;
 
     private X509Certificate x509Cert;
 
@@ -73,9 +81,6 @@ public class CertificateServiceTest {
 
         certificateGroup = new CertificateGroup();
         certificateGroup = groupRepository.save(certificateGroup);
-
-        certificateEntity = new CertificateEntity();
-        certificateEntity = entityRepository.save(certificateEntity);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
@@ -217,29 +222,6 @@ public class CertificateServiceTest {
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateGroup(certificate.getUuid(), uuidDto));
     }
 
-    @Test
-    public void testUpdateCertificateEntity() throws NotFoundException {
-        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
-        uuidDto.setEntityUuid(certificateEntity.getUuid());
-
-        certificateService.updateEntity(certificate.getUuid(), uuidDto);
-
-        Assertions.assertEquals(certificateEntity, certificate.getEntity());
-    }
-
-    @Test
-    public void testUpdateCertificateEntity_certificateNotFound() {
-        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
-        uuidDto.setEntityUuid(certificateEntity.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateEntity("wrong-uuid", uuidDto));
-    }
-
-    @Test
-    public void testUpdateCertificateEntity_entityNotFound() {
-        CertificateUpdateEntityDto uuidDto = new CertificateUpdateEntityDto();
-        uuidDto.setEntityUuid("wrong-uuid");
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateEntity(certificate.getUuid(), uuidDto));
-    }
 
     @Test
     public void testUpdateOwner() throws NotFoundException {

@@ -37,6 +37,9 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
     @Column(name = "kind")
     private String kind;
 
+    @Column(name = "discovery_connector_reference")
+    private String discoveryConnectorReference;
+
     @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private DiscoveryStatus status;
@@ -180,7 +183,15 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
 		this.connectorName = connectorName;
 	}
 
-	@Override
+    public String getDiscoveryConnectorReference() {
+        return discoveryConnectorReference;
+    }
+
+    public void setDiscoveryConnectorReference(String discoveryConnectorReference) {
+        this.discoveryConnectorReference = discoveryConnectorReference;
+    }
+
+    @Override
     public DiscoveryHistoryDto mapToDto() {
         DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
         dto.setUuid(uuid);

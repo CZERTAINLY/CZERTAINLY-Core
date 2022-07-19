@@ -1,14 +1,18 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.SerializationUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,12 +103,13 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     @Column(name = "group_id", insertable = false, updatable = false)
     private Long groupId;
 
-    @ManyToOne()
-    @JoinColumn(name = "entity_id")
-    private CertificateEntity entity;
-
-    @Column(name = "entity_id", insertable = false, updatable = false)
-    private Long entityId;
+    @OneToMany(
+            mappedBy = "certificate",
+            cascade = CascadeType.ALL
+            //orphanRemoval = true
+    )
+    @JsonBackReference
+    private Set<CertificateLocation> locations = new HashSet<>();
 
     @Column(name = "owner")
     private String owner;
@@ -121,6 +126,13 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
+
+    @Column( name = "compliance_result")
+    private String complianceResult;
+
+    @Column(name = "compliance_status")
+    @Enumerated(EnumType.STRING)
+    private ComplianceStatus complianceStatus;
 
     @JsonBackReference
     @OneToMany(mappedBy = "certificate")
@@ -151,6 +163,14 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         dto.setOwner(owner);
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
+        /**
+         * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
+         * When the details of the certificate is requested, the Service will transform the result into the user understandable
+         * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories
+         * like complainceRules etc., So only the overall status of the compliance will be set in the mapToDto function
+         */
+        dto.setComplianceStatus(complianceStatus);
+
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
             raDto.setName(raProfile.getName());
@@ -161,12 +181,12 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         if (group != null) {
             dto.setGroup(group.mapToDto());
         }
-        if (entity != null) {
-            dto.setEntity(entity.mapToDto());
-        }
+//        if (locations != null) {
+//            dto.setLocations(locations.mapToDto());
+//        }
         try {
             dto.setCertificateValidationResult(MetaDefinitions.deserializeValidation(certificateValidationResult));
-        }catch (IllegalStateException e){
+        } catch (IllegalStateException e) {
             logger.error(e.getMessage());
             logger.debug(dto.toString());
         }
@@ -191,16 +211,16 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         return commonName;
     }
 
+    public void setCommonName(String commonName) {
+        this.commonName = commonName;
+    }
+
     public String getIssuerCommonName() {
         return issuerCommonName;
     }
 
     public void setIssuerCommonName(String issuerCommonName) {
         this.issuerCommonName = issuerCommonName;
-    }
-
-    public void setCommonName(String commonName) {
-        this.commonName = commonName;
     }
 
     public String getSerialNumber() {
@@ -283,12 +303,12 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.fingerprint = fingerprint;
     }
 
-    public void setMeta(String meta) {
-        this.meta = meta;
-    }
-
     public String getMeta() {
         return meta;
+    }
+
+    public void setMeta(String meta) {
+        this.meta = meta;
     }
 
     public CertificateStatus getStatus() {
@@ -371,14 +391,6 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.group = group;
     }
 
-    public CertificateEntity getEntity() {
-        return entity;
-    }
-
-    public void setEntity(CertificateEntity entity) {
-        this.entity = entity;
-    }
-
     public String getCertificateValidationResult() {
         return certificateValidationResult;
     }
@@ -393,5 +405,48 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     public void setEventHistories(Set<CertificateEventHistory> eventHistories) {
         this.eventHistories = eventHistories;
+    }
+
+    public Set<CertificateLocation> getLocations() {
+        return locations;
+    }
+
+    public void setLocations(Set<CertificateLocation> locations) {
+        this.locations = locations;
+    }
+
+    public Long getRaProfileId() {
+        return raProfileId;
+    }
+
+    public void setRaProfileId(Long raProfileId) {
+        this.raProfileId = raProfileId;
+    }
+
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
+    }
+
+    public CertificateComplianceStorageDto getComplianceResult() {
+        if(complianceResult == null){
+            return null;
+        }
+        return (CertificateComplianceStorageDto) SerializationUtil.deserialize(complianceResult, CertificateComplianceStorageDto.class);
+    }
+
+    public void setComplianceResult(CertificateComplianceStorageDto complianceResult) {
+        this.complianceResult = SerializationUtil.serialize(complianceResult);
+    }
+
+    public ComplianceStatus getComplianceStatus() {
+        return complianceStatus;
+    }
+
+    public void setComplianceStatus(ComplianceStatus complianceStatus) {
+        this.complianceStatus = complianceStatus;
     }
 }

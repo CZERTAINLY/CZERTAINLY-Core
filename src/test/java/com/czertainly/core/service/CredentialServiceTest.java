@@ -6,7 +6,14 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
-import com.czertainly.api.model.common.*;
+import com.czertainly.api.model.common.attribute.AttributeCallback;
+import com.czertainly.api.model.common.attribute.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.AttributeType;
+import com.czertainly.api.model.common.attribute.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.dao.entity.Connector;
@@ -35,6 +42,8 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+
+;
 
 @SpringBootTest
 @Transactional
@@ -72,6 +81,7 @@ public class CredentialServiceTest {
         connector.setUuid("123");
         connector.setName("credentialProviderConnector");
         connector.setUrl("http://localhost:3665");
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -224,17 +234,21 @@ public class CredentialServiceTest {
     @Test
     public void testLoadFullData_attributes() throws NotFoundException {
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
+        HashMap<String, Object> content = new HashMap<>();
         nameAndUuidMap.put("uuid", credential.getUuid());
         nameAndUuidMap.put("name", credential.getName());
+        content.put("value", credential.getUuid());
+        content.put("data", nameAndUuidMap);
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap));
-        attrs.get(0).setType(BaseAttributeDefinitionTypes.CREDENTIAL);
+
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", content));
+        attrs.get(0).setType(AttributeType.CREDENTIAL);
 
         credentialService.loadFullCredentialData(attrs);
 
-        Assertions.assertTrue(attrs.get(0).getValue() instanceof CredentialDto);
+        Assertions.assertTrue(attrs.get(0).getContent() instanceof JsonAttributeContent);
 
-        CredentialDto credentialDto = (CredentialDto) attrs.get(0).getValue();
+        CredentialDto credentialDto = (CredentialDto) ((JsonAttributeContent) attrs.get(0).getContent()).getData();
         Assertions.assertEquals(credential.getUuid(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -242,11 +256,15 @@ public class CredentialServiceTest {
     @Test
     public void testLoadFullData_attributesNotFound() throws NotFoundException {
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
+        HashMap<String, Object> contentMap = new HashMap<>();
         nameAndUuidMap.put("uuid", "wrong-uuid");
         nameAndUuidMap.put("name", "wrong-name");
+        contentMap.put("value","wrong-name");
+        contentMap.put("data",nameAndUuidMap);
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", nameAndUuidMap));
-        attrs.get(0).setType(BaseAttributeDefinitionTypes.CREDENTIAL);
+
+        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", contentMap));
+        attrs.get(0).setType(AttributeType.CREDENTIAL);
 
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs));
     }
@@ -272,14 +290,18 @@ public class CredentialServiceTest {
         nameAndUuidMap.put("uuid", credential.getUuid());
         nameAndUuidMap.put("name", credential.getName());
 
+        HashMap<String, Serializable> attrib = new HashMap<>();
+        attrib.put("value", credential.getName());
+        attrib.put("data", nameAndUuidMap);
+
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                BaseAttributeDefinitionTypes.CREDENTIAL,
+                AttributeType.CREDENTIAL,
                 credentialBodyKey,
                 AttributeValueTarget.BODY);
 
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
-        requestBodyMap.put(credentialBodyKey, nameAndUuidMap);
+        requestBodyMap.put(credentialBodyKey, attrib);
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
@@ -297,21 +319,24 @@ public class CredentialServiceTest {
     }
 
     @Test
-    public void testLoadFullData_callbackNotFound() {
+    public void testLoadFullData_callbackValidation() {
         String credentialBodyKey = "testCredential";
 
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
         nameAndUuidMap.put("uuid", "wrong-uuid");
         nameAndUuidMap.put("name", "wrong-name");
 
+        HashMap<String, Serializable> attrib = new HashMap<>();
+        attrib.put("value", "wrong-uuid");
+        attrib.put("data", nameAndUuidMap);
+
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                BaseAttributeDefinitionTypes.CREDENTIAL,
+                AttributeType.CREDENTIAL,
                 credentialBodyKey,
                 AttributeValueTarget.BODY);
 
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
-        requestBodyMap.put(credentialBodyKey, nameAndUuidMap);
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
@@ -319,7 +344,7 @@ public class CredentialServiceTest {
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
         requestAttributeCallback.setRequestBody(requestBodyMap);
 
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
+        Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
     }
 
     @Test
@@ -328,7 +353,7 @@ public class CredentialServiceTest {
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                BaseAttributeDefinitionTypes.CREDENTIAL,
+                AttributeType.CREDENTIAL,
                 credentialBodyKey,
                 AttributeValueTarget.BODY);
 

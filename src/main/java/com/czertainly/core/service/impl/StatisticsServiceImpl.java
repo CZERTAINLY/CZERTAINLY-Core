@@ -3,16 +3,12 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateEntity;
-import com.czertainly.core.dao.entity.CertificateGroup;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.DiscoveryRepository;
+import com.czertainly.core.dao.repository.GroupRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.StatisticsService;
-import org.apache.commons.lang3.time.StopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,10 +16,11 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional
@@ -42,9 +39,6 @@ public class StatisticsServiceImpl implements StatisticsService {
     private GroupRepository groupRepository;
 
     @Autowired
-    private EntityRepository entityRepository;
-
-    @Autowired
     private RaProfileRepository raProfileRepository;
 
 
@@ -57,9 +51,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         dto.setTotalCertificates(getCertificateCount());
         dto.setTotalDiscoveries(getDiscoveryCount());
         dto.setTotalGroups(getCertificateGroupCount());
-        dto.setTotalEntities(getCertificateEntityCount());
         dto.setTotalRaProfiles(getRaProfileCount());
-        dto.setEntityStatByCertificateCount(getEntityStatByCertificateCount(dto));
         dto.setGroupStatByCertificateCount(getGroupStatByCertificateCount(dto));
         dto.setRaProfileStatByCertificateCount(getRaProfileStatByCertificateCount(dto));
         dto.setCertificateStatByType(getCertificateStatByType(dto));
@@ -83,10 +75,6 @@ public class StatisticsServiceImpl implements StatisticsService {
         return groupRepository.count();
     }
 
-    private long getCertificateEntityCount() {
-        return entityRepository.count();
-    }
-
     private long getRaProfileCount() {
         return raProfileRepository.count();
     }
@@ -94,17 +82,8 @@ public class StatisticsServiceImpl implements StatisticsService {
     private Map<String, Long> getGroupStatByCertificateCount(StatisticsDto dto) {
         List<Long> keys = new ArrayList<Long>();
         var result = certificateRepository.getCertificatesCountByGroup();
-        for (Object[] item : result) keys.add((long)item[0]);
+        for (Object[] item : result) keys.add((long) item[0]);
         var labels = certificateRepository.getGroupNamesWithIds(keys);
-
-        return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
-    }
-
-    private Map<String, Long> getEntityStatByCertificateCount(StatisticsDto dto) {
-        List<Long> keys = new ArrayList<Long>();
-        var result = certificateRepository.getCertificatesCountByEntity();
-        for (Object[] item : result) keys.add((long)item[0]);
-        var labels = certificateRepository.getEntityNamesWithIds(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
     }
@@ -112,7 +91,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private Map<String, Long> getRaProfileStatByCertificateCount(StatisticsDto dto) {
         List<Long> keys = new ArrayList<Long>();
         var result = certificateRepository.getCertificatesCountByRaProfile();
-        for (Object[] item : result) keys.add((long)item[0]);
+        for (Object[] item : result) keys.add((long) item[0]);
         var labels = certificateRepository.getRaProfileNamesWithIds(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
@@ -135,7 +114,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
         return getStatsMap(result, null, dto.getTotalCertificates(), "Unknown");
     }
-    
+
     private Map<String, Long> getCertificateStatByStatus() {
         var result = certificateRepository.getCertificatesCountByStatus();
 
@@ -146,11 +125,11 @@ public class StatisticsServiceImpl implements StatisticsService {
         long totalStatsCount = 0;
         Map<String, Long> stats = new HashMap<>();
 
-        LocalDateTime today =  LocalDateTime.now();
+        LocalDateTime today = LocalDateTime.now();
         LocalDateTime notBeforeTo = today;
         LocalDateTime notBeforeFrom = LocalDateTime.now();
-        int[] expiryInDays = { 10, 20, 30, 60, 90 };
-        for (Integer days: expiryInDays) {
+        int[] expiryInDays = {10, 20, 30, 60, 90};
+        for (Integer days : expiryInDays) {
             notBeforeTo = today.plusDays(days);
             var result = certificateRepository.getCertificatesCountByExpiryDate(java.sql.Timestamp.valueOf(notBeforeFrom), java.sql.Timestamp.valueOf(notBeforeTo));
             totalStatsCount += (long) result.get(0)[0];
@@ -166,13 +145,12 @@ public class StatisticsServiceImpl implements StatisticsService {
         long totalStatsCount = 0;
         Map<String, Long> stats = new HashMap<>();
 
-        if(resultLabels == null) {
+        if (resultLabels == null) {
             for (Object[] item : resultStats) {
                 totalStatsCount += (long) item[1];
                 stats.put(item[0].toString(), (long) item[1]);
             }
-        }
-        else {
+        } else {
             Map<Long, String> labels = new HashMap<>();
             for (Object[] item : resultLabels) labels.put((long) item[0], item[1].toString());
             for (Object[] item : resultStats) {
@@ -181,7 +159,7 @@ public class StatisticsServiceImpl implements StatisticsService {
             }
         }
 
-        if(defaultLabel != null) stats.put(defaultLabel, totalCount - totalStatsCount);
+        if (defaultLabel != null) stats.put(defaultLabel, totalCount - totalStatsCount);
         return stats;
     }
 }

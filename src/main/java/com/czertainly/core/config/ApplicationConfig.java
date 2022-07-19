@@ -68,6 +68,16 @@ public class ApplicationConfig {
     }
 
     @Bean
+    public EntityInstanceApiClient entityInstanceApiClient(WebClient webClient) {
+        return new EntityInstanceApiClient(webClient);
+    }
+
+    @Bean
+    public LocationApiClient locationApiClient(WebClient webClient) {
+        return new LocationApiClient(webClient);
+    }
+
+    @Bean
     public EndEntityProfileApiClient endEntityProfileApiClient(WebClient webClient) {
         return new EndEntityProfileApiClient(webClient);
     }
@@ -91,4 +101,7 @@ public class ApplicationConfig {
     public com.czertainly.api.clients.v2.CertificateApiClient certificateApiClientV2(WebClient webClient) {
         return new com.czertainly.api.clients.v2.CertificateApiClient(webClient);
     }
+
+    @Bean
+    public ComplianceApiClient complianceApiClient(WebClient webClient) { return new ComplianceApiClient(webClient); }
 }

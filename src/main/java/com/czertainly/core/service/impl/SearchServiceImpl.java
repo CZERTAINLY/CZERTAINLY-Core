@@ -4,11 +4,13 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.core.search.*;
-import com.czertainly.core.dao.entity.CertificateEntity;
+import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
+import com.czertainly.api.model.core.search.SearchCondition;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchableFieldType;
+import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.EntityRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.SearchService;
@@ -20,7 +22,11 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.*;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.PersistenceException;
+import javax.persistence.PersistenceUnit;
+import javax.persistence.Query;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -42,9 +48,6 @@ public class SearchServiceImpl implements SearchService {
 
     @Autowired
     private GroupRepository groupRepository;
-
-    @Autowired
-    private EntityRepository entityRepository;
 
     @Override
     public SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values, SearchableFieldType fieldType, List<SearchCondition> conditions) {
@@ -72,7 +75,7 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public String getCompleteSearchQuery(List<SearchFilterRequestDto> filters, String entity, String joinQuery, List<SearchFieldDataDto> originalJson, Boolean conditionOnly, Boolean nativeCode) {
 
-        String sqlQuery = !conditionOnly ? "select c from " + entity + " c": "";
+        String sqlQuery = !conditionOnly ? "select c from " + entity + " c" : "";
         logger.debug("Executing query: {}", sqlQuery);
         if (!filters.isEmpty()) {
             sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, joinQuery, conditionOnly, nativeCode);
@@ -82,7 +85,7 @@ public class SearchServiceImpl implements SearchService {
 
 
     @Override
-    public Object customQueryExecutor(String sqlQuery){
+    public Object customQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
@@ -92,14 +95,14 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public Object nativeQueryExecutor(String sqlQuery){
+    public Object nativeQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createNativeQuery(sqlQuery);
         Object result = null;
         try {
             result = query.getResultList();
-        }catch (PersistenceException e){
+        } catch (PersistenceException e) {
             logger.warn("Result is empty: {}", e.getMessage());
         }
         entityManager.close();
@@ -108,14 +111,14 @@ public class SearchServiceImpl implements SearchService {
 
     @Override
     @Async("threadPoolTaskExecutor")
-    public Object asyncNativeQueryExecutor(String sqlQuery){
+    public Object asyncNativeQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createNativeQuery(sqlQuery);
         Object result = null;
         try {
             result = query.getResultList();
-        }catch (PersistenceException e){
+        } catch (PersistenceException e) {
             logger.warn("Result is empty: {}", e.getMessage());
         }
         entityManager.close();
@@ -166,11 +169,11 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode) throws ValidationException {
         String query;
-        if(joinQuery.isEmpty()) {
+        if (joinQuery.isEmpty()) {
             query = (!conditionOnly ? "select c from " + entity + " c " : "") + " WHERE";
-        }else{
+        } else {
             query = (!conditionOnly ? "select c from " + entity + " c " : " ") + joinQuery;
-            if(!conditions.isEmpty()){
+            if (!conditions.isEmpty()) {
                 query += " AND ";
             }
         }
@@ -193,21 +196,21 @@ public class SearchServiceImpl implements SearchService {
         }
         for (SearchFieldDataDto filter : iterableJson) {
             String qp = "";
+            String ntvCode = "";
             if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(filter.getField())) {
                 qp += " c.certificateValidationResult ";
             } else {
-                if(nativeCode) {
-                    qp += " c." + filter.getField().getNativeCode() + " ";
-                }else{
-                    qp += " c." + filter.getField().getCode() + " ";
+                if (nativeCode) {
+                    ntvCode = filter.getField().getNativeCode();
+                } else {
+                    ntvCode = filter.getField().getCode();
                 }
+                qp += " c." + ntvCode  + " ";
             }
             if (filter.isMultiValue() && !(filter.getValue() instanceof String)) {
                 List<String> whereObjects = new ArrayList<>();
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
                     whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getId).map(i -> i.toString()).collect(Collectors.toList()));
-                } else if (filter.getField().equals(SearchableFields.ENTITY_NAME)) {
-                    whereObjects.addAll(entityRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateEntity::getId).map(i -> i.toString()).collect(Collectors.toList()));
                 } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
                     whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getId).map(i -> i.toString()).collect(Collectors.toList()));
                 } else {
@@ -255,6 +258,13 @@ public class SearchServiceImpl implements SearchService {
                     }
                 } else if (filter.getConditions().get(0).equals(SearchCondition.CONTAINS) || filter.getConditions().get(0).equals(SearchCondition.NOT_CONTAINS)) {
                     qp += filter.getConditions().get(0).getCode() + " '%" + filter.getValue().toString() + "%'";
+                    try{
+                        if(filter.getConditions().get(0).equals(SearchCondition.NOT_CONTAINS)) {
+                            qp += " or " + ntvCode + " IS NULL ";
+                        }
+                    }catch (Exception e){
+                        logger.warn("Unable to add empty query");
+                    }
                 } else if (filter.getConditions().get(0).equals(SearchCondition.STARTS_WITH)) {
                     qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "%'";
                 } else if (filter.getConditions().get(0).equals(SearchCondition.ENDS_WITH)) {
@@ -265,9 +275,6 @@ public class SearchServiceImpl implements SearchService {
                     if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
                         String raProfileId = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
                         qp += filter.getConditions().get(0).getCode() + " '" + raProfileId + "'";
-                    } else if (filter.getField().equals(SearchableFields.ENTITY_NAME)) {
-                        String entityId = entityRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
-                        qp += filter.getConditions().get(0).getCode() + " '" + entityId + "'";
                     } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
                         String groupId = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
                         qp += filter.getConditions().get(0).getCode() + " '" + groupId + "'";
