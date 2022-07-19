@@ -24,13 +24,13 @@ public class DatabaseMigration {
 
         try (FileReader fileReader = new FileReader(file); BufferedReader bufferedReader = new BufferedReader(fileReader, 4096)) {
             String line;
+            boolean firstLineProcessed = false;
             while ((line = bufferedReader.readLine()) != null) {
-                line = filterBomFromString(line);
-
-                do {
-                    crc32.update(trimLineBreak(line).getBytes(StandardCharsets.UTF_8));
-                } while ((line = bufferedReader.readLine()) != null);
-
+                if(!firstLineProcessed) {
+                    line = filterBomFromString(line);
+                    firstLineProcessed = true;
+                }
+                crc32.update(trimLineBreak(line).getBytes(StandardCharsets.UTF_8));
             }
         } catch (IOException e) {
             System.out.printf("Error while trying to read file %s: %s\n", filePath, e.getMessage());
