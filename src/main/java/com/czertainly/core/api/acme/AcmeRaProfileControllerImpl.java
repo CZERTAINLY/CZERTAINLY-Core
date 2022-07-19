@@ -118,7 +118,7 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
     }
 
     @Override
-    public ResponseEntity<Order> finalize(String raProfileName, String orderId, String jwsBody) throws
+    public ResponseEntity<Order> finalizeOrder(String raProfileName, String orderId, String jwsBody) throws
             AcmeProblemDocumentException, ConnectorException, JsonProcessingException, CertificateException, AlreadyExistException {
         return acmeService.finalizeOrder(raProfileName, orderId, jwsBody);
     }

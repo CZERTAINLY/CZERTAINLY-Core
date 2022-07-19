@@ -43,13 +43,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -296,11 +290,16 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, kind));
             } else {
                 logger.debug("Fetching data for all kinds from the connector: {}", connector);
-                for (String connectorKind : connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()) {
-                    logger.debug("Fetching data for Kind: {}", connectorKind);
-                    List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, connectorKind, certificateType);
-                    complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, connectorKind));
+
+                Optional<FunctionGroupDto> functionGroup = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst();
+                if(functionGroup.isPresent()) {
+                    for (String connectorKind : functionGroup.get().getKinds()){
+                        logger.debug("Fetching data for Kind: {}", connectorKind);
+                        List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, connectorKind, certificateType);
+                        complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, connectorKind));
+                    }
                 }
+                else logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
             }
         } else {
             logger.debug("Finding rules from all available connectors in the inventory");
@@ -312,11 +311,16 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                     complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, kind));
                 } else {
                     logger.debug("Fetching data for all kinds available in the connector");
-                    for (String connectorKind : connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()) {
-                        logger.debug("Fetching data from Kind: {}", connectorKind);
-                        List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, connectorKind, certificateType);
-                        complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, connectorKind));
+
+                    Optional<FunctionGroupDto> functionGroup = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst();
+                    if(functionGroup.isPresent()) {
+                        for (String connectorKind : functionGroup.get().getKinds()){
+                            logger.debug("Fetching data from Kind: {}", connectorKind);
+                            List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, connectorKind, certificateType);
+                            complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, connectorKind));
+                        }
                     }
+                    else logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
                 }
             }
         }
@@ -339,11 +343,16 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, kind));
             } else {
                 logger.debug("Fetching data for all kinds from the connector: {}", connector);
-                for (String connectorKind : connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()) {
-                    logger.debug("Fetching data for Kind: {}", connectorKind);
-                    List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, connectorKind);
-                    complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, connectorKind));
+
+                Optional<FunctionGroupDto> functionGroup = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst();
+                if(functionGroup.isPresent()) {
+                    for (String connectorKind : functionGroup.get().getKinds()) {
+                        logger.debug("Fetching data for Kind: {}", connectorKind);
+                        List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, connectorKind);
+                        complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, connectorKind));
+                    }
                 }
+                else logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
             }
         } else {
             logger.debug("Finding rules from all available connectors in the inventory");
@@ -355,11 +364,16 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                     complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, kind));
                 } else {
                     logger.debug("Fetching data for all kinds available in the connector");
-                    for (String connectorKind : connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().get().getKinds()) {
-                        logger.debug("Fetching data from Kind: {}", connectorKind);
-                        List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, connectorKind);
-                        complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, connectorKind));
+
+                    Optional<FunctionGroupDto> functionGroup = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst();
+                    if(functionGroup.isPresent()) {
+                        for (String connectorKind : functionGroup.get().getKinds()){
+                            logger.debug("Fetching data from Kind: {}", connectorKind);
+                            List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, connectorKind);
+                            complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, connectorKind));
+                        }
                     }
+                    else logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
                 }
             }
         }
