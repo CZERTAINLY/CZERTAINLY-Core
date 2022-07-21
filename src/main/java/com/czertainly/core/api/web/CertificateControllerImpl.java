@@ -51,6 +51,7 @@ public class CertificateControllerImpl implements CertificateController {
 	public CertificateDto getCertificate(@PathVariable String uuid)
 			throws NotFoundException, CertificateException, IOException {
 		Certificate crt = certificateService.getCertificateEntity(uuid);
+		certificateService.updateIssuer();
 		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
 			certValidationService.validate(crt);
 		}
