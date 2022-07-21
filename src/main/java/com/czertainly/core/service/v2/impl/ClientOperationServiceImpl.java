@@ -304,7 +304,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "", certificate);
             logger.error(e.getMessage());
-            return;
+            throw(e);
         }
         try {
             certificate.setStatus(CertificateStatus.REVOKED);
