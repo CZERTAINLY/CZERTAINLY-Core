@@ -321,10 +321,16 @@ public class ConnectorServiceImpl implements ConnectorService {
             FunctionGroup functionGroup = functionGroupRepository.findByUuid(dto.getUuid())
                     .orElseThrow(() -> new NotFoundException(FunctionGroup.class, dto.getUuid()));
 
-            Optional<Connector2FunctionGroup> c2fg = connector2FunctionGroupRepository.findByConnectorAndFunctionGroup(connector, functionGroup);
+            Connector2FunctionGroup c2fg = connector2FunctionGroupRepository.findByConnectorAndFunctionGroup(connector, functionGroup).orElse(null);
 
-            if (c2fg.isPresent()) {
+            if (c2fg != null) {
+                String dtoKinds = MetaDefinitions.serializeArrayString(dto.getKinds());
+                if(!dtoKinds.equals(c2fg.getKinds())){
+                    c2fg.setKinds(dtoKinds);
+                    connector2FunctionGroupRepository.save(c2fg);
+                }
                 logger.debug("Connector {} already has function group {} - not added", connector.getName(), functionGroup.getName());
+
             } else {
                 addFunctionGroupToConnector(functionGroup, dto.getKinds(), connector);
                 logger.info("Added function group {} to connector {}", functionGroup.getName(), connector.getName());
