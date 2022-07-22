@@ -204,19 +204,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     public void bulkRemoveRaProfile(List<String> uuids) {
         for (String uuid : uuids) {
             try {
-                RaProfile raProfile = raProfileRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
-                List<AcmeProfile> acmeProfiles = acmeProfileRepository.findByRaProfile(raProfile);
-                for (AcmeProfile acmeProfile : acmeProfiles) {
-                    acmeProfile.setRaProfile(null);
-                    acmeProfileRepository.save(acmeProfile);
-                }
-                for (Certificate certificate : certificateRepository.findByRaProfile(raProfile)) {
-                    certificate.setRaProfile(null);
-                    certificateRepository.save(certificate);
-                }
-
-                raProfileRepository.delete(raProfile);
+                removeRaProfile(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find RA Profile with uuid {}. It may have already been deleted", uuid);
             }

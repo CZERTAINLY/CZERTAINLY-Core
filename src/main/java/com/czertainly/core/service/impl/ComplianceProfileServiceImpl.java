@@ -6,7 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.compliance.*;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
@@ -192,58 +192,24 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.info("Request to delete the Compliance Profile with UUID: {}", uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Profile identified: {}", complianceProfile);
-        List<ValidationError> errors = new ArrayList<>();
-        if (!complianceProfile.getRaProfiles().isEmpty()) {
-            logger.warn("Compliance Profile has dependent RA Profile: {}", complianceProfile.getRaProfiles());
-            errors.add(ValidationError.create("Compliance Profile {} has {} dependent RA profiles", complianceProfile.getName(),
-                    complianceProfile.getRaProfiles().size()));
-            complianceProfile.getRaProfiles().forEach(c -> errors.add(ValidationError.create(c.getName())));
-        }
-
-        if (!errors.isEmpty()) {
-            logger.error("Unable to delete Compliance Profile due to dependency: {}", complianceProfile);
-            throw new ValidationException("Could not delete Compliance Profile", errors);
-        }
-
-        complianceProfileRepository.delete(complianceProfile);
+        deleteComplianceProfile(complianceProfile);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws ValidationException {
+    public List<BulkActionMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws ValidationException {
         logger.info("Request to remove Compliance Profiles with UUIDs: {}", String.join(",", uuids));
-        List<ComplianceProfile> deletableProfiles = new ArrayList<>();
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
             logger.debug("Removing profile with UUID: {}", uuid);
-            List<String> errors = new ArrayList<>();
-            ComplianceProfile complianceProfile;
+            ComplianceProfile complianceProfile = null;
             try {
                 complianceProfile = getComplianceProfileEntityByUuid(uuid);
-            } catch (NotFoundException e) {
+                deleteComplianceProfile(complianceProfile);
+            } catch (Exception e) {
                 logger.warn("Unable to find the Compliance Profile with UUID: {}, Proceeding to next", uuid);
-                continue;
+                messages.add(new BulkActionMessageDto(uuid, complianceProfile != null ? complianceProfile.getName() : "", e.getMessage()));
             }
-
-            if (!complianceProfile.getRaProfiles().isEmpty()) {
-                errors.add("RA Profiles: " + complianceProfile.getRaProfiles().size() + ". Names: ");
-                complianceProfile.getRaProfiles().forEach(c -> errors.add(c.getName()));
-            }
-
-            if (!errors.isEmpty()) {
-                logger.warn("Dependent RA Profiles found for: {}", complianceProfile);
-                ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-                forceModal.setUuid(complianceProfile.getUuid());
-                forceModal.setName(complianceProfile.getName());
-                forceModal.setMessage(String.join(",", errors));
-                messages.add(forceModal);
-            } else {
-                deletableProfiles.add(complianceProfile);
-            }
-        }
-
-        for (ComplianceProfile complianceProfile : deletableProfiles) {
-            complianceProfileRepository.delete(complianceProfile);
         }
         logger.debug("Warning messages: {}", messages);
         return messages;
@@ -251,11 +217,13 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.FORCE_DELETE)
-    public void bulkForceRemoveComplianceProfiles(List<String> uuids) {
+    public List<BulkActionMessageDto> bulkForceRemoveComplianceProfiles(List<String> uuids) {
         logger.info("Requesting force remove Compliance Profile: {}", String.join(", ", uuids));
+        List<BulkActionMessageDto> messages = new ArrayList<>();
+        ComplianceProfile complianceProfile = null;
         for (String uuid : uuids) {
             try {
-                ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
+                complianceProfile = getComplianceProfileEntityByUuid(uuid);
                 logger.debug("Trying to remove Compliance Profile: {}", complianceProfile);
                 if (!complianceProfile.getRaProfiles().isEmpty()) {
                     for (RaProfile ref : complianceProfile.getRaProfiles()) {
@@ -265,11 +233,13 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                         raProfileService.updateRaProfileEntity(ref);
                     }
                 }
-                complianceProfileRepository.delete(complianceProfile);
+                deleteComplianceProfile(complianceProfile);
             } catch (ConnectorException e) {
                 logger.warn("Unable to delete the Compliance Profile with uuid {}. It may have been already deleted", uuid);
+                messages.add(new BulkActionMessageDto(uuid, complianceProfile != null ? complianceProfile.getName() : "", e.getMessage()));
             }
         }
+        return messages;
     }
 
     @Override
@@ -617,5 +587,20 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             }
         }
         return connectors;
+    }
+
+    private void deleteComplianceProfile(ComplianceProfile complianceProfile) {
+        ValidationError error = null;
+        if (!complianceProfile.getRaProfiles().isEmpty()) {
+            logger.warn("Compliance Profile has dependent RA Profile: {}", complianceProfile.getRaProfiles());
+            error = ValidationError.create("Dependent RA profiles: {}", complianceProfile.getRaProfiles().stream().map(RaProfile::getName).collect(Collectors.toSet()));
+        }
+
+        if (error != null) {
+            logger.error("Unable to delete Compliance Profile due to dependency: {}", complianceProfile);
+            throw new ValidationException(error);
+        }
+
+        complianceProfileRepository.delete(complianceProfile);
     }
 }

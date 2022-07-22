@@ -7,7 +7,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -165,22 +165,10 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> deleteAcmeProfile(String uuid) throws NotFoundException {
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+    public List<BulkActionMessageDto> deleteAcmeProfile(String uuid) throws NotFoundException {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
-        if (!raProfiles.isEmpty()) {
-            List<String> errors = new ArrayList<>();
-            errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
-            raProfiles.stream().forEach(c -> errors.add(c.getName()));
-            ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-            forceModal.setUuid(acmeProfile.getUuid());
-            forceModal.setName(acmeProfile.getName());
-            forceModal.setMessage(String.join(", ", errors));
-            messages.add(forceModal);
-        } else {
-            acmeProfileRepository.delete(acmeProfile);
-        }
+        messages.add(deleteAcmeProfile(acmeProfile));
         return messages;
     }
 
@@ -242,30 +230,21 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> bulkDeleteAcmeProfile(List<String> uuids) {
-        List<AcmeProfile> deletableAcmeProfiles = new ArrayList<>();
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+    public List<BulkActionMessageDto> bulkDeleteAcmeProfile(List<String> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
+            AcmeProfile acmeProfile = null;
             try {
-                AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
-                if (!raProfiles.isEmpty()) {
-                    List<String> errors = new ArrayList<>();
-                    errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
-                    raProfiles.stream().forEach(c -> errors.add(c.getName()));
-                    ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-                    forceModal.setUuid(acmeProfile.getUuid());
-                    forceModal.setName(acmeProfile.getName());
-                    forceModal.setMessage(String.join(",", errors));
-                    messages.add(forceModal);
-                } else {
-                    deletableAcmeProfiles.add(acmeProfile);
+                acmeProfile = getAcmeProfileEntity(uuid);
+                BulkActionMessageDto message = deleteAcmeProfile(acmeProfile);
+                if(message != null) {
+                    messages.add(message);
                 }
             } catch (NotFoundException e) {
-                logger.warn(e.getMessage());
+                logger.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid, acmeProfile != null ? acmeProfile.getName() : "", e.getMessage()));
             }
         }
-        acmeProfileRepository.deleteAll(deletableAcmeProfiles);
         return messages;
     }
 
@@ -278,22 +257,27 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    public void bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
-        List<AcmeProfile> acmeProfiles = new ArrayList<>();
+    public List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
+            AcmeProfile acmeProfile = null;
             try {
-                AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
+                acmeProfile = getAcmeProfileEntity(uuid);
                 List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
                 for (RaProfile raProfile : raProfiles) {
                     raProfile.setAcmeProfile(null);
                     raProfileRepository.save(raProfile);
                 }
-                acmeProfiles.add(acmeProfile);
-            } catch (NotFoundException e) {
+                BulkActionMessageDto message = deleteAcmeProfile(acmeProfile);
+                if(message != null) {
+                    messages.add(message);
+                }
+            } catch (Exception e) {
                 logger.warn(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid, acmeProfile != null ? acmeProfile.getName() : "", e.getMessage()));
             }
         }
-        acmeProfileRepository.deleteAll(acmeProfiles);
+        return messages;
     }
 
     private RaProfile getRaProfileEntity(String uuid) throws NotFoundException {
@@ -302,5 +286,18 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     private AcmeProfile getAcmeProfileEntity(String uuid) throws NotFoundException {
         return acmeProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(AcmeProfile.class, uuid));
+    }
+
+    private BulkActionMessageDto deleteAcmeProfile(AcmeProfile acmeProfile) {
+        List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
+        if (!raProfiles.isEmpty()) {
+            List<String> errors = new ArrayList<>();
+            errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
+            raProfiles.forEach(c -> errors.add(c.getName()));
+            return new BulkActionMessageDto(acmeProfile.getUuid(), acmeProfile.getName(), String.join(", ", errors));
+        } else {
+            acmeProfileRepository.delete(acmeProfile);
+        }
+        return null;
     }
 }

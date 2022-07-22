@@ -8,7 +8,7 @@ import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
@@ -73,7 +73,7 @@ public interface ConnectorService {
 
     List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ConnectorException;
 
-    List<ForceDeleteMessageDto> bulkRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> bulkRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException;
 
-    void bulkForceRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> bulkForceRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException;
 }

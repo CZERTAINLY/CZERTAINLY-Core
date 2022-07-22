@@ -12,7 +12,7 @@ import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestD
 import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceRulesListResponseDto;
 import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
@@ -124,18 +124,19 @@ public interface ComplianceProfileService {
      *
      * @param uuids List of Uuids of the profiles to be deleted
      *
-     * @return  List of dependencies for profiles that has RA Profile associations. See {@link ForceDeleteMessageDto}
+     * @return  List of dependencies for profiles that has RA Profile associations. See {@link BulkActionMessageDto}
      * @throws ValidationException Thrown when the profiles are dependencies for other objects
      * @throws NotFoundException Thrown when a Rule or Group is not found
      */
-    List<ForceDeleteMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException;
+    List<BulkActionMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException;
 
     /**
      * Remove compliance profiles forcefully. This methods makes removes the object dependencies and set them null.
      *
      * @param uuids Uuids of the compliance profiles to be deleted forcefully.
+     * @return
      */
-    void bulkForceRemoveComplianceProfiles(List<String> uuids);
+    List<BulkActionMessageDto> bulkForceRemoveComplianceProfiles(List<String> uuids);
 
     /**
      * List of all compliance rules for User Interface

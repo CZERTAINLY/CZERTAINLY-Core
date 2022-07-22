@@ -13,7 +13,7 @@ import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestD
 import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceRulesListResponseDto;
 import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -88,13 +88,13 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    public List<ForceDeleteMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
         return complianceProfileService.bulkRemoveComplianceProfiles(uuids);
     }
 
     @Override
-    public void bulkForceRemoveComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
-        complianceProfileService.bulkForceRemoveComplianceProfiles(uuids);
+    public List<BulkActionMessageDto> bulkForceRemoveComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+        return complianceProfileService.bulkForceRemoveComplianceProfiles(uuids);
     }
 
     @Override

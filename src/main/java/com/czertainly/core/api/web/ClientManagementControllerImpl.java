@@ -6,7 +6,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ClientManagementController;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.client.ClientDto;
@@ -73,8 +73,8 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    public ResponseEntity<List<ForceDeleteMessageDto>> bulkRemoveClient(List<String> clientUuids) throws NotFoundException {
-        List<ForceDeleteMessageDto> messages = clientService.bulkRemoveClient(clientUuids);
+    public ResponseEntity<List<BulkActionMessageDto>> bulkRemoveClient(List<String> clientUuids) throws NotFoundException {
+        List<BulkActionMessageDto> messages = clientService.bulkRemoveClient(clientUuids);
         if(messages.isEmpty()){
             return ResponseEntity.ok().body(messages);
         }

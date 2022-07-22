@@ -5,7 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CredentialController;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
@@ -74,8 +74,8 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public List<ForceDeleteMessageDto> bulkRemoveCredential(List<String> uuids) throws NotFoundException, ValidationException {
-        return credentialService.bulkRemoveCredential(uuids);
+    public void bulkRemoveCredential(List<String> uuids) throws NotFoundException, ValidationException {
+        credentialService.bulkRemoveCredential(uuids);
     }
 
     @Override

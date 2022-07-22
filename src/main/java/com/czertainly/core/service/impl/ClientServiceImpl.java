@@ -7,7 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
@@ -200,14 +200,14 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
-    public List<ForceDeleteMessageDto> bulkRemoveClient(List<String> clientUuids) {
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+    public List<BulkActionMessageDto> bulkRemoveClient(List<String> clientUuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : clientUuids) {
             try {
                 Client client = clientRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
                 if (client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()) {
-                    ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
+                    BulkActionMessageDto forceModal = new BulkActionMessageDto();
                     forceModal.setUuid(client.getUuid());
                     forceModal.setName(client.getName());
                     forceModal.setMessage("Client has " + client.getRaProfiles().size() + " authorized RA Profile(s)");
