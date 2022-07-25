@@ -235,7 +235,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             try {
                 acmeProfile = getAcmeProfileEntity(uuid);
                 deleteAcmeProfile(acmeProfile);
-            } catch (NotFoundException e) {
+            } catch (Exception e) {
                 logger.error(e.getMessage());
                 messages.add(new BulkActionMessageDto(uuid, acmeProfile != null ? acmeProfile.getName() : "", e.getMessage()));
             }
@@ -252,7 +252,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<String> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
             AcmeProfile acmeProfile = null;

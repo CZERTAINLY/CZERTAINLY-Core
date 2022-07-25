@@ -264,9 +264,10 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                     }
                 }
                 authorityInstanceRef.setRaProfiles(null);
+                authorityInstanceReferenceRepository.save(authorityInstanceRef);
                 removeAuthorityInstance(authorityInstanceRef);
             } catch (Exception e) {
-                logger.warn("Unable to delete the Authority instance with uuid {}. It may have been deleted", uuid);
+                logger.warn("Unable to delete the Authority instance with uuid {}. It may have been deleted. {}", uuid, e.getMessage());
                 messages.add(new BulkActionMessageDto(uuid, authorityInstanceRef != null ? authorityInstanceRef.getName() : "", e.getMessage()));
             }
         }
@@ -276,7 +277,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     private void removeAuthorityInstance(AuthorityInstanceReference authorityInstanceRef) throws ValidationException {
         if (authorityInstanceRef.getConnector() != null) {
             ValidationError error = null;
-            if (!authorityInstanceRef.getRaProfiles().isEmpty()) {
+            if (authorityInstanceRef.getRaProfiles() != null && !authorityInstanceRef.getRaProfiles().isEmpty()) {
                 error = ValidationError.create("Dependent RA profiles: {}", String.join(" ,", authorityInstanceRef.getRaProfiles().stream().map(RaProfile::getName).collect(Collectors.toSet())));
             }
 
