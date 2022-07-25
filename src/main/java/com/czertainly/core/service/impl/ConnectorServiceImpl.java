@@ -13,8 +13,8 @@ import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
@@ -325,7 +325,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
             if (c2fg != null) {
                 String dtoKinds = MetaDefinitions.serializeArrayString(dto.getKinds());
-                if(!dtoKinds.equals(c2fg.getKinds())){
+                if (!dtoKinds.equals(c2fg.getKinds())) {
                     c2fg.setKinds(dtoKinds);
                     connector2FunctionGroupRepository.save(c2fg);
                 }
@@ -380,44 +380,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     public void removeConnector(String uuid) throws NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+        deleteConnector(connector);
 
-        List<ValidationError> errors = new ArrayList<>();
-        if (!connector.getCredentials().isEmpty()) {
-            errors.add(ValidationError.create(
-                    "Connector {} has {} dependent credentials",
-                    connector.getName(), connector.getCredentials().size()));
-            connector.getCredentials().forEach(
-                    c -> errors.add(ValidationError.create(c.getName())));
-        }
-
-        if (!connector.getAuthorityInstanceReferences().isEmpty()) {
-            errors.add(ValidationError.create(
-                    "Connector {} has {} dependent Authority instances",
-                    connector.getName(), connector.getAuthorityInstanceReferences().size()));
-            connector.getAuthorityInstanceReferences().forEach(
-                    c -> errors.add(ValidationError.create(c.getName())));
-        }
-
-        if (!connector.getEntityInstanceReferences().isEmpty()) {
-            errors.add(ValidationError.create(
-                    "Connector {} has {} dependent Entity instances",
-                    connector.getName(), connector.getEntityInstanceReferences().size()));
-            connector.getEntityInstanceReferences().forEach(
-                    c -> errors.add(ValidationError.create(c.getName())));
-        }
-
-        for (String complianceProfileName : complianceProfileService.isComplianceProviderAssociated(connector)) {
-            errors.add(ValidationError.create(
-                    "Connector {} has {} dependent Compliance Profile",
-                    connector.getName(), complianceProfileName));
-        }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete connector", errors);
-        }
-        List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
-        connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
-        connectorRepository.delete(connector);
     }
 
     @Override
@@ -734,66 +698,30 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> bulkRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException {
-        List<Connector> deletableConnectors = new ArrayList<>();
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+    public List<BulkActionMessageDto> bulkRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
-            List<String> errors = new ArrayList<>();
-            Connector connector = connectorRepository.findByUuid(uuid)
-                    .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-
-            if (!connector.getCredentials().isEmpty()) {
-                errors.add("Dependent Credentials: " + connector.getCredentials().size() + ". Names: ");
-                connector.getCredentials().forEach(
-                        c -> errors.add(c.getName()));
+            Connector connector = null;
+            try {
+                connector = connectorRepository.findByUuid(uuid)
+                        .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+                deleteConnector(connector);
+            } catch (Exception e) {
+                logger.error("Unable to delete Connector", e);
+                messages.add(new BulkActionMessageDto(uuid, connector != null ? connector.getName() : "", e.getMessage()));
             }
-
-            if (!connector.getAuthorityInstanceReferences().isEmpty()) {
-                errors.add("Authority instances: " + connector.getAuthorityInstanceReferences().size() + ". Names: ");
-                connector.getAuthorityInstanceReferences().forEach(
-                        c -> errors.add(c.getName()));
-            }
-
-            if (!connector.getEntityInstanceReferences().isEmpty()) {
-                errors.add("Entity instances: " + connector.getEntityInstanceReferences().size() + ". Names: ");
-                connector.getEntityInstanceReferences().forEach(
-                        c -> errors.add(c.getName()));
-            }
-
-            Set<String> compProfiles = complianceProfileService.isComplianceProviderAssociated(connector);
-            if (!compProfiles.isEmpty()) {
-                errors.add("Compliance Profiles: " + String.join(", ", compProfiles));
-            }
-
-            if (!errors.isEmpty()) {
-                ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-                forceModal.setUuid(connector.getUuid());
-                forceModal.setName(connector.getName());
-                forceModal.setMessage(String.join(",", errors));
-                messages.add(forceModal);
-            } else {
-                deletableConnectors.add(connector);
-                if (connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
-                        .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)) {
-                    complianceProfileService.removeRulesAndGroupForEmptyConnector(connector);
-                }
-            }
-        }
-        for (Connector connector : deletableConnectors) {
-            List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
-            connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
-            connectorRepository.delete(connector);
         }
         return messages;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.FORCE_DELETE)
-    public void bulkForceRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException {
+    public List<BulkActionMessageDto> bulkForceRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
+            Connector connector = null;
             try {
-                Connector connector = connectorRepository.findByUuid(uuid)
+                connector = connectorRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
                 if (!connector.getCredentials().isEmpty()) {
@@ -828,12 +756,40 @@ public class ConnectorServiceImpl implements ConnectorService {
                     complianceProfileService.nullifyComplianceProviderAssociation(connector);
                 }
 
-                List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
-                connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
-                connectorRepository.delete(connector);
+                deleteConnector(connector);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find connector with uuid {}. It may have deleted already", uuid);
+                messages.add(new BulkActionMessageDto(uuid, connector != null ? connector.getName() : "", e.getMessage()));
             }
         }
+        return messages;
+    }
+
+    private void deleteConnector(Connector connector) {
+        List<String> errors = new ArrayList<>();
+        if (!connector.getCredentials().isEmpty()) {
+            errors.add("Dependent credentials: " + String.join(", ", connector.getCredentials().stream().map(Credential::getName).collect(Collectors.toSet())));
+        }
+
+        if (!connector.getAuthorityInstanceReferences().isEmpty()) {
+            errors.add("Dependent Authority Instances: " + String.join(", ", connector.getAuthorityInstanceReferences().stream().map(AuthorityInstanceReference::getName).collect(Collectors.toSet())));
+        }
+
+        if (!connector.getEntityInstanceReferences().isEmpty()) {
+            errors.add("Dependent Entity Instances: " + String.join(", ", connector.getEntityInstanceReferences().stream().map(EntityInstanceReference::getName).collect(Collectors.toSet())));
+        }
+
+        Set<String> complianceProfiles = complianceProfileService.isComplianceProviderAssociated(connector);
+        if (!complianceProfiles.isEmpty()) {
+            errors.add("Dependent Compliance Profiles: " + String.join(", ", complianceProfiles));
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException(ValidationError.create(String.join("\n", errors)));
+        }
+
+        List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
+        connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
+        connectorRepository.delete(connector);
     }
 }

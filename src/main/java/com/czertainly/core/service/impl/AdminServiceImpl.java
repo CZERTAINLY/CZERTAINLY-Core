@@ -182,9 +182,7 @@ public class AdminServiceImpl implements AdminService {
     public void bulkRemoveAdmin(List<String> adminUuids) {
         for (String uuid : adminUuids) {
             try {
-                Admin admin = adminRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
-                adminRepository.delete(admin);
+                removeAdmin(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to delete the admin with id {}", uuid);
             }
@@ -196,11 +194,7 @@ public class AdminServiceImpl implements AdminService {
     public void bulkDisableAdmin(List<String> adminUuids) {
         for (String uuid : adminUuids) {
             try {
-                Admin admin = adminRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
-
-                admin.setEnabled(false);
-                adminRepository.save(admin);
+                disableAdmin(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to disable admin with id {}", uuid);
             }
@@ -212,12 +206,8 @@ public class AdminServiceImpl implements AdminService {
     public void bulkEnableAdmin(List<String> adminUuids) {
         for (String uuid : adminUuids) {
             try {
-                Admin admin = adminRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
-
-                admin.setEnabled(true);
-                adminRepository.save(admin);
-            } catch (NotFoundException e) {
+                enableAdmin(uuid);
+            } catch (NotFoundException | CertificateException e) {
                 logger.warn("Unable to enable admin with id {}", uuid);
             }
         }
