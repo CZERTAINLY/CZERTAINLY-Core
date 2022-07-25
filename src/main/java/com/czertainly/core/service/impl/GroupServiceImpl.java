@@ -89,13 +89,7 @@ public class GroupServiceImpl implements GroupService {
     public void bulkRemoveGroup(List<String> entityUuids) {
         for(String uuid: entityUuids){
             try{
-                CertificateGroup certificateGroup = groupRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
-                for(Certificate certificate: certificateRepository.findByGroup(certificateGroup)){
-                    certificate.setGroup(null);
-                    certificateRepository.save(certificate);
-                }
-                groupRepository.delete(certificateGroup);
+                removeGroup(uuid);
             }catch(NotFoundException e){
                 logger.warn("Unable to find the group with uuid {}. It may have been deleted", uuid);
             }
