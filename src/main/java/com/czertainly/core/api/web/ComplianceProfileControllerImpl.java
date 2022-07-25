@@ -13,8 +13,8 @@ import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestD
 import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceRulesListResponseDto;
 import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
-import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;

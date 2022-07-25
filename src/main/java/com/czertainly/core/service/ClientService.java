@@ -5,8 +5,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.client.AddClientRequestDto;
 import com.czertainly.api.model.client.client.EditClientRequestDto;
-import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.client.ClientDto;
 
 import java.security.cert.CertificateException;

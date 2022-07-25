@@ -22,7 +22,7 @@ public interface AcmeProfileService {
 
     AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
 
-    List<BulkActionMessageDto> deleteAcmeProfile(String uuid) throws NotFoundException;
+    void deleteAcmeProfile(String uuid) throws NotFoundException, ValidationException;
 
     void enableAcmeProfile(String uuid) throws NotFoundException;
 

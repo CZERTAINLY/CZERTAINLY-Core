@@ -263,6 +263,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                         raProfileService.updateRaProfileEntity(ref);
                     }
                 }
+                authorityInstanceRef.setRaProfiles(null);
                 removeAuthorityInstance(authorityInstanceRef);
             } catch (Exception e) {
                 logger.warn("Unable to delete the Authority instance with uuid {}. It may have been deleted", uuid);

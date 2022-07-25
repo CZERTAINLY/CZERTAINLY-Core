@@ -53,8 +53,8 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    public List<BulkActionMessageDto> deleteAcmeProfile(String uuid) throws NotFoundException {
-        return acmeProfileService.deleteAcmeProfile(uuid);
+    public void deleteAcmeProfile(String uuid) throws NotFoundException, ValidationException {
+        acmeProfileService.deleteAcmeProfile(uuid);
     }
 
     @Override

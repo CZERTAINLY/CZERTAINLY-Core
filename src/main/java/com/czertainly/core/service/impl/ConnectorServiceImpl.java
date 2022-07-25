@@ -785,7 +785,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         }
 
         if (!errors.isEmpty()) {
-            throw new ValidationException(String.join("\n", errors));
+            throw new ValidationException(ValidationError.create(String.join("\n", errors)));
         }
 
         List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
