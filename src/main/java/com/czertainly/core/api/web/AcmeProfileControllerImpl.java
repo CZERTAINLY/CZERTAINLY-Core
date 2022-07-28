@@ -97,6 +97,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.FORCE_DELETE)
+
     public List<BulkActionMessageDto> forceDeleteACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
         return acmeProfileService.bulkForceRemoveACMEProfiles(uuids);
     }
