@@ -181,7 +181,7 @@ public class CredentialServiceTest {
         CredentialUpdateRequestDto request = new CredentialUpdateRequestDto();
         request.setAttributes(List.of());
 
-        CredentialDto dto = credentialService.updateCredential(credential.getUuid(), request);
+        CredentialDto dto = credentialService.editCredential(credential.getUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
@@ -189,18 +189,18 @@ public class CredentialServiceTest {
 
     @Test
     public void testEditCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.updateCredential("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.editCredential("wrong-uuid", null));
     }
 
     @Test
     public void testRemoveCredential() throws NotFoundException {
-        credentialService.removeCredential(credential.getUuid());
+        credentialService.deleteCredential(credential.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getUuid()));
     }
 
     @Test
     public void testRemoveCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.removeCredential("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.deleteCredential("wrong-uuid"));
     }
 
     @Test
@@ -227,7 +227,7 @@ public class CredentialServiceTest {
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        credentialService.bulkRemoveCredential(List.of(credential.getUuid()));
+        credentialService.bulkDeleteCredential(List.of(credential.getUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getUuid()));
     }
 

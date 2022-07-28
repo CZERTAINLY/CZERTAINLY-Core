@@ -52,7 +52,7 @@ public class CertificateGroupServiceTest {
 
     @Test
     public void testGetCertificateGroup() throws NotFoundException {
-        GroupDto dto = groupService.getCertificateGroup(certificateGroup.getUuid());
+        GroupDto dto = groupService.getGroup(certificateGroup.getUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificateGroup.getUuid(), dto.getUuid());
         Assertions.assertEquals(certificateGroup.getName(), dto.getName());
@@ -60,7 +60,7 @@ public class CertificateGroupServiceTest {
 
     @Test
     public void testGetCertificateGroup_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> groupService.getCertificateGroup("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup("wrong-uuid"));
     }
 
     @Test
@@ -93,7 +93,7 @@ public class CertificateGroupServiceTest {
         request.setName("Test");
         request.setDescription("some description");
 
-        GroupDto dto = groupService.updateGroup(certificateGroup.getUuid(), request);
+        GroupDto dto = groupService.editGroup(certificateGroup.getUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -101,23 +101,23 @@ public class CertificateGroupServiceTest {
     @Test
     public void testEditCertificateGroup_notFound() {
         GroupRequestDto request = new GroupRequestDto();
-        Assertions.assertThrows(NotFoundException.class, () -> groupService.updateGroup("wrong-uuid", request));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.editGroup("wrong-uuid", request));
     }
 
     @Test
     public void testRemoveCertificateGroup() throws NotFoundException {
-        groupService.removeGroup(certificateGroup.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> groupService.getCertificateGroup(certificateGroup.getUuid()));
+        groupService.deleteGroup(certificateGroup.getUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup(certificateGroup.getUuid()));
     }
 
     @Test
     public void testRemoveCertificateGroup_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> groupService.removeGroup("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.deleteGroup("wrong-uuid"));
     }
 
     @Test
     public void testBulkRemove() {
-        groupService.bulkRemoveGroup(List.of(certificateGroup.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> groupService.getCertificateGroup(certificateGroup.getUuid()));
+        groupService.bulkDeleteGroup(List.of(certificateGroup.getUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup(certificateGroup.getUuid()));
     }
 }

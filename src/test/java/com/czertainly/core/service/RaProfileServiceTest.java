@@ -115,7 +115,7 @@ public class RaProfileServiceTest {
 
     @Test
     public void testListRaProfiles() {
-        List<RaProfileDto> raProfiles = raProfileService.listRaProfiles();
+        List<RaProfileDto> raProfiles = raProfileService.listRaProfiles(null);
         Assertions.assertNotNull(raProfiles);
         Assertions.assertFalse(raProfiles.isEmpty());
         Assertions.assertEquals(1, raProfiles.size());
@@ -195,13 +195,13 @@ public class RaProfileServiceTest {
 
     @Test
     public void testRemoveRaProfile() throws NotFoundException {
-        raProfileService.removeRaProfile(raProfile.getUuid());
+        raProfileService.deleteRaProfile(raProfile.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getUuid()));
     }
 
     @Test
     public void testRemoveRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.removeRaProfile("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.deleteRaProfile("wrong-uuid"));
     }
 
     @Test
@@ -251,7 +251,7 @@ public class RaProfileServiceTest {
 
     @Test
     public void testBulkRemove() {
-        raProfileService.bulkRemoveRaProfile(List.of(raProfile.getUuid()));
+        raProfileService.bulkDeleteRaProfile(List.of(raProfile.getUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getUuid()));
     }
 

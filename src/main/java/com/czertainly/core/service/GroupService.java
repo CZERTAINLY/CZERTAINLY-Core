@@ -11,11 +11,11 @@ import java.util.List;
 public interface GroupService {
 
     List<GroupDto> listGroups();
-    GroupDto getCertificateGroup(String uuid) throws NotFoundException;
+    GroupDto getGroup(String uuid) throws NotFoundException;
 
     GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException;
-    GroupDto updateGroup(String uuid, GroupRequestDto request) throws NotFoundException;
+    GroupDto editGroup(String uuid, GroupRequestDto request) throws NotFoundException;
 
-    void removeGroup(String uuid) throws NotFoundException;
-    void bulkRemoveGroup(List<String> groupUuids);
+    void deleteGroup(String uuid) throws NotFoundException;
+    void bulkDeleteGroup(List<String> groupUuids);
 }

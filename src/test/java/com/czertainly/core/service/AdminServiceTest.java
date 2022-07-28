@@ -175,13 +175,13 @@ public class AdminServiceTest {
 
     @Test
     public void testRemoveAdmin() throws NotFoundException {
-        adminService.removeAdmin(admin.getUuid());
+        adminService.deleteAdmin(admin.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> adminService.getAdminByUuid(admin.getUuid()));
     }
 
     @Test
     public void testRemoveAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> adminService.removeAdmin("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> adminService.deleteAdmin("wrong-uuid"));
     }
 
     @Test
@@ -208,7 +208,7 @@ public class AdminServiceTest {
 
     @Test
     public void testBulkRemove() {
-        adminService.bulkRemoveAdmin(List.of(admin.getUuid()));
+        adminService.bulkDeleteAdmin(List.of(admin.getUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> adminService.getAdminByUuid(admin.getUuid()));
     }
 

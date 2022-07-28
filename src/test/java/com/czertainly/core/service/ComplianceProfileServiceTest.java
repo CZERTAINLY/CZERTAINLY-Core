@@ -324,18 +324,18 @@ public class ComplianceProfileServiceTest {
 
     @Test
     public void removeComplianceProfileTest() throws NotFoundException {
-        Assertions.assertThrows(ValidationException.class,() -> complianceProfileService.removeComplianceProfile(complianceProfile.getUuid()));
+        Assertions.assertThrows(ValidationException.class,() -> complianceProfileService.deleteComplianceProfile(complianceProfile.getUuid()));
     }
 
     @Test
     public void forceRemoveComplianceProfileTest() throws NotFoundException {
-        complianceProfileService.bulkForceRemoveComplianceProfiles(List.of(complianceProfile.getUuid()));
+        complianceProfileService.forceDeleteComplianceProfiles(List.of(complianceProfile.getUuid()));
         Assertions.assertDoesNotThrow(() -> complianceProfileRepository.findAll().size());
     }
 
     @Test
     public void removeComplianceProfile_NotFound() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.removeComplianceProfile("non-existant"));
+        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.deleteComplianceProfile("non-existant"));
     }
 
     @Test

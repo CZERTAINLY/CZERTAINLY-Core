@@ -7,6 +7,9 @@ import com.czertainly.api.interfaces.core.web.GroupController;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
+import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.model.auth.ActionName;
+import com.czertainly.core.model.auth.ResourceName;
 import com.czertainly.core.service.GroupService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -25,16 +28,19 @@ public class GroupControllerImpl implements GroupController {
     private GroupService groupService;
 
     @Override
+    @AuthEndpoint(resourceName = ResourceName.GROUP, actionName = ActionName.LIST, isListingEndPoint = true)
     public List<GroupDto> listGroups() {
         return groupService.listGroups();
     }
 
     @Override
+    @AuthEndpoint(resourceName = ResourceName.GROUP, actionName = ActionName.DETAIL)
     public GroupDto getGroup(@PathVariable String uuid) throws NotFoundException {
-        return groupService.getCertificateGroup(uuid);
+        return groupService.getGroup(uuid);
     }
 
     @Override
+    @AuthEndpoint(resourceName = ResourceName.GROUP, actionName = ActionName.CREATE)
     public ResponseEntity<?> createGroup(@RequestBody GroupRequestDto request) throws ValidationException, AlreadyExistException {
         GroupDto groupDto = groupService.createGroup(request);
 
@@ -49,17 +55,20 @@ public class GroupControllerImpl implements GroupController {
     }
 
     @Override
-    public GroupDto updateGroup(@PathVariable String uuid, @RequestBody GroupRequestDto request) throws NotFoundException {
-        return groupService.updateGroup(uuid, request);
+    @AuthEndpoint(resourceName = ResourceName.GROUP, actionName = ActionName.UPDATE)
+    public GroupDto editGroup(@PathVariable String uuid, @RequestBody GroupRequestDto request) throws NotFoundException {
+        return groupService.editGroup(uuid, request);
     }
 
     @Override
-    public void removeGroup(@PathVariable String uuid) throws NotFoundException {
-        groupService.removeGroup(uuid);
+    @AuthEndpoint(resourceName = ResourceName.GROUP, actionName = ActionName.DELETE)
+    public void deleteGroup(@PathVariable String uuid) throws NotFoundException {
+        groupService.deleteGroup(uuid);
     }
 
     @Override
-    public void bulkRemoveGroup(List<String> groupUuids) throws NotFoundException {
-        groupService.bulkRemoveGroup(groupUuids);
+    @AuthEndpoint(resourceName = ResourceName.GROUP, actionName = ActionName.DELETE)
+    public void bulkDeleteGroup(List<String> groupUuids) throws NotFoundException {
+        groupService.bulkDeleteGroup(groupUuids);
     }
 }

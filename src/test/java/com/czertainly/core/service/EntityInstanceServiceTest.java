@@ -165,7 +165,7 @@ public class EntityInstanceServiceTest {
 
     @Test
     public void testEditEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.updateEntityInstance("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.editEntityInstance("wrong-uuid", null));
     }
 
     @Test
@@ -174,7 +174,7 @@ public class EntityInstanceServiceTest {
                 .delete(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
-        entityInstanceService.removeEntityInstance(entityInstance.getUuid());
+        entityInstanceService.deleteEntityInstance(entityInstance.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(entityInstance.getUuid()));
     }
 
@@ -208,6 +208,6 @@ public class EntityInstanceServiceTest {
 
     @Test
     public void testRemoveEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.removeEntityInstance("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.deleteEntityInstance("wrong-uuid"));
     }
 }

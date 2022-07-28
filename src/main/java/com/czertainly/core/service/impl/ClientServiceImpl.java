@@ -128,7 +128,7 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.DELETE)
-    public void removeClient(String uuid) throws NotFoundException {
+    public void deleteClient(String uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
         if (client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()) {
@@ -200,7 +200,7 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkRemoveClient(List<String> clientUuids) {
+    public List<BulkActionMessageDto> bulkDeleteClient(List<String> clientUuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : clientUuids) {
             try {

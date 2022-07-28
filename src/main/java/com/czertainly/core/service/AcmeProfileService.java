@@ -20,7 +20,7 @@ public interface AcmeProfileService {
 
     AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
 
-    AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
+    AcmeProfileDto editAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
 
     void deleteAcmeProfile(String uuid) throws NotFoundException, ValidationException;
 

@@ -138,7 +138,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
-    public AuthorityInstanceDto updateAuthorityInstance(String uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException {
+    public AuthorityInstanceDto editAuthorityInstance(String uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         AuthorityInstanceDto ref = getAuthorityInstance(uuid);
@@ -171,7 +171,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
-    public void removeAuthorityInstance(String uuid) throws ConnectorException {
+    public void deleteAuthorityInstance(String uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         removeAuthorityInstance(authorityInstanceRef);
@@ -230,7 +230,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws ValidationException {
+    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<String> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
             AuthorityInstanceReference authorityInstanceRef = null;
@@ -250,7 +250,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<String> uuids) throws ValidationException {
+    public List<BulkActionMessageDto> forceDeleteAuthorityInstance(List<String> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
             AuthorityInstanceReference authorityInstanceRef = null;

@@ -120,7 +120,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CHANGE)
-    public CredentialDto updateCredential(String uuid, CredentialUpdateRequestDto request) throws ConnectorException {
+    public CredentialDto editCredential(String uuid, CredentialUpdateRequestDto request) throws ConnectorException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -145,7 +145,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
-    public void removeCredential(String uuid) throws NotFoundException {
+    public void deleteCredential(String uuid) throws NotFoundException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -175,22 +175,10 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
-    public void bulkRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException {
+    public void bulkDeleteCredential(List<String> uuids) throws ValidationException, NotFoundException {
         for (String uuid : uuids) {
             try {
-                removeCredential(uuid);
-            } catch (NotFoundException e) {
-                logger.warn("Unable to find Credential with uuid {}. It may have deleted", uuid);
-            }
-        }
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.FORCE_DELETE)
-    public void bulkForceRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException {
-        for (String uuid : uuids) {
-            try {
-                removeCredential(uuid);
+                deleteCredential(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find Credential with uuid {}. It may have deleted", uuid);
             }

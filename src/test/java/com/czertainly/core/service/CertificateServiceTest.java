@@ -136,7 +136,7 @@ public class CertificateServiceTest {
 
     @Test
     public void testRemoveCertificate_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.removeCertificate("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.deleteCertificate("wrong-uuid"));
     }
 
     @Test
@@ -249,7 +249,7 @@ public class CertificateServiceTest {
         RemoveCertificateDto request = new RemoveCertificateDto();
         request.setUuids(List.of(certificate.getUuid()));
 
-        certificateService.bulkRemoveCertificate(request);
+        certificateService.bulkDeleteCertificate(request);
 
         Assertions.assertAll(() -> certificateService.getCertificate(certificate.getUuid()));
     }

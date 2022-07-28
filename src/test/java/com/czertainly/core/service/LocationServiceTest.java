@@ -312,12 +312,12 @@ public class LocationServiceTest {
 
     @Test
     public void testRemoveLocation_withCertificates() {
-        Assertions.assertThrows(ValidationException.class, () -> locationService.removeLocation(location.getUuid()));
+        Assertions.assertThrows(ValidationException.class, () -> locationService.deleteLocation(location.getUuid()));
     }
 
     @Test
     public void testRemoveLocation_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.removeLocation("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.deleteLocation("wrong-uuid"));
     }
 
     @Test

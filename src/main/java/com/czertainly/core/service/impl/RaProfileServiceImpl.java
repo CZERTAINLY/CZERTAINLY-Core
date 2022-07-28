@@ -68,16 +68,12 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    public List<RaProfileDto> listRaProfiles() {
-        List<RaProfile> raProfiles = raProfileRepository.findAll();
-        return raProfiles.stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    public List<RaProfileDto> listRaProfiles(Boolean isEnabled) {
-        List<RaProfile> raProfiles = raProfileRepository.findByEnabled(isEnabled);
-        return raProfiles.stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
+    public List<RaProfileDto> listRaProfiles(Optional<Boolean> enabled) {
+        if(enabled.isPresent()) {
+            return raProfileRepository.findAll().stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
+        } else {
+            return raProfileRepository.findByEnabled(enabled.get()).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
+        }
     }
 
     @Override
@@ -147,7 +143,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
-    public void removeRaProfile(String uuid) throws NotFoundException {
+    public void deleteRaProfile(String uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
         List<AcmeProfile> acmeProfiles = acmeProfileRepository.findByRaProfile(raProfile);
@@ -201,10 +197,10 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
-    public void bulkRemoveRaProfile(List<String> uuids) {
+    public void bulkDeleteRaProfile(List<String> uuids) {
         for (String uuid : uuids) {
             try {
-                removeRaProfile(uuid);
+                deleteRaProfile(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find RA Profile with uuid {}. It may have already been deleted", uuid);
             }

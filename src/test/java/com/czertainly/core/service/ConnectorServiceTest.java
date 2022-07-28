@@ -208,29 +208,29 @@ public class ConnectorServiceTest {
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
         request.setUrl("http://localhost:3665");
 
-        ConnectorDto dto = connectorService.updateConnector(connector.getUuid(), request);
+        ConnectorDto dto = connectorService.editConnector(connector.getUuid(), request);
         Assertions.assertNotNull(dto);
     }
 
     @Test
     public void testEditConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector("wrong-uuid", new ConnectorUpdateRequestDto()));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.editConnector("wrong-uuid", new ConnectorUpdateRequestDto()));
     }
 
     @Test
     public void testRemoveConnector() throws NotFoundException {
-        connectorService.removeConnector(connector.getUuid());
+        connectorService.deleteConnector(connector.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getUuid()));
     }
 
     @Test
     public void testRemoveConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.removeConnector("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.deleteConnector("wrong-uuid"));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        connectorService.bulkRemoveConnector(List.of(connector.getUuid()));
+        connectorService.bulkDeleteConnector(List.of(connector.getUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getUuid()));
     }
 

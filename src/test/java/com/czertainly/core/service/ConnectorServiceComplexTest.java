@@ -208,7 +208,7 @@ public class ConnectorServiceComplexTest {
         request.setAuthType(AuthType.NONE);
         request.setUrl("http://localhost:3665");
 
-        ConnectorDto dto = connectorService.updateConnector(connector.getUuid(), request);
+        ConnectorDto dto = connectorService.editConnector(connector.getUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getUuid());
 

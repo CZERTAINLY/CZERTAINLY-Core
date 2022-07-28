@@ -44,7 +44,7 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.REQUEST)
-    public GroupDto getCertificateGroup(String uuid) throws NotFoundException {
+    public GroupDto getGroup(String uuid) throws NotFoundException {
         return getGroupEntity(uuid).mapToDto();
     }
 
@@ -74,7 +74,7 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
-    public void removeGroup(String uuid) throws NotFoundException {
+    public void deleteGroup(String uuid) throws NotFoundException {
         CertificateGroup certificateGroup = groupRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
         for(Certificate certificate: certificateRepository.findByGroup(certificateGroup)){
@@ -86,10 +86,10 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
-    public void bulkRemoveGroup(List<String> entityUuids) {
+    public void bulkDeleteGroup(List<String> entityUuids) {
         for(String uuid: entityUuids){
             try{
-                removeGroup(uuid);
+                deleteGroup(uuid);
             }catch(NotFoundException e){
                 logger.warn("Unable to find the group with uuid {}. It may have been deleted", uuid);
             }
@@ -98,7 +98,7 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CHANGE)
-    public GroupDto updateGroup(String uuid, GroupRequestDto request) throws NotFoundException {
+    public GroupDto editGroup(String uuid, GroupRequestDto request) throws NotFoundException {
         CertificateGroup certificateGroup = groupRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
 

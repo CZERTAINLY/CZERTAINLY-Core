@@ -98,7 +98,7 @@ public class DiscoveryServiceTest {
 
     @Test
     public void testListDiscoveries() {
-        List<DiscoveryHistoryDto> discoveries = discoveryService.listDiscovery();
+        List<DiscoveryHistoryDto> discoveries = discoveryService.listDiscoveries();
         Assertions.assertNotNull(discoveries);
         Assertions.assertFalse(discoveries.isEmpty());
         Assertions.assertEquals(1, discoveries.size());
@@ -188,13 +188,13 @@ public class DiscoveryServiceTest {
 
     @Test
     public void testRemoveDiscovery() throws NotFoundException {
-        discoveryService.removeDiscovery(discovery.getUuid());
+        discoveryService.deleteDiscovery(discovery.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getUuid()));
     }
 
     @Test
     public void testRemoveDiscovery_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.removeDiscovery("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.deleteDiscovery("wrong-uuid"));
     }
 
     @Test

@@ -21,9 +21,9 @@ public interface AuthorityInstanceService {
 
     AuthorityInstanceDto createAuthorityInstance(AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    AuthorityInstanceDto updateAuthorityInstance(String uuid, AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException;
+    AuthorityInstanceDto editAuthorityInstance(String uuid, AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException;
 
-    void removeAuthorityInstance(String uuid) throws NotFoundException, ConnectorException;
+    void deleteAuthorityInstance(String uuid) throws NotFoundException, ConnectorException;
 
     List<NameAndIdDto> listEndEntityProfiles(String uuid) throws NotFoundException, ConnectorException;
 
@@ -35,7 +35,7 @@ public interface AuthorityInstanceService {
 
     Boolean validateRAProfileAttributes(String uuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException;
 
-    List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException;
+    List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException;
 
-    List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<String> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> forceDeleteAuthorityInstance(List<String> uuids) throws ValidationException, NotFoundException;
 }

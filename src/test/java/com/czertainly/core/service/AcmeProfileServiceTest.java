@@ -119,7 +119,7 @@ public class AcmeProfileServiceTest {
         request.setDnsResolverIp("sample");
         request.setDnsResolverPort("32");
 
-        AcmeProfileDto dto = acmeProfileService.updateAcmeProfile(acmeProfile.getUuid(), request);
+        AcmeProfileDto dto = acmeProfileService.editAcmeProfile(acmeProfile.getUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
         Assertions.assertEquals(request.getDnsResolverIp(), dto.getDnsResolverIp());
@@ -128,7 +128,7 @@ public class AcmeProfileServiceTest {
     @Test
     public void testEditAcmeProfile_validationFail() {
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
-        Assertions.assertThrows(NullPointerException.class, () -> acmeProfileService.updateAcmeProfile(acmeProfile.getUuid(), request));
+        Assertions.assertThrows(NullPointerException.class, () -> acmeProfileService.editAcmeProfile(acmeProfile.getUuid(), request));
     }
 
     @Test

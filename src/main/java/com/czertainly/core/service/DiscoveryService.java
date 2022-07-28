@@ -11,12 +11,12 @@ import java.util.List;
 
 public interface DiscoveryService {
 
-    List<DiscoveryHistoryDto> listDiscovery();
+    List<DiscoveryHistoryDto> listDiscoveries();
     DiscoveryHistoryDto getDiscovery(String uuid) throws NotFoundException;
     DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException;
 
     void createDiscovery(DiscoveryDto request, DiscoveryHistory modal) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    void removeDiscovery(String uuid) throws NotFoundException;
+    void deleteDiscovery(String uuid) throws NotFoundException;
     void bulkRemoveDiscovery(List<String> discoveryUuids) throws NotFoundException;
 }

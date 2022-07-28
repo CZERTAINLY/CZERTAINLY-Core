@@ -15,12 +15,11 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.RaProfile;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface RaProfileService {
 
-    List<RaProfileDto> listRaProfiles();
-
-    List<RaProfileDto> listRaProfiles(Boolean isEnabled);
+    List<RaProfileDto> listRaProfiles(Optional<Boolean> enabled);
 
     RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException;
 
@@ -30,7 +29,7 @@ public interface RaProfileService {
 
     RaProfileDto editRaProfile(String uuid, EditRaProfileRequestDto dto) throws NotFoundException, ConnectorException;
 
-    void removeRaProfile(String uuid) throws NotFoundException;
+    void deleteRaProfile(String uuid) throws NotFoundException;
 
     List<SimplifiedClientDto> listClients(String uuid) throws NotFoundException;
 
@@ -38,7 +37,7 @@ public interface RaProfileService {
 
     void disableRaProfile(String uuid) throws NotFoundException;
 
-    void bulkRemoveRaProfile(List<String> uuids);
+    void bulkDeleteRaProfile(List<String> uuids);
 
     void bulkDisableRaProfile(List<String> uuids);
 

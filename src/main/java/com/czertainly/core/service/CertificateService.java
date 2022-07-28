@@ -26,7 +26,7 @@ public interface CertificateService {
     Certificate getCertificateEntityByContent(String content);
     Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException;
 
-    void removeCertificate(String uuid) throws NotFoundException;
+    void deleteCertificate(String uuid) throws NotFoundException;
 	void updateIssuer();
 	Certificate createCertificateEntity(X509Certificate certificate);
 
@@ -55,7 +55,7 @@ public interface CertificateService {
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
-    void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
+    void bulkDeleteCertificate(RemoveCertificateDto request) throws NotFoundException;
 
     /**
      * List all locations associated with the certificate

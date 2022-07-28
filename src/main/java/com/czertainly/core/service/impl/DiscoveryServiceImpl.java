@@ -84,7 +84,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
-    public List<DiscoveryHistoryDto> listDiscovery() {
+    public List<DiscoveryHistoryDto> listDiscoveries() {
         return discoveryRepository.findAll().stream().map(DiscoveryHistory::mapToDto).collect(Collectors.toList());
     }
 
@@ -100,7 +100,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
-    public void removeDiscovery(String uuid) throws NotFoundException {
+    public void deleteDiscovery(String uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
         for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
@@ -140,7 +140,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     public void bulkRemoveDiscovery(List<String> discoveryUuids) throws NotFoundException {
         for (String uuid : discoveryUuids) {
-            removeDiscovery(uuid);
+            deleteDiscovery(uuid);
         }
     }
 

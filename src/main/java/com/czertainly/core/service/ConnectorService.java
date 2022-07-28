@@ -46,9 +46,9 @@ public interface ConnectorService {
 
     ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException;
 
-    ConnectorDto updateConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException;
+    ConnectorDto editConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException;
 
-    void removeConnector(String uuid) throws NotFoundException;
+    void deleteConnector(String uuid) throws NotFoundException;
 
     void approve(List<String> uuids) throws NotFoundException, ValidationException;
 
@@ -73,7 +73,7 @@ public interface ConnectorService {
 
     List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ConnectorException;
 
-    List<BulkActionMessageDto> bulkRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> bulkDeleteConnector(List<String> uuids) throws ValidationException, NotFoundException;
 
-    List<BulkActionMessageDto> bulkForceRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> forceDeleteConnector(List<String> uuids) throws ValidationException, NotFoundException;
 }

@@ -24,13 +24,13 @@ public interface AdminService {
 
     AdminDto editAdmin(String uuid, EditAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException;
 
-    void removeAdmin(String uuid) throws NotFoundException;
+    void deleteAdmin(String uuid) throws NotFoundException;
 
     void enableAdmin(String uuid) throws NotFoundException, CertificateException;
 
     void disableAdmin(String uuid) throws NotFoundException;
 
-    void bulkRemoveAdmin(List<String> adminUuids);
+    void bulkDeleteAdmin(List<String> adminUuids);
 
     void bulkDisableAdmin(List<String> adminUuids);
 

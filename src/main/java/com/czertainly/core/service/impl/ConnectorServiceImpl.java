@@ -281,7 +281,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
-    public ConnectorDto updateConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
+    public ConnectorDto editConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
         List<AttributeDefinition> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
                 AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
@@ -377,7 +377,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
-    public void removeConnector(String uuid) throws NotFoundException {
+    public void deleteConnector(String uuid) throws NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
         deleteConnector(connector);
@@ -698,7 +698,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException {
+    public List<BulkActionMessageDto> bulkDeleteConnector(List<String> uuids) throws ValidationException, NotFoundException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
             Connector connector = null;
@@ -716,7 +716,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException {
+    public List<BulkActionMessageDto> forceDeleteConnector(List<String> uuids) throws ValidationException, NotFoundException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
             Connector connector = null;

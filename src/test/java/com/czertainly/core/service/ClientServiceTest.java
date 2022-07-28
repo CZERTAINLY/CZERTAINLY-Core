@@ -168,13 +168,13 @@ public class ClientServiceTest {
 
     @Test
     public void testRemoveClient() throws NotFoundException {
-        clientService.removeClient(client.getUuid());
+        clientService.deleteClient(client.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(client.getUuid()));
     }
 
     @Test
     public void testRemoveClient_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.removeClient("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.deleteClient("wrong-uuid"));
     }
 
     @Test
@@ -274,7 +274,7 @@ public class ClientServiceTest {
 
     @Test
     public void testBulkRemove() {
-        clientService.bulkRemoveClient(List.of(client.getUuid()));
+        clientService.bulkDeleteClient(List.of(client.getUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(client.getUuid()));
     }
 
