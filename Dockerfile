@@ -6,13 +6,15 @@ COPY settings.xml /root/.m2/settings.xml
 ARG SERVER_USERNAME
 ARG SERVER_PASSWORD
 RUN mvn -f /home/app/pom.xml clean package
+COPY docker /home/app/docker
 
 # Package stage
 #FROM openjdk:11-jdk-slim
 FROM adoptopenjdk/openjdk11:alpine-jre
-RUN mkdir -p /opt/czertainly
-COPY --from=build /home/app/target/*.jar app.jar
-COPY entry.sh entry.sh
-#RUN ["chmod", "+x", "entry.sh"]
-COPY prepare-truststore.sh prepare-truststore.sh
-ENTRYPOINT ["./entry.sh"]
+
+COPY --from=build /home/app/docker /
+COPY --from=build /home/app/target/*.jar /opt/czertainly/app.jar
+
+WORKDIR /opt/czertainly
+
+ENTRYPOINT ["/opt/czertainly/entry.sh"]
