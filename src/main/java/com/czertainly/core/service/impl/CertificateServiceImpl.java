@@ -409,7 +409,7 @@ public class CertificateServiceImpl implements CertificateService {
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
             if (certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
-                logger.debug("Certificate with UUID {} is self signed / CA", certificate.getUuid());
+                continue;
             } else {
                 for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
                     X509Certificate subCert;
