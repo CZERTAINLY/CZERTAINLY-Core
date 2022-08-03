@@ -408,9 +408,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
-            if (certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
-                logger.debug("Certificate with UUID {} is self signed / CA", certificate.getUuid());
-            } else {
+            if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
                 for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
                     X509Certificate subCert;
                     X509Certificate issCert;
