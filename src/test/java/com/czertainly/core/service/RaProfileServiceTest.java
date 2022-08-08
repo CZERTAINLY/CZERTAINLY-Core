@@ -35,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.Optional;
 
 @SpringBootTest
 @Transactional
@@ -105,6 +106,7 @@ public class RaProfileServiceTest {
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfile.setEnabled(true);
         raProfile = raProfileRepository.save(raProfile);
     }
 
@@ -115,7 +117,7 @@ public class RaProfileServiceTest {
 
     @Test
     public void testListRaProfiles() {
-        List<RaProfileDto> raProfiles = raProfileService.listRaProfiles(null);
+        List<RaProfileDto> raProfiles = raProfileService.listRaProfiles(Optional.of(true));
         Assertions.assertNotNull(raProfiles);
         Assertions.assertFalse(raProfiles.isEmpty());
         Assertions.assertEquals(1, raProfiles.size());

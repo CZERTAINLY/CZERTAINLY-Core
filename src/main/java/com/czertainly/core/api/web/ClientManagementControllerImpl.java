@@ -11,8 +11,8 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ActionName;
-import com.czertainly.core.model.auth.ResourceName;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -33,13 +33,13 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     private ClientService clientService;
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public List<ClientDto> listClients() {
         return clientService.listClients();
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.CREATE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.CREATE)
     public ResponseEntity<UuidDto> createClient(
             @RequestBody AddClientRequestDto request)
             throws CertificateException, AlreadyExistException, NotFoundException, ValidationException {
@@ -58,13 +58,13 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.DETAIL)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DETAIL)
     public ClientDto getClient(@PathVariable String uuid) throws NotFoundException {
         return clientService.getClient(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.UPDATE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.UPDATE)
     public ClientDto editClient(
             @PathVariable String uuid,
             @RequestBody EditClientRequestDto request)
@@ -73,7 +73,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.DELETE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DELETE)
     public void deleteClient(
             @PathVariable String uuid)
             throws NotFoundException {
@@ -81,7 +81,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.DELETE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DELETE)
     public ResponseEntity<List<BulkActionMessageDto>> bulkDeleteClient(List<String> clientUuids) throws NotFoundException {
         List<BulkActionMessageDto> messages = clientService.bulkDeleteClient(clientUuids);
         if(messages.isEmpty()){
@@ -91,7 +91,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.LIST_AUTHORIZATIONS, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.LIST_AUTHORIZATIONS, isListingEndPoint = true)
     public List<SimplifiedRaProfileDto> listAuthorizations(
             @PathVariable String uuid)
             throws NotFoundException {
@@ -99,31 +99,31 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.DISABLE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DISABLE)
     public void disableClient(@PathVariable String uuid) throws NotFoundException {
         clientService.disableClient(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.ENABLE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.ENABLE)
     public void enableClient(@PathVariable String uuid) throws NotFoundException, CertificateException {
         clientService.enableClient(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.DISABLE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DISABLE)
     public void bulkDisableClient(List<String> clientUuids) throws NotFoundException {
         clientService.bulkDisableClient(clientUuids);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.ENABLE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.ENABLE)
     public void bulkEnableClient(List<String> clientUuids) throws NotFoundException {
         clientService.bulkEnableClient(clientUuids);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.AUTHORIZE_CLIENT)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.AUTHORIZE_CLIENT)
     public void authorizeClient(
             @PathVariable String uuid,
             @PathVariable String raProfileUuid)
@@ -132,7 +132,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CLIENT, actionName = ActionName.UNAUTHORIZE_CLIENT)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.UNAUTHORIZE_CLIENT)
     public void unauthorizeClient(
             @PathVariable String uuid,
             @PathVariable String raProfileUuid)

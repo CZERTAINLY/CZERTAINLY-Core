@@ -8,12 +8,15 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.util.Arrays;
 
-public enum ResourceName {
+public enum Resource {
 
     DASHBOARD("dashboard"),
     RA_PROFILE("raProfile"),
+
+    // TODO Check and remove client and admin after new authorization
     CLIENT("client"),
     ADMIN("admin"),
+
     CONNECTOR("connector"),
     CREDENTIAL("credential"),
     AUTHORITY("authority"),
@@ -33,7 +36,7 @@ public enum ResourceName {
             required = true)
     private String code;
 
-    ResourceName(String code) {
+    Resource(String code) {
         this.code = code;
     }
 
@@ -43,8 +46,8 @@ public enum ResourceName {
     }
 
     @JsonCreator
-    public static ResourceName findByCode(String code) {
-        return Arrays.stream(ResourceName.values())
+    public static Resource findByCode(String code) {
+        return Arrays.stream(Resource.values())
                 .filter(k -> k.code.equals(code))
                 .findFirst()
                 .orElseThrow(() ->

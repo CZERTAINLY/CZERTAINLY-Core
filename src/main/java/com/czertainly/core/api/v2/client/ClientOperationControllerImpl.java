@@ -13,8 +13,8 @@ import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ActionName;
-import com.czertainly.core.model.auth.ResourceName;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
@@ -33,14 +33,14 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     private ClientOperationService clientOperationService;
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CERTIFICATE, actionName = ActionName.LIST_ATTRIBUTES)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
     public List<AttributeDefinition> listIssueCertificateAttributes(
             @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
         return clientOperationService.listIssueCertificateAttributes(raProfileUuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CERTIFICATE, actionName = ActionName.VALIDATE_ATTRIBUTES)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
     public void validateIssueCertificateAttributes(
             @PathVariable String raProfileUuid,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
@@ -48,7 +48,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CERTIFICATE, actionName = ActionName.ISSUE)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ISSUE)
     public ClientCertificateDataResponseDto issueCertificate(
             @PathVariable String raProfileUuid,
             @RequestBody ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
@@ -56,7 +56,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CERTIFICATE, actionName = ActionName.RENEW)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.RENEW)
     public ClientCertificateDataResponseDto renewCertificate(
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
@@ -65,14 +65,14 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CERTIFICATE, actionName = ActionName.LIST_ATTRIBUTES)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
     public List<AttributeDefinition> listRevokeCertificateAttributes(
             @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
         return clientOperationService.listRevokeCertificateAttributes(raProfileUuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CERTIFICATE, actionName = ActionName.VALIDATE_ATTRIBUTES)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
     public void validateRevokeCertificateAttributes(
             @PathVariable String raProfileUuid,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
@@ -80,7 +80,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
 	@Override
-    @AuthEndpoint(resourceName = ResourceName.CERTIFICATE, actionName = ActionName.REVOKE)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.REVOKE)
     public void revokeCertificate(
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,

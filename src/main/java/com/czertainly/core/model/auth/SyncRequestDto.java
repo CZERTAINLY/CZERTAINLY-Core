@@ -15,10 +15,10 @@ public class SyncRequestDto {
     private String routeTemplate;
 
     @Schema(description = "Name of the resource", required = true, example = "client")
-    private ResourceName resourceName;
+    private Resource resourceName;
 
     @Schema(description = "Action Name", required = true, example = "list")
-    private ActionName actionName;
+    private ResourceAction actionName;
 
     @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No", required = true, example = "false", defaultValue = "false")
     private boolean isListingEndpoint = false;
@@ -47,19 +47,19 @@ public class SyncRequestDto {
         this.routeTemplate = routeTemplate;
     }
 
-    public ResourceName getResourceName() {
+    public Resource getResourceName() {
         return resourceName;
     }
 
-    public void setResourceName(ResourceName resourceName) {
+    public void setResourceName(Resource resourceName) {
         this.resourceName = resourceName;
     }
 
-    public ActionName getActionName() {
+    public ResourceAction getActionName() {
         return actionName;
     }
 
-    public void setActionName(ActionName actionName) {
+    public void setActionName(ResourceAction actionName) {
         this.actionName = actionName;
     }
 

@@ -1,7 +1,7 @@
 package com.czertainly.core.auth;
 
-import com.czertainly.core.model.auth.ActionName;
-import com.czertainly.core.model.auth.ResourceName;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.auth.Resource;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -12,8 +12,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AuthEndpoint {
 
-    ResourceName resourceName();
-    ActionName actionName();
+    Resource resourceName();
+    ResourceAction actionName();
     boolean isListingEndPoint() default false;
 
 }

@@ -5,8 +5,8 @@ import com.czertainly.api.interfaces.core.web.AcmeAccountController;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ActionName;
-import com.czertainly.core.model.auth.ResourceName;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.service.AcmeAccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,49 +20,49 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
     private AcmeAccountService acmeAccountService;
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.ACME_ACCOUNT, actionName = ActionName.REVOKE)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.REVOKE)
     public void revokeAcmeAccount(String uuid) throws NotFoundException {
         acmeAccountService.revokeAccount(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.ACME_ACCOUNT, actionName = ActionName.ENABLE)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
     public void bulkEnableAcmeAccount(List<String> uuids) throws NotFoundException {
         acmeAccountService.bulkEnableAccount(uuids);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.ACME_ACCOUNT, actionName = ActionName.DISABLE)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.DISABLE)
     public void bulkDisableAcmeAccount(List<String> uuids) throws NotFoundException {
         acmeAccountService.bulkDisableAccount(uuids);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.ACME_ACCOUNT, actionName = ActionName.REVOKE)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.REVOKE)
     public void bulkRevokeAcmeAccount(List<String> uuids) throws NotFoundException {
         acmeAccountService.bulkRevokeAccount(uuids);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.ACME_ACCOUNT, actionName = ActionName.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public List<AcmeAccountListResponseDto> listAcmeAccounts() {
         return acmeAccountService.listAcmeAccounts();
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.ACME_ACCOUNT, actionName = ActionName.DETAIL)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.DETAIL)
     public AcmeAccountResponseDto getAcmeAccount(String uuid) throws NotFoundException {
         return acmeAccountService.getAcmeAccount(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.ACME_ACCOUNT, actionName = ActionName.ENABLE)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
     public void enableAcmeAccount(String uuid) throws NotFoundException {
         acmeAccountService.enableAccount(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.ACME_ACCOUNT, actionName = ActionName.DISABLE)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.DISABLE)
     public void disableAcmeAccount(String uuid) throws NotFoundException {
         acmeAccountService.disableAccount(uuid);
     }

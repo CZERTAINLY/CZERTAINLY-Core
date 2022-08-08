@@ -10,8 +10,8 @@ import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ActionName;
-import com.czertainly.core.model.auth.ResourceName;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.service.CredentialService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -30,19 +30,19 @@ public class CredentialControllerImpl implements CredentialController {
     private CredentialService credentialService;
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CREDENTIAL, actionName = ActionName.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public List<CredentialDto> listCredentials() {
         return credentialService.listCredentials();
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CREDENTIAL, actionName = ActionName.DETAIL)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DETAIL)
     public CredentialDto getCredential(@PathVariable String uuid) throws NotFoundException {
         return credentialService.getCredential(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CREDENTIAL, actionName = ActionName.CREATE)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.CREATE)
     public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         CredentialDto credentialDto = credentialService.createCredential(request);
 
@@ -59,31 +59,31 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CREDENTIAL, actionName = ActionName.UPDATE)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.UPDATE)
     public CredentialDto editCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
         return credentialService.editCredential(uuid, request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CREDENTIAL, actionName = ActionName.DELETE)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DELETE)
     public void deleteCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.deleteCredential(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CREDENTIAL, actionName = ActionName.ENABLE)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.ENABLE)
     public void enableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.enableCredential(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CREDENTIAL, actionName = ActionName.DISABLE)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DISABLE)
     public void disableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.disableCredential(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = ResourceName.CREDENTIAL, actionName = ActionName.DELETE)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DELETE)
     public void bulkDeleteCredential(List<String> uuids) throws NotFoundException, ValidationException {
         credentialService.bulkDeleteCredential(uuids);
     }
