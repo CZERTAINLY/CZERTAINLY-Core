@@ -69,7 +69,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     public List<RaProfileDto> listRaProfiles(Optional<Boolean> enabled) {
-        if(enabled.isPresent()) {
+        if(!enabled.isPresent()) {
             return raProfileRepository.findAll().stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
         } else {
             return raProfileRepository.findByEnabled(enabled.get()).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
