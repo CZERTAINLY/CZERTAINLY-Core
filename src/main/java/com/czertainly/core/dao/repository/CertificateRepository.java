@@ -87,6 +87,9 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long>,
     @Query(value = "SELECT c.status, COUNT(c.status) FROM Certificate AS c WHERE c.status IS NOT NULL GROUP BY c.status")
     List<Object[]> getCertificatesCountByStatus();
 
+    @Query(value = "SELECT c.complianceStatus, COUNT(c.complianceStatus) FROM Certificate AS c GROUP BY c.complianceStatus")
+    List<Object[]> getCertificatesCountByComplianceStatus();
+
     @Query("SELECT COUNT(c.id) FROM Certificate AS c WHERE c.notAfter > ?1 AND c.notAfter <= ?2")
     List<Object[]> getCertificatesCountByExpiryDate(Date notAfterFrom, Date notAfterTo);
 }

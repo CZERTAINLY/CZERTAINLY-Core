@@ -672,6 +672,7 @@ public class CertificateServiceImpl implements CertificateService {
                 groupFilter,
                 SearchLabelConstants.OWNER_FILTER,
                 SearchLabelConstants.STATUS_FILTER,
+                SearchLabelConstants.COMPLIANCE_STATUS_FILTER,
                 SearchLabelConstants.ISSUER_COMMON_NAME_FILTER,
                 SearchLabelConstants.FINGERPRINT_FILTER,
                 signatureAlgorithmFilter,

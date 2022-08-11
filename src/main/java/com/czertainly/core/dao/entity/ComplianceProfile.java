@@ -106,6 +106,15 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
         return complianceProfileDto;
     }
 
+
+    public ComplianceProfileDto raProfileMapToDto(){
+        ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
+        complianceProfileDto.setName(name);
+        complianceProfileDto.setDescription(description);
+        complianceProfileDto.setUuid(uuid);
+        return complianceProfileDto;
+    }
+
     /**
      *MapToDto function concentrating on providing the values that are required only for the List API
      * @return ComplianceProfilesListDto with the response for listing operation

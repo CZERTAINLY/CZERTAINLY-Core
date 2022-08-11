@@ -16,6 +16,7 @@ import java.io.Serializable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 
 @Entity
@@ -130,6 +131,7 @@ public class RaProfile extends Audited implements Serializable, DtoMapper<RaProf
         dto.setAuthorityInstanceUuid(authorityInstanceReference != null ? authorityInstanceReference.getUuid() : null);
         dto.setAuthorityInstanceName(this.authorityInstanceName);
         dto.setEnabled(enabled);
+        dto.setComplianceProfiles(complianceProfiles.stream().map(ComplianceProfile::raProfileMapToDto).collect(Collectors.toList()));
         return dto;
     }
 

@@ -43,7 +43,7 @@ public class ComplianceProfileRule extends Audited implements Serializable, DtoM
         dto.setName(complianceRule.getName());
         dto.setUuid(complianceRule.getUuid());
         dto.setAttributes(getAttributes());
-        dto.setDescription(complianceProfile.getDescription());
+        dto.setDescription(complianceRule.getDescription());
         return dto;
     }
 
