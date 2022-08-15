@@ -29,6 +29,10 @@ import com.czertainly.core.dao.entity.CertificateLocation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
@@ -109,30 +113,35 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listIssueCertificateAttributes(String raProfileUuid) throws ConnectorException {
-        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+    // TODO AUTH - what is the correct resource and action?
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public List<AttributeDefinition> listIssueCertificateAttributes(SecuredUUID raProfileUuid) throws ConnectorException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.toString())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
-        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         return extendedAttributeService.listIssueCertificateAttributes(raProfile);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateIssueCertificateAttributes(String raProfileUuid, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
-        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+    // TODO AUTH - what is the correct resource and action?
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public boolean validateIssueCertificateAttributes(SecuredUUID raProfileUuid, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.toString())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
-        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         return extendedAttributeService.validateIssueCertificateAttributes(raProfile, attributes);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
-    public ClientCertificateDataResponseDto issueCertificate(String raProfileUuid, ClientCertificateSignRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException {
-        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+    // TODO AUTH - what is the correct resource and action?
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public ClientCertificateDataResponseDto issueCertificate(SecuredUUID raProfileUuid, ClientCertificateSignRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.toString())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
+        // TODO AUTH - ignoring auth is currently not possible with @ExternalAuthorization. Is it still needed?
         if (!ignoreAuthToRa) {
-            ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
+//            ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         }
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
@@ -164,7 +173,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
-        certificateService.updateRaProfile(certificate.getUuid(), dto);
+        certificateService.updateRaProfile(certificate.getSecuredUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
@@ -180,15 +189,18 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
-    public ClientCertificateDataResponseDto renewCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
-        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+    // TODO AUTH - what is the correct resource and action?
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public ClientCertificateDataResponseDto renewCertificate(SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.toString())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
+        // TODO AUTH - ignoring auth is currently not possible with @ExternalAuthorization. Is it still needed?
         if (!ignoreAuthToRa) {
-            ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
+            // ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         }
 
-        Certificate oldCertificate = certificateService.getCertificateEntity(certificateUuid);
+        Certificate oldCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Renewing Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
@@ -228,10 +240,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
                     pushRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(cl.getPushAttributes()));
 
-                    locationService.removeCertificateFromLocation(cl.getLocation().getUuid(), oldCertificate.getUuid());
+                    locationService.removeCertificateFromLocation(cl.getLocation().getSecuredUuid(), oldCertificate.getUuid());
                     certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), "", oldCertificate);
 
-                    locationService.pushCertificateToLocation(cl.getLocation().getUuid(), certificate.getUuid(), pushRequest);
+                    locationService.pushCertificateToLocation(cl.getLocation().getSecuredUuid(), certificate.getUuid(), pushRequest);
                     certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Pushed to Location " + cl.getLocation().getName(), "", certificate);
                 }
             }
@@ -246,7 +258,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
-        certificateService.updateRaProfile(certificate.getUuid(), dto);
+        certificateService.updateRaProfile(certificate.getSecuredUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
@@ -262,31 +274,36 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listRevokeCertificateAttributes(String raProfileUuid) throws ConnectorException {
-        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+    // TODO AUTH - what is the correct resource and action?
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public List<AttributeDefinition> listRevokeCertificateAttributes(SecuredUUID raProfileUuid) throws ConnectorException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.toString())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
-        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         return extendedAttributeService.listRevokeCertificateAttributes(raProfile);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public boolean validateRevokeCertificateAttributes(String raProfileUuid, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
-        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+    // TODO AUTH - what is the correct resource and action?
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public boolean validateRevokeCertificateAttributes(SecuredUUID raProfileUuid, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.toString())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
-        ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         return extendedAttributeService.validateRevokeCertificateAttributes(raProfile, attributes);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
-    public void revokeCertificate(String raProfileUuid, String certificateUuid, ClientCertificateRevocationDto request, Boolean ignoreAuthToRa) throws ConnectorException {
-        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid)
+    // TODO AUTH - what is the correct resource and action?
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public void revokeCertificate(SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRevocationDto request, Boolean ignoreAuthToRa) throws ConnectorException {
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.toString())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        // TODO AUTH - ignoring auth is currently not possible with @ExternalAuthorization. Is it still needed?
         if (!ignoreAuthToRa) {
-            ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
+//            ValidatorUtil.validateAuthToRaProfile(raProfile.getName());
         }
-        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
+        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Revoking Certificate: ", certificate.toString());
 

@@ -40,6 +40,11 @@ import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.ConnectorAuthService;
@@ -50,7 +55,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 
@@ -67,7 +71,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class ConnectorServiceImpl implements ConnectorService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
 
@@ -99,20 +102,25 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
-    public List<ConnectorDto> listConnectors() {
-        return connectorRepository.findAll().stream()
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
+    public List<ConnectorDto> listConnectors(SecurityFilter filter) {
+        return connectorRepository.findUsingSecurityFilter(filter).stream()
                 .map(Connector::mapToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
-    public List<ConnectorDto> listConnectorsByFunctionGroup(FunctionGroupCode functionGroup) {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
+    public List<ConnectorDto> listConnectorsByFunctionGroup(SecurityFilter filter, FunctionGroupCode functionGroup) {
         List<ConnectorDto> connectors = new ArrayList<>();
 
         // TODO - this can be done using one select similar to connectorRepository.findConnectedByFunctionGroupAndKind()
 
-        for (Connector connector : connectorRepository.findByStatus(ConnectorStatus.CONNECTED)) {
+        for (Connector connector : connectorRepository.findUsingSecurityFilter(
+                filter,
+                (root, cb) -> cb.equal(root.get("status"), ConnectorStatus.CONNECTED))
+        ) {
             ConnectorDto connectorDto = connector.mapToDto();
             for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
                 if (functionGroup == FunctionGroupCode.AUTHORITY_PROVIDER) {
@@ -132,10 +140,14 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    public List<Connector> listConnectorEntityByFunctionGroup(FunctionGroupCode functionGroup) {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
+    public List<Connector> listConnectorEntityByFunctionGroup(SecurityFilter filter, FunctionGroupCode functionGroup) {
         List<Connector> connectors = new ArrayList<>();
 
-        for (Connector connector : connectorRepository.findByStatus(ConnectorStatus.CONNECTED)) {
+        for (Connector connector : connectorRepository.findUsingSecurityFilter(
+                filter,
+                (root, cb) -> cb.equal(root.get("status"), ConnectorStatus.CONNECTED))
+        ) {
             ConnectorDto connectorDto = connector.mapToDto();
             for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
                 if (functionGroup == FunctionGroupCode.AUTHORITY_PROVIDER) {
@@ -156,8 +168,10 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
-    public List<ConnectorDto> listConnectors(FunctionGroupCode functionGroupCode, String kind) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
+    public List<ConnectorDto> listConnectors(SecurityFilter filter, FunctionGroupCode functionGroupCode, String kind) throws NotFoundException {
 
+        // TODO AUTH - not used. Should rewrite or delete?
         FunctionGroup functionGroup = functionGroupRepository.findByCode(functionGroupCode)
                 .orElseThrow(() -> new NotFoundException(FunctionGroup.class, functionGroupCode));
 
@@ -168,7 +182,8 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
-    public ConnectorDto getConnector(String uuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    public ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException {
         Connector connector = getConnectorEntity(uuid);
         ConnectorDto dto = connector.mapToDto();
 
@@ -197,20 +212,25 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    public Connector getConnectorEntity(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    public Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException {
         return connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
     public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
         return createNewConnector(request, ConnectorStatus.CONNECTED);
     }
 
-    @Override
-    @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_ANONYMOUS"})
-    public ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.REGISTER)
+    public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
+        return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
+    }
+
+    private ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("name must not be empty");
         }
@@ -250,6 +270,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
     public ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("name must not be empty");
@@ -281,7 +302,8 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
-    public ConnectorDto updateConnector(String uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
+    public ConnectorDto updateConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
         List<AttributeDefinition> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
                 AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
@@ -313,6 +335,458 @@ public class ConnectorServiceImpl implements ConnectorService {
         complianceRuleGroupUpdate(connector, true);
 
         return connector.mapToDto();
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
+    public void removeConnector(SecuredUUID uuid) throws NotFoundException {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        List<ValidationError> errors = new ArrayList<>();
+        if (!connector.getCredentials().isEmpty()) {
+            errors.add(ValidationError.create(
+                    "Connector {} has {} dependent credentials",
+                    connector.getName(), connector.getCredentials().size()));
+            connector.getCredentials().forEach(
+                    c -> errors.add(ValidationError.create(c.getName())));
+        }
+
+        if (!connector.getAuthorityInstanceReferences().isEmpty()) {
+            errors.add(ValidationError.create(
+                    "Connector {} has {} dependent Authority instances",
+                    connector.getName(), connector.getAuthorityInstanceReferences().size()));
+            connector.getAuthorityInstanceReferences().forEach(
+                    c -> errors.add(ValidationError.create(c.getName())));
+        }
+
+        if (!connector.getEntityInstanceReferences().isEmpty()) {
+            errors.add(ValidationError.create(
+                    "Connector {} has {} dependent Entity instances",
+                    connector.getName(), connector.getEntityInstanceReferences().size()));
+            connector.getEntityInstanceReferences().forEach(
+                    c -> errors.add(ValidationError.create(c.getName())));
+        }
+
+        for (String complianceProfileName : complianceProfileService.isComplianceProviderAssociated(connector)) {
+            errors.add(ValidationError.create(
+                    "Connector {} has {} dependent Compliance Profile",
+                    connector.getName(), complianceProfileName));
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Could not delete connector", errors);
+        }
+        List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
+        connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
+        connectorRepository.delete(connector);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CONNECT)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
+    public List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException {
+        ConnectorDto dto = new ConnectorDto();
+        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
+        dto.setAuthType(request.getAuthType());
+        dto.setUrl(request.getUrl());
+        dto.setUuid(request.getUuid());
+        return validateConnector(dto);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.APPROVE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.APPROVE)
+    public void approve(List<SecuredUUID> uuids) throws NotFoundException, ValidationException {
+        for (SecuredUUID uuid : uuids) {
+            try {
+                Connector connector = connectorRepository.findByUuid(uuid)
+                        .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+                if (ConnectorStatus.WAITING_FOR_APPROVAL.equals(connector.getStatus())) {
+                    connector.setStatus(ConnectorStatus.CONNECTED);
+                    connectorRepository.save(connector);
+                    complianceRuleGroupUpdate(connector, false);
+                } else {
+                    logger.warn("Connector {} has unexpected status {}", connector.getName(), connector.getStatus());
+                }
+            } catch (NotFoundException e) {
+                logger.warn("Unable to find the connector with uuid {}", uuid);
+            }
+        }
+    }
+
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CONNECT)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.RECONNECT)
+    public void reconnect(List<SecuredUUID> uuids) throws ValidationException, ConnectorException {
+        for (SecuredUUID uuid : uuids) {
+            try {
+                Connector connector = connectorRepository.findByUuid(uuid)
+                        .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+                List<ConnectDto> result = reValidateConnector(connector.mapToDto());
+
+                List<FunctionGroupDto> functionGroups = result.stream()
+                        .map(ConnectDto::getFunctionGroup)
+                        .collect(Collectors.toList());
+
+                setFunctionGroups(functionGroups, connector);
+
+                complianceRuleGroupUpdate(connector, true);
+            } catch (NotFoundException e) {
+                logger.warn("Unable to find the connector with uuid {}", uuid);
+            }
+        }
+    }
+
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CONNECT)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.RECONNECT)
+    public List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, ConnectorException {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        List<ConnectDto> result = reValidateConnector(connector.mapToDto());
+
+        List<FunctionGroupDto> functionGroups = result.stream()
+                .map(ConnectDto::getFunctionGroup)
+                .collect(Collectors.toList());
+
+        setFunctionGroups(functionGroups, connector);
+
+        complianceRuleGroupUpdate(connector, true);
+
+        return result;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.VALIDATE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.VALIDATE)
+    public List<ConnectDto> validateConnector(ConnectorDto request) throws ConnectorException {
+        List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(request);
+        return validateConnector(functions, SecuredUUID.fromString(request.getUuid()));
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.VALIDATE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.VALIDATE)
+    public List<ConnectDto> validateConnector(List<? extends BaseFunctionGroupDto> functions, SecuredUUID uuid) {
+        List<ValidationError> errors = new ArrayList<>();
+        List<ConnectDto> responses = new ArrayList<>();
+
+        List<FunctionGroupCode> connectFunctionGroupCodeList = functions.stream().map(BaseFunctionGroupDto::getFunctionGroupCode).collect(Collectors.toList());
+        Map<FunctionGroupCode, List<String>> connectFunctionGroupKindMap = new HashMap<>();
+
+        for (BaseFunctionGroupDto f : functions) {
+            connectFunctionGroupKindMap.put(f.getFunctionGroupCode(), f.getKinds());
+        }
+        List<String> alreadyExistingConnector = new ArrayList<>();
+
+        for (Connector connector : connectorRepository.findAll()) {
+            if (connector.getUuid().equals(uuid.toString())) {
+                continue;
+            }
+            List<FunctionGroupCode> connectorFunctionGroups = connector.getFunctionGroups().stream().map(Connector2FunctionGroup::getFunctionGroup).collect(Collectors.toList()).stream().map(FunctionGroup::getCode).collect(Collectors.toList());
+            if (connectFunctionGroupCodeList.equals(connectorFunctionGroups)) {
+                Map<FunctionGroupCode, List<String>> connectorFunctionGroupKindMap = new HashMap<>();
+
+                for (Connector2FunctionGroup f : connector.getFunctionGroups()) {
+                    connectorFunctionGroupKindMap.put(f.getFunctionGroup().getCode(), MetaDefinitions.deserializeArrayString(f.getKinds()));
+                }
+
+                if (connectFunctionGroupKindMap.equals(connectorFunctionGroupKindMap)) {
+                    alreadyExistingConnector.add(connector.getName());
+                }
+            }
+        }
+
+        if (!alreadyExistingConnector.isEmpty()) {
+            errors.add(ValidationError.create("Connector(s) with same kinds already exists:" + String.join(",", alreadyExistingConnector)));
+        }
+
+        for (BaseFunctionGroupDto f : functions) {
+            Optional<FunctionGroup> functionGroup = functionGroupRepository
+                    .findByCode(f.getFunctionGroupCode());
+
+            if (functionGroup.isEmpty()) {
+                errors.add(ValidationError.create("Function group {} doesn't exist.", f.getFunctionGroupCode()));
+                continue;
+            }
+
+            for (Endpoint e : functionGroup.get().getEndpoints()) {
+                EndpointDto endpoint = findEndpoint(f.getEndPoints(), e.mapToDto());
+                if (Boolean.TRUE.equals(e.isRequired()) && endpoint == null) {
+                    errors.add(ValidationError.create("Required endpoint {} not supported by connector.", e.getName()));
+                }
+            }
+
+            ConnectDto response = new ConnectDto();
+            FunctionGroupDto functionGroupDto = functionGroup.get().mapToDto();
+            functionGroupDto.setKinds(f.getKinds());
+            functionGroupDto.setEndPoints(f.getEndPoints());
+            response.setFunctionGroup(functionGroupDto);
+            responses.add(response);
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Connector validation failed.", errors);
+        }
+
+        return responses;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.APPROVE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.APPROVE)
+    public void approve(SecuredUUID uuid) throws NotFoundException, ValidationException {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        if (ConnectorStatus.WAITING_FOR_APPROVAL.equals(connector.getStatus())) {
+            connector.setStatus(ConnectorStatus.CONNECTED);
+            connectorRepository.save(connector);
+            complianceRuleGroupUpdate(connector, false);
+        } else {
+            throw new ValidationException(ValidationError.create("Connector {} has unexpected status {}", connector.getName(), connector.getStatus()));
+        }
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.HEALTH, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    public HealthDto checkHealth(SecuredUUID uuid) throws ConnectorException {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        return healthApiClient.checkHealth(connector.mapToDto());
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    public List<AttributeDefinition> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        validateFunctionGroup(connector, functionGroup);
+
+        return attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.VALIDATE)
+    public void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        validateAttributes(connector, functionGroup, attributes, functionGroupType);
+    }
+
+    private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
+        validateFunctionGroup(connector, functionGroup);
+        attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.VALIDATE)
+    public List<AttributeDefinition> mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        List<AttributeDefinition> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+
+        validateAttributes(connector, functionGroup, attributes, functionGroupType);
+
+        return merged;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    public Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException {
+        Connector connector = connectorRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+        Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> attributes = new HashMap<>();
+        for (FunctionGroupDto fg : connector.mapToDto().getFunctionGroups()) {
+            Map<String, List<AttributeDefinition>> kindsAttribute = new HashMap<>();
+            for (String kind : fg.getKinds()) {
+                kindsAttribute.put(kind, attributeApiClient.listAttributeDefinitions(connector.mapToDto(), fg.getFunctionGroupCode(), kind));
+            }
+            attributes.put(fg.getFunctionGroupCode(), kindsAttribute);
+        }
+        return attributes;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
+    public List<ForceDeleteMessageDto> bulkRemoveConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+        List<Connector> deletableConnectors = new ArrayList<>();
+        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+        for (SecuredUUID uuid : uuids) {
+            List<String> errors = new ArrayList<>();
+            Connector connector = connectorRepository.findByUuid(uuid)
+                    .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+
+            if (!connector.getCredentials().isEmpty()) {
+                errors.add("Dependent Credentials: " + connector.getCredentials().size() + ". Names: ");
+                connector.getCredentials().forEach(
+                        c -> errors.add(c.getName()));
+            }
+
+            if (!connector.getAuthorityInstanceReferences().isEmpty()) {
+                errors.add("Authority instances: " + connector.getAuthorityInstanceReferences().size() + ". Names: ");
+                connector.getAuthorityInstanceReferences().forEach(
+                        c -> errors.add(c.getName()));
+            }
+
+            if (!connector.getEntityInstanceReferences().isEmpty()) {
+                errors.add("Entity instances: " + connector.getEntityInstanceReferences().size() + ". Names: ");
+                connector.getEntityInstanceReferences().forEach(
+                        c -> errors.add(c.getName()));
+            }
+
+            Set<String> compProfiles = complianceProfileService.isComplianceProviderAssociated(connector);
+            if (!compProfiles.isEmpty()) {
+                errors.add("Compliance Profiles: " + String.join(", ", compProfiles));
+            }
+
+            if (!errors.isEmpty()) {
+                ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
+                forceModal.setUuid(connector.getUuid());
+                forceModal.setName(connector.getName());
+                forceModal.setMessage(String.join(",", errors));
+                messages.add(forceModal);
+            } else {
+                deletableConnectors.add(connector);
+                if (connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
+                        .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)) {
+                    complianceProfileService.removeRulesAndGroupForEmptyConnector(connector);
+                }
+            }
+        }
+        for (Connector connector : deletableConnectors) {
+            List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
+            connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
+            connectorRepository.delete(connector);
+        }
+        return messages;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.FORCE_DELETE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.FORCE_DELETE)
+    public void bulkForceRemoveConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+        for (SecuredUUID uuid : uuids) {
+            try {
+                Connector connector = connectorRepository.findByUuid(uuid)
+                        .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+
+                if (!connector.getCredentials().isEmpty()) {
+                    for (Credential credential : connector.getCredentials()) {
+                        credential.setConnector(null);
+                        credentialRepository.save(credential);
+                    }
+                    connector.getCredentials().removeAll(connector.getCredentials());
+                    connectorRepository.save(connector);
+                }
+
+                if (!connector.getAuthorityInstanceReferences().isEmpty()) {
+                    for (AuthorityInstanceReference ref : connector.getAuthorityInstanceReferences()) {
+                        ref.setConnector(null);
+                        authorityInstanceReferenceRepository.save(ref);
+                    }
+                    connector.getAuthorityInstanceReferences().removeAll(connector.getAuthorityInstanceReferences());
+                    connectorRepository.save(connector);
+                }
+
+                if (!connector.getEntityInstanceReferences().isEmpty()) {
+                    for (EntityInstanceReference ref : connector.getEntityInstanceReferences()) {
+                        ref.setConnector(null);
+                        entityInstanceReferenceRepository.save(ref);
+                    }
+                    connector.getEntityInstanceReferences().removeAll(connector.getEntityInstanceReferences());
+                    connectorRepository.save(connector);
+                }
+
+                Set<String> compProfiles = complianceProfileService.isComplianceProviderAssociated(connector);
+                if (!compProfiles.isEmpty()) {
+                    complianceProfileService.nullifyComplianceProviderAssociation(connector);
+                }
+
+                List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
+                connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
+                connectorRepository.delete(connector);
+            } catch (NotFoundException e) {
+                logger.warn("Unable to find connector with uuid {}. It may have deleted already", uuid);
+            }
+        }
+    }
+
+    private void complianceRuleGroupUpdate(Connector connector, Boolean update) {
+        if (connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
+                .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER) && !connector.getStatus().equals(ConnectorStatus.WAITING_FOR_APPROVAL)) {
+            logger.info("Connector Implements Compliance Provider. Initiating request to update the rules and group for: {}", connector);
+            try {
+                if (update) {
+                    complianceService.updateGroupsAndRules(connector);
+                } else {
+                    complianceService.addFetchGroupsAndRules(connector);
+                }
+            } catch (ConnectorException e) {
+                logger.error(e.getMessage());
+                logger.error("Unable to fetch groups and rules for Connector: {}", connector.getName());
+            }
+        }
+    }
+
+    private List<ConnectDto> reValidateConnector(ConnectorDto request) throws ConnectorException {
+        List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(request);
+        return reValidateConnector(functions);
+    }
+
+    private List<ConnectDto> reValidateConnector(List<? extends BaseFunctionGroupDto> functions) {
+        List<ValidationError> errors = new ArrayList<>();
+        List<ConnectDto> responses = new ArrayList<>();
+
+        for (BaseFunctionGroupDto f : functions) {
+            Optional<FunctionGroup> functionGroup = functionGroupRepository
+                    .findByCode(f.getFunctionGroupCode());
+
+            if (functionGroup.isEmpty()) {
+                errors.add(ValidationError.create("Function group {} doesn't exist.", f.getFunctionGroupCode()));
+                continue;
+            }
+
+            for (Endpoint e : functionGroup.get().getEndpoints()) {
+                EndpointDto endpoint = findEndpoint(f.getEndPoints(), e.mapToDto());
+                if (Boolean.TRUE.equals(e.isRequired()) && endpoint == null) {
+                    errors.add(ValidationError.create("Required endpoint {} not supported by connector.", e.getName()));
+                }
+            }
+
+            ConnectDto response = new ConnectDto();
+            FunctionGroupDto functionGroupDto = functionGroup.get().mapToDto();
+            functionGroupDto.setKinds(f.getKinds());
+            functionGroupDto.setEndPoints(f.getEndPoints());
+            response.setFunctionGroup(functionGroupDto);
+            responses.add(response);
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Connector validation failed.", errors);
+        }
+
+        return responses;
     }
 
     private Set<Connector2FunctionGroup> setFunctionGroups(List<FunctionGroupDto> functionGroups, Connector connector) throws NotFoundException {
@@ -369,259 +843,6 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorRepository.save(connector);
     }
 
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
-    public void removeConnector(String uuid) throws NotFoundException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        List<ValidationError> errors = new ArrayList<>();
-        if (!connector.getCredentials().isEmpty()) {
-            errors.add(ValidationError.create(
-                    "Connector {} has {} dependent credentials",
-                    connector.getName(), connector.getCredentials().size()));
-            connector.getCredentials().forEach(
-                    c -> errors.add(ValidationError.create(c.getName())));
-        }
-
-        if (!connector.getAuthorityInstanceReferences().isEmpty()) {
-            errors.add(ValidationError.create(
-                    "Connector {} has {} dependent Authority instances",
-                    connector.getName(), connector.getAuthorityInstanceReferences().size()));
-            connector.getAuthorityInstanceReferences().forEach(
-                    c -> errors.add(ValidationError.create(c.getName())));
-        }
-
-        if (!connector.getEntityInstanceReferences().isEmpty()) {
-            errors.add(ValidationError.create(
-                    "Connector {} has {} dependent Entity instances",
-                    connector.getName(), connector.getEntityInstanceReferences().size()));
-            connector.getEntityInstanceReferences().forEach(
-                    c -> errors.add(ValidationError.create(c.getName())));
-        }
-
-        for (String complianceProfileName : complianceProfileService.isComplianceProviderAssociated(connector)) {
-            errors.add(ValidationError.create(
-                    "Connector {} has {} dependent Compliance Profile",
-                    connector.getName(), complianceProfileName));
-        }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete connector", errors);
-        }
-        List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
-        connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
-        connectorRepository.delete(connector);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CONNECT)
-    public List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException {
-        ConnectorDto dto = new ConnectorDto();
-        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
-        dto.setAuthType(request.getAuthType());
-        dto.setUrl(request.getUrl());
-        dto.setUuid(request.getUuid());
-        return validateConnector(dto);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.APPROVE)
-    public void approve(List<String> uuids) throws NotFoundException, ValidationException {
-        for (String uuid : uuids) {
-            try {
-                Connector connector = connectorRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-                if (ConnectorStatus.WAITING_FOR_APPROVAL.equals(connector.getStatus())) {
-                    connector.setStatus(ConnectorStatus.CONNECTED);
-                    connectorRepository.save(connector);
-                    complianceRuleGroupUpdate(connector, false);
-                } else {
-                    logger.warn("Connector {} has unexpected status {}", connector.getName(), connector.getStatus());
-                }
-            } catch (NotFoundException e) {
-                logger.warn("Unable to find the connector with uuid {}", uuid);
-            }
-        }
-    }
-
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CONNECT)
-    public void reconnect(List<String> uuids) throws ValidationException, ConnectorException {
-        for (String uuid : uuids) {
-            try {
-                Connector connector = connectorRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-                List<ConnectDto> result = reValidateConnector(connector.mapToDto());
-
-                List<FunctionGroupDto> functionGroups = result.stream()
-                        .map(ConnectDto::getFunctionGroup)
-                        .collect(Collectors.toList());
-
-                setFunctionGroups(functionGroups, connector);
-
-                complianceRuleGroupUpdate(connector, true);
-            } catch (NotFoundException e) {
-                logger.warn("Unable to find the connector with uuid {}", uuid);
-            }
-        }
-    }
-
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CONNECT)
-    public List<ConnectDto> reconnect(String uuid) throws ValidationException, ConnectorException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        List<ConnectDto> result = reValidateConnector(connector.mapToDto());
-
-        List<FunctionGroupDto> functionGroups = result.stream()
-                .map(ConnectDto::getFunctionGroup)
-                .collect(Collectors.toList());
-
-        setFunctionGroups(functionGroups, connector);
-
-        complianceRuleGroupUpdate(connector, true);
-
-        return result;
-    }
-
-    private void complianceRuleGroupUpdate(Connector connector, Boolean update) {
-        if (connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
-                .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER) && !connector.getStatus().equals(ConnectorStatus.WAITING_FOR_APPROVAL)) {
-            logger.info("Connector Implements Compliance Provider. Initiating request to update the rules and group for: {}", connector);
-            try {
-                if (update) {
-                    complianceService.updateGroupsAndRules(connector);
-                } else {
-                    complianceService.addFetchGroupsAndRules(connector);
-                }
-            } catch (ConnectorException e) {
-                logger.error(e.getMessage());
-                logger.error("Unable to fetch groups and rules for Connector: {}", connector.getName());
-            }
-        }
-    }
-
-    public List<ConnectDto> reValidateConnector(ConnectorDto request) throws ConnectorException {
-        List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(request);
-        return reValidateConnector(functions);
-    }
-
-    public List<ConnectDto> reValidateConnector(List<? extends BaseFunctionGroupDto> functions) {
-        List<ValidationError> errors = new ArrayList<>();
-        List<ConnectDto> responses = new ArrayList<>();
-
-        for (BaseFunctionGroupDto f : functions) {
-            Optional<FunctionGroup> functionGroup = functionGroupRepository
-                    .findByCode(f.getFunctionGroupCode());
-
-            if (functionGroup.isEmpty()) {
-                errors.add(ValidationError.create("Function group {} doesn't exist.", f.getFunctionGroupCode()));
-                continue;
-            }
-
-            for (Endpoint e : functionGroup.get().getEndpoints()) {
-                EndpointDto endpoint = findEndpoint(f.getEndPoints(), e.mapToDto());
-                if (Boolean.TRUE.equals(e.isRequired()) && endpoint == null) {
-                    errors.add(ValidationError.create("Required endpoint {} not supported by connector.", e.getName()));
-                }
-            }
-
-            ConnectDto response = new ConnectDto();
-            FunctionGroupDto functionGroupDto = functionGroup.get().mapToDto();
-            functionGroupDto.setKinds(f.getKinds());
-            functionGroupDto.setEndPoints(f.getEndPoints());
-            response.setFunctionGroup(functionGroupDto);
-            responses.add(response);
-        }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Connector validation failed.", errors);
-        }
-
-        return responses;
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.VALIDATE)
-    public List<ConnectDto> validateConnector(ConnectorDto request) throws ConnectorException {
-        List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(request);
-        return validateConnector(functions, request.getUuid());
-    }
-
-    @Override
-    @Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_ANONYMOUS"})
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.VALIDATE)
-    public List<ConnectDto> validateConnector(List<? extends BaseFunctionGroupDto> functions, String uuid) {
-        List<ValidationError> errors = new ArrayList<>();
-        List<ConnectDto> responses = new ArrayList<>();
-
-        List<FunctionGroupCode> connectFunctionGroupCodeList = functions.stream().map(BaseFunctionGroupDto::getFunctionGroupCode).collect(Collectors.toList());
-        Map<FunctionGroupCode, List<String>> connectFunctionGroupKindMap = new HashMap<>();
-
-        for (BaseFunctionGroupDto f : functions) {
-            connectFunctionGroupKindMap.put(f.getFunctionGroupCode(), f.getKinds());
-        }
-        List<String> alreadyExistingConnector = new ArrayList<>();
-
-        for (Connector connector : connectorRepository.findAll()) {
-            if (connector.getUuid().equals(uuid)) {
-                continue;
-            }
-            List<FunctionGroupCode> connectorFunctionGroups = connector.getFunctionGroups().stream().map(Connector2FunctionGroup::getFunctionGroup).collect(Collectors.toList()).stream().map(FunctionGroup::getCode).collect(Collectors.toList());
-            if (connectFunctionGroupCodeList.equals(connectorFunctionGroups)) {
-                Map<FunctionGroupCode, List<String>> connectorFunctionGroupKindMap = new HashMap<>();
-
-                for (Connector2FunctionGroup f : connector.getFunctionGroups()) {
-                    connectorFunctionGroupKindMap.put(f.getFunctionGroup().getCode(), MetaDefinitions.deserializeArrayString(f.getKinds()));
-                }
-
-                if (connectFunctionGroupKindMap.equals(connectorFunctionGroupKindMap)) {
-                    alreadyExistingConnector.add(connector.getName());
-                }
-            }
-        }
-
-        if (!alreadyExistingConnector.isEmpty()) {
-            errors.add(ValidationError.create("Connector(s) with same kinds already exists:" + String.join(",", alreadyExistingConnector)));
-        }
-
-        for (BaseFunctionGroupDto f : functions) {
-            Optional<FunctionGroup> functionGroup = functionGroupRepository
-                    .findByCode(f.getFunctionGroupCode());
-
-            if (functionGroup.isEmpty()) {
-                errors.add(ValidationError.create("Function group {} doesn't exist.", f.getFunctionGroupCode()));
-                continue;
-            }
-
-            for (Endpoint e : functionGroup.get().getEndpoints()) {
-                EndpointDto endpoint = findEndpoint(f.getEndPoints(), e.mapToDto());
-                if (Boolean.TRUE.equals(e.isRequired()) && endpoint == null) {
-                    errors.add(ValidationError.create("Required endpoint {} not supported by connector.", e.getName()));
-                }
-            }
-
-            ConnectDto response = new ConnectDto();
-            FunctionGroupDto functionGroupDto = functionGroup.get().mapToDto();
-            functionGroupDto.setKinds(f.getKinds());
-            functionGroupDto.setEndPoints(f.getEndPoints());
-            response.setFunctionGroup(functionGroupDto);
-            responses.add(response);
-        }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Connector validation failed.", errors);
-        }
-
-        return responses;
-    }
-
     private EndpointDto findEndpoint(List<EndpointDto> endpoints, EndpointDto wanted) {
         return endpoints.stream()
                 .filter(e ->
@@ -631,69 +852,6 @@ public class ConnectorServiceImpl implements ConnectorService {
                 )
                 .findFirst()
                 .orElse(null);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.APPROVE)
-    public void approve(String uuid) throws NotFoundException, ValidationException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        if (ConnectorStatus.WAITING_FOR_APPROVAL.equals(connector.getStatus())) {
-            connector.setStatus(ConnectorStatus.CONNECTED);
-            connectorRepository.save(connector);
-            complianceRuleGroupUpdate(connector, false);
-        } else {
-            throw new ValidationException(ValidationError.create("Connector {} has unexpected status {}", connector.getName(), connector.getStatus()));
-        }
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.HEALTH, operation = OperationType.REQUEST)
-    public HealthDto checkHealth(String uuid) throws ConnectorException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        return healthApiClient.checkHealth(connector.mapToDto());
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> getAttributes(String uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        validateFunctionGroup(connector, functionGroup);
-
-        return attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public void validateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        validateAttributes(connector, functionGroup, attributes, functionGroupType);
-    }
-
-    private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
-        validateFunctionGroup(connector, functionGroup);
-        attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public List<AttributeDefinition> mergeAndValidateAttributes(String uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        List<AttributeDefinition> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
-        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
-
-        validateAttributes(connector, functionGroup, attributes, functionGroupType);
-
-        return merged;
     }
 
     private void validateFunctionGroup(Connector connector, FunctionGroupCode functionGroup) {
@@ -706,128 +864,6 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         if (connector2FunctionGroup == null) {
             throw new ValidationException(ValidationError.create("Connector {} doesn't support function group code {}", connector.getName(), functionGroup));
-        }
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAllAttributesOfConnector(String uuid) throws ConnectorException {
-        Connector connector = connectorRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-        Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> attributes = new HashMap<>();
-        for (FunctionGroupDto fg : connector.mapToDto().getFunctionGroups()) {
-            Map<String, List<AttributeDefinition>> kindsAttribute = new HashMap<>();
-            for (String kind : fg.getKinds()) {
-                kindsAttribute.put(kind, attributeApiClient.listAttributeDefinitions(connector.mapToDto(), fg.getFunctionGroupCode(), kind));
-            }
-            attributes.put(fg.getFunctionGroupCode(), kindsAttribute);
-        }
-        return attributes;
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> bulkRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException {
-        List<Connector> deletableConnectors = new ArrayList<>();
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
-        for (String uuid : uuids) {
-            List<String> errors = new ArrayList<>();
-            Connector connector = connectorRepository.findByUuid(uuid)
-                    .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-
-            if (!connector.getCredentials().isEmpty()) {
-                errors.add("Dependent Credentials: " + connector.getCredentials().size() + ". Names: ");
-                connector.getCredentials().forEach(
-                        c -> errors.add(c.getName()));
-            }
-
-            if (!connector.getAuthorityInstanceReferences().isEmpty()) {
-                errors.add("Authority instances: " + connector.getAuthorityInstanceReferences().size() + ". Names: ");
-                connector.getAuthorityInstanceReferences().forEach(
-                        c -> errors.add(c.getName()));
-            }
-
-            if (!connector.getEntityInstanceReferences().isEmpty()) {
-                errors.add("Entity instances: " + connector.getEntityInstanceReferences().size() + ". Names: ");
-                connector.getEntityInstanceReferences().forEach(
-                        c -> errors.add(c.getName()));
-            }
-
-            Set<String> compProfiles = complianceProfileService.isComplianceProviderAssociated(connector);
-            if (!compProfiles.isEmpty()) {
-                errors.add("Compliance Profiles: " + String.join(", ", compProfiles));
-            }
-
-            if (!errors.isEmpty()) {
-                ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-                forceModal.setUuid(connector.getUuid());
-                forceModal.setName(connector.getName());
-                forceModal.setMessage(String.join(",", errors));
-                messages.add(forceModal);
-            } else {
-                deletableConnectors.add(connector);
-                if (connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
-                        .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER)) {
-                    complianceProfileService.removeRulesAndGroupForEmptyConnector(connector);
-                }
-            }
-        }
-        for (Connector connector : deletableConnectors) {
-            List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
-            connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
-            connectorRepository.delete(connector);
-        }
-        return messages;
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.FORCE_DELETE)
-    public void bulkForceRemoveConnector(List<String> uuids) throws ValidationException, NotFoundException {
-        for (String uuid : uuids) {
-            try {
-                Connector connector = connectorRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
-
-                if (!connector.getCredentials().isEmpty()) {
-                    for (Credential credential : connector.getCredentials()) {
-                        credential.setConnector(null);
-                        credentialRepository.save(credential);
-                    }
-                    connector.getCredentials().removeAll(connector.getCredentials());
-                    connectorRepository.save(connector);
-                }
-
-                if (!connector.getAuthorityInstanceReferences().isEmpty()) {
-                    for (AuthorityInstanceReference ref : connector.getAuthorityInstanceReferences()) {
-                        ref.setConnector(null);
-                        authorityInstanceReferenceRepository.save(ref);
-                    }
-                    connector.getAuthorityInstanceReferences().removeAll(connector.getAuthorityInstanceReferences());
-                    connectorRepository.save(connector);
-                }
-
-                if (!connector.getEntityInstanceReferences().isEmpty()) {
-                    for (EntityInstanceReference ref : connector.getEntityInstanceReferences()) {
-                        ref.setConnector(null);
-                        entityInstanceReferenceRepository.save(ref);
-                    }
-                    connector.getEntityInstanceReferences().removeAll(connector.getEntityInstanceReferences());
-                    connectorRepository.save(connector);
-                }
-
-                Set<String> compProfiles = complianceProfileService.isComplianceProviderAssociated(connector);
-                if (!compProfiles.isEmpty()) {
-                    complianceProfileService.nullifyComplianceProviderAssociation(connector);
-                }
-
-                List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
-                connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
-                connectorRepository.delete(connector);
-            } catch (NotFoundException e) {
-                logger.warn("Unable to find connector with uuid {}. It may have deleted already", uuid);
-            }
         }
     }
 }

@@ -4,6 +4,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.AcmeAccountController;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeAccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,41 +20,41 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
 
     @Override
     public void revokeAcmeAccount(String uuid) throws NotFoundException {
-        acmeAccountService.revokeAccount(uuid);
+        acmeAccountService.revokeAccount(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void bulkEnableAcmeAccount(List<String> uuids) throws NotFoundException {
-        acmeAccountService.bulkEnableAccount(uuids);
+        acmeAccountService.bulkEnableAccount(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public void bulkDisableAcmeAccount(List<String> uuids) throws NotFoundException {
-        acmeAccountService.bulkDisableAccount(uuids);
+        acmeAccountService.bulkDisableAccount(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public void bulkRevokeAcmeAccount(List<String> uuids) throws NotFoundException {
-        acmeAccountService.bulkRevokeAccount(uuids);
+        acmeAccountService.bulkRevokeAccount(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public List<AcmeAccountListResponseDto> listAcmeAccount() {
-        return acmeAccountService.listAcmeAccounts();
+        return acmeAccountService.listAcmeAccounts(SecurityFilter.create());
     }
 
     @Override
     public AcmeAccountResponseDto getAcmeAccount(String uuid) throws NotFoundException {
-        return acmeAccountService.getAcmeAccount(uuid);
+        return acmeAccountService.getAcmeAccount(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void enableAcmeAccount(String uuid) throws NotFoundException {
-        acmeAccountService.enableAccount(uuid);
+        acmeAccountService.enableAccount(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void disableAcmeAccount(String uuid) throws NotFoundException {
-        acmeAccountService.disableAccount(uuid);
+        acmeAccountService.disableAccount(SecuredUUID.fromString(uuid));
     }
 }

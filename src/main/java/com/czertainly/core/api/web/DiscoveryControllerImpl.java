@@ -8,6 +8,8 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.DiscoveryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +20,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 public class DiscoveryControllerImpl implements DiscoveryController {
@@ -27,12 +30,12 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
 	@Override
 	public List<DiscoveryHistoryDto> listDiscovery() {
-		return discoveryService.listDiscovery();
+		return discoveryService.listDiscovery(SecurityFilter.create());
 	}
 
 	@Override
 	public DiscoveryHistoryDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
-		return discoveryService.getDiscovery(uuid);
+		return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
@@ -52,11 +55,11 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
 	@Override
 	public void removeDiscovery(@PathVariable String uuid) throws NotFoundException {
-		discoveryService.removeDiscovery(uuid);
+		discoveryService.removeDiscovery(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
 	public void bulkRemoveDiscovery(List<String> discoveryUuids) throws NotFoundException {
-		discoveryService.bulkRemoveDiscovery(discoveryUuids);
+		discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
 	}
 }

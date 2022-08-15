@@ -10,23 +10,18 @@ import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class AcmeProfileServiceTest {
+public class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AcmeProfileService acmeProfileService;
@@ -56,7 +51,7 @@ public class AcmeProfileServiceTest {
     public void testListAcmeProfiles() {
         acmeProfile.setEnabled(true);
         acmeProfileRepository.save(acmeProfile);
-        List<AcmeProfileListDto> acmeProfiles = acmeProfileService.listAcmeProfile();
+        List<AcmeProfileListDto> acmeProfiles = acmeProfileService.listAcmeProfile(SecurityFilter.create());
         Assertions.assertNotNull(acmeProfiles);
         Assertions.assertFalse(acmeProfiles.isEmpty());
         Assertions.assertEquals(1, acmeProfiles.size());
@@ -67,7 +62,7 @@ public class AcmeProfileServiceTest {
     public void testGetAcmeProfileByUuid() throws NotFoundException {
         acmeProfile.setEnabled(true);
         acmeProfileRepository.save(acmeProfile);
-        AcmeProfileDto dto = acmeProfileService.getAcmeProfile(acmeProfile.getUuid());
+        AcmeProfileDto dto = acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeProfile.getUuid(), dto.getUuid());
         Assertions.assertNotNull(acmeProfile.getId());
@@ -75,7 +70,7 @@ public class AcmeProfileServiceTest {
 
     @Test
     public void testGetAcmeProfileByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -119,7 +114,7 @@ public class AcmeProfileServiceTest {
         request.setDnsResolverIp("sample");
         request.setDnsResolverPort("32");
 
-        AcmeProfileDto dto = acmeProfileService.updateAcmeProfile(acmeProfile.getUuid(), request);
+        AcmeProfileDto dto = acmeProfileService.updateAcmeProfile(acmeProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
         Assertions.assertEquals(request.getDnsResolverIp(), dto.getDnsResolverIp());
@@ -128,61 +123,61 @@ public class AcmeProfileServiceTest {
     @Test
     public void testEditAcmeProfile_validationFail() {
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
-        Assertions.assertThrows(NullPointerException.class, () -> acmeProfileService.updateAcmeProfile(acmeProfile.getUuid(), request));
+        Assertions.assertThrows(NullPointerException.class, () -> acmeProfileService.updateAcmeProfile(acmeProfile.getSecuredUuid(), request));
     }
 
     @Test
     public void testRemoveAcmeProfile() throws NotFoundException {
-        acmeProfileService.deleteAcmeProfile(acmeProfile.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile.getUuid()));
+        acmeProfileService.deleteAcmeProfile(acmeProfile.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile("some-id"));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(SecuredUUID.fromString("some-id")));
     }
 
     @Test
     public void testEnableAcmeProfile() throws NotFoundException, CertificateException {
-        acmeProfileService.enableAcmeProfile(acmeProfile.getUuid());
-        Assertions.assertEquals(true, acmeProfileService.getAcmeProfile(acmeProfile.getUuid()).isEnabled());
+        acmeProfileService.enableAcmeProfile(acmeProfile.getSecuredUuid());
+        Assertions.assertEquals(true, acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()).isEnabled());
     }
 
     @Test
     public void testEnableAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.enableAcmeProfile("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.enableAcmeProfile(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testDisableAcmeProfile() throws NotFoundException {
         acmeProfile.setEnabled(true);
         acmeProfileRepository.save(acmeProfile);
-        acmeProfileService.disableAcmeProfile(acmeProfile.getUuid());
-        Assertions.assertEquals(false, acmeProfileService.getAcmeProfile(acmeProfile.getUuid()).isEnabled());
+        acmeProfileService.disableAcmeProfile(acmeProfile.getSecuredUuid());
+        Assertions.assertEquals(false, acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()).isEnabled());
     }
 
     @Test
     public void testDisableAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.disableAcmeProfile("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.disableAcmeProfile(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testBulkRemove() {
-        acmeProfileService.bulkDeleteAcmeProfile(List.of(acmeProfile.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile.getUuid()));
+        acmeProfileService.bulkDeleteAcmeProfile(List.of(acmeProfile.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()));
     }
 
     @Test
     public void testBulkEnable() throws NotFoundException {
         acmeProfile.setEnabled(true);
         acmeProfileRepository.save(acmeProfile);
-        acmeProfileService.bulkEnableAcmeProfile(List.of(acmeProfile.getUuid()));
-        Assertions.assertEquals(true, acmeProfileService.getAcmeProfile(acmeProfile.getUuid()).isEnabled());
+        acmeProfileService.bulkEnableAcmeProfile(List.of(acmeProfile.getSecuredUuid()));
+        Assertions.assertEquals(true, acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()).isEnabled());
     }
 
     @Test
     public void testBulkDisable() throws NotFoundException {
-        acmeProfileService.bulkDisableAcmeProfile(List.of(acmeProfile.getUuid()));
-        Assertions.assertEquals(false, acmeProfileService.getAcmeProfile(acmeProfile.getUuid()).isEnabled());
+        acmeProfileService.bulkDisableAcmeProfile(List.of(acmeProfile.getSecuredUuid()));
+        Assertions.assertEquals(false, acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()).isEnabled());
     }
 }

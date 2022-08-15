@@ -3,14 +3,13 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.dao.entity.ComplianceRule;
 import com.czertainly.core.dao.entity.Connector;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ComplianceRuleRepository extends JpaRepository<ComplianceRule, Long> {
+public interface ComplianceRuleRepository extends SecurityFilterRepository<ComplianceRule, Long> {
 
     Optional<ComplianceRule> findByUuid(String uuid);
 

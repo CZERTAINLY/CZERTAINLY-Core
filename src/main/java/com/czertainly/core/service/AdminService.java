@@ -6,33 +6,31 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.admin.AddAdminRequestDto;
 import com.czertainly.api.model.client.admin.EditAdminRequestDto;
 import com.czertainly.api.model.core.admin.AdminDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
 public interface AdminService {
-    List<AdminDto> listAdmins();
+    List<AdminDto> listAdmins(SecurityFilter filter);
 
     AdminDto addAdmin(AddAdminRequestDto request)
             throws CertificateException, AlreadyExistException, ValidationException, NotFoundException;
 
-    AdminDto getAdminBySerialNumber(String serialNumber) throws NotFoundException;
+    AdminDto getAdminByUuid(SecuredUUID uuid) throws NotFoundException;
 
-    AdminDto getAdminByUuid(String uuid) throws NotFoundException;
+    AdminDto editAdmin(SecuredUUID uuid, EditAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException;
 
-    AdminDto getAdminByUsername(String username) throws NotFoundException;
+    void removeAdmin(SecuredUUID uuid) throws NotFoundException;
 
-    AdminDto editAdmin(String uuid, EditAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException;
+    void enableAdmin(SecuredUUID uuid) throws NotFoundException, CertificateException;
 
-    void removeAdmin(String uuid) throws NotFoundException;
+    void disableAdmin(SecuredUUID uuid) throws NotFoundException;
 
-    void enableAdmin(String uuid) throws NotFoundException, CertificateException;
+    void bulkRemoveAdmin(List<SecuredUUID> adminUuids);
 
-    void disableAdmin(String uuid) throws NotFoundException;
+    void bulkDisableAdmin(List<SecuredUUID> adminUuids);
 
-    void bulkRemoveAdmin(List<String> adminUuids);
-
-    void bulkDisableAdmin(List<String> adminUuids);
-
-    void bulkEnableAdmin(List<String> adminUuids);
+    void bulkEnableAdmin(List<SecuredUUID> adminUuids);
 }

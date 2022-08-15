@@ -16,27 +16,18 @@ import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class DiscoveryServiceTest {
+public class DiscoveryServiceTest extends BaseSpringBootTest {
 
     private static final String DISCOVERY_NAME = "testDiscovery1";
 
@@ -98,7 +89,7 @@ public class DiscoveryServiceTest {
 
     @Test
     public void testListDiscoveries() {
-        List<DiscoveryHistoryDto> discoveries = discoveryService.listDiscovery();
+        List<DiscoveryHistoryDto> discoveries = discoveryService.listDiscovery(SecurityFilter.create());
         Assertions.assertNotNull(discoveries);
         Assertions.assertFalse(discoveries.isEmpty());
         Assertions.assertEquals(1, discoveries.size());
@@ -107,7 +98,7 @@ public class DiscoveryServiceTest {
 
     @Test
     public void testGetDiscovery() throws NotFoundException {
-        DiscoveryHistoryDto dto = discoveryService.getDiscovery(discovery.getUuid());
+        DiscoveryHistoryDto dto = discoveryService.getDiscovery(discovery.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(discovery.getUuid(), dto.getUuid());
         Assertions.assertEquals(discovery.getConnectorUuid(), dto.getConnectorUuid());
@@ -115,7 +106,7 @@ public class DiscoveryServiceTest {
 
     @Test
     public void testGetDiscovery_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -188,18 +179,18 @@ public class DiscoveryServiceTest {
 
     @Test
     public void testRemoveDiscovery() throws NotFoundException {
-        discoveryService.removeDiscovery(discovery.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getUuid()));
+        discoveryService.removeDiscovery(discovery.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveDiscovery_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.removeDiscovery("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.removeDiscovery(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        discoveryService.bulkRemoveDiscovery(List.of(discovery.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getUuid()));
+        discoveryService.bulkRemoveDiscovery(List.of(discovery.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getSecuredUuid()));
     }
 }

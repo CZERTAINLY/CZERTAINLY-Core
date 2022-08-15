@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
+// TODO AUTH - should be secured with @ExternalAuthorization?
 public class CertificateEventHistoryServiceImpl implements CertificateEventHistoryService {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateEventHistoryServiceImpl.class);

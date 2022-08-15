@@ -18,6 +18,9 @@ import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -26,19 +29,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class ConnectorServiceTest {
+public class ConnectorServiceTest extends BaseSpringBootTest {
 
     private static final String CONNECTOR_NAME = "testConnector1";
 
@@ -91,7 +86,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testListConnectors() {
-        List<ConnectorDto> connectors = connectorService.listConnectors();
+        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -100,7 +95,10 @@ public class ConnectorServiceTest {
 
     @Test
     public void testListConnectorsByFunctionGroup() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(FunctionGroupCode.CREDENTIAL_PROVIDER);
+        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(
+                SecurityFilter.create(),
+                FunctionGroupCode.CREDENTIAL_PROVIDER
+        );
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -109,14 +107,20 @@ public class ConnectorServiceTest {
 
     @Test
     public void testListConnectorsByFunctionGroup_notFound() {
-        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER);
+        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(
+                SecurityFilter.create(),
+                FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER
+        );
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
 
     @Test
     public void testListConnectorsByFunctionGroupAndKind() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(FunctionGroupCode.CREDENTIAL_PROVIDER, "ApiKey");
+        List<ConnectorDto> connectors = connectorService.listConnectors(
+                SecurityFilter.create(),
+                FunctionGroupCode.CREDENTIAL_PROVIDER, "ApiKey"
+        );
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -126,13 +130,21 @@ public class ConnectorServiceTest {
     @Test
     public void testListConnectorsByFunctionGroupAndKind_notFound() {
         Assertions.assertThrows(NotFoundException.class, () ->
-                connectorService.listConnectors(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, "wrong-kind"));
+                connectorService.listConnectors(
+                        SecurityFilter.create(),
+                        FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER,
+                        "wrong-kind")
+        );
 
     }
 
     @Test
     public void testListConnectorsByFunctionGroupAndKind_noConnectorOfKind() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(FunctionGroupCode.CREDENTIAL_PROVIDER, "wrong-kind");
+        List<ConnectorDto> connectors = connectorService.listConnectors(
+                SecurityFilter.create(),
+                FunctionGroupCode.CREDENTIAL_PROVIDER,
+                "wrong-kind"
+        );
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
@@ -143,7 +155,7 @@ public class ConnectorServiceTest {
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> result = connectorService.getAllAttributesOfConnector(connector.getUuid());
+        Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> result = connectorService.getAllAttributesOfConnector(connector.getSecuredUuid());
         Assertions.assertNotNull(result);
         Assertions.assertEquals(1, result.size());
         Assertions.assertNotNull(result.get(FunctionGroupCode.CREDENTIAL_PROVIDER));
@@ -151,7 +163,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testGetAllAttributesOfConnector_notFund() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getAllAttributesOfConnector("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getAllAttributesOfConnector(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -160,7 +172,7 @@ public class ConnectorServiceTest {
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
 
-        ConnectorDto dto = connectorService.getConnector(connector.getUuid());
+        ConnectorDto dto = connectorService.getConnector(connector.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(connector.getUuid(), dto.getUuid());
         Assertions.assertEquals(connector.getName(), dto.getName());
@@ -168,7 +180,7 @@ public class ConnectorServiceTest {
 
     @Test
     public void testGetConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -208,30 +220,30 @@ public class ConnectorServiceTest {
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
         request.setUrl("http://localhost:3665");
 
-        ConnectorDto dto = connectorService.updateConnector(connector.getUuid(), request);
+        ConnectorDto dto = connectorService.updateConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
     }
 
     @Test
     public void testEditConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector("wrong-uuid", new ConnectorUpdateRequestDto()));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector(SecuredUUID.fromString("wrong-uuid"), new ConnectorUpdateRequestDto()));
     }
 
     @Test
     public void testRemoveConnector() throws NotFoundException {
-        connectorService.removeConnector(connector.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getUuid()));
+        connectorService.removeConnector(connector.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.removeConnector("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.removeConnector(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        connectorService.bulkRemoveConnector(List.of(connector.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getUuid()));
+        connectorService.bulkRemoveConnector(List.of(connector.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
     }
 
     @Test
@@ -240,19 +252,22 @@ public class ConnectorServiceTest {
         waitingConnector.setStatus(ConnectorStatus.WAITING_FOR_APPROVAL);
         waitingConnector = connectorRepository.save(waitingConnector);
 
-        connectorService.approve(waitingConnector.getUuid());
+        connectorService.approve(waitingConnector.getSecuredUuid());
 
         Assertions.assertEquals(ConnectorStatus.CONNECTED, waitingConnector.getStatus());
     }
 
     @Test
     public void testApproveConnector_ValidationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> connectorService.approve(connector.getUuid()));
+        Assertions.assertThrows(ValidationException.class, () -> connectorService.approve(connector.getSecuredUuid()));
     }
 
     @Test
     public void testApproveConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.approve("wrong-uuid"));
+        Assertions.assertThrows(
+                NotFoundException.class,
+                () -> connectorService.approve(SecuredUUID.fromString("wrong-uuid"))
+        );
     }
 
     @Test
@@ -261,7 +276,7 @@ public class ConnectorServiceTest {
                 .get("/v1/health")
                 .willReturn(WireMock.okJson("{ \"status\": \"ok\" }")));
 
-        HealthDto health = connectorService.checkHealth(connector.getUuid());
+        HealthDto health = connectorService.checkHealth(connector.getSecuredUuid());
         Assertions.assertNotNull(health);
         Assertions.assertNotNull(health.getStatus());
         Assertions.assertEquals(HealthStatus.OK, health.getStatus());
@@ -269,7 +284,10 @@ public class ConnectorServiceTest {
 
     @Test
     public void testCheckHealth_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.checkHealth("wrong-uuid"));
+        Assertions.assertThrows(
+                NotFoundException.class,
+                () -> connectorService.checkHealth(SecuredUUID.fromString("wrong-uuid"))
+        );
     }
 
     @Test
@@ -278,21 +296,34 @@ public class ConnectorServiceTest {
         String kind = "ApiKey";
 
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/"+code.getCode()+"/"+kind+"/attributes"))
+                .get(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = connectorService.getAttributes(connector.getUuid(), code, kind);
+        List<AttributeDefinition> attributes = connectorService.getAttributes(connector.getSecuredUuid(), code, kind);
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     public void testGetAttributes_validationFail() {
-        Assertions.assertThrows(ValidationException.class, () -> connectorService.getAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, null));
+        Assertions.assertThrows(
+                ValidationException.class,
+                () -> connectorService.getAttributes(
+                        connector.getSecuredUuid(),
+                        FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER,
+                        null
+                )
+        );
     }
 
     @Test
     public void testGetAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getAttributes("wrong-uuid", null, null));
+        Assertions.assertThrows(
+                NotFoundException.class,
+                () -> connectorService.getAttributes(SecuredUUID.fromString("wrong-uuid"),
+                        null,
+                        null
+                )
+        );
     }
 
     @Test
@@ -301,17 +332,23 @@ public class ConnectorServiceTest {
         String kind = "ApiKey";
 
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/"+code.getCode()+"/"+kind+"/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
+        connectorService.validateAttributes(connector.getSecuredUuid(), code, List.of(), kind);
 
     }
 
     @Test
     public void testValidateAttributes_validationFail() {
         Assertions.assertThrows(ValidationException.class,
-                () -> connectorService.validateAttributes(connector.getUuid(), FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER, null, null));
+                () -> connectorService.validateAttributes(
+                        connector.getSecuredUuid(),
+                        FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER,
+                        null,
+                        null
+                )
+        );
     }
 
     @Test
@@ -320,10 +357,12 @@ public class ConnectorServiceTest {
         String kind = "ApiKey";
 
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/"+code.getCode()+"/"+kind+"/attributes/validate"))
-                .willReturn(WireMock.okJson("false")));
+                .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
+                .willReturn(WireMock.okJson("false")
+                )
+        );
 
-        connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind);
+        connectorService.validateAttributes(connector.getSecuredUuid(), code, List.of(), kind);
     }
 
     @Test
@@ -332,19 +371,27 @@ public class ConnectorServiceTest {
         String kind = "ApiKey";
 
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/"+code.getCode()+"/"+kind+"/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes/validate"))
                 .willReturn(WireMock.aResponse()
                         .withStatus(422)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("[ \"Validation failed\" ]")));
+                        .withBody("[ \"Validation failed\" ]")
+                )
+        );
 
         Assertions.assertThrows(ValidationException.class,
-                () -> connectorService.validateAttributes(connector.getUuid(), code, List.of(), kind));
+                () -> connectorService.validateAttributes(connector.getSecuredUuid(), code, List.of(), kind));
     }
 
     @Test
     public void testValidateAttributes_notFound() {
         Assertions.assertThrows(NotFoundException.class,
-                () -> connectorService.validateAttributes("wrong-uuid", null, null, null));
+                () -> connectorService.validateAttributes(
+                        SecuredUUID.fromString("wrong-uuid"),
+                        null,
+                        null,
+                        null
+                )
+        );
     }
 }

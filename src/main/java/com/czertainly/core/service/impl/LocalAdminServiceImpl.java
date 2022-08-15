@@ -15,6 +15,9 @@ import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.repository.AdminRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.LocalAdminService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.X509ObjectToString;
@@ -51,6 +54,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.LOCALHOST, affected = ObjectType.ADMINISTRATOR, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.CREATE)
     public AdminDto addAdmin(AddAdminRequestDto request) throws CertificateException, AlreadyExistException, ValidationException, NotFoundException {
         checkHost();
 

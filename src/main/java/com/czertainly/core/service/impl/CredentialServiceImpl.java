@@ -1,21 +1,11 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.AttributeCallback;
-import com.czertainly.api.model.common.attribute.AttributeCallbackMapping;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.AttributeType;
-import com.czertainly.api.model.common.attribute.AttributeValueTarget;
-import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
-import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.common.attribute.*;
 import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -27,6 +17,8 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -35,7 +27,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -47,7 +38,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class CredentialServiceImpl implements CredentialService {
 
     private static final Logger logger = LoggerFactory.getLogger(CredentialServiceImpl.class);
@@ -63,29 +53,22 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
-    public List<CredentialDto> listCredentials() {
-        return credentialRepository.findAll().stream()
+    public List<CredentialDto> listCredentials(SecurityFilter filter) {
+        return credentialRepository.findUsingSecurityFilter(filter).stream()
                 .map(Credential::mapToDtoSimple)
                 .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
-    public CredentialDto getCredential(String uuid) throws NotFoundException {
+    public CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException {
         return maskSecret(getCredentialEntity(uuid).mapToDto());
 
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
-    public Credential getCredentialEntity(Long id) throws NotFoundException {
-        return credentialRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(Credential.class, id));
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
-    public Credential getCredentialEntity(String uuid) throws NotFoundException {
+    public Credential getCredentialEntity(SecuredUUID uuid) throws NotFoundException {
         return credentialRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
     }
@@ -101,10 +84,10 @@ public class CredentialServiceImpl implements CredentialService {
             throw new AlreadyExistException(Credential.class, request.getName());
         }
 
-        Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
-                connector.getUuid(),
+                connector.getSecuredUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
                 request.getAttributes(), request.getKind());
 
@@ -122,7 +105,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CHANGE)
-    public CredentialDto updateCredential(String uuid, CredentialUpdateRequestDto request) throws ConnectorException {
+    public CredentialDto updateCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -135,7 +118,7 @@ public class CredentialServiceImpl implements CredentialService {
         }
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
-                connector.getUuid(),
+                connector.getSecuredUuid(),
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
                 request.getAttributes(), credential.getKind());
 
@@ -147,7 +130,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
-    public void removeCredential(String uuid) throws NotFoundException {
+    public void removeCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -157,7 +140,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.ENABLE)
-    public void enableCredential(String uuid) throws NotFoundException {
+    public void enableCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -167,7 +150,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DISABLE)
-    public void disableCredential(String uuid) throws NotFoundException {
+    public void disableCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -177,10 +160,10 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> bulkRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException {
+    public List<ForceDeleteMessageDto> bulkRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         List<Credential> deletableCredentials = new ArrayList<>();
         List<ForceDeleteMessageDto> messages = new ArrayList<>();
-        for (String uuid : uuids) {
+        for (SecuredUUID uuid : uuids) {
             List<String> errors = new ArrayList<>();
             Credential credential = credentialRepository
                     .findByUuid(uuid)
@@ -196,16 +179,14 @@ public class CredentialServiceImpl implements CredentialService {
                 deletableCredentials.add(credential);
             }
         }
-        for (Credential credential : deletableCredentials) {
-            credentialRepository.delete(credential);
-        }
+        credentialRepository.deleteAll(deletableCredentials);
         return messages;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.FORCE_DELETE)
-    public void bulkForceRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException {
-        for (String uuid : uuids) {
+    public void bulkForceRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+        for (SecuredUUID uuid : uuids) {
             try {
                 Credential credential = credentialRepository
                         .findByUuid(uuid)
@@ -287,6 +268,11 @@ public class CredentialServiceImpl implements CredentialService {
                 }
             }
         }
+    }
+
+    private Credential getCredentialEntity(String uuid) throws NotFoundException {
+        return credentialRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
     }
 
     private CredentialDto maskSecret(CredentialDto credentialDto){

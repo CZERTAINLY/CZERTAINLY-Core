@@ -6,12 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.AttributeCallback;
-import com.czertainly.api.model.common.attribute.AttributeCallbackMapping;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.AttributeType;
-import com.czertainly.api.model.common.attribute.AttributeValueTarget;
-import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.*;
 import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -24,7 +19,10 @@ import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -33,23 +31,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
-;
-
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class CredentialServiceTest {
+public class CredentialServiceTest extends BaseSpringBootTest {
 
     private static final String CREDENTIAL_NAME = "testCredential1";
 
@@ -112,7 +100,7 @@ public class CredentialServiceTest {
 
     @Test
     public void testListCredentials() {
-        List<CredentialDto> credentials = credentialService.listCredentials();
+        List<CredentialDto> credentials = credentialService.listCredentials(SecurityFilter.create());
         Assertions.assertNotNull(credentials);
         Assertions.assertFalse(credentials.isEmpty());
         Assertions.assertEquals(1, credentials.size());
@@ -121,7 +109,7 @@ public class CredentialServiceTest {
 
     @Test
     public void testGetCredential() throws NotFoundException {
-        CredentialDto dto = credentialService.getCredential(credential.getUuid());
+        CredentialDto dto = credentialService.getCredential(credential.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(credential.getUuid(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
@@ -130,7 +118,7 @@ public class CredentialServiceTest {
 
     @Test
     public void testGetCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -181,7 +169,7 @@ public class CredentialServiceTest {
         CredentialUpdateRequestDto request = new CredentialUpdateRequestDto();
         request.setAttributes(List.of());
 
-        CredentialDto dto = credentialService.updateCredential(credential.getUuid(), request);
+        CredentialDto dto = credentialService.updateCredential(credential.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
@@ -189,46 +177,46 @@ public class CredentialServiceTest {
 
     @Test
     public void testEditCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.updateCredential("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.updateCredential(SecuredUUID.fromString("wrong-uuid"), null));
     }
 
     @Test
     public void testRemoveCredential() throws NotFoundException {
-        credentialService.removeCredential(credential.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getUuid()));
+        credentialService.removeCredential(credential.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.removeCredential("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.removeCredential(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testEnableCredential() throws NotFoundException {
-        credentialService.enableCredential(credential.getUuid());
+        credentialService.enableCredential(credential.getSecuredUuid());
         Assertions.assertEquals(true, credential.getEnabled());
     }
 
     @Test
     public void testEnableCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.enableCredential("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.enableCredential(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testDisableCredential() throws NotFoundException {
-        credentialService.disableCredential(credential.getUuid());
+        credentialService.disableCredential(credential.getSecuredUuid());
         Assertions.assertEquals(false, credential.getEnabled());
     }
 
     @Test
     public void testDisableCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.disableCredential("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.disableCredential(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        credentialService.bulkRemoveCredential(List.of(credential.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getUuid()));
+        credentialService.bulkRemoveCredential(List.of(credential.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getSecuredUuid()));
     }
 
     @Test
@@ -259,8 +247,8 @@ public class CredentialServiceTest {
         HashMap<String, Object> contentMap = new HashMap<>();
         nameAndUuidMap.put("uuid", "wrong-uuid");
         nameAndUuidMap.put("name", "wrong-name");
-        contentMap.put("value","wrong-name");
-        contentMap.put("data",nameAndUuidMap);
+        contentMap.put("value", "wrong-name");
+        contentMap.put("data", nameAndUuidMap);
 
 
         List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", contentMap));

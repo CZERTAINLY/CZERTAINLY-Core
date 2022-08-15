@@ -15,6 +15,9 @@ import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -23,18 +26,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class AuthorityInstanceServiceTest {
+public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     private static final String AUTHORITY_INSTANCE_NAME = "testAuthorityInstance1";
 
@@ -98,7 +93,7 @@ public class AuthorityInstanceServiceTest {
 
     @Test
     public void testListAuthorityInstances() {
-        List<AuthorityInstanceDto> authorityInstances = authorityInstanceService.listAuthorityInstances();
+        List<AuthorityInstanceDto> authorityInstances = authorityInstanceService.listAuthorityInstances(SecurityFilter.create());
         Assertions.assertNotNull(authorityInstances);
         Assertions.assertFalse(authorityInstances.isEmpty());
         Assertions.assertEquals(1, authorityInstances.size());
@@ -111,7 +106,7 @@ public class AuthorityInstanceServiceTest {
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.okJson("{}")));
 
-        AuthorityInstanceDto dto = authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid());
+        AuthorityInstanceDto dto = authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(authorityInstance.getUuid(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
@@ -120,7 +115,7 @@ public class AuthorityInstanceServiceTest {
 
     @Test
     public void testGetAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -166,7 +161,7 @@ public class AuthorityInstanceServiceTest {
 
     @Test
     public void testEditAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.updateAuthorityInstance("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.updateAuthorityInstance(SecuredUUID.fromString("wrong-uuid"), null));
     }
 
     @Test
@@ -175,8 +170,8 @@ public class AuthorityInstanceServiceTest {
                 .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
-        authorityInstanceService.removeAuthorityInstance(authorityInstance.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid()));
+        authorityInstanceService.removeAuthorityInstance(authorityInstance.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid()));
     }
 
     @Test
@@ -185,12 +180,12 @@ public class AuthorityInstanceServiceTest {
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.ok()));
 
-        authorityInstanceService.listRAProfileAttributes(authorityInstance.getUuid());
+        authorityInstanceService.listRAProfileAttributes(authorityInstance.getSecuredUuid());
     }
 
     @Test
     public void testGetRaProfileAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.listRAProfileAttributes("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.listRAProfileAttributes(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -199,22 +194,22 @@ public class AuthorityInstanceServiceTest {
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        authorityInstanceService.validateRAProfileAttributes(authorityInstance.getUuid(), List.of());
+        authorityInstanceService.validateRAProfileAttributes(authorityInstance.getSecuredUuid(), List.of());
     }
 
     @Test
     public void testValidateRaProfileAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.validateRAProfileAttributes("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString("wrong-uuid"), null));
     }
 
     @Test
     public void testRemoveAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.removeAuthorityInstance("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.removeAuthorityInstance(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException, ConnectorException {
-        authorityInstanceService.bulkRemoveAuthorityInstance(List.of(authorityInstance.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid()));
+        authorityInstanceService.bulkRemoveAuthorityInstance(List.of(authorityInstance.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid()));
     }
 }

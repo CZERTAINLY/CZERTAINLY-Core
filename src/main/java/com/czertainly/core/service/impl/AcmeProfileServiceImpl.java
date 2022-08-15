@@ -1,10 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
@@ -16,14 +12,19 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeProfileService;
+import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -34,35 +35,52 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_SUPERADMINISTRATOR", "ROLE_ADMINISTARTOR"})
 public class AcmeProfileServiceImpl implements AcmeProfileService {
-
 
     private static final Logger logger = LoggerFactory.getLogger(AcmeProfileServiceImpl.class);
     private static final String NONE_CONSTANT = "NONE";
-    @Autowired
-    private AcmeProfileRepository acmeProfileRepository;
-    @Autowired
-    private RaProfileRepository raProfileRepository;
-    @Autowired
+
+    private final AcmeProfileRepository acmeProfileRepository;
+    private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
 
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
-    public List<AcmeProfileListDto> listAcmeProfile() {
-        logger.debug("Getting all the ACME Profiles available in the database");
-        return acmeProfileRepository.findAll().stream().map(AcmeProfile::mapToDtoSimple).collect(Collectors.toList());
+    @Autowired
+    public AcmeProfileServiceImpl(AcmeProfileRepository acmeProfileRepository) {
+        this.acmeProfileRepository = acmeProfileRepository;
+    }
+
+    @Autowired
+    public void setRaProfileService(RaProfileService raProfileRepository) {
+        this.raProfileService = raProfileRepository;
+    }
+
+    @Autowired
+    public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
+        this.extendedAttributeService = extendedAttributeService;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
-    public AcmeProfileDto getAcmeProfile(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.LIST)
+    public List<AcmeProfileListDto> listAcmeProfile(SecurityFilter filter) {
+        logger.debug("Getting all the ACME Profiles available in the database");
+        return acmeProfileRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(AcmeProfile::mapToDtoSimple)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DETAIL)
+    public AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting the details for the ACME Profile with uuid " + uuid);
         return getAcmeProfileEntity(uuid).mapToDto();
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.CREATE)
     public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         if (request.getName() == null || request.getName().isEmpty()) {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
@@ -94,7 +112,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setDisableNewOrders(false);
 
         if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)) {
-            RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
+            RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
             acmeProfile.setRaProfile(raProfile);
             acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
             acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
@@ -105,7 +123,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
-    public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
+    public AcmeProfileDto updateAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if (request.isRequireContact() != null) {
             acmeProfile.setRequireContact(request.isRequireContact());
@@ -120,7 +139,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             if (request.getRaProfileUuid().equals(NONE_CONSTANT)) {
                 acmeProfile.setRaProfile(null);
             } else {
-                RaProfile raProfile = getRaProfileEntity(request.getRaProfileUuid());
+                RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
                 acmeProfile.setRaProfile(raProfile);
                 acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
                 acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
@@ -165,14 +184,20 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> deleteAcmeProfile(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
+    public List<ForceDeleteMessageDto> deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         List<ForceDeleteMessageDto> messages = new ArrayList<>();
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
-        if (!raProfiles.isEmpty()) {
+        SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
+        if (raProfiles.isNotEmpty()) {
             List<String> errors = new ArrayList<>();
-            errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
-            raProfiles.stream().forEach(c -> errors.add(c.getName()));
+            errors.add(String.format(
+                    "RA Profiles: %d, Number of Ra Profiles not allowed to list: %d, Allowed to list RA Profiles: ",
+                    raProfiles.size(),
+                    raProfiles.getForbidden().size()
+            ));
+            raProfiles.getAllowed().forEach(raProfile -> errors.add(raProfile.getName()));
+
             ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
             forceModal.setUuid(acmeProfile.getUuid());
             forceModal.setName(acmeProfile.getName());
@@ -186,7 +211,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.ENABLE)
-    public void enableAcmeProfile(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.ENABLE)
+    public void enableAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if (acmeProfile.isEnabled() != null && acmeProfile.isEnabled()) {
             throw new RuntimeException("ACME Profile is already enabled");
@@ -197,7 +223,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DISABLE)
-    public void disableAcmeProfile(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DISABLE)
+    public void disableAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if (!acmeProfile.isEnabled()) {
             throw new RuntimeException("ACME Profile is already disabled");
@@ -208,8 +235,9 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.ENABLE)
-    public void bulkEnableAcmeProfile(List<String> uuids) {
-        for (String uuid : uuids) {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.ENABLE)
+    public void bulkEnableAcmeProfile(List<SecuredUUID> uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
                 if (acmeProfile.isEnabled()) {
@@ -225,8 +253,9 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DISABLE)
-    public void bulkDisableAcmeProfile(List<String> uuids) {
-        for (String uuid : uuids) {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DISABLE)
+    public void bulkDisableAcmeProfile(List<SecuredUUID> uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
                 if (acmeProfile.isEnabled() != null && acmeProfile.isEnabled()) {
@@ -242,17 +271,22 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> bulkDeleteAcmeProfile(List<String> uuids) {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
+    public List<ForceDeleteMessageDto> bulkDeleteAcmeProfile(List<SecuredUUID> uuids) {
         List<AcmeProfile> deletableAcmeProfiles = new ArrayList<>();
         List<ForceDeleteMessageDto> messages = new ArrayList<>();
-        for (String uuid : uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
-                if (!raProfiles.isEmpty()) {
+                SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
+                if (raProfiles.isNotEmpty()) {
                     List<String> errors = new ArrayList<>();
-                    errors.add("RA Profiles: " + raProfiles.size() + ". Names: ");
-                    raProfiles.stream().forEach(c -> errors.add(c.getName()));
+                    errors.add(String.format(
+                            "RA Profiles: %d, Number of Ra Profiles not allowed to list: %d, Allowed to list RA Profiles: ",
+                            raProfiles.size(),
+                            raProfiles.getForbidden().size()
+                    ));
+                    raProfiles.getAllowed().forEach(raProfile -> errors.add(raProfile.getName()));
                     ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
                     forceModal.setUuid(acmeProfile.getUuid());
                     forceModal.setName(acmeProfile.getName());
@@ -271,24 +305,27 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
-    public void updateRaProfile(String uuid, String raProfileUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
+    public void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        acmeProfile.setRaProfile(getRaProfileEntity(raProfileUuid));
+        acmeProfile.setRaProfile(getRaProfile(raProfileUuid));
         acmeProfileRepository.save(acmeProfile);
     }
 
     @Override
-    public void bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.FORCE_DELETE)
+    public void bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException {
         List<AcmeProfile> acmeProfiles = new ArrayList<>();
-        for (String uuid : uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                List<RaProfile> raProfiles = raProfileRepository.findByAcmeProfile(acmeProfile);
-                for (RaProfile raProfile : raProfiles) {
-                    raProfile.setAcmeProfile(null);
-                    raProfileRepository.save(raProfile);
-                }
-                acmeProfiles.add(acmeProfile);
+                SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
+                raProfileService.bulkRemoveAssociatedAcmeProfile(
+                        raProfiles.getAll()
+                                .stream()
+                                .map(raProfile -> SecuredUUID.fromString(raProfile.getUuid()))
+                                .collect(Collectors.toList())
+                );
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }
@@ -296,11 +333,11 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfileRepository.deleteAll(acmeProfiles);
     }
 
-    private RaProfile getRaProfileEntity(String uuid) throws NotFoundException {
-        return raProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
+    private RaProfile getRaProfile(String uuid) throws NotFoundException {
+        return raProfileService.getRaProfileEntity(SecuredUUID.fromString(uuid));
     }
 
-    private AcmeProfile getAcmeProfileEntity(String uuid) throws NotFoundException {
+    private AcmeProfile getAcmeProfileEntity(SecuredUUID uuid) throws NotFoundException {
         return acmeProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(AcmeProfile.class, uuid));
     }
 }

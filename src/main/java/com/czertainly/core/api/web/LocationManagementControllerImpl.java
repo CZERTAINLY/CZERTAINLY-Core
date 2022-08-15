@@ -11,6 +11,8 @@ import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.LocationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +35,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     public List<LocationDto> listLocations(Optional<Boolean> enabled) {
-        return locationService.listLocations(enabled);
+        return locationService.listLocations(SecurityFilter.create(), enabled);
     }
 
     @Override
@@ -48,62 +50,76 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     public LocationDto getLocation(String locationUuid) throws NotFoundException {
-        return locationService.getLocation(locationUuid);
+        return locationService.getLocation(SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public LocationDto editLocation(String locationUuid, EditLocationRequestDto request) throws NotFoundException, LocationException {
-        return locationService.editLocation(locationUuid, request);
+        return locationService.editLocation(SecuredUUID.fromString(locationUuid), request);
     }
 
     @Override
     public void removeLocation(String locationUuid) throws NotFoundException {
-        locationService.removeLocation(locationUuid);
+        locationService.removeLocation(SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public void disableLocation(String locationUuid) throws NotFoundException {
-        locationService.disableLocation(locationUuid);
+        locationService.disableLocation(SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public void enableLocation(String locationUuid) throws NotFoundException {
-        locationService.enableLocation(locationUuid);
+        locationService.enableLocation(SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public List<AttributeDefinition> listPushAttributes(String locationUuid) throws NotFoundException, LocationException {
-        return locationService.listPushAttributes(locationUuid);
+        return locationService.listPushAttributes(SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public List<AttributeDefinition> listCsrAttributes(String locationUuid) throws NotFoundException, LocationException {
-        return locationService.listCsrAttributes(locationUuid);
+        return locationService.listCsrAttributes(SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public LocationDto pushCertificate(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
-        return locationService.pushCertificateToLocation(locationUuid, certificateUuid, request);
+        return locationService.pushCertificateToLocation(
+                SecuredUUID.fromString(locationUuid),
+                certificateUuid,
+                request
+        );
     }
 
     @Override
     public LocationDto removeCertificate(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
-        return locationService.removeCertificateFromLocation(locationUuid, certificateUuid);
+        return locationService.removeCertificateFromLocation(
+                SecuredUUID.fromString(locationUuid),
+                certificateUuid
+        );
     }
 
     @Override
     public LocationDto issueCertificate(String locationUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException {
-        return locationService.issueCertificateToLocation(locationUuid, request);
+        return locationService.issueCertificateToLocation(
+                SecuredUUID.fromString(locationUuid),
+                request.getRaProfileUuid(),
+                request
+        );
     }
 
     @Override
     public LocationDto updateLocationContent(String locationUuid) throws NotFoundException, LocationException {
-        return locationService.updateLocationContent(locationUuid);
+        return locationService.updateLocationContent(SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
-        return locationService.renewCertificateInLocation(locationUuid, certificateUuid);
+        return locationService.renewCertificateInLocation(
+                SecuredUUID.fromString(locationUuid),
+                certificateUuid
+        );
     }
 
 }
