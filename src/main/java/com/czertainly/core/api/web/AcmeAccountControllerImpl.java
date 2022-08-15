@@ -5,8 +5,8 @@ import com.czertainly.api.interfaces.core.web.AcmeAccountController;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.AcmeAccountService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,7 +32,7 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
     public void bulkDisableAcmeAccount(List<String> uuids) throws NotFoundException {
         acmeAccountService.bulkDisableAccount(uuids);
     }
@@ -62,7 +62,7 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
     public void disableAcmeAccount(String uuid) throws NotFoundException {
         acmeAccountService.disableAccount(uuid);
     }

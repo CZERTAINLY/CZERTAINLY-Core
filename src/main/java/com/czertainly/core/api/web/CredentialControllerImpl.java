@@ -10,8 +10,8 @@ import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.CredentialService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -77,7 +77,7 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.ENABLE)
     public void disableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.disableCredential(uuid);
     }

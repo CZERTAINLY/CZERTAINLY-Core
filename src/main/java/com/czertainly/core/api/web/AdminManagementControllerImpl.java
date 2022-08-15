@@ -9,8 +9,8 @@ import com.czertainly.api.model.client.admin.EditAdminRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.admin.AdminDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -75,7 +75,7 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.DISABLE)
+	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.ENABLE)
 	public void disableAdmin(@PathVariable String uuid) throws NotFoundException {
 		adminService.disableAdmin(uuid);
 	}
@@ -87,7 +87,7 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.DISABLE)
+	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.ENABLE)
 	public void bulkDisableAdmin(List<String> adminUuids) throws NotFoundException {
 		adminService.bulkDisableAdmin(adminUuids);
 	}

@@ -12,8 +12,8 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.AcmeProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -72,7 +72,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.ENABLE)
     public void disableAcmeProfile(String uuid) throws NotFoundException {
         acmeProfileService.disableAcmeProfile(uuid);
     }
@@ -84,7 +84,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.ENABLE)
     public void bulkDisableAcmeProfile(List<String> uuids) {
         acmeProfileService.bulkDisableAcmeProfile(uuids);
     }
@@ -102,7 +102,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.UPDATE_RA_PROFILE)
+    @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.UPDATE)
     public void updateRaProfile(String uuid, String raProfileUuid) throws NotFoundException {
         acmeProfileService.updateRaProfile(uuid, raProfileUuid);
     }

@@ -12,8 +12,8 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.LocationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +41,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ADD)
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.CREATE)
     public ResponseEntity<?> addLocation(AddLocationRequestDto request) throws NotFoundException, AlreadyExistException, LocationException {
         LocationDto locationDto = locationService.addLocation(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{locationUuid}")
@@ -70,7 +70,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ENABLE)
     public void disableLocation(String locationUuid) throws NotFoundException {
         locationService.disableLocation(locationUuid);
     }
@@ -94,19 +94,19 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.PUSH)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.CREATE)
     public LocationDto pushCertificate(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
         return locationService.pushCertificateToLocation(locationUuid, certificateUuid, request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.REMOVE_CERTIFICATE_FROM_LOCATION)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DELETE)
     public LocationDto removeCertificate(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
         return locationService.removeCertificateFromLocation(locationUuid, certificateUuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ISSUE_CERTIFICATE_TO_LOCATION)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ISSUE)
     public LocationDto issueCertificate(String locationUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException {
         return locationService.issueCertificateToLocation(locationUuid, request);
     }

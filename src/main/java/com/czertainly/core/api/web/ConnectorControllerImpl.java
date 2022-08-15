@@ -17,8 +17,8 @@ import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ConnectorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -66,7 +66,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.RECONNECT)
+    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.CONNECT)
     public void bulkReconnect(List<String> uuids) throws ValidationException, NotFoundException, ConnectorException {
         connectorService.reconnect(uuids);
     }
@@ -110,7 +110,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.RECONNECT)
+    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.CONNECT)
     public List<ConnectDto> reconnect(@PathVariable String uuid) throws ValidationException, NotFoundException, ConnectorException {
         return connectorService.reconnect(uuid);
     }

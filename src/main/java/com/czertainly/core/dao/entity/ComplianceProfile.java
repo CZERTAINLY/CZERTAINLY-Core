@@ -1,6 +1,5 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndGroupsDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceGroupsDto;

@@ -11,8 +11,8 @@ import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDt
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PathVariable;

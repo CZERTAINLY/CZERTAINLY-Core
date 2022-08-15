@@ -11,8 +11,8 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.client.ClientDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -99,7 +99,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.ENABLE)
     public void disableClient(@PathVariable String uuid) throws NotFoundException {
         clientService.disableClient(uuid);
     }
@@ -111,7 +111,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.ENABLE)
     public void bulkDisableClient(List<String> clientUuids) throws NotFoundException {
         clientService.bulkDisableClient(clientUuids);
     }

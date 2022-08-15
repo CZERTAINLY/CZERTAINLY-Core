@@ -23,33 +23,22 @@ public enum ResourceAction {
     FORCE_DELETE("forceDelete"),
 
     ENABLE("enable"),
-    DISABLE("disable"),
     ACTIVATE("activate"),
-    DEACTIVATE("deactivate"),
 
     //RA Profile actions - Check and remove after new authorization implementation
     AUTHORIZE_CLIENT("authorizeClient"),
     UNAUTHORIZE_CLIENT("unauthorizeClient"),
 
     //Connector actions
-    RECONNECT("reconnect"),
     APPROVE("approve"),
     CONNECT("connect"),
-    CALLBACK("callback"),
-    REGISTER("register"),
 
     //Certificate actions
     UPLOAD("upload"),
     DOWNLOAD("download"),
     RENEW("renew"),
     REVOKE("revoke"),
-    ISSUE("ISSUE"),
-
-
-    //TODO Check if the below actions can be united into a single action permission on the certificate
-    UPDATE_GROUP("updateGroup"),
-    UPDATE_OWNER("updateOwner"),
-    UPDATE_RA_PROFILE("updateRaProfile"),
+    ISSUE("issue"),
 
     //Legacy EJBCA operations
     LIST_ENTITY_PROFILE("listEntityProfile"),
@@ -62,10 +51,6 @@ public enum ResourceAction {
     EDIT_END_ENTITY("editEndEntity"),
     RESET_PASSWORD("resetPassword"),
 
-    VALIDATE("validate"),
-    LIST_EVENT_HISTORY("listEventHistory"),
-    LIST_LOCATION("listLocation"),
-
     //Audit Log export
     EXPORT("export"),
 
@@ -75,28 +60,8 @@ public enum ResourceAction {
     //RA Profile action to get the list of Clients - Can be removed after new Authorization
     LIST_AUTHORIZATIONS("listAuthorizations"),
 
-    //Compliance Profile
-    ADD_RULE("addRule"),
-    REMOVE_RULE("removeRule"),
-    ADD_GROUP("addGroup"),
-    REMOVE_GROUP("removeGroup"),
-    LIST_ASSOCIATED_RA_PROFILE("listAssociatedRaProfile"),
-    LIST_RULE("listRule"),
-    LIST_GROUP("listGroup"),
-
-    // Compliance Profile and ACME Profile
-    ASSOCIATE_RA_PROFILE("associateRaProfile"),
-    DISASSOCIATE_RA_PROFILE("disassociateRaProfile"),
-
-    // Entities and Locations
-    ADD("add"),
-    PUSH("push"),
-    REMOVE_CERTIFICATE_FROM_LOCATION("removeCertificateFromLocation"),
-    ISSUE_CERTIFICATE_TO_LOCATION("issueCertificateToLocation"),
-
     // RA Profile actions
     ACTIVATE_ACME("activateAcme"),
-    DEACTIVATE_ACME("deactivateAcme"),
     ACME_DETAIL("acmeDetail"),
     ;
 

@@ -15,8 +15,8 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.RaProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -73,7 +73,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ENABLE)
     public void disableRaProfile(@PathVariable String uuid) throws NotFoundException {
         raProfileService.disableRaProfile(uuid);
     }
@@ -97,7 +97,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DISABLE)
+    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ENABLE)
     public void bulkDisableRaProfile(List<String> uuids) throws NotFoundException {
         raProfileService.bulkDisableRaProfile(uuids);
     }
