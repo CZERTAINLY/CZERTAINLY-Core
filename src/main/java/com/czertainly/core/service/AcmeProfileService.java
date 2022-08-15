@@ -6,7 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -24,7 +24,7 @@ public interface AcmeProfileService {
 
     AcmeProfileDto updateAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
 
-    List<ForceDeleteMessageDto> deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException;
+    void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
     void enableAcmeProfile(SecuredUUID uuid) throws NotFoundException;
 
@@ -34,9 +34,9 @@ public interface AcmeProfileService {
 
     void bulkDisableAcmeProfile(List<SecuredUUID> uuids);
 
-    List<ForceDeleteMessageDto> bulkDeleteAcmeProfile(List<SecuredUUID> uuids);
+    List<BulkActionMessageDto> bulkDeleteAcmeProfile(List<SecuredUUID> uuids);
 
     void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException;
 
-    void bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
+    List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
 }

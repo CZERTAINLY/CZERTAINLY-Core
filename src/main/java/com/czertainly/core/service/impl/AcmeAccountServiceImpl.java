@@ -121,10 +121,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     public void bulkRevokeAccount(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
             try {
-                AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
-                acmeAccount.setStatus(AccountStatus.REVOKED);
-                acmeAccount.setEnabled(false);
-                acmeAccountRepository.save(acmeAccount);
+                revokeAccount(uuid);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }

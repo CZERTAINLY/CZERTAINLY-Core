@@ -1,7 +1,6 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -31,7 +30,6 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -160,27 +158,14 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
-    public List<ForceDeleteMessageDto> bulkRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
-        List<Credential> deletableCredentials = new ArrayList<>();
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+    public void bulkRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         for (SecuredUUID uuid : uuids) {
-            List<String> errors = new ArrayList<>();
-            Credential credential = credentialRepository
-                    .findByUuid(uuid)
-                    .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
-
-            if (!errors.isEmpty()) {
-                ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-                forceModal.setUuid(credential.getUuid());
-                forceModal.setName(credential.getName());
-                forceModal.setMessage(String.join(",", errors));
-                messages.add(forceModal);
-            } else {
-                deletableCredentials.add(credential);
+            try {
+                removeCredential(uuid);
+            } catch (NotFoundException e) {
+                logger.warn("Unable to find Credential with uuid {}. It may have deleted", uuid);
             }
         }
-        credentialRepository.deleteAll(deletableCredentials);
-        return messages;
     }
 
     @Override
@@ -188,10 +173,7 @@ public class CredentialServiceImpl implements CredentialService {
     public void bulkForceRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         for (SecuredUUID uuid : uuids) {
             try {
-                Credential credential = credentialRepository
-                        .findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
-                credentialRepository.delete(credential);
+                removeCredential(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find Credential with uuid {}. It may have deleted", uuid);
             }
@@ -278,7 +260,7 @@ public class CredentialServiceImpl implements CredentialService {
     private CredentialDto maskSecret(CredentialDto credentialDto){
         for(ResponseAttributeDto responseAttributeDto: credentialDto.getAttributes()){
             if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setContent(new BaseAttributeContent<String>(){{setValue(null);}});
+                responseAttributeDto.setContent(new BaseAttributeContent<String>(null));
             }
         }
         return credentialDto;

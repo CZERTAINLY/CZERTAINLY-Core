@@ -7,7 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.AuthorityInstanceController;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
@@ -92,12 +92,12 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    public List<ForceDeleteMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
+    public List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
         return authorityInstanceService.bulkRemoveAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public void bulkForceRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException {
-        authorityInstanceService.bulkForceRemoveAuthorityInstance(SecuredUUID.fromList(uuids));
+    public List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException {
+        return authorityInstanceService.bulkForceRemoveAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 }

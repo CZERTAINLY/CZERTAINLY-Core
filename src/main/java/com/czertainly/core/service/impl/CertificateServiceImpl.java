@@ -435,9 +435,7 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE) // TODO AUTH - what is the correct action?
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
-            if (certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
-                logger.debug("Certificate with UUID {} is self signed / CA", certificate.getUuid());
-            } else {
+            if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
                 for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
                     X509Certificate subCert;
                     X509Certificate issCert;
@@ -713,6 +711,7 @@ public class CertificateServiceImpl implements CertificateService {
                 groupFilter,
                 SearchLabelConstants.OWNER_FILTER,
                 SearchLabelConstants.STATUS_FILTER,
+                SearchLabelConstants.COMPLIANCE_STATUS_FILTER,
                 SearchLabelConstants.ISSUER_COMMON_NAME_FILTER,
                 SearchLabelConstants.FINGERPRINT_FILTER,
                 signatureAlgorithmFilter,
@@ -774,9 +773,10 @@ public class CertificateServiceImpl implements CertificateService {
         for (ComplianceRule complianceRule : rules) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
-        for (ComplianceRule complianceRule : naRules) {
-            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
-        }
+        // NA Rules are not required to be displayed in the UI
+        // for (ComplianceRule complianceRule : naRules) {
+        //     result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
+        // }
         logger.debug("Compliance Result: {}", result);
         return result;
     }

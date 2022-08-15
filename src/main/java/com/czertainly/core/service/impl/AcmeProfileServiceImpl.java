@@ -3,13 +3,14 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.UniquelyIdentified;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.model.auth.Resource;
@@ -184,29 +185,9 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
-    public List<ForceDeleteMessageDto> deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException {
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+    public void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
-        if (raProfiles.isNotEmpty()) {
-            List<String> errors = new ArrayList<>();
-            errors.add(String.format(
-                    "RA Profiles: %d, Number of Ra Profiles not allowed to list: %d, Allowed to list RA Profiles: ",
-                    raProfiles.size(),
-                    raProfiles.getForbidden().size()
-            ));
-            raProfiles.getAllowed().forEach(raProfile -> errors.add(raProfile.getName()));
-
-            ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-            forceModal.setUuid(acmeProfile.getUuid());
-            forceModal.setName(acmeProfile.getName());
-            forceModal.setMessage(String.join(", ", errors));
-            messages.add(forceModal);
-        } else {
-            acmeProfileRepository.delete(acmeProfile);
-        }
-        return messages;
+        deleteAcmeProfile(acmeProfile);
     }
 
     @Override
@@ -271,35 +252,18 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
-    public List<ForceDeleteMessageDto> bulkDeleteAcmeProfile(List<SecuredUUID> uuids) {
-        List<AcmeProfile> deletableAcmeProfiles = new ArrayList<>();
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+    public List<BulkActionMessageDto> bulkDeleteAcmeProfile(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
+            AcmeProfile acmeProfile = null;
             try {
-                AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-                SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
-                if (raProfiles.isNotEmpty()) {
-                    List<String> errors = new ArrayList<>();
-                    errors.add(String.format(
-                            "RA Profiles: %d, Number of Ra Profiles not allowed to list: %d, Allowed to list RA Profiles: ",
-                            raProfiles.size(),
-                            raProfiles.getForbidden().size()
-                    ));
-                    raProfiles.getAllowed().forEach(raProfile -> errors.add(raProfile.getName()));
-                    ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-                    forceModal.setUuid(acmeProfile.getUuid());
-                    forceModal.setName(acmeProfile.getName());
-                    forceModal.setMessage(String.join(",", errors));
-                    messages.add(forceModal);
-                } else {
-                    deletableAcmeProfiles.add(acmeProfile);
-                }
-            } catch (NotFoundException e) {
-                logger.warn(e.getMessage());
+                acmeProfile = getAcmeProfileEntity(uuid);
+                deleteAcmeProfile(acmeProfile);
+            } catch (Exception e) {
+                logger.error(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), acmeProfile != null ? acmeProfile.getName() : "", e.getMessage()));
             }
         }
-        acmeProfileRepository.deleteAll(deletableAcmeProfiles);
         return messages;
     }
 
@@ -313,24 +277,23 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.FORCE_DELETE)
-    public void bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException {
-        List<AcmeProfile> acmeProfiles = new ArrayList<>();
+    public List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
+            AcmeProfile acmeProfile = null;
             try {
-                AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
+                acmeProfile = getAcmeProfileEntity(uuid);
                 SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
-                raProfileService.bulkRemoveAssociatedAcmeProfile(
-                        raProfiles.getAll()
-                                .stream()
-                                .map(raProfile -> SecuredUUID.fromString(raProfile.getUuid()))
-                                .collect(Collectors.toList())
-                );
-            } catch (NotFoundException e) {
+                // TODO AUTH - if there is forbidden ra profile in the ra profile list, the operation will be denied. Other possibility is to unassign
+                // acme profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent acme profile.
+                raProfileService.bulkRemoveAssociatedAcmeProfile(raProfiles.getAll().stream().map(UniquelyIdentified::getSecuredUuid).collect(Collectors.toList()));
+                deleteAcmeProfile(acmeProfile);
+            } catch (Exception e) {
                 logger.warn(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), acmeProfile != null ? acmeProfile.getName() : "", e.getMessage()));
             }
         }
-        acmeProfileRepository.deleteAll(acmeProfiles);
+        return messages;
     }
 
     private RaProfile getRaProfile(String uuid) throws NotFoundException {
@@ -339,5 +302,22 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     private AcmeProfile getAcmeProfileEntity(SecuredUUID uuid) throws NotFoundException {
         return acmeProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(AcmeProfile.class, uuid));
+    }
+
+    private void deleteAcmeProfile(AcmeProfile acmeProfile) {
+        SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
+        if (!raProfiles.isEmpty()) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            String.format(
+                                    "Dependent RA Profiles (%d): %s",
+                                    raProfiles.size(),
+                                    raProfiles.getAllowed().stream().map(RaProfile::getName).collect(Collectors.joining(","))
+                            )
+                    )
+            );
+        } else {
+            acmeProfileRepository.delete(acmeProfile);
+        }
     }
 }

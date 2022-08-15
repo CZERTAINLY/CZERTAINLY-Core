@@ -4,7 +4,7 @@ import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.EndEntityProfileApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
@@ -180,24 +180,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     public void removeAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
-        if (authorityInstanceRef.getConnector() != null) {
-            List<ValidationError> errors = new ArrayList<>();
-            if (!authorityInstanceRef.getRaProfiles().isEmpty()) {
-                errors.add(ValidationError.create("Authority instance {} has {} dependent RA profiles", authorityInstanceRef.getName(),
-                        authorityInstanceRef.getRaProfiles().size()));
-                authorityInstanceRef.getRaProfiles().forEach(c -> errors.add(ValidationError.create(c.getName())));
-            }
-
-            if (!errors.isEmpty()) {
-                throw new ValidationException("Could not delete Authority instance", errors);
-            }
-
-            authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
-        } else {
-            logger.debug("Deleting authority without connector: {}", authorityInstanceRef);
-        }
-
-        authorityInstanceReferenceRepository.delete(authorityInstanceRef);
+        removeAuthorityInstance(authorityInstanceRef);
     }
 
     @Override
@@ -258,40 +241,20 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
-    public List<ForceDeleteMessageDto> bulkRemoveAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException, ConnectorException {
-        List<AuthorityInstanceReference> deletableCredentials = new ArrayList<>();
-        List<ForceDeleteMessageDto> messages = new ArrayList<>();
+    public List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
-            List<String> errors = new ArrayList<>();
-            AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
-                    .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
-
-            if (!authorityInstanceRef.getRaProfiles().isEmpty()) {
-                errors.add("RA Profiles: " + authorityInstanceRef.getRaProfiles().size() + ". Names: ");
-                authorityInstanceRef.getRaProfiles().forEach(c -> errors.add(c.getName()));
+            AuthorityInstanceReference authorityInstanceRef = null;
+            try {
+                authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
+                        .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+                removeAuthorityInstance(authorityInstanceRef);
+            } catch (NotFoundException e) {
+                logger.error("Authority Instance not found: {}", uuid);
+            } catch (Exception e) {
+                logger.warn(e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), authorityInstanceRef != null ? authorityInstanceRef.getName() : "", e.getMessage()));
             }
-
-            if (!errors.isEmpty()) {
-                ForceDeleteMessageDto forceModal = new ForceDeleteMessageDto();
-                forceModal.setUuid(authorityInstanceRef.getUuid());
-                forceModal.setName(authorityInstanceRef.getName());
-                forceModal.setMessage(String.join(",", errors));
-                messages.add(forceModal);
-            } else {
-                deletableCredentials.add(authorityInstanceRef);
-                try {
-                    if (authorityInstanceRef.getConnector() != null) {
-                        authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
-                    }
-                } catch (ConnectorException e) {
-                    logger.error("Unable to delete authority with name {}", authorityInstanceRef.getName());
-                }
-            }
-        }
-
-        for (AuthorityInstanceReference authorityInstanceRef : deletableCredentials) {
-            authorityInstanceReferenceRepository.delete(authorityInstanceRef);
         }
         return messages;
     }
@@ -299,10 +262,12 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.FORCE_DELETE)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
-    public void bulkForceRemoveAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+    public List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
+        List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
+            AuthorityInstanceReference authorityInstanceRef = null;
             try {
-                AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
+                authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
                 if (!authorityInstanceRef.getRaProfiles().isEmpty()) {
                     for (RaProfile ref : authorityInstanceRef.getRaProfiles()) {
@@ -310,13 +275,36 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                         raProfileService.updateRaProfileEntity(ref);
                     }
                 }
-                if (authorityInstanceRef.getConnector() != null) {
-                    authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
-                }
-                authorityInstanceReferenceRepository.delete(authorityInstanceRef);
-            } catch (ConnectorException e) {
-                logger.warn("Unable to delete the Authority instance with uuid {}. It may have been deleted", uuid);
+                authorityInstanceRef.setRaProfiles(null);
+                authorityInstanceReferenceRepository.save(authorityInstanceRef);
+                removeAuthorityInstance(authorityInstanceRef);
+            } catch (Exception e) {
+                logger.warn("Unable to delete the Authority instance with uuid {}. It may have been deleted. {}", uuid, e.getMessage());
+                messages.add(new BulkActionMessageDto(uuid.toString(), authorityInstanceRef != null ? authorityInstanceRef.getName() : "", e.getMessage()));
             }
         }
+        return messages;
+    }
+
+    private void removeAuthorityInstance(AuthorityInstanceReference authorityInstanceRef) throws ValidationException {
+        if (authorityInstanceRef.getConnector() != null) {
+            ValidationError error = null;
+            if (authorityInstanceRef.getRaProfiles() != null && !authorityInstanceRef.getRaProfiles().isEmpty()) {
+                error = ValidationError.create("Dependent RA profiles: {}", String.join(" ,", authorityInstanceRef.getRaProfiles().stream().map(RaProfile::getName).collect(Collectors.toSet())));
+            }
+
+            if (error != null) {
+                throw new ValidationException(error);
+            }
+            try {
+                authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
+            } catch (Exception e) {
+                logger.error(e.getMessage());
+                throw new ValidationException(e.getMessage());
+            }
+        } else {
+            logger.debug("Deleting authority without connector: {}", authorityInstanceRef);
+        }
+        authorityInstanceReferenceRepository.delete(authorityInstanceRef);
     }
 }

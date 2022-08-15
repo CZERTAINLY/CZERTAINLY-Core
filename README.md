@@ -10,16 +10,18 @@ There are 2 types of communication that the `Core` is responsible for:
 
 `Core` is performing consistent operation on top of the certificates. The management of certificates is abstracted through CZERTAINLY objects, for example:
 
-| Object | Short description |
-| ---------------- | ----------- |
-| `Connector` | Provides with the functionality for specific technologies (defined by `Function Group` and supported `Kinds`) |
-| `Credential` | `Credential` of various types to be used by `Connectors` and other objects |
-| `Authority` | Representing certification authority access |
-| `RA profile` | Configuration of the service for certificate lifecycle management (abstraction of `Attributes` for specific certificate type, including available APIs) |
-| `Discovery` | Schedule discovery process for searching of certificates in various sources |
-| `Certificate` | `Certificate` consisting of `Attributes` and related metadata |
-| `Entity` | Represents the entity that is going to use the certificates |
-| `Group` | Grouping of different certificates based on different requirements |
+| Object               | Short description                                                                                                                                      |
+|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Connector`          | Provides with the functionality for specific technologies (defined by `Function Group` and supported `Kinds`)                                          |
+| `Credential`         | `Credential` of various types to be used by `Connectors` and other objects                                                                             |
+| `Authority`          | Representing certification authority access                                                                                                            |
+| `RA Profile`         | Configuration of the service for certificate lifecycle management (abstraction of `Attributes` for specific certificate type, including available APIs) |
+| `Discovery`          | Schedule discovery process for searching of certificates in various sources                                                                            |
+| `Certificate`        | `Certificate` consisting of `Attributes` and related metadata                                                                                          |
+| `Entity`             | Represents the entity that is can use the certificates                                                                                                 |
+| `Location`           | Location on the `Entity` where is certificate stored                                                                                                   |
+| `Group`              | Grouping of different certificates based on different requirements                                                                                     |
+| `Compliance Profile` | Matching rules for the certificate to assess compliance                                                                                                | 
 
 ## RA profile
 
@@ -62,7 +64,7 @@ Operations can be automated by the `Core`, but also can be performed manually by
 `Certificate` has relations to other objects that helps with the management and automation of the `Certificate` lifecycle:
 
 ```
-Entity------------\
+Location----------\
                    \
 Group--------------\\
                     certificate-------RA profile
@@ -100,15 +102,16 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 You may need to configure proxy to allow `Core` to communicate with external systems.
 To enable proxy, use the following environment variables for docker container:
 
-| Variable               | Description                                                                 | Required | Default value                   |
-|------------------------|-----------------------------------------------------------------------------|----------|---------------------------------|
-| `HTTP_PROXY_HOST`      | The hostname, or address, of the http proxy server                          | No       | N/A                             |
-| `HTTP_PROXY_PORT`      | The port number of the http proxy server                                    | No       | 80                              |
-| `HTTPS_PROXY_HOST`     | The hostname, or address, of the https proxy server                         | No       | N/A                             |
-| `HTTPS_PROXY_PORT`     | The port number of the https proxy server                                   | No       | 443                             |
-| `HTTP_NONPROXY_HOSTS`  | Indicates the hosts that should be accessed without going through the proxy | No       | localhost&#124;127.*&#124;[::1] |
+| Variable      | Description                                                                                                                                                | Required | Default value |
+|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|---------------|
+| `HTTP_PROXY`  | The proxy URL to use for http connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>`  | No       | N/A           |
+| `HTTPS_PROXY` | The proxy URL to use for https connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>` | No       | N/A           |
+| `NO_PROXY`    | A comma-separated list of host names that shouldn't go through any proxy                                                                                   | No       | N/A           |
 
-The list of hosts in the `HTTP_NONPROXY_HOSTS` is separated by the `|` character. In addition, the wildcard character `*` can be used for pattern matching. For example `-Dhttp.nonProxyHosts=*.foo.com|localhost` will indicate that every host in the foo.com domain and the localhost should be accessed directly even if a proxy server is specified.
+Example values:
+- `HTTP_PROXY=http://user:password@proxy.example.com:3128`
+- `HTTPS_PROXY=http://user:password@proxy.example.com:3128`
+- `NO_PROXY=localhost,127.0.0.1,0.0.0.0,10.0.0.0/8,cattle-system.svc,.svc,.cluster.local,my-domain.local`
 
 ## Monitoring and reporting
 

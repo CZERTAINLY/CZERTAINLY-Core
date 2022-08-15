@@ -824,7 +824,7 @@ public class LocationServiceImpl implements LocationService {
     private LocationDto maskSecret(LocationDto locationDto){
         for(ResponseAttributeDto responseAttributeDto: locationDto.getAttributes()){
             if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setContent(new BaseAttributeContent<String>(){{setValue(null);}});
+                responseAttributeDto.setContent(new BaseAttributeContent<String>(null));
             }
         }
         return locationDto;

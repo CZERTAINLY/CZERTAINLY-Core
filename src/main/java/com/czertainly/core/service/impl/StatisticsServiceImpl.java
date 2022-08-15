@@ -59,6 +59,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         dto.setCertificateStatByBasicConstraints(getCertificateStatByBasicConstraints(dto));
         dto.setCertificateStatByExpiry(getCertificatesByExpiry(dto));
         dto.setCertificateStatByStatus(getCertificateStatByStatus());
+        dto.setCertificateStatByComplianceStatus(getCertificateStatByComplianceStatus());
 
         return dto;
     }
@@ -121,6 +122,12 @@ public class StatisticsServiceImpl implements StatisticsService {
         return getStatsMap(result, null, 0, null);
     }
 
+    private Map<String, Long> getCertificateStatByComplianceStatus() {
+        var result = certificateRepository.getCertificatesCountByComplianceStatus();
+
+        return getComplianceStatsMap(result);
+    }
+
     private Map<String, Long> getCertificatesByExpiry(StatisticsDto dto) {
         long totalStatsCount = 0;
         Map<String, Long> stats = new HashMap<>();
@@ -160,6 +167,22 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
 
         if (defaultLabel != null) stats.put(defaultLabel, totalCount - totalStatsCount);
+        return stats;
+    }
+
+    private Map<String, Long> getComplianceStatsMap(List<Object[]> resultStats) {
+        Map<String, Long> stats = new HashMap<>();
+        Map<String, String> beToUiMapping = new HashMap<>();
+        beToUiMapping.put("NA", "Not Checked");
+        beToUiMapping.put("NOK", "Non Compliant");
+        beToUiMapping.put("OK", "Compliant");
+        for (Object[] item : resultStats) {
+            if(item[0] == null){
+                stats.put(beToUiMapping.get("NA"), (long) item[1]);
+                continue;
+            }
+            stats.put(beToUiMapping.getOrDefault(item[0].toString(), "Unknown"), (long) item[1]);
+        }
         return stats;
     }
 }

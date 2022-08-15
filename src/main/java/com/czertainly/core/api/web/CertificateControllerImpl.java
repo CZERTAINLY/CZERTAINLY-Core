@@ -54,6 +54,7 @@ public class CertificateControllerImpl implements CertificateController {
 			throws NotFoundException, CertificateException, IOException {
 		// TODO AUTH - move logic to service
 		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
+		certificateService.updateIssuer();
 		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
 			certValidationService.validate(crt);
 		}
