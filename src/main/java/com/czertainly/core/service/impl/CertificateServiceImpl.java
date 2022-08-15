@@ -672,6 +672,7 @@ public class CertificateServiceImpl implements CertificateService {
                 groupFilter,
                 SearchLabelConstants.OWNER_FILTER,
                 SearchLabelConstants.STATUS_FILTER,
+                SearchLabelConstants.COMPLIANCE_STATUS_FILTER,
                 SearchLabelConstants.ISSUER_COMMON_NAME_FILTER,
                 SearchLabelConstants.FINGERPRINT_FILTER,
                 signatureAlgorithmFilter,
@@ -733,9 +734,10 @@ public class CertificateServiceImpl implements CertificateService {
         for (ComplianceRule complianceRule : rules) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
-        for (ComplianceRule complianceRule : naRules) {
-            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
-        }
+        // NA Rules are not required to be displayed in the UI
+        // for (ComplianceRule complianceRule : naRules) {
+        //     result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
+        // }
         logger.debug("Compliance Result: {}", result);
         return result;
     }

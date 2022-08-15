@@ -223,10 +223,17 @@ public class SearchServiceImpl implements SearchService {
 
                 if (filter.getConditions().get(0).equals(SearchCondition.EQUALS)) {
                     qp += " IN (" + String.join(",", whereObjects) + " )";
+                    if(filter.getField().equals(SearchableFields.COMPLIANCE_STATUS) && ((List<String>) filter.getValue()).contains("NA")){
+                        qp += " or " + ntvCode + " IS NULL ";
+                    }
                 }
                 if (filter.getConditions().get(0).equals(SearchCondition.NOT_EQUALS)) {
                     qp += " NOT IN (" + String.join(",", whereObjects) + " )";
+                    if(filter.getField().equals(SearchableFields.COMPLIANCE_STATUS) && !((List<String>) filter.getValue()).contains("NA")){
+                        qp += " or " + ntvCode + " IS NOT NULL ";
+                    }
                 }
+
             } else {
                 if (filter.getField().equals(SearchableFields.SIGNATURE_VALIDATION)) {
                     if (filter.getConditions().get(0).equals(SearchCondition.SUCCESS)) {
