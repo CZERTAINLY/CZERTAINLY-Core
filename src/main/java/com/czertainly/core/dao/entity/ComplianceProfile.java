@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndGroupsDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
+import com.czertainly.api.model.core.compliance.ComplianceGroupsDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto;
@@ -83,16 +84,17 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
         }
         complianceProfileDto.setRules(rulesDtos);
 
-        Map<String, List<NameAndUuidDto>> locGroups = new HashMap<>();
+        Map<String, List<ComplianceGroupsDto>> locGroups = new HashMap<>();
         for(ComplianceGroup complianceGroup: groups){
             String groupKey = complianceGroup.getConnector().getUuid() + ":" + complianceGroup.getConnector().getName() + ":" + complianceGroup.getKind();
-            NameAndUuidDto uuidDto = new NameAndUuidDto();
+            ComplianceGroupsDto uuidDto = new ComplianceGroupsDto();
             uuidDto.setUuid(complianceGroup.getUuid());
-            uuidDto.setName(complianceProfileDto.getName());
+            uuidDto.setName(complianceGroup.getName());
+            uuidDto.setDescription(complianceGroup.getDescription());
             locGroups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(uuidDto);
         }
         List<ComplianceConnectorAndGroupsDto> groupsDtos = new ArrayList<>();
-        for(Map.Entry<String, List<NameAndUuidDto>> entry : locGroups.entrySet()){
+        for(Map.Entry<String, List<ComplianceGroupsDto>> entry : locGroups.entrySet()){
             ComplianceConnectorAndGroupsDto grps = new ComplianceConnectorAndGroupsDto();
             String[] nameSplits = entry.getKey().split(":");
             grps.setConnectorName(nameSplits[1]);
@@ -103,6 +105,15 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
         }
         complianceProfileDto.setGroups(groupsDtos);
 
+        return complianceProfileDto;
+    }
+
+
+    public ComplianceProfileDto raProfileMapToDto(){
+        ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
+        complianceProfileDto.setName(name);
+        complianceProfileDto.setDescription(description);
+        complianceProfileDto.setUuid(uuid);
         return complianceProfileDto;
     }
 
