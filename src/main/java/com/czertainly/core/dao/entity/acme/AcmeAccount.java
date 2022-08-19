@@ -54,9 +54,15 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     @JoinColumn(name = "ra_profile_uuid", nullable = false)
     private RaProfile raProfile;
 
+    @Column(name = "ra_profile_uuid")
+    private String raProfileUuid;
+
     @OneToOne
     @JoinColumn(name = "acme_profile_uuid", nullable = false)
     private AcmeProfile acmeProfile;
+
+    @Column(name = "acme_profile_uuid")
+    private String acmeProfileUuid;
 
     @Override
     public Account mapToDto(){
@@ -210,5 +216,25 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setEnabled(boolean enabled) {
         isEnabled = enabled;
+    }
+
+    public Boolean getTermsOfServiceAgreed() {
+        return termsOfServiceAgreed;
+    }
+
+    public String getRaProfileUuid() {
+        return raProfileUuid;
+    }
+
+    public void setRaProfileUuid(String raProfileUuid) {
+        this.raProfileUuid = raProfileUuid;
+    }
+
+    public String getAcmeProfileUuid() {
+        return acmeProfileUuid;
+    }
+
+    public void setAcmeProfileUuid(String acmeProfileUuid) {
+        this.acmeProfileUuid = acmeProfileUuid;
     }
 }

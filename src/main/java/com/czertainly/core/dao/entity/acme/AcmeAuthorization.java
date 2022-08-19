@@ -47,6 +47,9 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
     @JoinColumn(name = "order_uuid", nullable = false)
     private AcmeOrder order;
 
+    @Column(name = "order_uuid")
+    private String orderUuid;
+
     @Override
     public Authorization mapToDto() {
 
@@ -136,5 +139,17 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
     // Customer Getter for Authorization URL
     public String getUrl() {
         return getBaseUrl() + "/authz/" + authorizationId;
+    }
+
+    public Boolean getWildcard() {
+        return wildcard;
+    }
+
+    public String getOrderUuid() {
+        return orderUuid;
+    }
+
+    public void setOrderUuid(String orderUuid) {
+        this.orderUuid = orderUuid;
     }
 }

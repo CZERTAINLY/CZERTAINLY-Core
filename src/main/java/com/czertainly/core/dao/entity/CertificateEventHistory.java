@@ -35,6 +35,9 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     @JoinColumn(name = "certificate_uuid", nullable = false)
     private Certificate certificate;
 
+    @Column(name = "certificate_uuid")
+    private String certificateUuid;
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -103,5 +106,13 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
 
     public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
+    }
+
+    public String getCertificateUuid() {
+        return certificateUuid;
+    }
+
+    public void setCertificateUuid(String certificateUuid) {
+        this.certificateUuid = certificateUuid;
     }
 }

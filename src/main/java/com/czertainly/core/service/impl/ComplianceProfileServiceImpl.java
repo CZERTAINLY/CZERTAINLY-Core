@@ -514,7 +514,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             }
         }
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
-        complianceProfileRule.setComplianceProfile(complianceProfile);
+        complianceProfileRule.setComplianceProfileUuid(complianceProfile.getUuid());
         complianceProfileRule.setComplianceRule(complianceRule);
         complianceProfileRule.setAttributes(attributes);
         logger.debug("Compliance Profile Rule: {}", complianceProfileRule);

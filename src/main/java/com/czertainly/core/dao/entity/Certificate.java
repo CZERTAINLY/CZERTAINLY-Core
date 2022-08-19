@@ -42,6 +42,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @JoinColumn(name = "certificate_content_id")
     private CertificateContent certificateContent;
 
+    @Column(name = "certificate_content_id")
+    private Long certificateContentId;
+
     @Column(name = "issuer_dn")
     private String issuerDn;
 
@@ -433,5 +436,13 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setComplianceStatus(ComplianceStatus complianceStatus) {
         this.complianceStatus = complianceStatus;
+    }
+
+    public Long getCertificateContentId() {
+        return certificateContentId;
+    }
+
+    public void setCertificateContentId(Long certificateContentId) {
+        this.certificateContentId = certificateContentId;
     }
 }

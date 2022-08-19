@@ -42,6 +42,9 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @JoinColumn(name = "ra_profile_uuid")
     private RaProfile raProfile;
 
+    @Column(name = "ra_profile_uuid")
+    private String raProfileUuid;
+
     @Column(name = "issue_certificate_attributes")
     private String issueCertificateAttributes;
 
@@ -254,5 +257,13 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setTermsOfServiceChangeUrl(String termsOfServiceChangeUrl) {
         this.termsOfServiceChangeUrl = termsOfServiceChangeUrl;
+    }
+
+    public String getRaProfileUuid() {
+        return raProfileUuid;
+    }
+
+    public void setRaProfileUuid(String raProfileUuid) {
+        this.raProfileUuid = raProfileUuid;
     }
 }

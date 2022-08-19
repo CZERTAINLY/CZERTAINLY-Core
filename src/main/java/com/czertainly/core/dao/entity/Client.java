@@ -27,6 +27,9 @@ public class Client extends UniquelyIdentifiedAndAudited implements Serializable
 	@JoinColumn(name = "certificate_uuid", nullable = false)
 	private Certificate certificate;
 
+	@Column(name = "certificate_uuid")
+	private String certificateUuid;
+
 	@ManyToMany(mappedBy = "clients")
 	private Set<RaProfile> raProfiles = new HashSet<>();
 
@@ -93,6 +96,14 @@ public class Client extends UniquelyIdentifiedAndAudited implements Serializable
 
 	public void setSerialNumber(String serialNumber) {
 		this.serialNumber = serialNumber;
+	}
+
+	public String getCertificateUuid() {
+		return certificateUuid;
+	}
+
+	public void setCertificateUuid(String certificateUuid) {
+		this.certificateUuid = certificateUuid;
 	}
 
 	@Override

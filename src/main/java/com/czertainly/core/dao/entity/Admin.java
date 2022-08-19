@@ -32,6 +32,9 @@ public class Admin extends UniquelyIdentifiedAndAudited implements Serializable,
 	@JoinColumn(name = "certificate_uuid", nullable = false)
 	private Certificate certificate;
 
+    @Column(name = "certificate_uuid")
+    private String certificateUuid;
+
     @Column(name = "serial_number")
     private String serialNumber;
 
@@ -125,7 +128,15 @@ public class Admin extends UniquelyIdentifiedAndAudited implements Serializable,
 		this.certificate = certificate;
 	}
 
-	@Override
+    public String getCertificateUuid() {
+        return certificateUuid;
+    }
+
+    public void setCertificateUuid(String certificateUuid) {
+        this.certificateUuid = certificateUuid;
+    }
+
+    @Override
     public AdminDto mapToDto() {
         AdminDto dto = new AdminDto();
         dto.setUuid(uuid);

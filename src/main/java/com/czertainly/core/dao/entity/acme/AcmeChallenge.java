@@ -40,6 +40,9 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
     @JoinColumn(name = "authorization_uuid", nullable = false)
     private AcmeAuthorization authorization;
 
+    @Column(name = "authorization_uuid")
+    private String authorizationUuid;
+
     @Override
     public Challenge mapToDto(){
         Challenge challenge = new Challenge();
@@ -108,6 +111,14 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
 
     public void setValidated(Date validated) {
         this.validated = validated;
+    }
+
+    public String getAuthorizationUuid() {
+        return authorizationUuid;
+    }
+
+    public void setAuthorizationUuid(String authorizationUuid) {
+        this.authorizationUuid = authorizationUuid;
     }
 
     // Customer Getter for Challenge URL

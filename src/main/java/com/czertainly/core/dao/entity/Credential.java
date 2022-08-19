@@ -36,6 +36,9 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
     @JoinColumn(name = "connector_uuid")
     private Connector connector;
 
+    @Column(name = "connector_uuid")
+    private String connectorUuid;
+
     public String getName() {
         return name;
     }
@@ -79,6 +82,14 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
     public String getConnectorName() { return connectorName; }
 
     public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
+
+    public String getConnectorUuid() {
+        return connectorUuid;
+    }
+
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = connectorUuid;
+    }
 
     public CredentialDto mapToDtoSimple() {
         CredentialDto dto = new CredentialDto();

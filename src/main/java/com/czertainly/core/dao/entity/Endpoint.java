@@ -28,6 +28,9 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     @JoinColumn(name = "function_group_uuid", nullable = false)
     private FunctionGroup functionGroup;
 
+    @Column(name = "function_group_uuid")
+    private String functionGroupUuid;
+
     @Override
     public EndpointDto mapToDto() {
         EndpointDto dto = new EndpointDto();
@@ -80,5 +83,13 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
 
     public void setRequired(Boolean required) {
         this.required = required;
+    }
+
+    public String getFunctionGroupUuid() {
+        return functionGroupUuid;
+    }
+
+    public void setFunctionGroupUuid(String functionGroupUuid) {
+        this.functionGroupUuid = functionGroupUuid;
     }
 }

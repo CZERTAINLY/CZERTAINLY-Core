@@ -43,6 +43,9 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @JoinColumn(name = "authority_instance_ref_uuid")
     private AuthorityInstanceReference authorityInstanceReference;
 
+    @Column(name = "authority_instance_ref_uuid")
+    private String authorityInstanceReferenceUuid;
+
     @Column(name = "enabled")
     private Boolean enabled;
 
@@ -67,6 +70,9 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @OneToOne
     @JoinColumn(name="acme_profile_uuid")
     private AcmeProfile acmeProfile;
+
+    @Column(name = "acme_profile_uuid")
+    private String acmeProfileUuid;
 
     @Column(name="acme_issue_certificate_attributes")
     private String issueCertificateAttributes;

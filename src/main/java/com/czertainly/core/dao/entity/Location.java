@@ -40,6 +40,9 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
     @JoinColumn(name = "entity_instance_ref_uuid")
     private EntityInstanceReference entityInstanceReference;
 
+    @Column(name = "entity_instance_ref_uuid")
+    private String entityInstanceReferenceUuid;
+
     @Column(name = "enabled")
     private Boolean enabled;
 
@@ -138,6 +141,14 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     public void setMetadata(Map<String, Object> metadata) {
         this.metadata = MetaDefinitions.serialize(metadata);
+    }
+
+    public String getEntityInstanceReferenceUuid() {
+        return entityInstanceReferenceUuid;
+    }
+
+    public void setEntityInstanceReferenceUuid(String entityInstanceReferenceUuid) {
+        this.entityInstanceReferenceUuid = entityInstanceReferenceUuid;
     }
 
     @Override

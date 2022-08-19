@@ -35,6 +35,9 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     @JoinColumn(name = "certificate_ref")
     private Certificate certificateReference;
 
+    @Column(name = "certificate_ref")
+    private String certificateReferenceUuid;
+
     @Column(name="certificate_id")
     private String certificateId;
 
@@ -165,6 +168,14 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setCertificateId(String certificateId) {
         this.certificateId = certificateId;
+    }
+
+    public String getCertificateReferenceUuid() {
+        return certificateReferenceUuid;
+    }
+
+    public void setCertificateReferenceUuid(String certificateReferenceUuid) {
+        this.certificateReferenceUuid = certificateReferenceUuid;
     }
 
     // Customer Getter for Order

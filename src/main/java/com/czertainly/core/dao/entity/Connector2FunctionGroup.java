@@ -18,10 +18,32 @@ public class Connector2FunctionGroup {
     @JoinColumn(name = "connector_uuid", nullable = false)
     @JsonIgnore
     private Connector connector;
-	
+
+	@Column(name = "connector_uuid")
+	private String connectorUuid;
+
+	public String getConnectorUuid() {
+		return connectorUuid;
+	}
+
+	public void setConnectorUuid(String connectorUuid) {
+		this.connectorUuid = connectorUuid;
+	}
+
+	public String getFunctionGroupUuid() {
+		return functionGroupUuid;
+	}
+
+	public void setFunctionGroupUuid(String functionGroupUuid) {
+		this.functionGroupUuid = functionGroupUuid;
+	}
+
 	@ManyToOne
     @JoinColumn(name = "function_group_uuid", nullable = false)
 	private FunctionGroup functionGroup;
+
+	@Column(name = "function_group_uuid")
+	private String functionGroupUuid;
 	
 	@Column(name = "kinds")
 	private String kinds;

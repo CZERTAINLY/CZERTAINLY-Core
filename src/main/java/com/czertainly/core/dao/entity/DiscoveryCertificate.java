@@ -36,9 +36,15 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     @JoinColumn(name = "certificate_content_id", nullable = false)
     private CertificateContent certificateContent;
 
+    @Column(name = "certificate_content_id")
+    private Long certificateContentId ;
+
     @OneToOne
     @JoinColumn(name = "discovery_uuid", nullable = false)
     private DiscoveryHistory discovery;
+
+    @Column(name = "discovery_uuid")
+    private String discoveryUuid;
 
     @Override
     public DiscoveryCertificatesDto mapToDto() {
@@ -114,5 +120,21 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     public void setDiscovery(DiscoveryHistory discovery) {
         this.discovery = discovery;
+    }
+
+    public Long getCertificateContentId() {
+        return certificateContentId;
+    }
+
+    public void setCertificateContentId(Long certificateContentId) {
+        this.certificateContentId = certificateContentId;
+    }
+
+    public String getDiscoveryUuid() {
+        return discoveryUuid;
+    }
+
+    public void setDiscoveryUuid(String discoveryUuid) {
+        this.discoveryUuid = discoveryUuid;
     }
 }

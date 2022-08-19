@@ -47,9 +47,15 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     @JoinColumn(name = "connector_uuid", nullable = false)
     private Connector connector;
 
+    @Column(name = "connector_uuid")
+    private String connectorUuid;
+
     @ManyToOne(cascade=CascadeType.ALL)
     @JoinColumn(name = "group_uuid")
     private ComplianceGroup group;
+
+    @Column(name = "group_uuid")
+    private String groupUuid;
 
     @JsonBackReference
     @OneToMany(mappedBy = "complianceRule")
@@ -164,5 +170,21 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
 
     public void setDecommissioned(Boolean decommissioned) {
         this.decommissioned = decommissioned;
+    }
+
+    public String getConnectorUuid() {
+        return connectorUuid;
+    }
+
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = connectorUuid;
+    }
+
+    public String getGroupUuid() {
+        return groupUuid;
+    }
+
+    public void setGroupUuid(String groupUuid) {
+        this.groupUuid = groupUuid;
     }
 }

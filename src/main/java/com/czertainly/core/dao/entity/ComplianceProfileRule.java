@@ -28,6 +28,9 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
     @Column(name="attributes")
     private String attributes;
 
+    @Column(name="compliance_profile_uuid")
+    private String complianceProfileUuid;
+
     @OneToOne
     @JoinColumn(name = "compliance_profile_uuid")
     private ComplianceProfile complianceProfile;
@@ -74,5 +77,13 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
 
     public void setComplianceProfile(ComplianceProfile complianceProfile) {
         this.complianceProfile = complianceProfile;
+    }
+
+    public String getComplianceProfileUuid() {
+        return complianceProfileUuid;
+    }
+
+    public void setComplianceProfileUuid(String complianceProfileUuid) {
+        this.complianceProfileUuid = complianceProfileUuid;
     }
 }

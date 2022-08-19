@@ -33,6 +33,9 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
     @JoinColumn(name = "connector_uuid")
     private Connector connector;
 
+    @Column(name = "connector_uuid")
+    private String connectorUuid;
+
     @Column(name="connector_name")
     private String connectorName;
 
@@ -91,6 +94,14 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
     public String getConnectorName() { return connectorName; }
 
     public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
+
+    public String getConnectorUuid() {
+        return connectorUuid;
+    }
+
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = connectorUuid;
+    }
 
     public EntityInstanceDto mapToDto() {
         EntityInstanceDto dto = new EntityInstanceDto();

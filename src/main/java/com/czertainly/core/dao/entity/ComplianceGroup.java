@@ -34,6 +34,9 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
     @JoinColumn(name = "connector_uuid", nullable = false)
     private Connector connector;
 
+    @Column(name = "connector_uuid")
+    private String connectorUuid;
+
     @JsonBackReference
     @OneToMany(mappedBy = "group")
     private Set<ComplianceRule> rules;

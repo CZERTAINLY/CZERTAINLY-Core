@@ -34,6 +34,9 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     @JoinColumn(name = "connector_uuid")
     private Connector connector;
 
+    @Column(name = "connector_uuid")
+    private String connectorUuid;
+
     @Column(name="connector_name")
     private String connectorName;
 
@@ -92,6 +95,14 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     public String getConnectorName() { return connectorName; }
 
     public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
+
+    public String getConnectorUuid() {
+        return connectorUuid;
+    }
+
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = connectorUuid;
+    }
 
     public AuthorityInstanceDto mapToDto() {
         AuthorityInstanceDto dto = new AuthorityInstanceDto();
