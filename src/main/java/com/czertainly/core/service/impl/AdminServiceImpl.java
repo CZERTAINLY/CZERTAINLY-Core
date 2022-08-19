@@ -161,7 +161,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.ENABLE)
     public void disableAdmin(SecuredUUID uuid) throws NotFoundException {
         Admin admin = adminRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
@@ -185,7 +185,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.ENABLE)
     public void bulkDisableAdmin(List<SecuredUUID> adminUuids) {
         for (SecuredUUID uuid : adminUuids) {
             try {

@@ -107,13 +107,11 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.COMPLIANCE_GROUP, action = ResourceAction.LIST)
     public Boolean complianceGroupExists(SecuredUUID uuid, Connector connector, String kind) {
         return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid.toString(), connector, kind).isPresent();
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.COMPLIANCE_RULE, action = ResourceAction.LIST)
     public Boolean complianceRuleExists(SecuredUUID uuid, Connector connector, String kind) {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.toString(), connector, kind).isPresent();
     }
@@ -209,7 +207,6 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.COMPLIANCE_RULE, action = ResourceAction.DETAIL)
     // TODO AUTH - do not return DB Entity, return Dto instead, use UUIDS instead of IDs
     public List<ComplianceRule> getComplianceRuleEntityForIds(List<String> ids) {
         return complianceRuleRepository.findByUuidIn(ids);

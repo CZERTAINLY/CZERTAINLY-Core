@@ -31,6 +31,7 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ClientOperationService;
@@ -88,7 +89,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("UUID of the certificate is {}", certificate.getUuid());
         logger.debug("UUID of the RA Profile is {}", raProfile.getUuid());
-        certificateService.updateRaProfile(certificate.getUuid(), dto);
+        certificateService.updateRaProfile(SecuredUUID.fromString(certificate.getUuid()), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);

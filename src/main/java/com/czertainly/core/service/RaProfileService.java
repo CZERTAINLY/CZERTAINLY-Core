@@ -22,11 +22,10 @@ import java.util.Optional;
 
 public interface RaProfileService {
 
-    List<RaProfileDto> listRaProfiles(SecurityFilter filter);
+    List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled);
 
-    List<RaProfileDto> listRaProfiles(SecurityFilter filter, Boolean enabled);
+    SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(String acmeProfileUuid, SecurityFilter filter);
 
-    SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(Long acmeProfileId, SecurityFilter filter);
     RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException;
 
     RaProfileDto getRaProfile(SecuredUUID uuid) throws NotFoundException;

@@ -165,7 +165,7 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.AUTH)
-    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.AUTHORIZE)
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.AUTHORIZE_CLIENT)
     public void authorizeClient(SecuredUUID uuid, String raProfileUuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
@@ -180,7 +180,7 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.AUTH)
-    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.UNAUTHORIZE)
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.UNAUTHORIZE_CLIENT)
     public void unauthorizeClient(SecuredUUID uuid, String raProfileUuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
@@ -206,7 +206,7 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.ENABLE)
     public void disableClient(SecuredUUID uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
@@ -240,7 +240,7 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.ENABLE)
     public void bulkDisableClient(List<SecuredUUID> clientUuids) {
         for (SecuredUUID uuid : clientUuids) {
             try {

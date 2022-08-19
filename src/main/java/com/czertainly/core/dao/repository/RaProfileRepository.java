@@ -19,7 +19,7 @@ public interface RaProfileRepository extends SecurityFilterRepository<RaProfile,
 
     Optional<RaProfile> findByUuidAndEnabledIsTrue(String uuid);
 
-    List<RaProfile> findAllByAcmeProfileId(Long acmeProfileId);
+    List<RaProfile> findAllByAcmeProfileUuid(String acmeProfileUuid);
 
     List<RaProfile> findAllByUuidIn(List<String>uuids);
 }

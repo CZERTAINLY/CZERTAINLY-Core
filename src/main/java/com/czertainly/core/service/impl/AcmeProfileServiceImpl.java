@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.model.auth.Resource;
@@ -204,7 +205,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.ENABLE)
     public void disableAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if (!acmeProfile.isEnabled()) {
@@ -234,7 +235,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.ENABLE)
     public void bulkDisableAcmeProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
             try {
@@ -283,10 +284,10 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             AcmeProfile acmeProfile = null;
             try {
                 acmeProfile = getAcmeProfileEntity(uuid);
-                SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
+                SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getUuid(), SecurityFilter.create());
                 // TODO AUTH - if there is forbidden ra profile in the ra profile list, the operation will be denied. Other possibility is to unassign
                 // acme profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent acme profile.
-                raProfileService.bulkRemoveAssociatedAcmeProfile(raProfiles.getAll().stream().map(UniquelyIdentified::getSecuredUuid).collect(Collectors.toList()));
+                raProfileService.bulkRemoveAssociatedAcmeProfile(raProfiles.getAll().stream().map(UniquelyIdentifiedAndAudited::getSecuredUuid).collect(Collectors.toList()));
                 deleteAcmeProfile(acmeProfile);
             } catch (Exception e) {
                 logger.warn(e.getMessage());
@@ -305,7 +306,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     private void deleteAcmeProfile(AcmeProfile acmeProfile) {
-        SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getId(), SecurityFilter.create());
+        SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getUuid(), SecurityFilter.create());
         if (!raProfiles.isEmpty()) {
             throw new ValidationException(
                     ValidationError.create(

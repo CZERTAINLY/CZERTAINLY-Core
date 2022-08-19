@@ -47,7 +47,7 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.LIST, isListingEndPoint = true)
-    public List<AcmeAccountListResponseDto> listAcmeAccount() {
+    public List<AcmeAccountListResponseDto> listAcmeAccounts() {
         return acmeAccountService.listAcmeAccounts(SecurityFilter.create());
     }
 

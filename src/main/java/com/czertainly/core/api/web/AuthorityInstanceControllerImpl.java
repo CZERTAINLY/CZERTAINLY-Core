@@ -64,14 +64,14 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
 
     @Override
     @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.UPDATE)
-    public AuthorityInstanceDto updateAuthorityInstance(@PathVariable String uuid, @RequestBody AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException {
-        return authorityInstanceService.updateAuthorityInstance(SecuredUUID.fromString(uuid), request);
+    public AuthorityInstanceDto editAuthorityInstance(@PathVariable String uuid, @RequestBody AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException {
+        return authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.DELETE)
-    public void removeAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
-        authorityInstanceService.removeAuthorityInstance(SecuredUUID.fromString(uuid));
+    public void deleteAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
+        authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -106,13 +106,13 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
 
     @Override
     @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
-        return authorityInstanceService.bulkRemoveAuthorityInstance(SecuredUUID.fromList(uuids));
+    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
+        return authorityInstanceService.bulkDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException {
-        return authorityInstanceService.bulkForceRemoveAuthorityInstance(SecuredUUID.fromList(uuids));
+    public List<BulkActionMessageDto> forceDeleteAuthorityInstances(List<String> uuids) throws NotFoundException, ValidationException {
+        return authorityInstanceService.forceDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 }

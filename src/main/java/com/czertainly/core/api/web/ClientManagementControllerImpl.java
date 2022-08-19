@@ -79,13 +79,13 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     public void deleteClient(
             @PathVariable String uuid)
             throws NotFoundException {
-        clientService.removeClient(SecuredUUID.fromString(uuid));
+        clientService.deleteClient(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DELETE)
     public ResponseEntity<List<BulkActionMessageDto>> bulkDeleteClient(List<String> clientUuids) throws NotFoundException {
-        List<BulkActionMessageDto> messages = clientService.bulkRemoveClient(SecuredUUID.fromList(clientUuids));
+        List<BulkActionMessageDto> messages = clientService.bulkDeleteClient(SecuredUUID.fromList(clientUuids));
         if(messages.isEmpty()){
             return ResponseEntity.ok().body(messages);
         }

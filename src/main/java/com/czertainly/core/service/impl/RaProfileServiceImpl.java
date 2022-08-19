@@ -31,6 +31,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ComplianceService;
+import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -49,7 +50,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-public class RaProfileServiceImpl implements com.czertainly.core.service.RaProfileService {
+public class RaProfileServiceImpl implements RaProfileService {
 
     private static final Logger logger = LoggerFactory.getLogger(RaProfileServiceImpl.class);
 
@@ -71,7 +72,7 @@ public class RaProfileServiceImpl implements com.czertainly.core.service.RaProfi
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
-    public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Boolean isEnabled) {
+    public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled) {
         if(!enabled.isPresent()) {
             return raProfileRepository.findUsingSecurityFilter(filter).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
         } else {
@@ -82,8 +83,8 @@ public class RaProfileServiceImpl implements com.czertainly.core.service.RaProfi
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
-    public SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(Long acmeProfileId, SecurityFilter filter) {
-        List<RaProfile> raProfiles = raProfileRepository.findAllByAcmeProfileId(acmeProfileId);
+    public SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(String acmeProfileUuid, SecurityFilter filter) {
+        List<RaProfile> raProfiles = raProfileRepository.findAllByAcmeProfileUuid(acmeProfileUuid);
         return SecuredList.fromFilter(filter, raProfiles);
     }
 
@@ -204,7 +205,7 @@ public class RaProfileServiceImpl implements com.czertainly.core.service.RaProfi
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE)
     public void disableRaProfile(SecuredUUID uuid) throws NotFoundException {
         RaProfile entity = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
@@ -228,7 +229,7 @@ public class RaProfileServiceImpl implements com.czertainly.core.service.RaProfi
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE)
     public void bulkDisableRaProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
             try {

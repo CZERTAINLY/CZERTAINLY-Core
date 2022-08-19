@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "ra_profile")
-public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto> {
+public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto>, Securable {
 
     @Column(name = "name")
     private String name;

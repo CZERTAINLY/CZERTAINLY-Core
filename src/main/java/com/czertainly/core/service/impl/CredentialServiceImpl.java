@@ -161,7 +161,7 @@ public class CredentialServiceImpl implements CredentialService {
     public void bulkDeleteCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         for (SecuredUUID uuid : uuids) {
             try {
-                removeCredential(uuid);
+                deleteCredential(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find Credential with uuid {}. It may have deleted", uuid);
             }

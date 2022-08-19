@@ -66,7 +66,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE)
     public void disableAccount(SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
         if (!account.getStatus().equals(AccountStatus.VALID)) {
@@ -99,7 +99,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DISABLE)
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE)
     public void bulkDisableAccount(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
             try {

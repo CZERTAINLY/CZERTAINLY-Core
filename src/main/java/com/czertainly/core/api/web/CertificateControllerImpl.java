@@ -49,7 +49,7 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.LIST, isListingEndPoint = true)
-	public CertificateResponseDto listCertificate(SearchRequestDto request) throws ValidationException {
+	public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
 		return certificateService.listCertificates(SecurityFilter.create(), request);
 	}
 
@@ -68,8 +68,8 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DELETE)
-	public void removeCertificate(@PathVariable String uuid) throws NotFoundException {
-		certificateService.removeCertificate(SecuredUUID.fromString(uuid));
+	public void deleteCertificate(@PathVariable String uuid) throws NotFoundException {
+		certificateService.deleteCertificate(SecuredUUID.fromString(uuid));
 	}
 
 	@Override

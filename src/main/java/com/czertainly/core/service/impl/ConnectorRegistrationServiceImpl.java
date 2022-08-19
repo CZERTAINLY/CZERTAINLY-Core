@@ -30,7 +30,6 @@ public class ConnectorRegistrationServiceImpl implements ConnectorRegistrationSe
 
     @Override
     @AuditLogged(originator = ObjectType.CONNECTOR, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.REGISTER)
     public UuidDto registerConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException {
         ConnectorDto connectorDto = connectorService.createNewWaitingConnector(request);
         logger.info("Connector {} registered and is waiting for approval.", request.getName());

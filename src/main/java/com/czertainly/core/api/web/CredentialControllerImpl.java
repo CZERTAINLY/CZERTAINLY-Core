@@ -62,14 +62,14 @@ public class CredentialControllerImpl implements CredentialController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.UPDATE)
-    public CredentialDto updateCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
-        return credentialService.updateCredential(SecuredUUID.fromString(uuid), request);
+    public CredentialDto editCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
+        return credentialService.editCredential(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DELETE)
-    public void removeCredential(@PathVariable String uuid) throws NotFoundException {
-        credentialService.removeCredential(SecuredUUID.fromString(uuid));
+    public void deleteCredential(@PathVariable String uuid) throws NotFoundException {
+        credentialService.deleteCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -86,7 +86,7 @@ public class CredentialControllerImpl implements CredentialController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DELETE)
-    public void bulkRemoveCredential(List<String> uuids) throws NotFoundException, ValidationException {
-        credentialService.bulkRemoveCredential(SecuredUUID.fromList(uuids));
+    public void bulkDeleteCredential(List<String> uuids) throws NotFoundException, ValidationException {
+        credentialService.bulkDeleteCredential(SecuredUUID.fromList(uuids));
     }
 }

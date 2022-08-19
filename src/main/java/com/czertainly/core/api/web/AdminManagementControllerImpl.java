@@ -66,14 +66,14 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 
 	@Override
 	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.DELETE)
-	public void bulkRemoveAdmin(List<String> adminUuids) throws NotFoundException {
-		adminService.bulkRemoveAdmin(SecuredUUID.fromList(adminUuids));
+	public void bulkDeleteAdmin(List<String> adminUuids) throws NotFoundException {
+		adminService.bulkDeleteAdmin(SecuredUUID.fromList(adminUuids));
 	}
 
 	@Override
 	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.DELETE)
-	public void removeAdmin(@PathVariable String uuid) throws NotFoundException {
-		adminService.removeAdmin(SecuredUUID.fromString(uuid));
+	public void deleteAdmin(@PathVariable String uuid) throws NotFoundException {
+		adminService.deleteAdmin(SecuredUUID.fromString(uuid));
 	}
 
 	@Override

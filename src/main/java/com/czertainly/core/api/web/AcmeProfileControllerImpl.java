@@ -33,7 +33,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.LIST, isListingEndPoint = true)
-    public List<AcmeProfileListDto> listAcmeProfile() {
+    public List<AcmeProfileListDto> listAcmeProfiles() {
         return acmeProfileService.listAcmeProfile(SecurityFilter.create());
     }
 
@@ -57,8 +57,8 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.UPDATE)
-    public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
-        return acmeProfileService.updateAcmeProfile(SecuredUUID.fromString(uuid), request);
+    public AcmeProfileDto editAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
+        return acmeProfileService.editAcmeProfile(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
@@ -99,7 +99,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_PROFILE, actionName = ResourceAction.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> forceDeleteACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
         return acmeProfileService.bulkForceRemoveACMEProfiles(SecuredUUID.fromList(uuids));
     }
 

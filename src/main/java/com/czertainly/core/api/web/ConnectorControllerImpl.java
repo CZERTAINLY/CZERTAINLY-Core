@@ -96,12 +96,12 @@ public class ConnectorControllerImpl implements ConnectorController {
     @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.UPDATE)
     public ConnectorDto editConnector(@PathVariable String uuid, @RequestBody ConnectorUpdateRequestDto request)
             throws ConnectorException {
-        return connectorService.updateConnector(uuid, request);
+        return connectorService.editConnector(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    public void removeConnector(@PathVariable String uuid) throws NotFoundException {
-        connectorService.removeConnector(uuid);
+    public void deleteConnector(@PathVariable String uuid) throws NotFoundException {
+        connectorService.deleteConnector(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -153,12 +153,12 @@ public class ConnectorControllerImpl implements ConnectorController {
 	}
 
     @Override
-    public List<BulkActionMessageDto> bulkRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException {
-        return connectorService.bulkRemoveConnector(uuids);
+    public List<BulkActionMessageDto> bulkDeleteConnector(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException {
+        return connectorService.bulkDeleteConnector(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkForceRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException {
-        return connectorService.bulkForceRemoveConnector(uuids);
+    public List<BulkActionMessageDto> forceDeleteConnector(List<String> uuids) throws NotFoundException, ValidationException {
+        return connectorService.forceDeleteConnector(SecuredUUID.fromList(uuids));
     }
 }

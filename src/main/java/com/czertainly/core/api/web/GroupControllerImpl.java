@@ -70,6 +70,6 @@ public class GroupControllerImpl implements GroupController {
     @Override
     @AuthEndpoint(resourceName = Resource.GROUP, actionName = ResourceAction.DELETE)
     public void bulkDeleteGroup(List<String> groupUuids) throws NotFoundException {
-        groupService.bulkDeleteGroup(SecuredUUID.fromList(uuid));
+        groupService.bulkDeleteGroup(SecuredUUID.fromList(groupUuids));
     }
 }
