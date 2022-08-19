@@ -16,6 +16,8 @@ import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -37,35 +39,35 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     public List<ConnectorDto> listConnectors() {
-        return connectorService.listConnectors();
+        return connectorService.listConnectors(SecurityFilter.create());
     }
 
     @Override
     public List<ConnectorDto> listConnectors(
             @RequestParam FunctionGroupCode functionGroup,
             @RequestParam String kind) throws NotFoundException {
-        return connectorService.listConnectors(functionGroup, kind);
+        return connectorService.listConnectors(SecurityFilter.create(), functionGroup, kind);
     }
 
     @Override
     public List<ConnectorDto> listConnectorsByFunctionGroup(
             @RequestParam FunctionGroupCode functionGroup) throws NotFoundException {
-        return connectorService.listConnectorsByFunctionGroup(functionGroup);
+        return connectorService.listConnectorsByFunctionGroup(SecurityFilter.create(), functionGroup);
     }
 
     @Override
     public void bulkApprove(List<String> uuids) throws NotFoundException, ValidationException {
-        connectorService.approve(uuids);
+        connectorService.approve(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public void bulkReconnect(List<String> uuids) throws ValidationException, NotFoundException, ConnectorException {
-        connectorService.reconnect(uuids);
+        connectorService.reconnect(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public ConnectorDto getConnector(@PathVariable String uuid) throws NotFoundException, ConnectorException {
-        return connectorService.getConnector(uuid);
+        return connectorService.getConnector(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -83,12 +85,12 @@ public class ConnectorControllerImpl implements ConnectorController {
     @Override
     public ConnectorDto updateConnector(@PathVariable String uuid, @RequestBody ConnectorUpdateRequestDto request)
             throws ConnectorException {
-        return connectorService.updateConnector(uuid, request);
+        return connectorService.updateConnector(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void removeConnector(@PathVariable String uuid) throws NotFoundException {
-        connectorService.removeConnector(uuid);
+        connectorService.removeConnector(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -98,24 +100,24 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     public List<ConnectDto> reconnect(@PathVariable String uuid) throws ValidationException, NotFoundException, ConnectorException {
-        return connectorService.reconnect(uuid);
+        return connectorService.reconnect(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void approve(@PathVariable String uuid) throws NotFoundException, ValidationException {
-        connectorService.approve(uuid);
+        connectorService.approve(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public HealthDto checkHealth(@PathVariable String uuid) throws NotFoundException, ValidationException, ConnectorException {
-        return connectorService.checkHealth(uuid);
+        return connectorService.checkHealth(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public List<AttributeDefinition> getAttributes(@PathVariable String uuid,
                                                    @PathVariable String functionGroup,
                                                    @PathVariable String kind) throws NotFoundException, ConnectorException {
-        return connectorService.getAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), kind);
+        return connectorService.getAttributes(SecuredUUID.fromString(uuid), FunctionGroupCode.findByCode(functionGroup), kind);
     }
 
     @Override
@@ -124,22 +126,22 @@ public class ConnectorControllerImpl implements ConnectorController {
                                       @PathVariable String kind,
                                       @RequestBody List<RequestAttributeDto> attributes)
             throws NotFoundException, ConnectorException {
-        connectorService.validateAttributes(uuid, FunctionGroupCode.findByCode(functionGroup), attributes,
+        connectorService.validateAttributes(SecuredUUID.fromString(uuid), FunctionGroupCode.findByCode(functionGroup), attributes,
                 kind);
     }
 
 	@Override
 	public Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAttributesAll(String uuid) throws NotFoundException, ConnectorException {
-		return connectorService.getAllAttributesOfConnector(uuid);
+		return connectorService.getAllAttributesOfConnector(SecuredUUID.fromString(uuid));
 	}
 
     @Override
     public List<BulkActionMessageDto> bulkRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException {
-        return connectorService.bulkRemoveConnector(uuids);
+        return connectorService.bulkRemoveConnector(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public List<BulkActionMessageDto> bulkForceRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException {
-        return connectorService.bulkForceRemoveConnector(uuids);
+        return connectorService.bulkForceRemoveConnector(SecuredUUID.fromList(uuids));
     }
 }

@@ -11,12 +11,16 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeAccountService;
 import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -25,7 +29,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_SUPERADMINISTRATOR", "ROLE_ADMINISTARTOR"})
 public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     private static final Logger logger = LoggerFactory.getLogger(AcmeAccountServiceImpl.class);
@@ -38,9 +41,10 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REVOKE)
-    public void revokeAccount(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE)
+    public void revokeAccount(SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
-        if(account.getStatus().equals(AccountStatus.REVOKED)){
+        if (account.getStatus().equals(AccountStatus.REVOKED)) {
             throw new ValidationException(ValidationError.create("Cannot revoke a revoked account"));
         }
         account.setStatus(AccountStatus.REVOKED);
@@ -50,9 +54,10 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.ENABLE)
-    public void enableAccount(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE)
+    public void enableAccount(SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
-        if(!account.getStatus().equals(AccountStatus.VALID)){
+        if (!account.getStatus().equals(AccountStatus.VALID)) {
             throw new ValidationException(ValidationError.create("Cannot enable a revoked account"));
         }
         account.setEnabled(true);
@@ -61,9 +66,10 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.DISABLE)
-    public void disableAccount(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DISABLE)
+    public void disableAccount(SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
-        if(!account.getStatus().equals(AccountStatus.VALID)){
+        if (!account.getStatus().equals(AccountStatus.VALID)) {
             throw new ValidationException(ValidationError.create("Cannot disable a revoked account"));
         }
         account.setEnabled(false);
@@ -72,8 +78,9 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.ENABLE)
-    public void bulkEnableAccount(List<String> uuids) throws NotFoundException {
-        for (String uuid : uuids) {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE)
+    public void bulkEnableAccount(List<SecuredUUID> uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
                 if (!acmeAccount.getStatus().equals(AccountStatus.VALID)) {
@@ -92,8 +99,9 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.DISABLE)
-    public void bulkDisableAccount(List<String> uuids) throws NotFoundException {
-        for (String uuid : uuids) {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DISABLE)
+    public void bulkDisableAccount(List<SecuredUUID> uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
                 if (!acmeAccount.isEnabled()) {
@@ -109,8 +117,9 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REVOKE)
-    public void bulkRevokeAccount(List<String> uuids) throws NotFoundException {
-        for (String uuid : uuids) {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE)
+    public void bulkRevokeAccount(List<SecuredUUID> uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 revokeAccount(uuid);
             } catch (NotFoundException e) {
@@ -121,19 +130,25 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REQUEST)
-    public List<AcmeAccountListResponseDto> listAcmeAccounts() {
-        return acmeAccountRepository.findAll().stream().map(AcmeAccount::mapToDtoForUiSimple).collect(Collectors.toList());
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.LIST)
+    public List<AcmeAccountListResponseDto> listAcmeAccounts(SecurityFilter filter) {
+        return acmeAccountRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(AcmeAccount::mapToDtoForUiSimple)
+                .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REQUEST)
-    public AcmeAccountResponseDto getAcmeAccount(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL)
+    public AcmeAccountResponseDto getAcmeAccount(SecuredUUID uuid) throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
         extendedAcmeHelperService.updateOrderStatusForAccount(acmeAccount);
         return getAcmeAccountEntity(uuid).mapToDtoForUi();
     }
 
-    private AcmeAccount getAcmeAccountEntity(String uuid) throws NotFoundException {
-        return acmeAccountRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(AcmeAccount.class, uuid));
+    private AcmeAccount getAcmeAccountEntity(SecuredUUID uuid) throws NotFoundException {
+        return acmeAccountRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(AcmeAccount.class, uuid));
     }
 }

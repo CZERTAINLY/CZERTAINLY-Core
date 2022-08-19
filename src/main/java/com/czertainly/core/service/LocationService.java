@@ -10,6 +10,8 @@ import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 import java.util.Optional;
@@ -20,14 +22,14 @@ public interface LocationService {
      * List all locations.
      * @return List of locations.
      */
-    List<LocationDto> listLocation();
+    List<LocationDto> listLocation(SecurityFilter filter);
 
     /**
      * List all locations based on the status.
-     * @param isEnabled If true, only enabled locations are returned.
+     * @param enabled If true, only enabled locations are returned.
      * @return List of locations.
      */
-    List<LocationDto> listLocations(Optional<Boolean> enabled);
+    List<LocationDto> listLocations(SecurityFilter filter, Optional<Boolean> enabled);
 
     /**
      * Add a new location.
@@ -45,7 +47,7 @@ public interface LocationService {
      * @return Location with the given UUID.
      * @throws NotFoundException when the Location with the given UUID is not found.
      */
-    LocationDto getLocation(String locationUuid) throws NotFoundException;
+    LocationDto getLocation(SecuredUUID locationUuid) throws NotFoundException;
 
     /**
      * Edit an existing Location.
@@ -55,7 +57,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the Location failed to be edited.
      */
-    LocationDto editLocation(String locationUuid, EditLocationRequestDto editLocationRequestDto) throws NotFoundException, LocationException;
+    LocationDto editLocation(SecuredUUID locationUuid, EditLocationRequestDto editLocationRequestDto) throws NotFoundException, LocationException;
 
     /**
      * Remove existing Location with the given UUID.
@@ -63,21 +65,21 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws ValidationException when the Location contains associated Certificates.
      */
-    void removeLocation(String locationUuid) throws NotFoundException;
+    void removeLocation(SecuredUUID locationUuid) throws NotFoundException;
 
     /**
      * Enable existing Location with the given UUID.
      * @param locationUuid UUID of existing Location.
      * @throws NotFoundException when the Location with the given UUID is not found.
      */
-    void enableLocation(String locationUuid) throws NotFoundException;
+    void enableLocation(SecuredUUID locationUuid) throws NotFoundException;
 
     /**
      * Disable existing Location with the given UUID.
      * @param locationUuid UUID of existing Location.
      * @throws NotFoundException when the Location with the given UUID is not found.
      */
-    void disableLocation(String locationUuid) throws NotFoundException;
+    void disableLocation(SecuredUUID locationUuid) throws NotFoundException;
 
     /**
      * List all push Attributes for the given Location.
@@ -86,7 +88,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the push Attributes failed to be retrieved from the Location.
      */
-    List<AttributeDefinition> listPushAttributes(String locationUuid) throws NotFoundException, LocationException;
+    List<AttributeDefinition> listPushAttributes(SecuredUUID locationUuid) throws NotFoundException, LocationException;
 
     /**
      * List all issue Attributes for the given Location.
@@ -95,7 +97,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the issue Attributes failed to be retrieved from the Location.
      */
-    List<AttributeDefinition> listCsrAttributes(String locationUuid) throws NotFoundException, LocationException;
+    List<AttributeDefinition> listCsrAttributes(SecuredUUID locationUuid) throws NotFoundException, LocationException;
 
     /**
      * Remove existing Certificate from the given Location.
@@ -105,14 +107,14 @@ public interface LocationService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be removed from the Location.
      */
-    LocationDto removeCertificateFromLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException;
+    LocationDto removeCertificateFromLocation(SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException;
 
     /**
      * Remove existing Certificate from all associated Locations.
      * @param certificateUuid UUID of existing Certificate.
      * @throws NotFoundException when the Certificate with the given UUID is not found.
      */
-    void removeCertificateFromLocations(String certificateUuid) throws NotFoundException;
+    void removeCertificateFromLocations(SecuredUUID certificateUuid) throws NotFoundException;
 
     /**
      * Push existing Certificate to the given Location.
@@ -123,7 +125,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be pushed to the Location.
      */
-    LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto pushToLocationRequestDto) throws NotFoundException, LocationException;
+    LocationDto pushCertificateToLocation(SecuredUUID locationUuid, String certificateUuid, PushToLocationRequestDto pushToLocationRequestDto) throws NotFoundException, LocationException;
 
     /**
      * Issue new Certificate to the given Location.
@@ -133,7 +135,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be issued to the Location.
      */
-    LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto issueToLocationRequestDto) throws NotFoundException, LocationException;
+    LocationDto issueCertificateToLocation(SecuredUUID locationUuid, String raProfileUuid, IssueToLocationRequestDto issueToLocationRequestDto) throws NotFoundException, LocationException;
 
     /**
      * Synchronize and update content for the given Location.
@@ -142,7 +144,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the content failed to be synchronized from the Location.
      */
-    LocationDto updateLocationContent(String locationUuid) throws NotFoundException, LocationException;
+    LocationDto updateLocationContent(SecuredUUID locationUuid) throws NotFoundException, LocationException;
 
     /**
      * Renew the Certificate for the given Location.
@@ -152,6 +154,6 @@ public interface LocationService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be renewed in the Location.
      */
-    LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException;
+    LocationDto renewCertificateInLocation(SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException;
 
 }

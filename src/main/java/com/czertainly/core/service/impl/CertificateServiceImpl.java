@@ -32,6 +32,11 @@ import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
@@ -51,7 +56,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -81,7 +85,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
 public class CertificateServiceImpl implements CertificateService {
 
     // Default page size for the certificate search API when page size is not provided
@@ -132,14 +135,17 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST)
+    public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
+        // TODO AUTH - use SecurityFilter
         return getCertificatesWithFilter(request);
 
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public CertificateDto getCertificate(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate entity = getCertificateEntity(uuid);
         CertificateDto dto = entity.mapToDto();
         if (entity.getComplianceResult() != null) {
@@ -152,12 +158,16 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public Certificate getCertificateEntity(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException {
         return certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    // TODO AUTH - how to secure when no uuid is provided? Maybe this one does not have to be secured as it is used only internaly.
+    // Alternatively SecurityFilter can be used and permision checkes programaticaly after the entity is obtained and uuid is know.
     public Certificate getCertificateEntityByContent(String content) {
         CertificateContent certificateContent = certificateContentRepository.findByContent(content);
         return certificateRepository.findByCertificateContent(certificateContent);
@@ -165,6 +175,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    // TODO AUTH - same as above
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException {
         return certificateRepository.findBySerialNumberIgnoreCase(serialNumber)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
@@ -172,8 +184,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void removeCertificate(String uuid) throws NotFoundException {
+    public void removeCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
 
@@ -214,7 +227,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateRaProfile(String uuid, CertificateUpdateRAProfileDto request) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO auth - move to RaProfileService as addCertificate method and create updateRaProfile method in here
+    public void updateRaProfile(SecuredUUID uuid, CertificateUpdateRAProfileDto request) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         RaProfile raProfile = raProfileRepository.findByUuid(request.getRaProfileUuid())
@@ -235,7 +250,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateCertificateGroup(String uuid, CertificateUpdateGroupDto request) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - move to GroupService and create updateGroup method in here
+    public void updateCertificateGroup(SecuredUUID uuid, CertificateUpdateGroupDto request) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
 
@@ -252,7 +269,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateOwner(String uuid, CertificateOwnerRequestDto request) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    public void updateOwner(SecuredUUID uuid, CertificateOwnerRequestDto request) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         String originalOwner = certificate.getOwner();
@@ -267,6 +285,8 @@ public class CertificateServiceImpl implements CertificateService {
     @Async
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
     public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
@@ -292,6 +312,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
     public void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException {
         CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
@@ -317,6 +339,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
     public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null) {
@@ -341,6 +365,8 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @Async("threadPoolTaskExecutor")
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
+    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
     public void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
         List<String> failedDeleteCerts = new ArrayList<>();
         Integer totalItems;
@@ -406,6 +432,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE) // TODO AUTH - what is the correct action?
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
             if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
@@ -459,6 +486,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException {
         Certificate entity = new Certificate();
         String fingerprint;
@@ -515,6 +543,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE) // TODO AUTH - what is the correct action?
+    // TODO AUTH - make private?
     public Certificate createCertificateEntity(X509Certificate certificate) {
         logger.debug("Making a new entry for a certificate");
         Certificate modal = new Certificate();
@@ -553,6 +583,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public CertificateDto upload(UploadCertificateRequestDto request)
             throws AlreadyExistException, CertificateException {
         X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
@@ -573,6 +604,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
@@ -586,6 +618,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
@@ -600,6 +633,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String serialNumber) {
         try {
             Certificate certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
@@ -611,7 +645,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    // TODO AUTH - obtain locations through location service
+    public List<LocationDto> listLocations(SecuredUUID certificateUuid) throws NotFoundException {
         Certificate certificateEntity = certificateRepository.findByUuid(certificateUuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         return certificateEntity.getLocations().stream()
@@ -622,16 +658,18 @@ public class CertificateServiceImpl implements CertificateService {
 
 
     @Override
+    // TODO AUTH - move to RaProfile service, use RaProfile UUID, secure with @ExternalAuthorization
     public List<Certificate> listCertificatesForRaProfile(RaProfile raProfile) {
         return certificateRepository.findByRaProfile(raProfile);
     }
 
     @Override
     @Async
+    // TODO AUTH - move certificate uuids to method parameters, secure with @ExternalAuthorization
     public void checkCompliance(CertificateComplianceCheckDto request) {
         for (String uuid : request.getCertificateUuids()) {
             try {
-                complianceService.checkComplianceOfCertificate(getCertificateEntity(uuid));
+                complianceService.checkComplianceOfCertificate(getCertificateEntity(SecuredUUID.fromString(uuid)));
             } catch (ConnectorException e) {
                 logger.error("Compliance check failed.", e);
             }
@@ -639,6 +677,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    // TODO AUTH - make private
     public void updateCertificateEntity(Certificate certificate) {
         certificateRepository.save(certificate);
     }
@@ -752,6 +791,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Async
+    // TODO AUTH - move to search service
     private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter) {
         List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
         CertificateComplianceCheckDto dto = new CertificateComplianceCheckDto();

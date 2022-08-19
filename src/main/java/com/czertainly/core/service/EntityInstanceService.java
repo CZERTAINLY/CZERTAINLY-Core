@@ -7,6 +7,8 @@ import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
@@ -16,7 +18,7 @@ public interface EntityInstanceService {
      * List available Entity instances
      * @return List of available Entity instances
      */
-    List<EntityInstanceDto> listEntityInstances();
+    List<EntityInstanceDto> listEntityInstances(SecurityFilter filter);
 
     /**
      * Get Entity instance by UUID
@@ -25,7 +27,7 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to get Entity instance information
      */
-    EntityInstanceDto getEntityInstance(String entityUuid) throws NotFoundException, ConnectorException;
+    EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
 
     /**
      * Create Entity instance
@@ -44,7 +46,7 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to update Entity instance
      */
-    EntityInstanceDto updateEntityInstance(String entityUuid, EntityInstanceUpdateRequestDto entityInstanceUpdateRequestDto) throws NotFoundException, ConnectorException;
+    EntityInstanceDto updateEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto entityInstanceUpdateRequestDto) throws NotFoundException, ConnectorException;
 
     /**
      * Delete Entity instance
@@ -52,7 +54,7 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to delete Entity instance
      */
-    void removeEntityInstance(String entityUuid) throws NotFoundException, ConnectorException;
+    void removeEntityInstance(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
 
     /**
      * List Location Attributes supported by  Entity instance
@@ -61,7 +63,7 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to get Location Attributes
      */
-    List<AttributeDefinition> listLocationAttributes(String entityUuid) throws NotFoundException, ConnectorException;
+    List<AttributeDefinition> listLocationAttributes(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
 
     /**
      * Validate Location Attributes for Entity instance
@@ -70,5 +72,5 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to validate Location Attributes
      */
-    void validateLocationAttributes(String entityUuid, List<RequestAttributeDto> locationAttributes) throws NotFoundException, ConnectorException;
+    void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> locationAttributes) throws NotFoundException, ConnectorException;
 }

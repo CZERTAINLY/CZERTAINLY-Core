@@ -15,6 +15,8 @@ import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
@@ -44,47 +46,48 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public CertificateResponseDto listCertificate(SearchRequestDto request) throws ValidationException {
-		return certificateService.listCertificates(request);
+		return certificateService.listCertificates(SecurityFilter.create(), request);
 	}
 
 	@Override
 	public CertificateDto getCertificate(@PathVariable String uuid)
 			throws NotFoundException, CertificateException, IOException {
-		Certificate crt = certificateService.getCertificateEntity(uuid);
+		// TODO AUTH - move logic to service
+		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
 		certificateService.updateIssuer();
 		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
 			certValidationService.validate(crt);
 		}
-		return certificateService.getCertificate(uuid);
+		return certificateService.getCertificate(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
 	public void removeCertificate(@PathVariable String uuid) throws NotFoundException {
-		certificateService.removeCertificate(uuid);
+		certificateService.removeCertificate(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
 	public void updateRaProfile(@PathVariable String uuid, @RequestBody CertificateUpdateRAProfileDto request)
 			throws NotFoundException {
-		certificateService.updateRaProfile(uuid, request);
+		certificateService.updateRaProfile(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
 	public void updateCertificateGroup(@PathVariable String uuid,
 			@RequestBody CertificateUpdateGroupDto request) throws NotFoundException {
-		certificateService.updateCertificateGroup(uuid, request);
+		certificateService.updateCertificateGroup(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
 	public void updateOwner(@PathVariable String uuid, @RequestBody CertificateOwnerRequestDto request)
 			throws NotFoundException {
-		certificateService.updateOwner(uuid, request);
+		certificateService.updateOwner(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
 	public void check(@PathVariable String uuid)
 			throws CertificateException, IOException, NotFoundException {
-		Certificate crt = certificateService.getCertificateEntity(uuid);
+		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
 		certValidationService.validate(crt);
 	}
 
@@ -148,7 +151,7 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
-		return certificateService.listLocations(certificateUuid);
+		return certificateService.listLocations(SecuredUUID.fromString(certificateUuid));
 	}
 
 	@Override

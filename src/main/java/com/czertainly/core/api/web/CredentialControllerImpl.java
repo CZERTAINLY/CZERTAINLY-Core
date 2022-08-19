@@ -9,6 +9,8 @@ import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.credential.CredentialDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CredentialService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,12 +30,12 @@ public class CredentialControllerImpl implements CredentialController {
 
     @Override
     public List<CredentialDto> listCredentials() {
-        return credentialService.listCredentials();
+        return credentialService.listCredentials(SecurityFilter.create());
     }
 
     @Override
     public CredentialDto getCredential(@PathVariable String uuid) throws NotFoundException {
-        return credentialService.getCredential(uuid);
+        return credentialService.getCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -54,31 +56,31 @@ public class CredentialControllerImpl implements CredentialController {
 
     @Override
     public CredentialDto updateCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
-        return credentialService.updateCredential(uuid, request);
+        return credentialService.updateCredential(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void removeCredential(@PathVariable String uuid) throws NotFoundException {
-        credentialService.removeCredential(uuid);
+        credentialService.removeCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void enableCredential(@PathVariable String uuid) throws NotFoundException {
-        credentialService.enableCredential(uuid);
+        credentialService.enableCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void disableCredential(@PathVariable String uuid) throws NotFoundException {
-        credentialService.disableCredential(uuid);
+        credentialService.disableCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void bulkRemoveCredential(List<String> uuids) throws NotFoundException, ValidationException {
-        credentialService.bulkRemoveCredential(uuids);
+        credentialService.bulkRemoveCredential(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public void bulkForceRemoveCredential(List<String> uuids) throws NotFoundException, ValidationException {
-        credentialService.bulkForceRemoveCredential(uuids);
+        credentialService.bulkForceRemoveCredential(SecuredUUID.fromList(uuids));
     }
 }

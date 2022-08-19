@@ -10,6 +10,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.security.authz.SecuredUUID;
 
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -17,30 +18,30 @@ import java.util.List;
 public interface ClientOperationService {
 
     List<AttributeDefinition> listIssueCertificateAttributes(
-            String raProfileUuid) throws ConnectorException;
+            SecuredUUID raProfileUuid) throws ConnectorException;
 
     boolean validateIssueCertificateAttributes(
-            String raProfileUuid,
+            SecuredUUID raProfileUuid,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException;
 
     ClientCertificateDataResponseDto issueCertificate(
-            String raProfileUuid,
+            SecuredUUID raProfileUuid,
             ClientCertificateSignRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException;
 
     ClientCertificateDataResponseDto renewCertificate(
-            String raProfileUuid,
+            SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
 
     List<AttributeDefinition> listRevokeCertificateAttributes(
-            String raProfileUuid) throws ConnectorException;
+            SecuredUUID raProfileUuid) throws ConnectorException;
 
     boolean validateRevokeCertificateAttributes(
-            String raProfileUuid,
+            SecuredUUID raProfileUuid,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException;
 
     void revokeCertificate(
-            String raProfileUuid,
+            SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request,
             Boolean ignoreAuthToRa) throws ConnectorException;

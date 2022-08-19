@@ -4,6 +4,7 @@ import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "ra_profile")
-public class RaProfile extends Audited implements Serializable, DtoMapper<RaProfileDto> {
+public class RaProfile extends Audited implements Securable, Serializable, DtoMapper<RaProfileDto> {
 
     @Id
     @Column(name = "id")

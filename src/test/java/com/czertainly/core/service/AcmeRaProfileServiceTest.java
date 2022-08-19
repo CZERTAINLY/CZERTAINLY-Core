@@ -35,32 +35,26 @@ import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.service.acme.AcmeRaProfileService;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="ACME")
-public class AcmeRaProfileServiceTest {
+public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
     private static final String ADMIN_NAME = "ACME_USER";
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";
     private static final String CLIENT_NAME = "testClient1";
 
     @Autowired
-    private RaProfileService raProfileService;
+    private com.czertainly.core.service.RaProfileService raProfileService;
 
     @Autowired
     private RaProfileRepository raProfileRepository;

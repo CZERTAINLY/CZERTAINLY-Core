@@ -14,31 +14,31 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Credential;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
 public interface CredentialService {
-    List<CredentialDto> listCredentials();
+    List<CredentialDto> listCredentials(SecurityFilter filter);
 
-    CredentialDto getCredential(String uuid) throws NotFoundException;
+    CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException;
 
-    Credential getCredentialEntity(Long id) throws NotFoundException;
-
-    Credential getCredentialEntity(String uuid) throws NotFoundException;
+    Credential getCredentialEntity(SecuredUUID uuid) throws NotFoundException;
 
     CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    CredentialDto updateCredential(String uuid, CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException;
+    CredentialDto updateCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException;
 
-    void removeCredential(String uuid) throws NotFoundException;
+    void removeCredential(SecuredUUID uuid) throws NotFoundException;
 
-    void enableCredential(String uuid) throws NotFoundException;
+    void enableCredential(SecuredUUID uuid) throws NotFoundException;
 
-    void disableCredential(String uuid) throws NotFoundException;
+    void disableCredential(SecuredUUID uuid) throws NotFoundException;
 
-    void bulkRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException;
+    void bulkRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 
-    void bulkForceRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException;
+    void bulkForceRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 
     void loadFullCredentialData(List<AttributeDefinition> attributes) throws NotFoundException;
 

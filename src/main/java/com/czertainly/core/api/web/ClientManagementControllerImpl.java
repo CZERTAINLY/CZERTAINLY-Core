@@ -10,6 +10,8 @@ import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.client.ClientDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -31,7 +33,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
 
     @Override
     public List<ClientDto> listClients() {
-        return clientService.listClients();
+        return clientService.listClients(SecurityFilter.create());
     }
 
     @Override
@@ -54,7 +56,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
 
     @Override
     public ClientDto getClient(@PathVariable String uuid) throws NotFoundException {
-        return clientService.getClient(uuid);
+        return clientService.getClient(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -62,19 +64,19 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
             @PathVariable String uuid,
             @RequestBody EditClientRequestDto request)
             throws CertificateException, NotFoundException, AlreadyExistException {
-        return clientService.editClient(uuid, request);
+        return clientService.editClient(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void removeClient(
             @PathVariable String uuid)
             throws NotFoundException {
-        clientService.removeClient(uuid);
+        clientService.removeClient(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public ResponseEntity<List<BulkActionMessageDto>> bulkRemoveClient(List<String> clientUuids) throws NotFoundException {
-        List<BulkActionMessageDto> messages = clientService.bulkRemoveClient(clientUuids);
+        List<BulkActionMessageDto> messages = clientService.bulkRemoveClient(SecuredUUID.fromList(clientUuids));
         if(messages.isEmpty()){
             return ResponseEntity.ok().body(messages);
         }
@@ -85,27 +87,27 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     public List<SimplifiedRaProfileDto> listAuthorizations(
             @PathVariable String uuid)
             throws NotFoundException {
-        return clientService.listAuthorizations(uuid);
+        return clientService.listAuthorizations(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void disableClient(@PathVariable String uuid) throws NotFoundException {
-        clientService.disableClient(uuid);
+        clientService.disableClient(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void enableClient(@PathVariable String uuid) throws NotFoundException, CertificateException {
-        clientService.enableClient(uuid);
+        clientService.enableClient(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void bulkDisableClient(List<String> clientUuids) throws NotFoundException {
-        clientService.bulkDisableClient(clientUuids);
+        clientService.bulkDisableClient(SecuredUUID.fromList(clientUuids));
     }
 
     @Override
     public void bulkEnableClient(List<String> clientUuids) throws NotFoundException {
-        clientService.bulkEnableClient(clientUuids);
+        clientService.bulkEnableClient(SecuredUUID.fromList(clientUuids));
     }
 
     @Override
@@ -113,7 +115,7 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
             @PathVariable String uuid,
             @PathVariable String raProfileUuid)
             throws NotFoundException {
-        clientService.authorizeClient(uuid, raProfileUuid);
+        clientService.authorizeClient(SecuredUUID.fromString(uuid), raProfileUuid);
     }
 
     @Override
@@ -121,6 +123,6 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
             @PathVariable String uuid,
             @PathVariable String raProfileUuid)
             throws NotFoundException {
-        clientService.unauthorizeClient(uuid, raProfileUuid);
+        clientService.unauthorizeClient(SecuredUUID.fromString(uuid), raProfileUuid);
     }
 }

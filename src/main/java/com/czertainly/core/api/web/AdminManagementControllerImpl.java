@@ -8,6 +8,8 @@ import com.czertainly.api.model.client.admin.AddAdminRequestDto;
 import com.czertainly.api.model.client.admin.EditAdminRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.admin.AdminDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +30,7 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 
 	@Override
 	public List<AdminDto> listAdmins() {
-		return adminService.listAdmins();
+		return adminService.listAdmins(SecurityFilter.create());
 	}
 
 	@Override
@@ -46,42 +48,42 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 
 	@Override
 	public AdminDto getAdmin(@PathVariable String uuid) throws NotFoundException {
-		return adminService.getAdminByUuid(uuid);
+		return adminService.getAdminByUuid(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
 	public AdminDto editAdmin(@PathVariable String uuid, @RequestBody EditAdminRequestDto request)
 			throws CertificateException, NotFoundException, AlreadyExistException {
-		return adminService.editAdmin(uuid, request);
+		return adminService.editAdmin(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
 	public void bulkRemoveAdmin(List<String> adminUuids) throws NotFoundException {
-		adminService.bulkRemoveAdmin(adminUuids);
+		adminService.bulkRemoveAdmin(SecuredUUID.fromList(adminUuids));
 	}
 
 	@Override
 	public void removeAdmin(@PathVariable String uuid) throws NotFoundException {
-		adminService.removeAdmin(uuid);
+		adminService.removeAdmin(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
 	public void disableAdmin(@PathVariable String uuid) throws NotFoundException {
-		adminService.disableAdmin(uuid);
+		adminService.disableAdmin(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
 	public void enableAdmin(@PathVariable String uuid) throws NotFoundException, CertificateException {
-		adminService.enableAdmin(uuid);
+		adminService.enableAdmin(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
 	public void bulkDisableAdmin(List<String> adminUuids) throws NotFoundException {
-		adminService.bulkDisableAdmin(adminUuids);
+		adminService.bulkDisableAdmin(SecuredUUID.fromList(adminUuids));
 	}
 
 	@Override
 	public void bulkEnableAdmin(List<String> adminUuids) throws NotFoundException {
-		adminService.bulkEnableAdmin(adminUuids);
+		adminService.bulkEnableAdmin(SecuredUUID.fromList(adminUuids));
 	}
 }

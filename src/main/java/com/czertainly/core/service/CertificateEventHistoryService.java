@@ -12,6 +12,7 @@ import com.czertainly.core.dao.entity.CertificateEventHistory;
 import java.util.HashMap;
 import java.util.List;
 
+// TODO AUTH - should be secured?
 public interface CertificateEventHistoryService {
     List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException;
     void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate);

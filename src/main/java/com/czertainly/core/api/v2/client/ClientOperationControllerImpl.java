@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
@@ -32,21 +33,21 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @Override
     public List<AttributeDefinition> listIssueCertificateAttributes(
             @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
-        return clientOperationService.listIssueCertificateAttributes(raProfileUuid);
+        return clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     public void validateIssueCertificateAttributes(
             @PathVariable String raProfileUuid,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
-        clientOperationService.validateIssueCertificateAttributes(raProfileUuid, attributes);
+        clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
     @Override
     public ClientCertificateDataResponseDto issueCertificate(
             @PathVariable String raProfileUuid,
             @RequestBody ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
-        return clientOperationService.issueCertificate(raProfileUuid, request, false);
+        return clientOperationService.issueCertificate(SecuredUUID.fromString(raProfileUuid), request, false);
     }
 
     @Override
@@ -54,20 +55,20 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
             @RequestBody ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
-        return clientOperationService.renewCertificate(raProfileUuid, certificateUuid, request, false);
+        return clientOperationService.renewCertificate(SecuredUUID.fromString(raProfileUuid), certificateUuid, request, false);
     }
 
     @Override
     public List<AttributeDefinition> listRevokeCertificateAttributes(
             @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
-        return clientOperationService.listRevokeCertificateAttributes(raProfileUuid);
+        return clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     public void validateRevokeCertificateAttributes(
             @PathVariable String raProfileUuid,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
-        clientOperationService.validateRevokeCertificateAttributes(raProfileUuid, attributes);
+        clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
 	@Override
@@ -75,6 +76,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
             @RequestBody ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
-        clientOperationService.revokeCertificate(raProfileUuid, certificateUuid, request, false);
+        clientOperationService.revokeCertificate(SecuredUUID.fromString(raProfileUuid), certificateUuid, request, false);
     }
 }

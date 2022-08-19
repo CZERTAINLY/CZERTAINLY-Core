@@ -17,6 +17,8 @@ import com.czertainly.core.dao.repository.ComplianceGroupRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -24,22 +26,14 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class ComplianceServiceTest {
+public class ComplianceServiceTest extends BaseSpringBootTest {
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";
     private static final String CLIENT_NAME = "testClient1";
 
     @Autowired
-    private RaProfileService raProfileService;
+    private com.czertainly.core.service.RaProfileService raProfileService;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -149,30 +143,30 @@ public class ComplianceServiceTest {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/complianceProvider/[^/]+/compliance"))
                 .willReturn(WireMock.okJson("{'status':'ok','rules':['uuid':'121212121212', 'name':'tests', 'status':'ok']}")));
-        Assertions.assertDoesNotThrow(() -> complianceService.complianceCheckForRaProfile(raProfile.getUuid()));
+        Assertions.assertDoesNotThrow(() -> complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfile.getUuid())));
     }
 
     @Test
     public void checkRuleExistsTest(){
-        Boolean isExists = complianceService.complianceRuleExists(complianceRule.getUuid(), connector, "default");
+        Boolean isExists = complianceService.complianceRuleExists(SecuredUUID.fromString(complianceRule.getUuid()), connector, "default");
         Assertions.assertEquals(true, isExists);
     }
 
     @Test
     public void checkRuleNotExistsTest(){
-        Boolean isExists = complianceService.complianceRuleExists("random", connector, "default");
+        Boolean isExists = complianceService.complianceRuleExists(SecuredUUID.fromString("random"), connector, "default");
         Assertions.assertEquals(false, isExists);
     }
 
     @Test
     public void checkGroupExistsTest(){
-        Boolean isExists = complianceService.complianceGroupExists(complianceGroup.getUuid(), connector, "default");
+        Boolean isExists = complianceService.complianceGroupExists(SecuredUUID.fromString(complianceGroup.getUuid()), connector, "default");
         Assertions.assertEquals(true, isExists);
     }
 
     @Test
     public void checkGroupNotExistsTest(){
-        Boolean isExists = complianceService.complianceGroupExists("random", connector, "default");
+        Boolean isExists = complianceService.complianceGroupExists(SecuredUUID.fromString("random"), connector, "default");
         Assertions.assertEquals(false, isExists);
     }
 }

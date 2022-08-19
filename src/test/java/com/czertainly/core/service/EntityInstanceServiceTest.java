@@ -15,6 +15,9 @@ import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -23,18 +26,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class EntityInstanceServiceTest {
+public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     private static final String ENTITY_INSTANCE_NAME = "testEntityInstance1";
 
@@ -97,7 +92,7 @@ public class EntityInstanceServiceTest {
 
     @Test
     public void testListEntityInstances() {
-        List<EntityInstanceDto> entityInstances = entityInstanceService.listEntityInstances();
+        List<EntityInstanceDto> entityInstances = entityInstanceService.listEntityInstances(SecurityFilter.create());
         Assertions.assertNotNull(entityInstances);
         Assertions.assertFalse(entityInstances.isEmpty());
         Assertions.assertEquals(1, entityInstances.size());
@@ -110,7 +105,7 @@ public class EntityInstanceServiceTest {
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+"))
                 .willReturn(WireMock.okJson("{}")));
 
-        EntityInstanceDto dto = entityInstanceService.getEntityInstance(entityInstance.getUuid());
+        EntityInstanceDto dto = entityInstanceService.getEntityInstance(entityInstance.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(entityInstance.getUuid(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
@@ -119,7 +114,7 @@ public class EntityInstanceServiceTest {
 
     @Test
     public void testGetEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -165,7 +160,7 @@ public class EntityInstanceServiceTest {
 
     @Test
     public void testEditEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.updateEntityInstance("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.updateEntityInstance(SecuredUUID.fromString("wrong-uuid"), null));
     }
 
     @Test
@@ -174,8 +169,8 @@ public class EntityInstanceServiceTest {
                 .delete(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
-        entityInstanceService.removeEntityInstance(entityInstance.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(entityInstance.getUuid()));
+        entityInstanceService.removeEntityInstance(entityInstance.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(entityInstance.getSecuredUuid()));
     }
 
     @Test
@@ -184,12 +179,12 @@ public class EntityInstanceServiceTest {
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.ok()));
 
-        entityInstanceService.listLocationAttributes(entityInstance.getUuid());
+        entityInstanceService.listLocationAttributes(entityInstance.getSecuredUuid());
     }
 
     @Test
     public void testGetLocationAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.listLocationAttributes("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.listLocationAttributes(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -198,16 +193,16 @@ public class EntityInstanceServiceTest {
                 .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        entityInstanceService.validateLocationAttributes(entityInstance.getUuid(), List.of());
+        entityInstanceService.validateLocationAttributes(entityInstance.getSecuredUuid(), List.of());
     }
 
     @Test
     public void testValidateLocationAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.validateLocationAttributes("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.validateLocationAttributes(SecuredUUID.fromString("wrong-uuid"), null));
     }
 
     @Test
     public void testRemoveEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.removeEntityInstance("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.removeEntityInstance(SecuredUUID.fromString("wrong-uuid")));
     }
 }

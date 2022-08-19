@@ -1,11 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.EntityInstanceApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
@@ -15,6 +11,11 @@ import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.EntityInstanceService;
@@ -61,14 +62,18 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
-    public List<EntityInstanceDto> listEntityInstances() {
-        return entityInstanceReferenceRepository.findAll().stream().map(EntityInstanceReference::mapToDto)
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
+    public List<EntityInstanceDto> listEntityInstances(SecurityFilter filter) {
+        return entityInstanceReferenceRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(EntityInstanceReference::mapToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
-    public EntityInstanceDto getEntityInstance(String entityUuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DETAIL)
+    public EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
         EntityInstanceReference entityInstanceReference = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
@@ -92,16 +97,17 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.CREATE)
     public EntityInstanceDto createEntityInstance(com.czertainly.api.model.client.entity.EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException {
         if (entityInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(EntityInstanceReference.class, request.getName());
         }
 
-        Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(SecuredUUID.fromString(connector.getUuid()), codeToSearch,
                 request.getAttributes(), request.getKind());
 
         // Load complete credential data
@@ -130,16 +136,17 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
-    public EntityInstanceDto updateEntityInstance(String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.UPDATE)
+    public EntityInstanceDto updateEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
         EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
         EntityInstanceDto ref = getEntityInstance(entityUuid);
-        Connector connector = connectorService.getConnectorEntity(ref.getConnectorUuid());
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), ref.getKind());
 
         // Load complete credential data
@@ -158,7 +165,8 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
-    public void removeEntityInstance(String entityUuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DELETE)
+    public void removeEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
         EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
@@ -182,7 +190,8 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listLocationAttributes(String entityUuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DETAIL)
+    public List<AttributeDefinition> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException {
         EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
@@ -193,7 +202,8 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public void validateLocationAttributes(String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DETAIL)
+    public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 

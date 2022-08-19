@@ -11,20 +11,15 @@ import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.repository.AdminRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 
-@SpringBootTest
-@Transactional
-@Rollback
-public class LocalAdminServiceTest {
+public class LocalAdminServiceTest extends BaseSpringBootTest {
 
     private static final String ADMIN_NAME = "testAdmin1";
 

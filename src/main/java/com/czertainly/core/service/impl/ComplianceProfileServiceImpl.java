@@ -32,6 +32,7 @@ import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
@@ -362,7 +363,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public void associateProfile(String uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
         logger.info("Associate RA Profiles: {} to Compliance Profile: {}", raprofile, uuid);
         for (String raProfileUuid : raprofile.getRaProfileUuids()) {
-            RaProfile raProfile = raProfileService.getRaProfileEntity(raProfileUuid);
+            RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromString(raProfileUuid));
             ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
             if (raProfile.getComplianceProfiles() != null) {
                 if (raProfile.getComplianceProfiles().contains(complianceProfile)) {
@@ -374,7 +375,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 raProfile.setComplianceProfiles(new HashSet<>(List.of(complianceProfile)));
             }
             try {
-                complianceService.complianceCheckForRaProfile(raProfileUuid);
+                complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfileUuid));
             } catch (ConnectorException e) {
                 logger.error("Unable to check compliance: ", e);
             }
@@ -387,7 +388,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public void disassociateProfile(String uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
         logger.info("Associate RA Profiles: {} to Compliance Profile: {}", raprofile, uuid);
         for (String raProfileUuid : raprofile.getRaProfileUuids()) {
-            RaProfile raProfile = raProfileService.getRaProfileEntity(raProfileUuid);
+            RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromString(raProfileUuid));
             ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
             if (raProfile.getComplianceProfiles() != null) {
                 if (!raProfile.getComplianceProfiles().contains(complianceProfile)) {
@@ -405,7 +406,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 }
             } else {
                 try {
-                    complianceService.complianceCheckForRaProfile(raProfileUuid);
+                    complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfileUuid));
                 } catch (ConnectorException e) {
                     logger.error("Unable to check compliance: ", e);
                 }
@@ -461,7 +462,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public void checkCompliance(ComplianceProfileComplianceCheckDto request) {
         for (String uuid : request.getComplianceProfileUuids()) {
             try {
-                complianceService.complianceCheckForComplianceProfile(uuid);
+                complianceService.complianceCheckForComplianceProfile(SecuredUUID.fromString(uuid));
             } catch (Exception e) {
                 logger.error("Compliance check failed.", e);
             }

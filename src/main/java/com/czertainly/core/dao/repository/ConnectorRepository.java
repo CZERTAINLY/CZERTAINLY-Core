@@ -3,7 +3,6 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.FunctionGroup;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,7 +13,7 @@ import java.util.Optional;
 
 @Repository
 @Transactional
-public interface ConnectorRepository extends JpaRepository<Connector, Long> {
+public interface ConnectorRepository extends SecurityFilterRepository<Connector, Long> {
 
     Optional<Connector> findByUuid(String uuid);
 

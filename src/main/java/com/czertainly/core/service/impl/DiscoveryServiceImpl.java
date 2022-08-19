@@ -18,21 +18,17 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.DiscoveryCertificate;
-import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
-import com.czertainly.core.service.CertValidationService;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.core.service.DiscoveryService;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -40,21 +36,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class DiscoveryServiceImpl implements DiscoveryService {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
@@ -84,23 +74,29 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
-    public List<DiscoveryHistoryDto> listDiscovery() {
-        return discoveryRepository.findAll().stream().map(DiscoveryHistory::mapToDto).collect(Collectors.toList());
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.LIST)
+    public List<DiscoveryHistoryDto> listDiscovery(SecurityFilter filter) {
+        return discoveryRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(DiscoveryHistory::mapToDto)
+                .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
-    public DiscoveryHistoryDto getDiscovery(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
+    public DiscoveryHistoryDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
         return getDiscoveryEntity(uuid).mapToDto();
     }
 
-    public DiscoveryHistory getDiscoveryEntity(String uuid) throws NotFoundException {
+    public DiscoveryHistory getDiscoveryEntity(SecuredUUID uuid) throws NotFoundException {
         return discoveryRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
-    public void removeDiscovery(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
+    public void removeDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
         for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
@@ -126,7 +122,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             discoveryRepository.delete(discovery);
-            Connector connector = connectorService.getConnectorEntity(discovery.getConnectorUuid());
+            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(discovery.getConnectorUuid()));
             discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
@@ -138,8 +134,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
-    public void bulkRemoveDiscovery(List<String> discoveryUuids) throws NotFoundException {
-        for (String uuid : discoveryUuids) {
+    public void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException {
+        for (SecuredUUID uuid : discoveryUuids) {
             removeDiscovery(uuid);
         }
     }
@@ -147,11 +143,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Override
     @Async("threadPoolTaskExecutor")
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
             throws ConnectorException {
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
-                request.getConnectorUuid(),
+                SecuredUUID.fromString(request.getConnectorUuid()),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),
                 request.getKind());
@@ -165,7 +162,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             credentialService.loadFullCredentialData(attributes);
             dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
 
-            Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
+            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
             modal.setDiscoveryConnectorReference(response.getUuid());
@@ -236,14 +233,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
         }
-        Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
-                request.getConnectorUuid(),
+                SecuredUUID.fromString(request.getConnectorUuid()),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),
                 request.getKind());

@@ -1,168 +1,94 @@
 package com.czertainly.core.config;
 
-import com.czertainly.api.model.core.admin.AdminRole;
-import com.czertainly.core.auth.AdminDetailsService;
-import com.czertainly.core.auth.ClientDetailsService;
+import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
-import org.springframework.core.io.Resource;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
+import org.springframework.security.access.AccessDecisionManager;
+import org.springframework.security.access.AccessDecisionVoter;
+import org.springframework.security.access.vote.AffirmativeBased;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
+import org.springframework.security.web.access.expression.WebExpressionVoter;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
+import java.util.List;
 
 @Configuration
-@EnableWebSecurity
-@EnableGlobalMethodSecurity(securedEnabled = true)
+@EnableWebSecurity(debug = true)
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
-    private ClientDetailsService clientDetailsService;
+    CzertainlyAuthenticationProvider czertainlyAuthenticationProvider;
 
     @Autowired
-    private AdminDetailsService adminDetailsService;
+    ExternalFilterAuthorizationVoter filterAuthorizationVoter;
 
-    @Value("${server.ssl.trust-store-type:JKS}")
-    private String trustStoreType;
+    @Autowired
+    AcmeValidationFilter acmeValidationFilter;
 
-    @Value("${server.ssl.trust-store:}")
-    private Resource trustStore;
-
-    @Value("${server.ssl.trust-store-password:}")
-    private String trustStorePassword;
-
-    @Value("${server.ssl.certificate-header-name:}")
-    private String clientCertHeader;
-
-    @Bean
-    @ConditionalOnProperty("server.ssl.certificate-header-enabled")
-    public CertificateHeaderVerificationFilter certificateHeaderVerificationFilter() {
-        return new CertificateHeaderVerificationFilter(clientCertHeader, trustStoreType, trustStore, trustStorePassword);
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        http
+                .authorizeRequests()
+                .anyRequest().authenticated()
+                .accessDecisionManager(accessDecisionManager())
+                .and()
+                .csrf().disable()
+                .cors().disable()
+                .httpBasic().disable()
+                .formLogin().disable()
+                .x509().disable()
+                .addFilterBefore(acmeValidationFilter, X509AuthenticationFilter.class)
+                .addFilterBefore(this.createCzertainlyAuthenticationFilter(), BasicAuthenticationFilter.class)
+                .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
     }
 
-    @Bean
-    public AcmeValidationFilter acmeValidationFilter() {
-        return new AcmeValidationFilter();
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        super.configure(auth);
+        auth.authenticationProvider(czertainlyAuthenticationProvider);
     }
 
-
-    @Configuration
-    @Order(1)
-    public class ClientSecurityConfigurationAdapter extends WebSecurityConfigurerAdapter {
-        @Autowired(required = false)
-        private CertificateHeaderVerificationFilter certificateHeaderVerificationFilter;
-
-        @Override
-        protected void configure(HttpSecurity http) throws Exception {
-            http
-                    .antMatcher("/v?/operations/**")
-                    .authorizeRequests()
-                    .anyRequest()
-                    .authenticated()
-                    .and()
-                    .csrf().disable()
-                    .cors().disable()
-                    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                    .and()
-                    .x509()
-                    .x509PrincipalExtractor(new SerialNumberX509PrincipalExtractor())
-                    .userDetailsService(clientDetailsService);
-
-            if (certificateHeaderVerificationFilter != null) {
-                http.addFilterBefore(certificateHeaderVerificationFilter, X509AuthenticationFilter.class);
-            }
-        }
+    protected AccessDecisionManager accessDecisionManager() {
+        // This configuration controls access to api endpoints. Important here is the order in which the individual
+        // voters are registered. The first one must always be ExternalAuthorizationFilter.
+        // ExternalFilterAuthorizationVoter approves access for requests:
+        //   * authenticated as anonymous
+        //   * to urls that has been explicitly set to be authenticated
+        // If request does not conform to the rules above, voter abstains voting.
+        // WebExpressionVoter checks that the request is authenticated, as configured by HTTP Security.
+        List<AccessDecisionVoter<?>> voters = List.of(
+                this.externalFilterAuthorizationVoter(),
+                new WebExpressionVoter()
+        );
+        return new AffirmativeBased(voters);
     }
 
-    @Configuration
-    @Order(2)
-    public class LocalhostConfigurationAdapter extends WebSecurityConfigurerAdapter {
+    protected ExternalFilterAuthorizationVoter externalFilterAuthorizationVoter() {
+        // filterAuthorizationVoter is configured so that only requests to local controller are authorized against OPA.
+        // For other request we only require users to be authenticated (this is checked by WebExpressionVoter) as
+        // Controllers mostly only delegate to a Service and any call to a Service method should be always authorized by
+        // OPA. Doing this, we do not lose much of the security but save one call to OPA for each request. Anonymous
+        // request will always be authorized against OPA if not explicitly excluded.
+        RequestMatcher toAuthorize = new AntPathRequestMatcher("/v?/local/**");
+        filterAuthorizationVoter.setToAuthorizeRequestsMatcher(toAuthorize);
 
-        @Override
-        protected void configure(HttpSecurity http) throws Exception {
-            http
-                    .antMatcher("/v1/local/**")
-                    .authorizeRequests()
-                    .anyRequest().hasIpAddress("127.0.0.1")
-                    .and()
-                    .csrf().disable()
-                    .cors().disable()
-                    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-        }
+        // Exclude the error endpoint from authorization when accessed by anonymous user
+        RequestMatcher doNotAuthorize = new AntPathRequestMatcher("/error");
+        filterAuthorizationVoter.setDoNotAuthorizeAnonymousRequestsMatcher(doNotAuthorize);
+        return filterAuthorizationVoter;
     }
 
-    @Configuration
-    @Order(3)
-    public class AcmeConfigurationAdapter extends WebSecurityConfigurerAdapter {
-        @Autowired
-        private AcmeValidationFilter acmeValidationFilter;
-
-        @Override
-        protected void configure(HttpSecurity http) throws Exception {
-            http
-                    .antMatcher("/acme/**")
-                    .authorizeRequests().anyRequest().permitAll().and()
-                    .csrf().disable()
-                    .cors().disable()
-                    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                    .and()
-                    .addFilterBefore(acmeValidationFilter, X509AuthenticationFilter.class)
-                    .x509()
-                    .x509PrincipalExtractor(new SerialNumberX509PrincipalExtractor())
-                    .userDetailsService(s -> User.withUsername(s).password("").roles(AdminRole.SUPERADMINISTRATOR.toString()).build());
-        }
-    }
-
-    @Configuration
-    @Order(4)
-    public class ConnectorConfigurationAdapter extends WebSecurityConfigurerAdapter {
-
-        @Override
-        protected void configure(HttpSecurity http) throws Exception {
-            http
-                    .antMatcher("/v1/connector/**")
-                    .authorizeRequests()
-                    .anyRequest().anonymous()
-                    .and()
-                    .csrf().disable()
-                    .cors().disable()
-                    .logout().disable()
-                    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                    .and()
-                    .userDetailsService(s -> User.withUsername(s).password("").roles("CONNECTOR").build());
-        }
-    }
-
-    @Configuration
-    @Order(5)
-    public class AdminSecurityConfigurationAdapter extends WebSecurityConfigurerAdapter {
-        @Autowired(required = false)
-        private CertificateHeaderVerificationFilter certificateHeaderVerificationFilter;
-
-        @Override
-        protected void configure(HttpSecurity http) throws Exception {
-            http.authorizeRequests()
-                    .anyRequest().authenticated()
-                    .and()
-                    .csrf().disable()
-                    .cors().disable()
-                    .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                    .and()
-                    .x509()
-                    .x509PrincipalExtractor(new SerialNumberX509PrincipalExtractor())
-                    .userDetailsService(adminDetailsService);
-
-            if (certificateHeaderVerificationFilter != null) {
-                http.addFilterBefore(certificateHeaderVerificationFilter, X509AuthenticationFilter.class);
-            }
-        }
+    protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() throws Exception {
+        return new CzertainlyAuthenticationFilter(this.authenticationManager(), new CzertainlyAuthenticationConverter());
     }
 }

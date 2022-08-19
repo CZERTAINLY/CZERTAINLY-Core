@@ -8,7 +8,6 @@ import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -20,7 +19,7 @@ import java.util.Optional;
 
 @Repository
 @Transactional
-public interface CertificateRepository extends JpaRepository<Certificate, Long>, CustomCertificateRepository {
+public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
     Optional<Certificate> findByUuid(String uuid);
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);

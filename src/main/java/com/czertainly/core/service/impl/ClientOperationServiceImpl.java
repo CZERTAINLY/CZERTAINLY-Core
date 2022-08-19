@@ -28,15 +28,16 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.ValidatorUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -46,7 +47,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_CLIENT", "ROLE_ACME"})
 public class ClientOperationServiceImpl implements ClientOperationService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
@@ -64,8 +64,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ISSUE)
     public ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
+        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
@@ -86,7 +88,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Id of the certificate is {}", certificate.getId());
         logger.debug("Id of the RA Profile is {}", raProfile.getId());
-        certificateService.updateRaProfile(certificate.getUuid(), dto);
+        certificateService.updateRaProfile(certificate.getSecuredUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
@@ -101,8 +103,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String raProfileName, ClientCertificateRevocationDto request) throws ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
+        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
@@ -122,8 +126,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST_ENTITY_PROFILE)
     public List<ClientEndEntityDto> listEntities(String raProfileName) throws ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
+        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
@@ -139,8 +145,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
+        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
@@ -162,8 +170,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.END_ENTITY_DETAIL)
     public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
+        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
@@ -178,8 +188,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.EDIT_END_ENTITY)
     public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
+        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
@@ -201,8 +213,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.REVOKE_DELETE_END_ENTITY)
     public void revokeAndDeleteEndEntity(String raProfileName, String username) throws ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
+        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
@@ -215,8 +229,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ACCESS, operation = OperationType.RESET)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.RESET_PASSWORD)
     public void resetPassword(String raProfileName, String username) throws ConnectorException {
-        ValidatorUtil.validateAuthToRaProfile(raProfileName);
+        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
+        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 

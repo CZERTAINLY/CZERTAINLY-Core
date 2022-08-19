@@ -20,23 +20,18 @@ import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class AcmeAccountServiceTest {
+public class AcmeAccountServiceTest extends BaseSpringBootTest {
 
     private static final String ADMIN_NAME = "ACME_USER";
 
@@ -44,7 +39,7 @@ public class AcmeAccountServiceTest {
     private static final String CLIENT_NAME = "testClient1";
 
     @Autowired
-    private RaProfileService raProfileService;
+    private com.czertainly.core.service.RaProfileService raProfileService;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -140,7 +135,7 @@ public class AcmeAccountServiceTest {
 
     @Test
     public void testListAdmins() {
-        List<AcmeAccountListResponseDto> accounts = acmeAccountService.listAcmeAccounts();
+        List<AcmeAccountListResponseDto> accounts = acmeAccountService.listAcmeAccounts(SecurityFilter.create());
         Assertions.assertNotNull(accounts);
         Assertions.assertFalse(accounts.isEmpty());
         Assertions.assertEquals(1, accounts.size());
@@ -149,7 +144,7 @@ public class AcmeAccountServiceTest {
 
     @Test
     public void testGetAdminById() throws NotFoundException {
-        AcmeAccountResponseDto dto = acmeAccountService.getAcmeAccount(acmeAccount.getUuid());
+        AcmeAccountResponseDto dto = acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeAccount.getAccountId(), dto.getAccountId());
         Assertions.assertNotNull(acmeAccount.getId());
@@ -157,57 +152,60 @@ public class AcmeAccountServiceTest {
 
     @Test
     public void testGetAdminById_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testRemoveAdmin() throws NotFoundException {
-        acmeAccountService.revokeAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(AccountStatus.REVOKED, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getStatus());
+        acmeAccountService.revokeAccount(acmeAccount.getSecuredUuid());
+        Assertions.assertEquals(AccountStatus.REVOKED, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).getStatus());
     }
 
     @Test
     public void testRemoveAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount("some-id"));
+        Assertions.assertThrows(
+                NotFoundException.class, 
+                () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("some-id"))
+        );
     }
 
     @Test
     public void testEnableAdmin() throws NotFoundException, CertificateException {
-        acmeAccountService.enableAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
+        acmeAccountService.enableAccount(acmeAccount.getSecuredUuid());
+        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 
     @Test
     public void testEnableAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.enableAccount("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.enableAccount(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testDisableAdmin() throws NotFoundException {
-        acmeAccountService.disableAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
+        acmeAccountService.disableAccount(acmeAccount.getSecuredUuid());
+        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 
     @Test
     public void testDisableAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.disableAccount("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.disableAccount(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        acmeAccountService.bulkRevokeAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(AccountStatus.REVOKED ,acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getStatus());
+        acmeAccountService.bulkRevokeAccount(List.of(acmeAccount.getSecuredUuid()));
+        Assertions.assertEquals(AccountStatus.REVOKED ,acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).getStatus());
     }
 
     @Test
     public void testBulkEnable() throws NotFoundException {
-        acmeAccountService.bulkEnableAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
+        acmeAccountService.bulkEnableAccount(List.of(acmeAccount.getSecuredUuid()));
+        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 
     @Test
     public void testBulkDisable() throws NotFoundException {
-        acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
+        acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getSecuredUuid()));
+        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 }

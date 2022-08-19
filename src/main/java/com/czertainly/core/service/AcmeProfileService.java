@@ -9,32 +9,34 @@ import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
 public interface AcmeProfileService {
 
-    List<AcmeProfileListDto> listAcmeProfile();
+    List<AcmeProfileListDto> listAcmeProfile(SecurityFilter filter);
 
-    AcmeProfileDto getAcmeProfile(String uuid) throws NotFoundException;
+    AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException;
 
     AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
 
-    AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
+    AcmeProfileDto updateAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
 
-    void deleteAcmeProfile(String uuid) throws NotFoundException, ValidationException;
+    void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
-    void enableAcmeProfile(String uuid) throws NotFoundException;
+    void enableAcmeProfile(SecuredUUID uuid) throws NotFoundException;
 
-    void disableAcmeProfile(String uuid) throws NotFoundException;
+    void disableAcmeProfile(SecuredUUID uuid) throws NotFoundException;
 
-    void bulkEnableAcmeProfile(List<String> uuids);
+    void bulkEnableAcmeProfile(List<SecuredUUID> uuids);
 
-    void bulkDisableAcmeProfile(List<String> uuids);
+    void bulkDisableAcmeProfile(List<SecuredUUID> uuids);
 
-    List<BulkActionMessageDto> bulkDeleteAcmeProfile(List<String> uuids);
+    List<BulkActionMessageDto> bulkDeleteAcmeProfile(List<SecuredUUID> uuids);
 
-    void updateRaProfile(String uuid, String raProfileUuid) throws NotFoundException;
+    void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException;
 
-    List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException;
+    List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
 }

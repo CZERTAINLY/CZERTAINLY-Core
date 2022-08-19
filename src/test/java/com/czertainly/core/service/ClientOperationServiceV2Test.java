@@ -11,20 +11,12 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.dao.entity.AuthorityInstanceReference;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Client;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ClientRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -32,10 +24,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,11 +35,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles={ "CLIENT", ClientOperationServiceV2Test.RA_PROFILE_NAME })
-public class ClientOperationServiceV2Test {
+public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
     public static final String RA_PROFILE_NAME = "testRaProfile1";
 
@@ -168,13 +152,13 @@ public class ClientOperationServiceV2Test {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004");
+        List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString("1065586a-6af6-11ec-90d6-0242ac120004"));
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     public void testListIssueCertificateAttributes_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listIssueCertificateAttributes("wrong-name"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString("wrong-name")));
     }
 
     @Test
@@ -183,14 +167,14 @@ public class ClientOperationServiceV2Test {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result  = clientOperationService.validateIssueCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004", List.of());
+        boolean result = clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString("1065586a-6af6-11ec-90d6-0242ac120004"), List.of());
         Assertions.assertTrue(result);
     }
 
     @Test
     public void testValidateIssueCertificateAttributes_validationFail() {
         Assertions.assertThrows(NotFoundException.class,
-                () -> clientOperationService.validateIssueCertificateAttributes("wrong-name", null));
+                () -> clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString("wrong-name"), null));
     }
 
 
@@ -209,7 +193,7 @@ public class ClientOperationServiceV2Test {
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate("1065586a-6af6-11ec-90d6-0242ac120004", request, false);
+        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(SecuredUUID.fromString("1065586a-6af6-11ec-90d6-0242ac120004"), request, false);
         Assertions.assertNotNull(response);
 
         Optional<Certificate> newCertificate = certificateRepository.findBySerialNumberIgnoreCase("177E75F42E95ECB98F831EB57DE27B0BC8C47643");
@@ -219,7 +203,7 @@ public class ClientOperationServiceV2Test {
 
     @Test
     public void testIssueCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate("wrong-name", null, false));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate(SecuredUUID.fromString("wrong-name"), null, false));
     }
 
     @Test
@@ -231,12 +215,12 @@ public class ClientOperationServiceV2Test {
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        clientOperationService.renewCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request, false);
+        clientOperationService.renewCertificate(SecuredUUID.fromString("1065586a-6af6-11ec-90d6-0242ac120004"), certificate.getUuid(), request, false);
     }
 
     @Test
     public void testRenewCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate("wrong-name", null, null, false));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate(SecuredUUID.fromString("wrong-name"), null, null, false));
     }
 
     @Test
@@ -245,13 +229,13 @@ public class ClientOperationServiceV2Test {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004");
+        List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString("1065586a-6af6-11ec-90d6-0242ac120004"));
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     public void testListRevokeCertificateAttributes_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listRevokeCertificateAttributes("wrong-name"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString("wrong-name")));
     }
 
     @Test
@@ -260,14 +244,14 @@ public class ClientOperationServiceV2Test {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result  = clientOperationService.validateRevokeCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004", List.of());
+        boolean result = clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString("1065586a-6af6-11ec-90d6-0242ac120004"), List.of());
         Assertions.assertTrue(result);
     }
 
     @Test
     public void testValidateRevokeCertificateAttributes_validationFail() {
         Assertions.assertThrows(NotFoundException.class,
-                () -> clientOperationService.validateRevokeCertificateAttributes("wrong-name", null));
+                () -> clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString("wrong-name"), null));
     }
 
     @Test
@@ -283,11 +267,11 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
-        clientOperationService.revokeCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request, false);
+        clientOperationService.revokeCertificate(SecuredUUID.fromString("1065586a-6af6-11ec-90d6-0242ac120004"), certificate.getUuid(), request, false);
     }
 
     @Test
     public void testRevokeCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate("wrong-name", "wrong-cert-id", null, false));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate(SecuredUUID.fromString("wrong-name"), "wrong-cert-id", null, false));
     }
 }
