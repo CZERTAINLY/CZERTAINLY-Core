@@ -31,7 +31,9 @@ public class ExternalFilterAuthorizationVoter extends AbstractExternalAuthorizat
 
     private final ObjectMapper om;
 
-    private RequestMatcher requestMatcher;
+    private RequestMatcher toAuthorizeRequestsMatcher;
+
+    private RequestMatcher doNotAuthorizeAnonymousRequestsMatcher;
 
     public ExternalFilterAuthorizationVoter(@Autowired OpaClient opaClient, @Autowired ObjectMapper om) {
         this.opaClient = opaClient;
@@ -101,16 +103,25 @@ public class ExternalFilterAuthorizationVoter extends AbstractExternalAuthorizat
     @Override
     protected boolean canDecide(Authentication auth, FilterInvocation fi) {
         if (auth instanceof AnonymousAuthenticationToken) {
+            // First to verify that the request was not explicitly excluded from the voting
+            boolean doNotAuthorize = doNotAuthorizeAnonymousRequestsMatcher != null && this.doNotAuthorizeAnonymousRequestsMatcher.matches(fi.getRequest());
+            if (doNotAuthorize) {
+                logger.debug("Voter is set not to decide for the " + fi);
+                return false;
+            }
+
+            // For security reasons, we want to authorize all anonymous requests except those that were excluded in step one
             logger.trace("Will vote because the request is authenticated as anonymous.");
             return true;
         }
 
-        boolean requestMatches = requestMatcher == null || this.requestMatcher.matches(fi.getRequest());
-        if (!requestMatches) {
-            logger.trace("Voter can't decide for the " + fi);
+        // Finally, check if non-anonymous request should be authorized
+        boolean shouldAuthorize = toAuthorizeRequestsMatcher == null || this.toAuthorizeRequestsMatcher.matches(fi.getRequest());
+        if (!shouldAuthorize) {
+            logger.debug("Voter can't decide for the " + fi);
         }
 
-        return requestMatches;
+        return shouldAuthorize;
     }
 
     protected OpaResourceAccessResult checkAccess(String principal, OpaRequestedResource resource, OpaRequestDetails opaDetails) {
@@ -127,7 +138,11 @@ public class ExternalFilterAuthorizationVoter extends AbstractExternalAuthorizat
         }
     }
 
-    public void setSupportedRequestsMatcher(RequestMatcher requestMatcher) {
-        this.requestMatcher = requestMatcher;
+    public void setToAuthorizeRequestsMatcher(RequestMatcher toAuthorizeRequestsMatcher) {
+        this.toAuthorizeRequestsMatcher = toAuthorizeRequestsMatcher;
+    }
+
+    public void setDoNotAuthorizeAnonymousRequestsMatcher(RequestMatcher doNotAuthorizeRequestsMatcher) {
+        this.doNotAuthorizeAnonymousRequestsMatcher = doNotAuthorizeRequestsMatcher;
     }
 }

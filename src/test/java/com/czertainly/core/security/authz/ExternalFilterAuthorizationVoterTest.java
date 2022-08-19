@@ -129,7 +129,7 @@ class ExternalFilterAuthorizationVoterTest {
     @Test
     void abstainsIfCantDecideForGivenUrl() {
         // given
-        voter.setSupportedRequestsMatcher(new AntPathRequestMatcher("/my/url"));
+        voter.setToAuthorizeRequestsMatcher(new AntPathRequestMatcher("/my/url"));
         FilterInvocation fi = new FilterInvocation("/another/url", "GET");
 
         // when
@@ -155,6 +155,20 @@ class ExternalFilterAuthorizationVoterTest {
         // then
         String principal = principalCaptor.getValue();
         assertEquals(principal, om.writeValueAsString(new AnonymousPrincipal("anonymousUser")));
+    }
+
+    @Test
+    void anonymousRequestIsNotAuthorizedWhenExplicitlyExcluded() {
+        // given
+        Authentication authentication = AuthenticationTokenTestHelper.getAnonymousToken("anonymousUser");
+        voter.setDoNotAuthorizeAnonymousRequestsMatcher(new AntPathRequestMatcher("/error"));
+        FilterInvocation fi = new FilterInvocation("/error", "GET");
+
+        // when
+        int result = voter.vote(authentication, fi, List.of());
+
+        // then
+        assertEquals(ACCESS_ABSTAIN, result);
     }
 
     CzertainlyAuthenticationToken createCzertainlyAuthentication() {

@@ -77,9 +77,14 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         // filterAuthorizationVoter is configured so that only requests to local controller are authorized against OPA.
         // For other request we only require users to be authenticated (this is checked by WebExpressionVoter) as
         // Controllers mostly only delegate to a Service and any call to a Service method should be always authorized by
-        // OPA. Doing this, we do not lose much of the security but save one call to OPA for each request.
-        RequestMatcher rm = new AntPathRequestMatcher("/v?/local/**");
-        filterAuthorizationVoter.setSupportedRequestsMatcher(rm);
+        // OPA. Doing this, we do not lose much of the security but save one call to OPA for each request. Anonymous
+        // request will always be authorized against OPA if not explicitly excluded.
+        RequestMatcher toAuthorize = new AntPathRequestMatcher("/v?/local/**");
+        filterAuthorizationVoter.setToAuthorizeRequestsMatcher(toAuthorize);
+
+        // Exclude the error endpoint from authorization when accessed by anonymous user
+        RequestMatcher doNotAuthorize = new AntPathRequestMatcher("/error");
+        filterAuthorizationVoter.setDoNotAuthorizeAnonymousRequestsMatcher(doNotAuthorize);
         return filterAuthorizationVoter;
     }
 
