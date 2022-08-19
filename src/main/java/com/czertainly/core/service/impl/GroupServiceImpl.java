@@ -53,7 +53,7 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DETAIL)
-    public GroupDto getCertificateGroup(SecuredUUID uuid) throws NotFoundException {
+    public GroupDto getGroup(SecuredUUID uuid) throws NotFoundException {
         return getGroupEntity(uuid).mapToDto();
     }
 
@@ -81,7 +81,7 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DELETE)
-    public void removeGroup(SecuredUUID uuid) throws NotFoundException {
+    public void deleteGroup(SecuredUUID uuid) throws NotFoundException {
         CertificateGroup certificateGroup = getGroupEntity(uuid);
         for(Certificate certificate: certificateRepository.findByGroup(certificateGroup)){
             certificate.setGroup(null);
@@ -93,10 +93,10 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DELETE)
-    public void bulkRemoveGroup(List<SecuredUUID> entityUuids) {
+    public void bulkDeleteGroup(List<SecuredUUID> entityUuids) {
         for(SecuredUUID uuid: entityUuids){
             try{
-                removeGroup(uuid);
+                deleteGroup(uuid);
             }catch(NotFoundException e){
                 logger.warn("Unable to find the group with uuid {}. It may have been deleted", uuid);
             }
@@ -106,7 +106,7 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.UPDATE)
-    public GroupDto updateGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException {
+    public GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException {
         CertificateGroup certificateGroup = getGroupEntity(uuid);
 
         certificateGroup.setDescription(request.getDescription());

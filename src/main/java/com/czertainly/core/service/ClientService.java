@@ -26,8 +26,8 @@ public interface ClientService {
     ClientDto editClient(SecuredUUID uuid, EditClientRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException;
 
     void removeClient(SecuredUUID uuid) throws NotFoundException;
-
     List<SimplifiedRaProfileDto> listAuthorizations(SecuredUUID uuid) throws NotFoundException;
+    void deleteClient(SecuredUUID uuid) throws NotFoundException;
 
     void authorizeClient(SecuredUUID uuid, String raProfileUuid) throws NotFoundException;
 
@@ -39,7 +39,7 @@ public interface ClientService {
 
     void bulkDisableClient(List<SecuredUUID> clientUuids);
 
-    List<BulkActionMessageDto> bulkRemoveClient(List<SecuredUUID> clientUuids);
+    List<BulkActionMessageDto> bulkDeleteClient(List<SecuredUUID> clientUuids);
 
     void bulkEnableClient(List<SecuredUUID> clientUuids);
 }

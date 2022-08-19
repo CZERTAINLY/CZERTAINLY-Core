@@ -143,7 +143,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.UPDATE)
-    public AuthorityInstanceDto updateAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException {
+    public AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         AuthorityInstanceDto ref = getAuthorityInstance(uuid);
@@ -177,7 +177,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
-    public void removeAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
+    public void deleteAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         removeAuthorityInstance(authorityInstanceRef);
@@ -241,7 +241,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
+    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
             AuthorityInstanceReference authorityInstanceRef = null;
@@ -262,7 +262,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.FORCE_DELETE)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
+    public List<BulkActionMessageDto> forceDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
             AuthorityInstanceReference authorityInstanceRef = null;

@@ -71,17 +71,12 @@ public class RaProfileServiceImpl implements com.czertainly.core.service.RaProfi
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
-    public List<RaProfileDto> listRaProfiles(SecurityFilter filter) {
-        List<RaProfile> raProfiles = raProfileRepository.findUsingSecurityFilter(filter);
-        return raProfiles.stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Boolean isEnabled) {
-        List<RaProfile> raProfiles = raProfileRepository.findUsingSecurityFilter(filter, isEnabled);
-        return raProfiles.stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
+        if(!enabled.isPresent()) {
+            return raProfileRepository.findUsingSecurityFilter(filter).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
+        } else {
+            return raProfileRepository.findUsingSecurityFilter(filter, enabled.get()).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
+        }
     }
 
     @Override
@@ -163,7 +158,7 @@ public class RaProfileServiceImpl implements com.czertainly.core.service.RaProfi
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DELETE)
-    public void removeRaProfile(SecuredUUID uuid) throws NotFoundException {
+    public void deleteRaProfile(SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
         List<AcmeProfile> acmeProfiles = acmeProfileRepository.findByRaProfile(raProfile);
@@ -221,10 +216,10 @@ public class RaProfileServiceImpl implements com.czertainly.core.service.RaProfi
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DELETE)
-    public void bulkRemoveRaProfile(List<SecuredUUID> uuids) {
+    public void bulkDeleteRaProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
             try {
-                removeRaProfile(uuid);
+                deleteRaProfile(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find RA Profile with uuid {}. It may have already been deleted", uuid);
             }

@@ -194,7 +194,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DELETE)
-    public void removeLocation(SecuredUUID locationUuid) throws NotFoundException {
+    public void deleteLocation(SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -283,7 +283,7 @@ public class LocationServiceImpl implements LocationService {
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
-        CertificateLocationId clId = new CertificateLocationId(location.getId(), certificate.getId());
+        CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getUuid());
         CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
                 .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
 
@@ -696,7 +696,7 @@ public class LocationServiceImpl implements LocationService {
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
-        CertificateLocationId clId = new CertificateLocationId(location.getId(), certificate.getId());
+        CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getUuid());
         return certificateLocationRepository.findById(clId)
                 .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
     }

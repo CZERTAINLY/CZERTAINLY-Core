@@ -75,7 +75,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.LIST)
-    public List<DiscoveryHistoryDto> listDiscovery(SecurityFilter filter) {
+    public List<DiscoveryHistoryDto> listDiscoveries(SecurityFilter filter) {
         return discoveryRepository.findUsingSecurityFilter(filter)
                 .stream()
                 .map(DiscoveryHistory::mapToDto)
@@ -96,7 +96,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
-    public void removeDiscovery(SecuredUUID uuid) throws NotFoundException {
+    public void deleteDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
         for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
@@ -136,7 +136,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     public void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException {
         for (SecuredUUID uuid : discoveryUuids) {
-            removeDiscovery(uuid);
+            deleteDiscovery(uuid);
         }
     }
 

@@ -117,7 +117,7 @@ public interface ComplianceProfileService {
      * @throws NotFoundException Thrown when the system is not able to find the compliance profile for the given UUID
      * @throws ValidationException Thrown when there are any RA Profile association for the selected compliance profile
      */
-    void removeComplianceProfile(String uuid) throws NotFoundException, ValidationException;
+    void deleteComplianceProfile(String uuid) throws NotFoundException, ValidationException;
 
     /**
      *Remove multiple compliance profiles
@@ -128,7 +128,7 @@ public interface ComplianceProfileService {
      * @throws ValidationException Thrown when the profiles are dependencies for other objects
      * @throws NotFoundException Thrown when a Rule or Group is not found
      */
-    List<BulkActionMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException;
+    List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException;
 
     /**
      * Remove compliance profiles forcefully. This methods makes removes the object dependencies and set them null.
@@ -136,7 +136,7 @@ public interface ComplianceProfileService {
      * @param uuids Uuids of the compliance profiles to be deleted forcefully.
      * @return
      */
-    List<BulkActionMessageDto> bulkForceRemoveComplianceProfiles(List<String> uuids);
+    List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<String> uuids);
 
     /**
      * List of all compliance rules for User Interface

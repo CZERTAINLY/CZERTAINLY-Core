@@ -13,14 +13,14 @@ import java.time.LocalDateTime;
 
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
-public abstract class Audited extends UniquelyIdentified {
+public abstract class Audited {
 
     @Column(name = "i_author")
     @CreatedBy
     @LastModifiedBy
     protected String author;
 
-    @Column(name = "i_cre", nullable = false)
+    @Column(name = "i_cre", nullable = false, updatable = false)
     @CreatedDate
     protected LocalDateTime created;
 

@@ -47,7 +47,7 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetCertificateGroup() throws NotFoundException {
-        GroupDto dto = groupService.getCertificateGroup(certificateGroup.getSecuredUuid());
+        GroupDto dto = groupService.getGroup(certificateGroup.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificateGroup.getUuid(), dto.getUuid());
         Assertions.assertEquals(certificateGroup.getName(), dto.getName());
@@ -55,7 +55,7 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetCertificateGroup_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> groupService.getCertificateGroup(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -88,7 +88,7 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
         request.setName("Test");
         request.setDescription("some description");
 
-        GroupDto dto = groupService.updateGroup(certificateGroup.getSecuredUuid(), request);
+        GroupDto dto = groupService.editGroup(certificateGroup.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -98,16 +98,16 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
         GroupRequestDto request = new GroupRequestDto();
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> groupService.updateGroup(SecuredUUID.fromString("wrong-uuid"), request)
+                () -> groupService.editGroup(SecuredUUID.fromString("wrong-uuid"), request)
         );
     }
 
     @Test
     public void testRemoveCertificateGroup() throws NotFoundException {
-        groupService.removeGroup(certificateGroup.getSecuredUuid());
+        groupService.deleteGroup(certificateGroup.getSecuredUuid());
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> groupService.getCertificateGroup(certificateGroup.getSecuredUuid())
+                () -> groupService.getGroup(certificateGroup.getSecuredUuid())
         );
     }
 
@@ -115,16 +115,16 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
     public void testRemoveCertificateGroup_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> groupService.removeGroup(SecuredUUID.fromString("wrong-uuid"))
+                () -> groupService.deleteGroup(SecuredUUID.fromString("wrong-uuid"))
         );
     }
 
     @Test
     public void testBulkRemove() {
-        groupService.bulkRemoveGroup(List.of(certificateGroup.getSecuredUuid()));
+        groupService.bulkDeleteGroup(List.of(certificateGroup.getSecuredUuid()));
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> groupService.getCertificateGroup(certificateGroup.getSecuredUuid())
+                () -> groupService.getGroup(certificateGroup.getSecuredUuid())
         );
     }
 }

@@ -307,12 +307,12 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveLocation_withCertificates() {
-        Assertions.assertThrows(ValidationException.class, () -> locationService.removeLocation(location.getSecuredUuid()));
+        Assertions.assertThrows(ValidationException.class, () -> locationService.deleteLocation(location.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveLocation_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.removeLocation(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.deleteLocation(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test

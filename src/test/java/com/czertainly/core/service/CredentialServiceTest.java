@@ -66,7 +66,6 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUuid("123");
         connector.setName("credentialProviderConnector");
         connector.setUrl("http://localhost:3665");
         connector.setStatus(ConnectorStatus.CONNECTED);
@@ -169,7 +168,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         CredentialUpdateRequestDto request = new CredentialUpdateRequestDto();
         request.setAttributes(List.of());
 
-        CredentialDto dto = credentialService.updateCredential(credential.getSecuredUuid(), request);
+        CredentialDto dto = credentialService.editCredential(credential.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getConnectorUuid());
         Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
@@ -177,18 +176,18 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEditCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.updateCredential(SecuredUUID.fromString("wrong-uuid"), null));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.editCredential(SecuredUUID.fromString("wrong-uuid"), null));
     }
 
     @Test
     public void testRemoveCredential() throws NotFoundException {
-        credentialService.removeCredential(credential.getSecuredUuid());
+        credentialService.deleteCredential(credential.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.removeCredential(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.deleteCredential(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -215,7 +214,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        credentialService.bulkRemoveCredential(List.of(credential.getSecuredUuid()));
+        credentialService.bulkDeleteCredential(List.of(credential.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getSecuredUuid()));
     }
 

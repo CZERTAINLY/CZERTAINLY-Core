@@ -303,7 +303,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
-    public ConnectorDto updateConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
+    public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
         List<AttributeDefinition> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
                 AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
@@ -399,8 +399,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
-    public void removeConnector(SecuredUUID uuid) throws NotFoundException {
+    public void deleteConnector(String uuid) throws NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
         deleteConnector(connector);
@@ -652,7 +651,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+    public List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
             Connector connector = null;
@@ -671,7 +670,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.FORCE_DELETE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+    public List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
             Connector connector = null;

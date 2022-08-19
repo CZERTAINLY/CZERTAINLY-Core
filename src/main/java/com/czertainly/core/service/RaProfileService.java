@@ -18,15 +18,15 @@ import com.czertainly.core.service.model.SecuredItem;
 import com.czertainly.core.service.model.SecuredList;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface RaProfileService {
 
     List<RaProfileDto> listRaProfiles(SecurityFilter filter);
 
-    List<RaProfileDto> listRaProfiles(SecurityFilter filter, Boolean isEnabled);
+    List<RaProfileDto> listRaProfiles(SecurityFilter filter, Boolean enabled);
 
     SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(Long acmeProfileId, SecurityFilter filter);
-
     RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException;
 
     RaProfileDto getRaProfile(SecuredUUID uuid) throws NotFoundException;
@@ -35,7 +35,7 @@ public interface RaProfileService {
 
     RaProfileDto editRaProfile(SecuredUUID uuid, EditRaProfileRequestDto dto) throws NotFoundException, ConnectorException;
 
-    void removeRaProfile(SecuredUUID uuid) throws NotFoundException;
+    void deleteRaProfile(SecuredUUID uuid) throws NotFoundException;
 
     List<SimplifiedClientDto> listClients(SecuredUUID uuid) throws NotFoundException;
 
@@ -43,7 +43,7 @@ public interface RaProfileService {
 
     void disableRaProfile(SecuredUUID uuid) throws NotFoundException;
 
-    void bulkRemoveRaProfile(List<SecuredUUID> uuids);
+    void bulkDeleteRaProfile(List<SecuredUUID> uuids);
 
     void bulkDisableRaProfile(List<SecuredUUID> uuids);
 

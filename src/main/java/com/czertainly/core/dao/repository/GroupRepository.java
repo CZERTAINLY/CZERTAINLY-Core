@@ -13,6 +13,4 @@ public interface GroupRepository extends SecurityFilterRepository<CertificateGro
     Optional<CertificateGroup> findByName(String name);
 
     Optional<CertificateGroup> findByUuid(String uuid);
-
-    Optional<CertificateGroup> findById(Long id);
 }

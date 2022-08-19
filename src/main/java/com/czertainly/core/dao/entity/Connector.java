@@ -21,14 +21,8 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "connector")
-public class Connector extends Audited implements Serializable, DtoMapper<ConnectorDto> {
+public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ConnectorDto> {
     private static final long serialVersionUID = -4057975339123024975L;
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "connector_seq")
-    @SequenceGenerator(name = "connector_seq", sequenceName = "connector_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "name")
     private String name;
@@ -62,14 +56,6 @@ public class Connector extends Audited implements Serializable, DtoMapper<Connec
     @OneToMany(mappedBy = "connector")
     @JsonIgnore
     private Set<EntityInstanceReference> entityInstanceReferences = new HashSet<>();
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getName() {
         return name;
@@ -159,7 +145,6 @@ public class Connector extends Audited implements Serializable, DtoMapper<Connec
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("name", name)
                 .append("authType", authType)
@@ -177,11 +162,11 @@ public class Connector extends Audited implements Serializable, DtoMapper<Connec
         if (o == null || getClass() != o.getClass())
             return false;
         Connector that = (Connector) o;
-        return new EqualsBuilder().append(id, that.id).isEquals();
+        return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(id).toHashCode();
+        return new HashCodeBuilder(17, 37).append(uuid).toHashCode();
     }
 }

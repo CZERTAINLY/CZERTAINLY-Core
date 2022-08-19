@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.acme.Order;
 import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.SerializationUtil;
@@ -21,19 +22,13 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "acme_order")
-public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_new_order_seq")
-    @SequenceGenerator(name = "acme_new_order_seq", sequenceName = "acme_new_order_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Order> {
 
     @Column(name="order_id")
     private String orderId;
 
     @OneToOne
-    @JoinColumn(name = "account_id", nullable = false)
+    @JoinColumn(name = "account_uuid", nullable = false)
     private AcmeAccount acmeAccount;
 
     @OneToOne
@@ -82,7 +77,6 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("orderId", orderId)
                 .append("issuedCertificate", certificateReference)
                 .append("acmeAccount", acmeAccount)
@@ -91,14 +85,6 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
                 .append("expires", expires)
                 .append("certificateId", certificateId)
                 .append("identifiers", identifiers).toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getOrderId() {

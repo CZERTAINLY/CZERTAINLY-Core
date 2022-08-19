@@ -163,13 +163,13 @@ public class ClientServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveClient() throws NotFoundException {
-        clientService.removeClient(client.getSecuredUuid());
+        clientService.deleteClient(client.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(client.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveClient_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.removeClient(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.deleteClient(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -269,7 +269,7 @@ public class ClientServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testBulkRemove() {
-        clientService.bulkRemoveClient(List.of(client.getSecuredUuid()));
+        clientService.bulkDeleteClient(List.of(client.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(client.getSecuredUuid()));
     }
 

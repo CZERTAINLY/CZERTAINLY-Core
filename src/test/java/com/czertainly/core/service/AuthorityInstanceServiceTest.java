@@ -58,7 +58,6 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUuid("123");
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:3665");
         connector.setStatus(ConnectorStatus.CONNECTED);
@@ -161,7 +160,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEditAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.updateAuthorityInstance(SecuredUUID.fromString("wrong-uuid"), null));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString("wrong-uuid"), null));
     }
 
     @Test
@@ -170,7 +169,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
                 .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
-        authorityInstanceService.removeAuthorityInstance(authorityInstance.getSecuredUuid());
+        authorityInstanceService.deleteAuthorityInstance(authorityInstance.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid()));
     }
 
@@ -204,12 +203,12 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.removeAuthorityInstance(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException, ConnectorException {
-        authorityInstanceService.bulkRemoveAuthorityInstance(List.of(authorityInstance.getSecuredUuid()));
+        authorityInstanceService.bulkDeleteAuthorityInstance(List.of(authorityInstance.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid()));
     }
 }

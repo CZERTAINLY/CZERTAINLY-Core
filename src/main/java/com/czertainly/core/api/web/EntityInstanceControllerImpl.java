@@ -11,6 +11,9 @@ import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.EntityInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -31,16 +34,19 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     private EntityInstanceService entityInstanceService;
 
     @Override
+    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public List<EntityInstanceDto> listEntityInstances() {
         return entityInstanceService.listEntityInstances(SecurityFilter.create());
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.DETAIL)
     public EntityInstanceDto getEntityInstance(String entityUuid) throws ConnectorException {
         return entityInstanceService.getEntityInstance(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.CREATE)
     public ResponseEntity<?> createEntityInstance(EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException {
         EntityInstanceDto entityInstance = entityInstanceService.createEntityInstance(request);
 
@@ -55,21 +61,25 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     }
 
     @Override
-    public EntityInstanceDto updateEntityInstance(String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
-        return entityInstanceService.updateEntityInstance(SecuredUUID.fromString(entityUuid), request);
+    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.UPDATE)
+    public EntityInstanceDto editEntityInstance(String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
+        return entityInstanceService.editEntityInstance(SecuredUUID.fromString(entityUuid), request);
     }
 
     @Override
-    public void removeEntityInstance(String entityUuid) throws ConnectorException {
-        entityInstanceService.removeEntityInstance(SecuredUUID.fromString(entityUuid));
+    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.DELETE)
+    public void deleteEntityInstance(String entityUuid) throws ConnectorException {
+        entityInstanceService.deleteEntityInstance(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.NONE)
     public List<AttributeDefinition> listLocationAttributes(String entityUuid) throws ConnectorException {
         return entityInstanceService.listLocationAttributes(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.NONE)
     public void validateLocationAttributes(String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         entityInstanceService.validateLocationAttributes(SecuredUUID.fromString(entityUuid), attributes);
     }

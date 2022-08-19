@@ -46,7 +46,7 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to update Entity instance
      */
-    EntityInstanceDto updateEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto entityInstanceUpdateRequestDto) throws NotFoundException, ConnectorException;
+    EntityInstanceDto editEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto entityInstanceUpdateRequestDto) throws NotFoundException, ConnectorException;
 
     /**
      * Delete Entity instance
@@ -54,7 +54,8 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to delete Entity instance
      */
-    void removeEntityInstance(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
+    
+    void deleteEntityInstance(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
 
     /**
      * List Location Attributes supported by  Entity instance

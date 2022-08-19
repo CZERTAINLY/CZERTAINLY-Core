@@ -142,7 +142,7 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.DELETE)
-    public void removeAdmin(SecuredUUID uuid) throws NotFoundException {
+    public void deleteAdmin(SecuredUUID uuid) throws NotFoundException {
         Admin admin = adminRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
         adminRepository.delete(admin);
@@ -173,10 +173,10 @@ public class AdminServiceImpl implements AdminService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.DETAIL)
-    public void bulkRemoveAdmin(List<SecuredUUID> adminUuids) {
+    public void bulkDeleteAdmin(List<SecuredUUID> adminUuids) {
         for (SecuredUUID uuid : adminUuids) {
             try {
-                removeAdmin(uuid);
+                deleteAdmin(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to delete the admin with id {}", uuid);
             }

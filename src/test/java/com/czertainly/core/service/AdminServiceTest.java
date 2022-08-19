@@ -170,13 +170,13 @@ public class AdminServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveAdmin() throws NotFoundException {
-        adminService.removeAdmin(admin.getSecuredUuid());
+        adminService.deleteAdmin(admin.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> adminService.getAdminByUuid(admin.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> adminService.removeAdmin(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> adminService.deleteAdmin(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -203,7 +203,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testBulkRemove() {
-        adminService.bulkRemoveAdmin(List.of(admin.getSecuredUuid()));
+        adminService.bulkDeleteAdmin(List.of(admin.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> adminService.getAdminByUuid(admin.getSecuredUuid()));
     }
 

@@ -197,7 +197,7 @@ public class ConnectorServiceComplexTest extends BaseSpringBootTest {
         request.setAuthType(AuthType.NONE);
         request.setUrl("http://localhost:3665");
 
-        ConnectorDto dto = connectorService.updateConnector(connector.getSecuredUuid(), request);
+        ConnectorDto dto = connectorService.editConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getUuid());
 

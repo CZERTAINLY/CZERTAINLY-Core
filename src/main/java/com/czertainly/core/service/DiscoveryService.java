@@ -13,12 +13,12 @@ import java.util.List;
 
 public interface DiscoveryService {
 
-    List<DiscoveryHistoryDto> listDiscovery(SecurityFilter filter);
+    List<DiscoveryHistoryDto> listDiscoveries(SecurityFilter filter);
     DiscoveryHistoryDto getDiscovery(SecuredUUID uuid) throws NotFoundException;
     DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException;
 
     void createDiscovery(DiscoveryDto request, DiscoveryHistory modal) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    void removeDiscovery(SecuredUUID uuid) throws NotFoundException;
+    void deleteDiscovery(SecuredUUID uuid) throws NotFoundException;
     void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException;
 }

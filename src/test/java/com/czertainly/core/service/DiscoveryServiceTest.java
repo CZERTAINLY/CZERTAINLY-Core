@@ -89,7 +89,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListDiscoveries() {
-        List<DiscoveryHistoryDto> discoveries = discoveryService.listDiscovery(SecurityFilter.create());
+        List<DiscoveryHistoryDto> discoveries = discoveryService.listDiscoveries(SecurityFilter.create());
         Assertions.assertNotNull(discoveries);
         Assertions.assertFalse(discoveries.isEmpty());
         Assertions.assertEquals(1, discoveries.size());
@@ -179,13 +179,13 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveDiscovery() throws NotFoundException {
-        discoveryService.removeDiscovery(discovery.getSecuredUuid());
+        discoveryService.deleteDiscovery(discovery.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveDiscovery_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.removeDiscovery(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.deleteDiscovery(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test

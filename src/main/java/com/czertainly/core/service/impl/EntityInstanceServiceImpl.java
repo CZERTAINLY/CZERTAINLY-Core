@@ -137,7 +137,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.UPDATE)
-    public EntityInstanceDto updateEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
+    public EntityInstanceDto editEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
         EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
@@ -166,7 +166,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DELETE)
-    public void removeEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
+    public void deleteEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
         EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 

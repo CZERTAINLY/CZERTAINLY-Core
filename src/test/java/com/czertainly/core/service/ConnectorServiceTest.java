@@ -220,29 +220,29 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
         request.setUrl("http://localhost:3665");
 
-        ConnectorDto dto = connectorService.updateConnector(connector.getSecuredUuid(), request);
+        ConnectorDto dto = connectorService.editConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
     }
 
     @Test
     public void testEditConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.updateConnector(SecuredUUID.fromString("wrong-uuid"), new ConnectorUpdateRequestDto()));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.editConnector(SecuredUUID.fromString("wrong-uuid"), new ConnectorUpdateRequestDto()));
     }
 
     @Test
     public void testRemoveConnector() throws NotFoundException {
-        connectorService.removeConnector(connector.getSecuredUuid());
+        connectorService.deleteConnector(connector.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.removeConnector(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.deleteConnector(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        connectorService.bulkRemoveConnector(List.of(connector.getSecuredUuid()));
+        connectorService.bulkDeleteConnector(List.of(connector.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
     }
 

@@ -136,7 +136,7 @@ public class ClientServiceImpl implements ClientService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.DELETE)
-    public void removeClient(SecuredUUID uuid) throws NotFoundException {
+    public void deleteClient(SecuredUUID uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
         if (client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()) {
@@ -217,7 +217,7 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveClient(List<SecuredUUID> clientUuids) {
+    public List<BulkActionMessageDto> bulkDeleteClient(List<SecuredUUID> clientUuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : clientUuids) {
             try {

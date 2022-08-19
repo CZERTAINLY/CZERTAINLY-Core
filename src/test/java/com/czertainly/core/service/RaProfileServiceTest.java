@@ -34,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.Optional;
 
 public class RaProfileServiceTest extends BaseSpringBootTest {
 
@@ -100,6 +101,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfile.setEnabled(true);
         raProfile = raProfileRepository.save(raProfile);
     }
 
@@ -110,7 +112,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListRaProfiles() {
-        List<RaProfileDto> raProfiles = raProfileService.listRaProfiles(SecurityFilter.create());
+        List<RaProfileDto> raProfiles = raProfileService.listRaProfiles(SecurityFilter.create(), Optional.of(true));
         Assertions.assertNotNull(raProfiles);
         Assertions.assertFalse(raProfiles.isEmpty());
         Assertions.assertEquals(1, raProfiles.size());
@@ -190,13 +192,13 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveRaProfile() throws NotFoundException {
-        raProfileService.removeRaProfile(raProfile.getSecuredUuid());
+        raProfileService.deleteRaProfile(raProfile.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.removeRaProfile(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.deleteRaProfile(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -246,7 +248,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testBulkRemove() {
-        raProfileService.bulkRemoveRaProfile(List.of(raProfile.getSecuredUuid()));
+        raProfileService.bulkDeleteRaProfile(List.of(raProfile.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
     }
 

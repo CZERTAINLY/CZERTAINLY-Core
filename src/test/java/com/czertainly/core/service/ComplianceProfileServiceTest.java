@@ -103,7 +103,6 @@ public class ComplianceProfileServiceTest {
         complianceGroup.setDescription("Sample description");
         complianceGroup.setUuid("e8965d90-f1fd-11ec-b939-0242ac120003");
         complianceGroup.setConnector(connector);
-        complianceGroupRepository.save(complianceGroup);
 
         complianceRule = new ComplianceRule();
         complianceRule.setConnector(connector);
@@ -113,7 +112,6 @@ public class ComplianceProfileServiceTest {
         complianceRule.setUuid("e8965d90-f1fd-11ec-b939-0242ac120002");
         complianceRule.setCertificateType(CertificateType.X509);
         complianceRule.setGroup(complianceGroup);
-        complianceRuleRepository.save(complianceRule);
 
         complianceProfile = new ComplianceProfile();
         complianceProfile.setName("TestProfile");
@@ -158,6 +156,7 @@ public class ComplianceProfileServiceTest {
         raProfile = raProfileRepository.save(raProfile);
 
         complianceProfile.getRaProfiles().add(raProfile);
+        complianceProfileRepository.save(complianceProfile);
 
         raProfile = new RaProfile();
         raProfile.setName("TestProfile2");
@@ -324,18 +323,18 @@ public class ComplianceProfileServiceTest {
 
     @Test
     public void removeComplianceProfileTest() throws NotFoundException {
-        Assertions.assertThrows(ValidationException.class,() -> complianceProfileService.removeComplianceProfile(complianceProfile.getUuid()));
+        Assertions.assertThrows(ValidationException.class,() -> complianceProfileService.deleteComplianceProfile(complianceProfile.getUuid()));
     }
 
     @Test
     public void forceRemoveComplianceProfileTest() throws NotFoundException {
-        complianceProfileService.bulkForceRemoveComplianceProfiles(List.of(complianceProfile.getUuid()));
+        complianceProfileService.forceDeleteComplianceProfiles(List.of(complianceProfile.getUuid()));
         Assertions.assertDoesNotThrow(() -> complianceProfileRepository.findAll().size());
     }
 
     @Test
     public void removeComplianceProfile_NotFound() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.removeComplianceProfile("non-existant"));
+        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.deleteComplianceProfile("non-existant"));
     }
 
     @Test

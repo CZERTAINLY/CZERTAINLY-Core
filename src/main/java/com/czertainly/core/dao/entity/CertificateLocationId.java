@@ -14,33 +14,33 @@ import java.util.Objects;
 @Embeddable
 public class CertificateLocationId implements Serializable {
 
-    @Column(name = "location_id")
-    private Long locationId;
+    @Column(name = "location_uuid")
+    private String locationUuid;
 
-    @Column(name = "certificate_id")
-    private Long certificateId;
+    @Column(name = "certificate_uuid")
+    private String certificateUuid;
 
     public CertificateLocationId() {}
 
-    public CertificateLocationId (Long locationId, Long certificateId) {
-        this.locationId = locationId;
-        this.certificateId = certificateId;
+    public CertificateLocationId (String locationUuid, String certificateUuid) {
+        this.locationUuid = locationUuid;
+        this.certificateUuid = certificateUuid;
     }
 
-    public Long getLocationId() {
-        return locationId;
+    public String getLocationUuid() {
+        return locationUuid;
     }
 
-    public void setLocationId(Long locationId) {
-        this.locationId = locationId;
+    public void setLocationUuid(String locationUuid) {
+        this.locationUuid = locationUuid;
     }
 
-    public Long getCertificateId() {
-        return certificateId;
+    public String getCertificateUuid() {
+        return certificateUuid;
     }
 
-    public void setCertificateId(Long certificateId) {
-        this.certificateId = certificateId;
+    public void setCertificateUuid(String certificateUuid) {
+        this.certificateUuid = certificateUuid;
     }
 
     @Override
@@ -51,20 +51,20 @@ public class CertificateLocationId implements Serializable {
             return false;
 
         CertificateLocationId that = (CertificateLocationId) o;
-        return Objects.equals(locationId, that.locationId) &&
-                Objects.equals(certificateId, that.certificateId);
+        return Objects.equals(locationUuid, that.locationUuid) &&
+                Objects.equals(certificateUuid, that.certificateUuid);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(locationId, certificateId);
+        return Objects.hash(locationUuid, certificateUuid);
     }
 
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("locationId", locationId)
-                .append("certificateId", certificateId)
+                .append("locationUuid", locationUuid)
+                .append("certificateUuid", certificateUuid)
                 .toString();
     }
 }

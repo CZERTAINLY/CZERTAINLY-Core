@@ -163,17 +163,17 @@ public class ComplianceServiceImpl implements ComplianceService {
                 logger.debug("Certificate Compliance Response from Connector: {}", responseDto);
 
                 for (ComplianceResponseRulesDto rule : responseDto.getRules()) {
-                    Long ruleId = getComplianceRuleEntity(SecuredUUID.fromString(rule.getUuid()),
-                            getConnectorEntity(connector.getConnectorUuid()), connector.getKind()).getId();
+                    String ruleUuid = getComplianceRuleEntity(SecuredUUID.fromString(rule.getUuid()),
+                            getConnectorEntity(connector.getConnectorUuid()), connector.getKind()).getUuid();
                     switch (rule.getStatus()) {
                         case OK:
-                            complianceResults.getOk().add(ruleId);
+                            complianceResults.getOk().add(ruleUuid);
                             break;
                         case NOK:
-                            complianceResults.getNok().add(ruleId);
+                            complianceResults.getNok().add(ruleUuid);
                             break;
                         case NA:
-                            complianceResults.getNa().add(ruleId);
+                            complianceResults.getNa().add(ruleUuid);
                     }
                 }
                 logger.debug("Status from the Connector: {}", responseDto.getStatus());
@@ -211,8 +211,8 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_RULE, action = ResourceAction.DETAIL)
     // TODO AUTH - do not return DB Entity, return Dto instead, use UUIDS instead of IDs
-    public List<ComplianceRule> getComplianceRuleEntityForIds(List<Long> ids) {
-        return complianceRuleRepository.findByIdIn(ids);
+    public List<ComplianceRule> getComplianceRuleEntityForIds(List<String> ids) {
+        return complianceRuleRepository.findByUuidIn(ids);
     }
 
     // TODO AUTH - create separate service for ComplianceRule?

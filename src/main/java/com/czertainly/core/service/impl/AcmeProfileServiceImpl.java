@@ -125,7 +125,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
-    public AcmeProfileDto updateAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
+    public AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if (request.isRequireContact() != null) {
             acmeProfile.setRequireContact(request.isRequireContact());

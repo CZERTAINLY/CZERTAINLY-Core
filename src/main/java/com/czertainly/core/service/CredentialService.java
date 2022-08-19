@@ -28,17 +28,15 @@ public interface CredentialService {
 
     CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    CredentialDto updateCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException;
+    CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException;
 
-    void removeCredential(SecuredUUID uuid) throws NotFoundException;
+    void deleteCredential(SecuredUUID uuid) throws NotFoundException;
 
     void enableCredential(SecuredUUID uuid) throws NotFoundException;
 
     void disableCredential(SecuredUUID uuid) throws NotFoundException;
 
-    void bulkRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
-
-    void bulkForceRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
+    void bulkDeleteCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 
     void loadFullCredentialData(List<AttributeDefinition> attributes) throws NotFoundException;
 

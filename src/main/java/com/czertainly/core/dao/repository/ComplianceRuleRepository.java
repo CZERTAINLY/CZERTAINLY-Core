@@ -13,6 +13,8 @@ public interface ComplianceRuleRepository extends SecurityFilterRepository<Compl
 
     Optional<ComplianceRule> findByUuid(String uuid);
 
+    List<ComplianceRule> findByUuidIn(List<String> uuid);
+
     Optional<ComplianceRule> findByName(String name);
 
     List<ComplianceRule> findByConnectorAndKind(Connector connector, String kind);
@@ -22,6 +24,4 @@ public interface ComplianceRuleRepository extends SecurityFilterRepository<Compl
     Optional<ComplianceRule> findByUuidAndConnectorAndKind(String uuid, Connector connector, String kind);
 
     List<ComplianceRule> findByConnector(Connector connector);
-
-    List<ComplianceRule> findByIdIn(List<Long> ids);
 }

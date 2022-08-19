@@ -11,13 +11,7 @@ import java.io.Serializable;
 
 @Entity
 @Table(name = "admin")
-public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "admin_seq")
-    @SequenceGenerator(name = "admin_seq", sequenceName = "admin_id_seq", allocationSize = 1)
-    private Long id;
+public class Admin extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AdminDto> {
 
     @Column(name = "username")
     private String username;
@@ -35,7 +29,7 @@ public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> 
     private String email;
 
     @OneToOne
-	@JoinColumn(name = "certificate_id", nullable = false)
+	@JoinColumn(name = "certificate_uuid", nullable = false)
 	private Certificate certificate;
 
     @Column(name = "serial_number")
@@ -51,21 +45,12 @@ public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> 
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("username", username)
                 .append("name", name)
                 .append("email", email)
                 .append("surname", surname)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getUsername() {

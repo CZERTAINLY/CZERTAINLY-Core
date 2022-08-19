@@ -23,13 +23,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "ra_profile")
-public class RaProfile extends Audited implements Securable, Serializable, DtoMapper<RaProfileDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "ra_profile_seq")
-    @SequenceGenerator(name = "ra_profile_seq", sequenceName = "ra_profile_id_seq", allocationSize = 1)
-    private Long id;
+public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto> {
 
     @Column(name = "name")
     private String name;
@@ -46,7 +40,7 @@ public class RaProfile extends Audited implements Securable, Serializable, DtoMa
     private String attributes;
 
     @ManyToOne
-    @JoinColumn(name = "authority_instance_ref_id")
+    @JoinColumn(name = "authority_instance_ref_uuid")
     private AuthorityInstanceReference authorityInstanceReference;
 
     @Column(name = "enabled")
@@ -55,15 +49,15 @@ public class RaProfile extends Audited implements Securable, Serializable, DtoMa
     @ManyToMany
     @JoinTable(
             name = "ra_profile_2_compliance_profile",
-            joinColumns = @JoinColumn(name = "ra_profile_id"),
-            inverseJoinColumns = @JoinColumn(name = "compliance_profile_id"))
+            joinColumns = @JoinColumn(name = "ra_profile_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "compliance_profile_uuid"))
     private Set<ComplianceProfile> complianceProfiles;
 
     @ManyToMany
     @JoinTable(
             name = "client_authorization",
-            joinColumns = @JoinColumn(name = "ra_profile_id"),
-            inverseJoinColumns = @JoinColumn(name = "client_id"))
+            joinColumns = @JoinColumn(name = "ra_profile_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "client_uuid"))
     @JsonIgnore
     private Set<Client> clients = new HashSet<>();
 
@@ -71,7 +65,7 @@ public class RaProfile extends Audited implements Securable, Serializable, DtoMa
      * Acme related objects for RA Profile
      */
     @OneToOne
-    @JoinColumn(name="acme_profile_id")
+    @JoinColumn(name="acme_profile_uuid")
     private AcmeProfile acmeProfile;
 
     @Column(name="acme_issue_certificate_attributes")
@@ -139,14 +133,6 @@ public class RaProfile extends Audited implements Securable, Serializable, DtoMa
             dto.setComplianceProfiles(new ArrayList<>());
         }
         return dto;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {
@@ -240,7 +226,6 @@ public class RaProfile extends Audited implements Securable, Serializable, DtoMa
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("name", name)
                 .append("enabled", enabled)

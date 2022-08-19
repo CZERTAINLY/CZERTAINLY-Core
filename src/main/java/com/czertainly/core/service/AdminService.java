@@ -26,11 +26,15 @@ public interface AdminService {
 
     void enableAdmin(SecuredUUID uuid) throws NotFoundException, CertificateException;
 
-    void disableAdmin(SecuredUUID uuid) throws NotFoundException;
+    void deleteAdmin(SecuredUUID uuid) throws NotFoundException;
 
     void bulkRemoveAdmin(List<SecuredUUID> adminUuids);
 
     void bulkDisableAdmin(List<SecuredUUID> adminUuids);
 
-    void bulkEnableAdmin(List<SecuredUUID> adminUuids);
+    void bulkDeleteAdmin(List<SecuredUUID> adminUuids);
+
+    void bulkDisableAdmin(List<String> adminUuids);
+
+    void bulkEnableAdmin(List<String> adminUuids);
 }

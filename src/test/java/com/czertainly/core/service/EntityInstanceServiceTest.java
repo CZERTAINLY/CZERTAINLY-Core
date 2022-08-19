@@ -57,7 +57,6 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUuid("41604e8c-6bf7-43d8-9071-121902897af4");
         connector.setName("entityInstanceConnector");
         connector.setUrl("http://localhost:3665");
         connector.setStatus(ConnectorStatus.CONNECTED);
@@ -160,7 +159,7 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEditEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.updateEntityInstance(SecuredUUID.fromString("wrong-uuid"), null));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.editEntityInstance(SecuredUUID.fromString("wrong-uuid"), null));
     }
 
     @Test
@@ -169,7 +168,7 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
                 .delete(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
-        entityInstanceService.removeEntityInstance(entityInstance.getSecuredUuid());
+        entityInstanceService.deleteEntityInstance(entityInstance.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(entityInstance.getSecuredUuid()));
     }
 
@@ -203,6 +202,6 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.removeEntityInstance(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.deleteEntityInstance(SecuredUUID.fromString("wrong-uuid")));
     }
 }

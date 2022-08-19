@@ -43,7 +43,6 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
         acmeProfile.setDnsResolverPort("53");
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
-        acmeProfile.setUuid("1757e43e-7d12-11ec-90d6-0242ac120003");
         acmeProfileRepository.save(acmeProfile);
     }
 
@@ -65,7 +64,6 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
         AcmeProfileDto dto = acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeProfile.getUuid(), dto.getUuid());
-        Assertions.assertNotNull(acmeProfile.getId());
     }
 
     @Test
@@ -114,7 +112,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
         request.setDnsResolverIp("sample");
         request.setDnsResolverPort("32");
 
-        AcmeProfileDto dto = acmeProfileService.updateAcmeProfile(acmeProfile.getSecuredUuid(), request);
+        AcmeProfileDto dto = acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
         Assertions.assertEquals(request.getDnsResolverIp(), dto.getDnsResolverIp());
@@ -123,7 +121,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
     @Test
     public void testEditAcmeProfile_validationFail() {
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
-        Assertions.assertThrows(NullPointerException.class, () -> acmeProfileService.updateAcmeProfile(acmeProfile.getSecuredUuid(), request));
+        Assertions.assertThrows(NullPointerException.class, () -> acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request));
     }
 
     @Test

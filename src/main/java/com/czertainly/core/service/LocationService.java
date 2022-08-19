@@ -65,7 +65,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws ValidationException when the Location contains associated Certificates.
      */
-    void removeLocation(SecuredUUID locationUuid) throws NotFoundException;
+    void deleteLocation(SecuredUUID locationUuid) throws NotFoundException;
 
     /**
      * Enable existing Location with the given UUID.

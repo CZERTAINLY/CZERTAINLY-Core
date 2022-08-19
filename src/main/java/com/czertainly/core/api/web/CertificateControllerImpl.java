@@ -14,9 +14,12 @@ import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
@@ -45,11 +48,13 @@ public class CertificateControllerImpl implements CertificateController {
 	private CertificateEventHistoryService certificateEventHistoryService;
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.LIST, isListingEndPoint = true)
 	public CertificateResponseDto listCertificate(SearchRequestDto request) throws ValidationException {
 		return certificateService.listCertificates(SecurityFilter.create(), request);
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DETAIL)
 	public CertificateDto getCertificate(@PathVariable String uuid)
 			throws NotFoundException, CertificateException, IOException {
 		// TODO AUTH - move logic to service
@@ -62,29 +67,34 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DELETE)
 	public void removeCertificate(@PathVariable String uuid) throws NotFoundException {
 		certificateService.removeCertificate(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
 	public void updateRaProfile(@PathVariable String uuid, @RequestBody CertificateUpdateRAProfileDto request)
 			throws NotFoundException {
 		certificateService.updateRaProfile(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
 	public void updateCertificateGroup(@PathVariable String uuid,
 			@RequestBody CertificateUpdateGroupDto request) throws NotFoundException {
 		certificateService.updateCertificateGroup(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
 	public void updateOwner(@PathVariable String uuid, @RequestBody CertificateOwnerRequestDto request)
 			throws NotFoundException {
 		certificateService.updateOwner(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
 	public void check(@PathVariable String uuid)
 			throws CertificateException, IOException, NotFoundException {
 		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
@@ -93,18 +103,21 @@ public class CertificateControllerImpl implements CertificateController {
 
 	// -------------------- BulkUpdate APIs -------------------
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
 	public void bulkUpdateRaProfile(@RequestBody MultipleRAProfileUpdateDto request)
 			throws NotFoundException {
 		certificateService.bulkUpdateRaProfile(request);
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
 	public void bulkUpdateCertificateGroup(@RequestBody MultipleGroupUpdateDto request)
 			throws NotFoundException {
 		certificateService.bulkUpdateCertificateGroup(request);
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
 	public void bulkUpdateOwner(@RequestBody CertificateOwnerBulkUpdateDto request)
 			throws NotFoundException {
 		certificateService.bulkUpdateOwner(request);
@@ -112,6 +125,7 @@ public class CertificateControllerImpl implements CertificateController {
 	// ------------------- /Bulk Update API -----------------------
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPLOAD)
 	public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
 			throws AlreadyExistException, CertificateException {
 		CertificateDto dto = certificateService.upload(request);
@@ -126,8 +140,9 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public BulkOperationResponse bulkRemoveCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
-		certificateService.bulkRemoveCertificate(request);
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DELETE)
+	public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
+		certificateService.bulkDeleteCertificate(request);
 		BulkOperationResponse response = new BulkOperationResponse();
 		response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
 		response.setStatus(BulkOperationStatus.SUCCESS);
@@ -135,26 +150,31 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
 	public void validateAllCertificate() {
 		certValidationService.validateAllCertificates();
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE, isListingEndPoint = true)
 	public List<SearchFieldDataDto> getSearchableFieldInformation() {
 		return certificateService.getSearchableFieldInformation();
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DETAIL)
 	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
 		return certificateEventHistoryService.getCertificateEventHistory(uuid);
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.LIST)
 	public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
 		return certificateService.listLocations(SecuredUUID.fromString(certificateUuid));
 	}
 
 	@Override
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.CHECK_COMPLIANCE)
 	public void checkCompliance(CertificateComplianceCheckDto request) throws NotFoundException {
 		certificateService.checkCompliance(request);
 	}

@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -16,12 +17,7 @@ import java.io.Serializable;
 
 @Entity
 @Table(name = "acme_profile")
-public class AcmeProfile extends Audited implements Serializable, DtoMapper<AcmeProfileDto> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_profile_seq")
-    @SequenceGenerator(name = "acme_profile_seq", sequenceName = "acme_profile_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AcmeProfileDto> {
 
     @Column(name="name")
     private String name;
@@ -43,7 +39,7 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
 
     @OneToOne
     @JsonBackReference
-    @JoinColumn(name = "ra_profile_id")
+    @JoinColumn(name = "ra_profile_uuid")
     private RaProfile raProfile;
 
     @Column(name = "issue_certificate_attributes")
@@ -120,7 +116,6 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("description", description)
                 .append("name", name)
                 .append("isEnabled", isEnabled)
@@ -131,15 +126,6 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
                 .append("issueCertificateAttributes", issueCertificateAttributes)
                 .append("revokeCertificateAttributes", revokeCertificateAttributes)
                 .toString();
-    }
-
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {

@@ -19,22 +19,17 @@ import java.util.List;
  */
 @Entity
 @Table(name = "compliance_profile_rule")
-public class ComplianceProfileRule extends Audited implements Serializable, DtoMapper<ComplianceRulesDto> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "compliance_profile_rule_seq")
-    @SequenceGenerator(name = "compliance_profile_rule_seq", sequenceName = "compliance_profile_rule_id_seq", allocationSize = 1)
-    private Long id;
+public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceRulesDto> {
 
-    @OneToOne
-    @JoinColumn(name = "rule_id")
+    @OneToOne(cascade=CascadeType.ALL)
+    @JoinColumn(name = "rule_uuid")
     private ComplianceRule complianceRule;
 
     @Column(name="attributes")
     private String attributes;
 
     @OneToOne
-    @JoinColumn(name = "compliance_profile_id")
+    @JoinColumn(name = "compliance_profile_uuid")
     private ComplianceProfile complianceProfile;
 
     @Override
@@ -50,19 +45,11 @@ public class ComplianceProfileRule extends Audited implements Serializable, DtoM
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("rule", complianceRule)
+                .append("uuid", uuid)
                 .append("attributes", attributes)
                 .append("complianceProfile", complianceProfile)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public ComplianceRule getComplianceRule() {

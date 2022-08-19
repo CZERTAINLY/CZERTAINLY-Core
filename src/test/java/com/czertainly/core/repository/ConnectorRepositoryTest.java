@@ -27,7 +27,6 @@ public class ConnectorRepositoryTest {
         request.setFunctionGroups(Collections.emptySet());
 
         Connector result = connectorRepository.save(request);
-        Assertions.assertNotNull(result.getId());
         Assertions.assertNotNull(result.getUuid());
     }
 }

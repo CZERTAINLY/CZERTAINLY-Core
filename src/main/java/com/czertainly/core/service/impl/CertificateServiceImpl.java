@@ -186,7 +186,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void removeCertificate(SecuredUUID uuid) throws NotFoundException {
+    public void deleteCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
 
@@ -303,7 +303,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.saveAll(batchOperationList);
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
-            String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + raProfile.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + raProfile.getUuid() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(profileUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
             bulkUpdateRaProfileComplianceCheck(request.getFilters());
@@ -331,7 +331,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.saveAll(batchOperationList);
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
-            String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getUuid() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(groupUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
         }
@@ -367,7 +367,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Async("threadPoolTaskExecutor")
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
     // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
-    public void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
+    public void bulkDeleteCertificate(RemoveCertificateDto request) throws NotFoundException {
         List<String> failedDeleteCerts = new ArrayList<>();
         Integer totalItems;
         BulkOperationResponse bulkOperationResponse = new BulkOperationResponse();
@@ -475,7 +475,6 @@ public class CertificateServiceImpl implements CertificateService {
             subjectCertificate.verify(issuerCertificate.getPublicKey());
             return true;
         } catch (Exception e) {
-            logger.warn("Unable to verify certificate for signature.", e);
             return false;
         }
     }
@@ -753,7 +752,7 @@ public class CertificateServiceImpl implements CertificateService {
             Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
             certificateResponseDto.setTotalPages((int) Math.ceil((double) certificateRepository.count() / request.getItemsPerPage()));
             certificateResponseDto.setTotalItems(certificateRepository.count());
-            certificateResponseDto.setCertificates(certificateRepository.findAllByOrderByIdDesc(p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+            certificateResponseDto.setCertificates(certificateRepository.findAllByOrderByCreatedDesc(p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
         } else {
             DynamicSearchInternalResponse dynamicSearchInternalResponse = searchService.dynamicSearchQueryExecutor(request, "Certificate", getSearchableFieldInformation());
             certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
@@ -769,7 +768,7 @@ public class CertificateServiceImpl implements CertificateService {
         logger.debug("Framing Compliance Result from stored data: {}", storageDto);
         List<CertificateComplianceResultDto> result = new ArrayList<>();
         List<ComplianceRule> rules = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
-        List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
+        // List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
         for (ComplianceRule complianceRule : rules) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }

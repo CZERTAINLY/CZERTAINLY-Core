@@ -21,8 +21,7 @@ public interface AcmeProfileService {
     AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException;
 
     AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
-
-    AcmeProfileDto updateAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
+    AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
 
     void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 

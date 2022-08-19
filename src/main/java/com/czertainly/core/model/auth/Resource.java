@@ -27,8 +27,6 @@ public enum Resource {
     CERTIFICATE("certificate"),
     AUDIT_LOG("auditLog"),
     COMPLIANCE_PROFILE("complianceProfile"),
-    COMPLIANCE_RULE("complianceRule"),
-    COMPLIANCE_GROUP("complianceRule"),
     ENTITY("entity"),
     LOCATION("location");
 
@@ -36,6 +34,7 @@ public enum Resource {
     @Schema(description = "Resource Name",
             example = "client",
             required = true)
+            
     private final String code;
 
     Resource(String code) {

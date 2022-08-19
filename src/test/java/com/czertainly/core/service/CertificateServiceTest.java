@@ -126,7 +126,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveCertificate_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.removeCertificate(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.deleteCertificate(SecuredUUID.fromString("wrong-uuid")));
     }
 
     @Test
@@ -239,7 +239,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         RemoveCertificateDto request = new RemoveCertificateDto();
         request.setUuids(List.of(certificate.getUuid()));
 
-        certificateService.bulkRemoveCertificate(request);
+        certificateService.bulkDeleteCertificate(request);
 
         Assertions.assertAll(() -> certificateService.getCertificate(certificate.getSecuredUuid()));
     }

@@ -118,12 +118,10 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
         acmeProfile.setDnsResolverPort("53");
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
-        acmeProfile.setUuid("1757e43e-7d12-11ec-90d6-0242ac120003");
         acmeProfileRepository.save(acmeProfile);
 
 
         acmeAccount = new AcmeAccount();
-        acmeAccount.setUuid("1757e43e-7d12-11ec-90d6-0242ac120004");
         acmeAccount.setStatus(AccountStatus.VALID);
         acmeAccount.setEnabled(true);
         acmeAccount.setAccountId("D65fAtrgfAD");
@@ -147,7 +145,7 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
         AcmeAccountResponseDto dto = acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeAccount.getAccountId(), dto.getAccountId());
-        Assertions.assertNotNull(acmeAccount.getId());
+        Assertions.assertNotNull(acmeAccount.getUuid());
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.acme;
 import com.czertainly.api.model.core.acme.Authorization;
 import com.czertainly.api.model.core.acme.AuthorizationStatus;
 import com.czertainly.core.dao.entity.Audited;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.SerializationUtil;
@@ -20,13 +21,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "acme_authorization")
-public class AcmeAuthorization  extends Audited implements Serializable, DtoMapper<Authorization> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_new_authorization_seq")
-    @SequenceGenerator(name = "acme_new_authorization_seq", sequenceName = "acme_new_authorization_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Authorization> {
 
     @Column(name="authorization_id")
     private String authorizationId;
@@ -49,7 +44,7 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     private Boolean wildcard;
 
     @OneToOne
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "order_uuid", nullable = false)
     private AcmeOrder order;
 
     @Override
@@ -66,21 +61,12 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("authorizationId", authorizationId)
                 .append("status", status)
                 .append("expires", expires)
                 .append("wildcard", wildcard)
                 .append("challenges", challenges)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public AcmeOrder getOrder() {

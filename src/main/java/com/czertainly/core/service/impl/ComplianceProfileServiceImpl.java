@@ -196,7 +196,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.DELETE)
-    public void removeComplianceProfile(String uuid) throws NotFoundException, ValidationException {
+    public void deleteComplianceProfile(String uuid) throws NotFoundException, ValidationException {
         logger.info("Request to delete the Compliance Profile with UUID: {}", uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Profile identified: {}", complianceProfile);
@@ -205,7 +205,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws ValidationException {
+    public List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<String> uuids) throws ValidationException {
         logger.info("Request to remove Compliance Profiles with UUIDs: {}", String.join(",", uuids));
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (String uuid : uuids) {
@@ -225,7 +225,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveComplianceProfiles(List<String> uuids) {
+    public List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<String> uuids) {
         logger.info("Requesting force remove Compliance Profile: {}", String.join(", ", uuids));
         List<BulkActionMessageDto> messages = new ArrayList<>();
         ComplianceProfile complianceProfile = null;

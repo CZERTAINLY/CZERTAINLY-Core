@@ -103,7 +103,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CHANGE)
-    public CredentialDto updateCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException {
+    public CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -128,7 +128,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
-    public void removeCredential(SecuredUUID uuid) throws NotFoundException {
+    public void deleteCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = credentialRepository
                 .findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
@@ -158,19 +158,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
-    public void bulkRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
-        for (SecuredUUID uuid : uuids) {
-            try {
-                removeCredential(uuid);
-            } catch (NotFoundException e) {
-                logger.warn("Unable to find Credential with uuid {}. It may have deleted", uuid);
-            }
-        }
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.FORCE_DELETE)
-    public void bulkForceRemoveCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
+    public void bulkDeleteCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         for (SecuredUUID uuid : uuids) {
             try {
                 removeCredential(uuid);

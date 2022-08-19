@@ -1,6 +1,5 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndGroupsDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceGroupsDto;
@@ -29,12 +28,7 @@ import java.util.stream.Collectors;
  */
 @Entity
 @Table(name = "compliance_profile")
-public class ComplianceProfile extends Audited implements Serializable, DtoMapper<ComplianceProfileDto> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "compliance_profile_seq")
-    @SequenceGenerator(name = "compliance_profile_seq", sequenceName = "compliance_profile_id_seq", allocationSize = 1)
-    private Long id;
+public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceProfileDto> {
 
     @Column(name = "name")
     private String name;
@@ -49,8 +43,8 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     @ManyToMany
     @JoinTable(
             name = "compliance_profile_2_compliance_group",
-            joinColumns = @JoinColumn(name = "profile_id"),
-            inverseJoinColumns = @JoinColumn(name = "group_id"))
+            joinColumns = @JoinColumn(name = "profile_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid"))
     private Set<ComplianceGroup> groups = new HashSet<>();
 
     @JsonBackReference
@@ -169,20 +163,12 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("name", name)
+                .append("uuid", uuid)
                 .append("description", description)
                 .append("complianceRules", complianceRules)
                 .append("raProfiles", raProfiles)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {

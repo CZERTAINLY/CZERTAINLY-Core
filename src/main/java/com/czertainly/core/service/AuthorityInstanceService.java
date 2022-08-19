@@ -23,9 +23,9 @@ public interface AuthorityInstanceService {
 
     AuthorityInstanceDto createAuthorityInstance(AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    AuthorityInstanceDto updateAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException;
+    AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException;
 
-    void removeAuthorityInstance(SecuredUUID uuid) throws NotFoundException, ConnectorException;
+    void deleteAuthorityInstance(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
     List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
@@ -37,7 +37,7 @@ public interface AuthorityInstanceService {
 
     Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException;
 
-    List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<SecuredUUID> uuids) throws NotFoundException, ValidationException, ConnectorException;
+    List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<SecuredUUID> uuids) throws NotFoundException, ValidationException, ConnectorException;
 
-    List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> forceDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 }

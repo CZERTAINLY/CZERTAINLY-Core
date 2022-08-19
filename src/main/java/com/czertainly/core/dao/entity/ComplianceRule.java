@@ -22,19 +22,10 @@ import java.util.Set;
  */
 @Entity
 @Table(name = "compliance_rule")
-public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "compliance_rule_seq")
-    @SequenceGenerator(name = "compliance_rule_seq", sequenceName = "compliance_rule_id_seq", allocationSize = 1)
-    private Long id;
+public class ComplianceRule extends UniquelyIdentified implements Serializable, DtoMapper<ComplianceRulesDto> {
 
     @Column(name = "name")
     private String name;
-
-    @Column(name = "uuid")
-    private String uuid;
 
     @Column(name = "kind")
     private String kind;
@@ -53,11 +44,11 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
     private String description;
 
     @OneToOne
-    @JoinColumn(name = "connector_id", nullable = false)
+    @JoinColumn(name = "connector_uuid", nullable = false)
     private Connector connector;
 
-    @ManyToOne
-    @JoinColumn(name = "group_id")
+    @ManyToOne(cascade=CascadeType.ALL)
+    @JoinColumn(name = "group_uuid")
     private ComplianceGroup group;
 
     @JsonBackReference
@@ -103,28 +94,12 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
                 .toString();
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
     public String getName() {
         return name;
     }
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public String getUuid() {
-        return uuid;
-    }
-
-    public void setUuid(String uuid) {
-        this.uuid = uuid;
     }
 
     public String getKind() {

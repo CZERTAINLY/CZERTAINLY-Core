@@ -31,7 +31,7 @@ public interface CertificateService {
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException;
 
-    void removeCertificate(SecuredUUID uuid) throws NotFoundException;
+    void deleteCertificate(SecuredUUID uuid) throws NotFoundException;
 	void updateIssuer();
 	Certificate createCertificateEntity(X509Certificate certificate);
 
@@ -62,7 +62,7 @@ public interface CertificateService {
     void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
-    void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException;
+    void bulkDeleteCertificate(RemoveCertificateDto request) throws NotFoundException;
 
     /**
      * List all locations associated with the certificate
