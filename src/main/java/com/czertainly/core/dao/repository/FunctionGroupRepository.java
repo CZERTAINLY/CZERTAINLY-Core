@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @Repository
 @Transactional
-public interface FunctionGroupRepository extends JpaRepository<FunctionGroup, Long> {
+public interface FunctionGroupRepository extends JpaRepository<FunctionGroup, String> {
 
     Optional<FunctionGroup> findByUuid(String uuid);
 

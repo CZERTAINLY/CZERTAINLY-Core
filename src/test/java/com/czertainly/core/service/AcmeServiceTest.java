@@ -145,12 +145,10 @@ public class AcmeServiceTest {
         acmeProfile.setDnsResolverPort("53");
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
-        acmeProfile.setUuid("1757e43e-7d12-11ec-90d6-0242ac120003");
         acmeProfileRepository.save(acmeProfile);
 
 
         acmeAccount = new AcmeAccount();
-        acmeAccount.setUuid("1757e43e-7d12-11ec-90d6-0242ac120004");
         acmeAccount.setStatus(AccountStatus.VALID);
         acmeAccount.setEnabled(true);
         acmeAccount.setAccountId("RMAl70zrRrs");

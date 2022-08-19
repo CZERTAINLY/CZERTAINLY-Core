@@ -17,12 +17,6 @@ import java.util.stream.Collectors;
 public class FunctionGroup extends UniquelyIdentified implements Serializable, DtoMapper<FunctionGroupDto> {
     private static final long serialVersionUID = 463898767718879135L;
 
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "function_group_seq")
-    @SequenceGenerator(name = "function_group_seq", sequenceName = "function_group_id_seq", allocationSize = 1)
-    private Long id;
-
     @Column(name = "name")
     private String name;
 
@@ -35,14 +29,6 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
 
     @OneToMany(mappedBy = "functionGroup")
     private Set<Connector2FunctionGroup> connectors = new HashSet<>();
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getName() {
         return name;
@@ -84,7 +70,6 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("name", name)
                 .append("code", code)
@@ -99,11 +84,11 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
 
         FunctionGroup that = (FunctionGroup) o;
 
-        return id.equals(that.id);
+        return uuid.equals(that.uuid);
     }
 
     @Override
     public int hashCode() {
-        return id.hashCode();
+        return uuid.hashCode();
     }
 }

@@ -13,5 +13,4 @@ public interface GroupRepository extends JpaRepository<CertificateGroup, Long> {
 
     Optional<CertificateGroup> findByName(String name);
     Optional<CertificateGroup> findByUuid(String uuid);
-    Optional<CertificateGroup> findById(Long id);
 }

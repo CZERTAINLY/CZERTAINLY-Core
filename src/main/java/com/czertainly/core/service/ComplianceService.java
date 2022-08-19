@@ -94,7 +94,7 @@ public interface ComplianceService {
      * @param ids Ids of the entity
      * @return List of compliance rule entity
      */
-    List<ComplianceRule> getComplianceRuleEntityForIds(List<Long> ids);
+    List<ComplianceRule> getComplianceRuleEntityForIds(List<String> ids);
 
     /**
      * Fetch the list of groups and rules from the compliance provider and add them into the database

@@ -210,9 +210,9 @@ public class SearchServiceImpl implements SearchService {
             if (filter.isMultiValue() && !(filter.getValue() instanceof String)) {
                 List<String> whereObjects = new ArrayList<>();
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
-                    whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getId).map(i -> i.toString()).collect(Collectors.toList()));
+                    whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
                 } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
-                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getId).map(i -> i.toString()).collect(Collectors.toList()));
+                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
                 } else {
                     whereObjects.addAll(((List<Object>) filter.getValue()).stream().map(i -> "'" + i.toString() + "'").collect(Collectors.toList()));
                 }
@@ -280,11 +280,11 @@ public class SearchServiceImpl implements SearchService {
                     qp += filter.getConditions().get(0).getCode();
                 } else {
                     if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
-                        String raProfileId = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
-                        qp += filter.getConditions().get(0).getCode() + " '" + raProfileId + "'";
+                        String raProfileUuid = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getUuid().toString();
+                        qp += filter.getConditions().get(0).getCode() + " '" + raProfileUuid + "'";
                     } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
-                        String groupId = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
-                        qp += filter.getConditions().get(0).getCode() + " '" + groupId + "'";
+                        String groupUuid = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getUuid();
+                        qp += filter.getConditions().get(0).getCode() + " '" + groupUuid + "'";
                     } else {
                         qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "'";
                     }
@@ -293,7 +293,6 @@ public class SearchServiceImpl implements SearchService {
             queryParts.add(qp);
         }
         query += String.join(" AND ", queryParts);
-        query += " GROUP BY c.id ORDER BY c.id DESC";
         logger.debug("Executable query: {}", query);
         return query;
     }

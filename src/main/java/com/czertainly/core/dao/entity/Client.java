@@ -12,13 +12,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "client")
-public class Client extends Audited implements Serializable, DtoMapper<ClientDto> {
-
-	@Id
-	@Column(name = "id")
-	@GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "client_seq")
-	@SequenceGenerator(name = "client_seq", sequenceName = "client_id_seq", allocationSize = 1)
-	private Long id;
+public class Client extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ClientDto> {
 
 	@Column(name = "name")
 	private String name;
@@ -30,7 +24,7 @@ public class Client extends Audited implements Serializable, DtoMapper<ClientDto
 	private String serialNumber;
 
 	@OneToOne
-	@JoinColumn(name = "certificate_id", nullable = false)
+	@JoinColumn(name = "certificate_uuid", nullable = false)
 	private Certificate certificate;
 
 	@ManyToMany(mappedBy = "clients")
@@ -51,14 +45,6 @@ public class Client extends Audited implements Serializable, DtoMapper<ClientDto
             dto.setCertificate(certificate.mapToDto());
         }
         return dto;
-	}
-
-	public Long getId() {
-		return id;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
 	}
 
 	public String getName() {
@@ -111,8 +97,8 @@ public class Client extends Audited implements Serializable, DtoMapper<ClientDto
 
 	@Override
 	public String toString() {
-		return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id).append("name", name)
+		return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("name", name)
 				.append("enabled", enabled).append("certificate", certificate).append("serialNumber", serialNumber)
-				.toString();
+				.append("uuid", uuid).toString();
 	}
 }

@@ -23,17 +23,11 @@ import java.util.Set;
 
 @Entity
 @Table(name = "certificate")
-public class Certificate extends Audited implements Serializable, DtoMapper<CertificateDto> {
+public class Certificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateDto> {
 
     private static final long serialVersionUID = -3048734620156664554L;
 
     private static final Logger logger = LoggerFactory.getLogger(Certificate.class);
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_seq")
-    @SequenceGenerator(name = "certificate_seq", sequenceName = "certificate_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "common_name")
     private String commonName;
@@ -89,18 +83,18 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     private String subjectAlternativeNames;
 
     @ManyToOne()
-    @JoinColumn(name = "ra_profile_id")
+    @JoinColumn(name = "ra_profile_uuid")
     private RaProfile raProfile;
 
-    @Column(name = "ra_profile_id", insertable = false, updatable = false)
-    private Long raProfileId;
+    @Column(name = "ra_profile_uuid", insertable = false, updatable = false)
+    private String raProfileUuid;
 
     @ManyToOne
-    @JoinColumn(name = "group_id")
+    @JoinColumn(name = "group_uuid")
     private CertificateGroup group;
 
-    @Column(name = "group_id", insertable = false, updatable = false)
-    private Long groupId;
+    @Column(name = "group_uuid", insertable = false, updatable = false)
+    private String groupUuid;
 
     @OneToMany(
             mappedBy = "certificate",
@@ -194,16 +188,8 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id)
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid)
                 .append("commonName", commonName).append("serialNumber", serialNumber).toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getCommonName() {
@@ -414,20 +400,20 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.locations = locations;
     }
 
-    public Long getRaProfileId() {
-        return raProfileId;
+    public String getRaProfileUuid() {
+        return raProfileUuid;
     }
 
-    public void setRaProfileId(Long raProfileId) {
-        this.raProfileId = raProfileId;
+    public void setRaProfileUuid(String raProfileUuid) {
+        this.raProfileUuid = raProfileUuid;
     }
 
-    public Long getGroupId() {
-        return groupId;
+    public String getGroupUuid() {
+        return groupUuid;
     }
 
-    public void setGroupId(Long groupId) {
-        this.groupId = groupId;
+    public void setGroupUuid(String groupId) {
+        this.groupUuid = groupUuid;
     }
 
     public CertificateComplianceStorageDto getComplianceResult() {

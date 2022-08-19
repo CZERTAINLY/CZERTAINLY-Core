@@ -48,7 +48,6 @@ public class AcmeProfileServiceTest {
         acmeProfile.setDnsResolverPort("53");
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
-        acmeProfile.setUuid("1757e43e-7d12-11ec-90d6-0242ac120003");
         acmeProfileRepository.save(acmeProfile);
     }
 
@@ -70,7 +69,6 @@ public class AcmeProfileServiceTest {
         AcmeProfileDto dto = acmeProfileService.getAcmeProfile(acmeProfile.getUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeProfile.getUuid(), dto.getUuid());
-        Assertions.assertNotNull(acmeProfile.getId());
     }
 
     @Test

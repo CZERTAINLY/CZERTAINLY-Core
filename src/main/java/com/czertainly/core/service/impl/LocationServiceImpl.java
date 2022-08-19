@@ -287,7 +287,7 @@ public class LocationServiceImpl implements LocationService {
 
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
 
-        CertificateLocationId clId = new CertificateLocationId(location.getId(), certificate.getId());
+        CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getUuid());
         CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
                 .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
 
@@ -692,7 +692,7 @@ public class LocationServiceImpl implements LocationService {
 
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
 
-        CertificateLocationId clId = new CertificateLocationId(location.getId(), certificate.getId());
+        CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getUuid());
         return certificateLocationRepository.findById(clId)
                 .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
     }

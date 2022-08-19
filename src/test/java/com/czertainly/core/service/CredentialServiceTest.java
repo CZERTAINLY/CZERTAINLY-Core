@@ -78,7 +78,6 @@ public class CredentialServiceTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUuid("123");
         connector.setName("credentialProviderConnector");
         connector.setUrl("http://localhost:3665");
         connector.setStatus(ConnectorStatus.CONNECTED);

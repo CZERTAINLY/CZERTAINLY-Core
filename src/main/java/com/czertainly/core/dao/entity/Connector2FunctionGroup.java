@@ -15,12 +15,12 @@ public class Connector2FunctionGroup {
 	private Long id;
 	
 	@ManyToOne
-    @JoinColumn(name = "connector_id", nullable = false)
+    @JoinColumn(name = "connector_uuid", nullable = false)
     @JsonIgnore
     private Connector connector;
 	
 	@ManyToOne
-    @JoinColumn(name = "function_group_id", nullable = false)
+    @JoinColumn(name = "function_group_uuid", nullable = false)
 	private FunctionGroup functionGroup;
 	
 	@Column(name = "kinds")

@@ -21,13 +21,7 @@ import java.util.Set;
 
 @Entity
 @Table(name = "location")
-public class Location extends Audited implements Serializable, DtoMapper<LocationDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "location_seq")
-    @SequenceGenerator(name = "location_seq", sequenceName = "location_id_seq", allocationSize = 1)
-    private Long id;
+public class Location extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<LocationDto> {
 
     @Column(name = "name")
     private String name;
@@ -43,7 +37,7 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
     private String attributes;
 
     @ManyToOne
-    @JoinColumn(name = "entity_instance_ref_id")
+    @JoinColumn(name = "entity_instance_ref_uuid")
     private EntityInstanceReference entityInstanceReference;
 
     @Column(name = "enabled")
@@ -65,14 +59,6 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
 
     @Column(name = "metadata")
     private String metadata;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getName() {
         return name;
@@ -205,7 +191,6 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("name", name)
                 .append("enabled", enabled)

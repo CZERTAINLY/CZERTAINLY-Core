@@ -18,18 +18,12 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "discovery_history")
-public class DiscoveryHistory extends Audited implements Serializable, DtoMapper<DiscoveryHistoryDto> {
+public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryHistoryDto> {
 
     /**
      *
      */
     private static final long serialVersionUID = 571684590427678474L;
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "discovery_seq")
-    @SequenceGenerator(name = "discovery_seq", sequenceName = "discovery_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "name")
     private String name;
@@ -74,16 +68,8 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id).append("uuid", uuid)
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid)
                 .append("totalCertificatesDiscovered", totalCertificatesDiscovered).toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {

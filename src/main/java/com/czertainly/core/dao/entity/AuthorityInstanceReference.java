@@ -15,14 +15,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "authority_instance_reference")
-public class AuthorityInstanceReference extends Audited implements Serializable, DtoMapper<AuthorityInstanceDto> {
+public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AuthorityInstanceDto> {
     private static final long serialVersionUID = -2377655450967447704L;
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "authority_instance_reference_seq")
-    @SequenceGenerator(name = "authority_instance_reference_seq", sequenceName = "authority_instance_reference_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "authority_instance_uuid")
     private String authorityInstanceUuid;
@@ -37,7 +31,7 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
     private String kind;
 
     @ManyToOne
-    @JoinColumn(name = "connector_id")
+    @JoinColumn(name = "connector_uuid")
     private Connector connector;
 
     @Column(name="connector_name")
@@ -46,14 +40,6 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
     @OneToMany(mappedBy = "authorityInstanceReference")
     @JsonIgnore
     private Set<RaProfile> raProfiles = new HashSet<>();
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getAuthorityInstanceUuid() {
         return authorityInstanceUuid;
@@ -123,7 +109,6 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("authorityInstanceUuid", authorityInstanceUuid)
                 .append("name", name)
@@ -138,11 +123,11 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AuthorityInstanceReference that = (AuthorityInstanceReference) o;
-        return new EqualsBuilder().append(id, that.id).isEquals();
+        return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(id).toHashCode();
+        return new HashCodeBuilder(17, 37).append(uuid).toHashCode();
     }
 }

@@ -11,17 +11,11 @@ import java.util.Date;
 
 @Entity
 @Table(name = "discovery_certificate")
-public class DiscoveryCertificate extends Audited implements Serializable, DtoMapper<DiscoveryCertificatesDto> {
+public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryCertificatesDto> {
     /**
      *
      */
     private static final long serialVersionUID = 9115753988094130017L;
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "discovery_certificate_seq")
-    @SequenceGenerator(name = "discovery_certificate_seq", sequenceName = "discovery_certificate_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "common_name")
     private String commonName;
@@ -43,7 +37,7 @@ public class DiscoveryCertificate extends Audited implements Serializable, DtoMa
     private CertificateContent certificateContent;
 
     @OneToOne
-    @JoinColumn(name = "discovery_id", nullable = false)
+    @JoinColumn(name = "discovery_uuid", nullable = false)
     private DiscoveryHistory discovery;
 
     @Override
@@ -62,16 +56,8 @@ public class DiscoveryCertificate extends Audited implements Serializable, DtoMa
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id)
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("commonName", commonName).append("serialNumber", serialNumber).toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getCommonName() {

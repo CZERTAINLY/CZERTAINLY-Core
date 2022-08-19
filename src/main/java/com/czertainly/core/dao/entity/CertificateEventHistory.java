@@ -15,12 +15,7 @@ import java.util.HashMap;
 
 @Entity
 @Table(name = "certificate_event_history")
-public class CertificateEventHistory extends Audited implements Serializable, DtoMapper<CertificateEventHistoryDto> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_event_history_seq")
-    @SequenceGenerator(name = "certificate_event_history_seq", sequenceName = "certificate_event_history_id_seq", allocationSize = 1)
-    private Long id;
+public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateEventHistoryDto> {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "event")
@@ -37,13 +32,12 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
     private String additionalInformation;
 
     @ManyToOne
-    @JoinColumn(name = "certificate_id", nullable = false)
+    @JoinColumn(name = "certificate_uuid", nullable = false)
     private Certificate certificate;
 
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("created", created)
                 .append("createdBy", author)
@@ -69,14 +63,6 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
         certificateEventHistoryDto.setCreatedBy(author);
         certificateEventHistoryDto.setStatus(status);
         return certificateEventHistoryDto;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public CertificateEvent getEvent() {

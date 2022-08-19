@@ -12,12 +12,6 @@ import java.io.Serializable;
 @Table(name = "endpoint")
 public class Endpoint extends UniquelyIdentified implements Serializable, DtoMapper<EndpointDto> {
 
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "endpoint_seq")
-    @SequenceGenerator(name = "endpoint_seq", sequenceName = "endpoint_id_seq", allocationSize = 1)
-    private Long id;
-
     @Column(name = "name")
     private String name;
 
@@ -31,7 +25,7 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     private Boolean required;
 
     @ManyToOne
-    @JoinColumn(name = "function_group_id", nullable = false)
+    @JoinColumn(name = "function_group_uuid", nullable = false)
     private FunctionGroup functionGroup;
 
     @Override
@@ -48,21 +42,12 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("name", name)
                 .append("context", context)
                 .append("method", method)
                 .append("required", required)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {

@@ -62,7 +62,6 @@ public class EntityInstanceServiceTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUuid("41604e8c-6bf7-43d8-9071-121902897af4");
         connector.setName("entityInstanceConnector");
         connector.setUrl("http://localhost:3665");
         connector.setStatus(ConnectorStatus.CONNECTED);

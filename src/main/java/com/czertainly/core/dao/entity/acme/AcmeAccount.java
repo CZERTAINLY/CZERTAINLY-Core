@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -21,13 +22,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "acme_account")
-public class AcmeAccount extends Audited implements Serializable, DtoMapper<Account> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_new_account_seq")
-    @SequenceGenerator(name = "acme_new_account_seq", sequenceName = "acme_new_account_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Account> {
 
     @Column(name="account_id")
     private String accountId;
@@ -56,11 +51,11 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
     private Set<AcmeOrder> orders = new HashSet<>();
 
     @OneToOne
-    @JoinColumn(name = "ra_profile_id", nullable = false)
+    @JoinColumn(name = "ra_profile_uuid", nullable = false)
     private RaProfile raProfile;
 
     @OneToOne
-    @JoinColumn(name = "acme_profile_id", nullable = false)
+    @JoinColumn(name = "acme_profile_uuid", nullable = false)
     private AcmeProfile acmeProfile;
 
     @Override
@@ -131,18 +126,10 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id)
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("accountId", accountId)
                 .append("raProfileName", raProfile.getName()).toString();
 
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getAccountId() {

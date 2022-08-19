@@ -119,7 +119,6 @@ public class ClientOperationServiceV2Test {
 
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
-        raProfile.setUuid("1065586a-6af6-11ec-90d6-0242ac120004");
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile.setEnabled(true);
 
@@ -136,7 +135,6 @@ public class ClientOperationServiceV2Test {
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
-        certificate.setUuid("1065586a-6af6-11ec-90d6-0242ac120003");
         certificate.setCertificateContent(certificateContent);
         certificate = certificateRepository.save(certificate);
 
@@ -168,7 +166,7 @@ public class ClientOperationServiceV2Test {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004");
+        List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes(raProfile.getUuid());
         Assertions.assertNotNull(attributes);
     }
 
@@ -183,7 +181,7 @@ public class ClientOperationServiceV2Test {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result  = clientOperationService.validateIssueCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004", List.of());
+        boolean result  = clientOperationService.validateIssueCertificateAttributes(raProfile.getUuid(), List.of());
         Assertions.assertTrue(result);
     }
 
@@ -209,7 +207,7 @@ public class ClientOperationServiceV2Test {
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate("1065586a-6af6-11ec-90d6-0242ac120004", request, false);
+        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(raProfile.getUuid(), request, false);
         Assertions.assertNotNull(response);
 
         Optional<Certificate> newCertificate = certificateRepository.findBySerialNumberIgnoreCase("177E75F42E95ECB98F831EB57DE27B0BC8C47643");
@@ -231,7 +229,7 @@ public class ClientOperationServiceV2Test {
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        clientOperationService.renewCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request, false);
+        clientOperationService.renewCertificate(raProfile.getUuid(), certificate.getUuid(), request, false);
     }
 
     @Test
@@ -245,7 +243,7 @@ public class ClientOperationServiceV2Test {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004");
+        List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes(raProfile.getUuid());
         Assertions.assertNotNull(attributes);
     }
 
@@ -260,7 +258,7 @@ public class ClientOperationServiceV2Test {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result  = clientOperationService.validateRevokeCertificateAttributes("1065586a-6af6-11ec-90d6-0242ac120004", List.of());
+        boolean result  = clientOperationService.validateRevokeCertificateAttributes(raProfile.getUuid(), List.of());
         Assertions.assertTrue(result);
     }
 
@@ -283,7 +281,7 @@ public class ClientOperationServiceV2Test {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
-        clientOperationService.revokeCertificate("1065586a-6af6-11ec-90d6-0242ac120004", certificate.getUuid(), request, false);
+        clientOperationService.revokeCertificate(raProfile.getUuid(), certificate.getUuid(), request, false);
     }
 
     @Test

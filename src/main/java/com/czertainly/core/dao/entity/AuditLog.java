@@ -10,6 +10,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "audit_log")
@@ -20,6 +21,9 @@ public class AuditLog extends Audited implements Serializable, DtoMapper<AuditLo
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "audit_log_seq")
     @SequenceGenerator(name = "audit_log_seq", sequenceName = "audit_log_id_seq", allocationSize = 1)
     private Long id;
+
+    @Column(name = "uuid", nullable = false)
+    protected String uuid = UUID.randomUUID().toString();
 
     @Column(name = "origination")
     @Enumerated(EnumType.STRING)
@@ -115,6 +119,14 @@ public class AuditLog extends Audited implements Serializable, DtoMapper<AuditLo
 
     public void setAdditionalData(String additionalData) {
         this.additionalData = additionalData;
+    }
+
+    public String getUuid() {
+        return uuid;
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
     }
 
     @Override
