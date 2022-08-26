@@ -41,6 +41,7 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @SpringBootTest
 @Transactional
@@ -103,26 +104,34 @@ public class ComplianceProfileServiceTest {
         complianceGroup.setDescription("Sample description");
         complianceGroup.setUuid("e8965d90-f1fd-11ec-b939-0242ac120003");
         complianceGroup.setConnector(connector);
+        complianceGroup.setConnectorUuid(connector.getUuid());
+        complianceGroup = complianceGroupRepository.save(complianceGroup);
+        complianceGroup.setConnector(connector);
+        complianceGroup.setConnectorUuid(connector.getUuid());
 
         complianceRule = new ComplianceRule();
         complianceRule.setConnector(connector);
+        complianceRule.setConnectorUuid(connector.getUuid());
         complianceRule.setKind("default");
         complianceRule.setName("Rule1");
         complianceRule.setDescription("Description");
         complianceRule.setUuid("e8965d90-f1fd-11ec-b939-0242ac120002");
         complianceRule.setCertificateType(CertificateType.X509);
+        complianceRule.setConnectorUuid(connector.getUuid());
         complianceRule.setGroup(complianceGroup);
+        complianceRule.setGroupUuid(complianceGroup.getUuid());
 
         complianceProfile = new ComplianceProfile();
         complianceProfile.setName("TestProfile");
         complianceProfile.setDescription("Sample Description");
         complianceProfileRepository.save(complianceProfile);
 
-
         complianceProfileRule = new ComplianceProfileRule();
         complianceProfileRule.setComplianceProfile(complianceProfile);
+        complianceProfileRule.setComplianceProfileUuid(complianceProfile.getUuid());
         complianceProfileRule.setComplianceRule(complianceRule);
-        complianceProfileRuleRepository.save(complianceProfileRule);
+        complianceProfileRule.setComplianceRuleUuid(complianceRule.getUuid());
+        complianceProfileRule = complianceProfileRuleRepository.save(complianceProfileRule);
 
         complianceProfile.getComplianceRules().add(complianceProfileRule);
         complianceProfile.getGroups().add(complianceGroup);
@@ -130,6 +139,7 @@ public class ComplianceProfileServiceTest {
 
         complianceRule = new ComplianceRule();
         complianceRule.setConnector(connector);
+        complianceRule.setConnectorUuid(connector.getUuid());
         complianceRule.setKind("default");
         complianceRule.setName("Rule2");
         complianceRule.setDescription("Description");
@@ -143,6 +153,7 @@ public class ComplianceProfileServiceTest {
         complianceGroup2.setDescription("Sample description");
         complianceGroup2.setUuid("e8965d90-f1fd-11ec-b939-0242ac120005");
         complianceGroup2.setConnector(connector);
+        complianceGroup2.setConnectorUuid(connector.getUuid());
         complianceGroupRepository.save(complianceGroup2);
 
         authorityInstanceReference = new AuthorityInstanceReference();
@@ -162,7 +173,6 @@ public class ComplianceProfileServiceTest {
         raProfile.setName("TestProfile2");
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile = raProfileRepository.save(raProfile);
-
     }
 
     @AfterEach

@@ -140,33 +140,6 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
-    public List<Connector> listConnectorEntityByFunctionGroup(SecurityFilter filter, FunctionGroupCode functionGroup) {
-        List<Connector> connectors = new ArrayList<>();
-
-        for (Connector connector : connectorRepository.findUsingSecurityFilter(
-                filter,
-                (root, cb) -> cb.equal(root.get("status"), ConnectorStatus.CONNECTED))
-        ) {
-            ConnectorDto connectorDto = connector.mapToDto();
-            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
-                if (functionGroup == FunctionGroupCode.AUTHORITY_PROVIDER) {
-                    if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
-                        connectors.add(connector);
-                    }
-                } else {
-                    if (fg.getFunctionGroupCode() == functionGroup) {
-                        connectorDto.setFunctionGroups(List.of(fg));
-                        connectors.add(connector);
-                    }
-                }
-            }
-        }
-        return connectors;
-    }
-
-
-    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public List<ConnectorDto> listConnectors(SecurityFilter filter, FunctionGroupCode functionGroupCode, String kind) throws NotFoundException {
@@ -225,7 +198,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         return createNewConnector(request, ConnectorStatus.CONNECTED);
     }
 
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.NONE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
     public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
         return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
     }
@@ -268,6 +241,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         return connector.mapToDto();
     }
 
+    // TODO AUTH: this is used only in test, can we remove it and in test replace it with different method?
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
@@ -399,6 +373,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
     public void deleteConnector(SecuredUUID uuid) throws NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
@@ -488,7 +463,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.NONE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
     public List<ConnectDto> validateConnector(ConnectorDto request) throws ConnectorException {
         List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(request);
         return validateConnector(functions, SecuredUUID.fromString(request.getUuid()));
@@ -496,7 +471,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.NONE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
     public List<ConnectDto> validateConnector(List<? extends BaseFunctionGroupDto> functions, SecuredUUID uuid) {
         List<ValidationError> errors = new ArrayList<>();
         List<ConnectDto> responses = new ArrayList<>();
@@ -590,7 +565,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
     public List<AttributeDefinition> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
@@ -602,7 +577,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.NONE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
     public void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
@@ -617,7 +592,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.NONE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
     public List<AttributeDefinition> mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
@@ -632,7 +607,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
     public Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
@@ -669,7 +644,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.FORCE_DELETE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.FORCE_DELETE)
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> forceDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
@@ -678,9 +653,10 @@ public class ConnectorServiceImpl implements ConnectorService {
                 connector = connectorRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
+                // TODO AUTH: if we set credentials connector uuid to null, is this credentials usable or assignable to other connector?
                 if (!connector.getCredentials().isEmpty()) {
                     for (Credential credential : connector.getCredentials()) {
-                        credential.setConnector(null);
+                        credential.setConnectorUuid(null);
                         credentialRepository.save(credential);
                     }
                     connector.getCredentials().removeAll(connector.getCredentials());
@@ -721,6 +697,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private void deleteConnector(Connector connector) {
         List<String> errors = new ArrayList<>();
+        // TODO AUTH: should we check permissions for all dependent resources? Otherwise we are revealing names of resources that user maybe does not have permissions to see. Solution could be just return number of conflicting items
         if (!connector.getCredentials().isEmpty()) {
             errors.add("Dependent credentials: " + String.join(", ", connector.getCredentials().stream().map(Credential::getName).collect(Collectors.toSet())));
         }

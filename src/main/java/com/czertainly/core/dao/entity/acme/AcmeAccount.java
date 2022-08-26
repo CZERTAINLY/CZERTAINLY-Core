@@ -16,6 +16,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,17 +52,17 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     private Set<AcmeOrder> orders = new HashSet<>();
 
     @OneToOne
-    @JoinColumn(name = "ra_profile_uuid", nullable = false)
+    @JoinColumn(name = "ra_profile_uuid", nullable = false, insertable = false, updatable = false)
     private RaProfile raProfile;
 
-    @Column(name = "ra_profile_uuid")
+    @Column(name = "ra_profile_uuid", nullable = false)
     private String raProfileUuid;
 
     @OneToOne
-    @JoinColumn(name = "acme_profile_uuid", nullable = false)
+    @JoinColumn(name = "acme_profile_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
 
-    @Column(name = "acme_profile_uuid")
+    @Column(name = "acme_profile_uuid", nullable = false)
     private String acmeProfileUuid;
 
     @Override
@@ -194,12 +195,11 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
         this.orders = orders;
     }
 
-    public RaProfile getRaProfile() {
-        return raProfile;
-    }
+    public RaProfile getRaProfile() { return raProfile; }
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
+        this.raProfileUuid = raProfile.getUuid();
     }
 
     public AcmeProfile getAcmeProfile() {
@@ -208,6 +208,7 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setAcmeProfile(AcmeProfile acmeProfile) {
         this.acmeProfile = acmeProfile;
+        this.acmeProfileUuid = acmeProfile.getUuid();
     }
 
     public boolean isEnabled() {

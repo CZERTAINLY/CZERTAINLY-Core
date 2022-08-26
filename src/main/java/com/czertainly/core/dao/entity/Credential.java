@@ -29,15 +29,11 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
     @Column(name = "enabled")
     private Boolean enabled;
 
-    @Column(name="connector_name")
-    private String connectorName;
-
-    @ManyToOne
-    @JoinColumn(name = "connector_uuid")
-    private Connector connector;
-
     @Column(name = "connector_uuid")
     private String connectorUuid;
+
+    @Column(name="connector_name")
+    private String connectorName;
 
     public String getName() {
         return name;
@@ -71,18 +67,6 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         this.enabled = enabled;
     }
 
-    public Connector getConnector() {
-        return connector;
-    }
-
-    public void setConnector(Connector connector) {
-        this.connector = connector;
-    }
-
-    public String getConnectorName() { return connectorName; }
-
-    public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
-
     public String getConnectorUuid() {
         return connectorUuid;
     }
@@ -91,6 +75,10 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         this.connectorUuid = connectorUuid;
     }
 
+    public String getConnectorName() { return connectorName; }
+
+    public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
+
     public CredentialDto mapToDtoSimple() {
         CredentialDto dto = new CredentialDto();
         dto.setUuid(this.uuid);
@@ -98,9 +86,8 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         dto.setKind(this.kind);
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
-        if (this.connector != null) {
-            dto.setConnectorUuid(this.connector.getUuid());
-        }
+        dto.setConnectorUuid(this.connectorUuid);
+
         return dto;
     }
 
@@ -113,9 +100,8 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
-        if (this.connector != null) {
-            dto.setConnectorUuid(this.connector.getUuid());
-        }
+        dto.setConnectorUuid(this.connectorUuid);
+
         return dto;
     }
 

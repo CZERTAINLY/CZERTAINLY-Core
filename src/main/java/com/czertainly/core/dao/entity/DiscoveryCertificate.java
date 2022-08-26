@@ -33,17 +33,17 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     private Date notAfter;
 
     @OneToOne
-    @JoinColumn(name = "certificate_content_id", nullable = false)
+    @JoinColumn(name = "certificate_content_id", nullable = false, insertable = false, updatable = false)
     private CertificateContent certificateContent;
 
-    @Column(name = "certificate_content_id")
+    @Column(name = "certificate_content_id", nullable = false)
     private Long certificateContentId ;
 
     @OneToOne
-    @JoinColumn(name = "discovery_uuid", nullable = false)
+    @JoinColumn(name = "discovery_uuid", nullable = false, insertable = false, updatable = false)
     private DiscoveryHistory discovery;
 
-    @Column(name = "discovery_uuid")
+    @Column(name = "discovery_uuid", nullable = false)
     private String discoveryUuid;
 
     @Override
@@ -112,6 +112,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     public void setCertificateContent(CertificateContent certificateContent) {
         this.certificateContent = certificateContent;
+        this.certificateContentId = certificateContent.getId();
     }
 
     public DiscoveryHistory getDiscovery() {
@@ -120,6 +121,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     public void setDiscovery(DiscoveryHistory discovery) {
         this.discovery = discovery;
+        this.discoveryUuid = discovery.getUuid();
     }
 
     public Long getCertificateContentId() {

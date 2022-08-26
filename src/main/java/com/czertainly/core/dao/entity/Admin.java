@@ -29,10 +29,10 @@ public class Admin extends UniquelyIdentifiedAndAudited implements Serializable,
     private String email;
 
     @OneToOne
-	@JoinColumn(name = "certificate_uuid", nullable = false)
+	@JoinColumn(name = "certificate_uuid", nullable = false, insertable = false, updatable = false)
 	private Certificate certificate;
 
-    @Column(name = "certificate_uuid")
+    @Column(name = "certificate_uuid", nullable = false)
     private String certificateUuid;
 
     @Column(name = "serial_number")
@@ -126,7 +126,8 @@ public class Admin extends UniquelyIdentifiedAndAudited implements Serializable,
 
 	public void setCertificate(Certificate certificate) {
 		this.certificate = certificate;
-	}
+        this.certificateUuid = certificate.getUuid();
+    }
 
     public String getCertificateUuid() {
         return certificateUuid;

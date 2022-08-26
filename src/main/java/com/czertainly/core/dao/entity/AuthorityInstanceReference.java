@@ -31,7 +31,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     private String kind;
 
     @ManyToOne
-    @JoinColumn(name = "connector_uuid")
+    @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 
     @Column(name = "connector_uuid")
@@ -74,6 +74,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
 
     public void setConnector(Connector connector) {
         this.connector = connector;
+        if(connector != null) this.connectorUuid = connector.getUuid();
     }
 
     public Set<RaProfile> getRaProfiles() {

@@ -64,6 +64,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
         certificate.setCertificateContent(certificateContent);
+        certificate.setCertificateContentId(certificateContent.getId());
         certificate = certificateRepository.save(certificate);
 
         raProfile = new RaProfile();

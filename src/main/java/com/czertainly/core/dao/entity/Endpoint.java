@@ -25,10 +25,10 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     private Boolean required;
 
     @ManyToOne
-    @JoinColumn(name = "function_group_uuid", nullable = false)
+    @JoinColumn(name = "function_group_uuid", nullable = false, insertable = false, updatable = false)
     private FunctionGroup functionGroup;
 
-    @Column(name = "function_group_uuid")
+    @Column(name = "function_group_uuid", nullable = false)
     private String functionGroupUuid;
 
     @Override

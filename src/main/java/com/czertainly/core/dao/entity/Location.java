@@ -37,7 +37,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
     private String attributes;
 
     @ManyToOne
-    @JoinColumn(name = "entity_instance_ref_uuid")
+    @JoinColumn(name = "entity_instance_ref_uuid", insertable = false, updatable = false)
     private EntityInstanceReference entityInstanceReference;
 
     @Column(name = "entity_instance_ref_uuid")
@@ -101,6 +101,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     public void setEntityInstanceReference(EntityInstanceReference entityInstanceReference) {
         this.entityInstanceReference = entityInstanceReference;
+        if(entityInstanceReference != null) this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
     }
 
     public Boolean getEnabled() {

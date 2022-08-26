@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.AttributeCallback;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
@@ -13,7 +14,6 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -22,9 +22,9 @@ import java.util.List;
 public interface CredentialService {
     List<CredentialDto> listCredentials(SecurityFilter filter);
 
-    CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException;
+    List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) throws NotFoundException;
 
-    Credential getCredentialEntity(SecuredUUID uuid) throws NotFoundException;
+    CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException;
 
     CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 

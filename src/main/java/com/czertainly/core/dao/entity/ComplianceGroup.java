@@ -31,10 +31,10 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
     private Boolean decommissioned;
 
     @OneToOne
-    @JoinColumn(name = "connector_uuid", nullable = false)
+    @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     private Connector connector;
 
-    @Column(name = "connector_uuid")
+    @Column(name = "connector_uuid", nullable = false)
     private String connectorUuid;
 
     @JsonBackReference
@@ -94,7 +94,12 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
 
     public void setConnector(Connector connector) {
         this.connector = connector;
+        this.connectorUuid = connector.getUuid();
     }
+
+    public String getConnectorUuid() { return connectorUuid; }
+
+    public void setConnectorUuid(String connectorUuid) { this.connectorUuid = connectorUuid; }
 
     public String getDescription() {
         return description;

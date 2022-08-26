@@ -122,13 +122,13 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
     public HealthDto checkHealth(@PathVariable String uuid) throws NotFoundException, ValidationException, ConnectorException {
         return connectorService.checkHealth(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> getAttributes(@PathVariable String uuid,
                                                    @PathVariable String functionGroup,
                                                    @PathVariable String kind) throws NotFoundException, ConnectorException {
@@ -136,7 +136,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
     public void validateAttributes(@PathVariable String uuid,
                                       @PathVariable String functionGroup,
                                       @PathVariable String kind,
@@ -147,7 +147,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
 	@Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
 	public Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAttributesAll(String uuid) throws NotFoundException, ConnectorException {
 		return connectorService.getAllAttributesOfConnector(SecuredUUID.fromString(uuid));
 	}

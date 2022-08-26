@@ -15,11 +15,11 @@ public class Connector2FunctionGroup {
 	private Long id;
 	
 	@ManyToOne
-    @JoinColumn(name = "connector_uuid", nullable = false)
+    @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     @JsonIgnore
     private Connector connector;
 
-	@Column(name = "connector_uuid")
+	@Column(name = "connector_uuid", nullable = false)
 	private String connectorUuid;
 
 	public String getConnectorUuid() {
@@ -39,10 +39,10 @@ public class Connector2FunctionGroup {
 	}
 
 	@ManyToOne
-    @JoinColumn(name = "function_group_uuid", nullable = false)
+    @JoinColumn(name = "function_group_uuid", nullable = false, insertable = false, updatable = false)
 	private FunctionGroup functionGroup;
 
-	@Column(name = "function_group_uuid")
+	@Column(name = "function_group_uuid", nullable = false)
 	private String functionGroupUuid;
 	
 	@Column(name = "kinds")
@@ -53,12 +53,14 @@ public class Connector2FunctionGroup {
 	}
 	public void setConnector(Connector connector) {
 		this.connector = connector;
+		this.connectorUuid = connector.getUuid();
 	}
 	public FunctionGroup getFunctionGroup() {
 		return functionGroup;
 	}
 	public void setFunctionGroup(FunctionGroup functionGroup) {
 		this.functionGroup = functionGroup;
+		this.functionGroupUuid = functionGroup.getUuid();
 	}
 	public String getKinds() {
 		return kinds;

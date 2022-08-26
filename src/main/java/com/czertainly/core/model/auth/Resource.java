@@ -10,26 +10,35 @@ import java.util.Arrays;
 
 public enum Resource {
 
+    // GENERAL
     DASHBOARD("dashboard"),
-    RA_PROFILE("raProfile"),
+    AUDIT_LOG("auditLogs"),
+    CREDENTIAL("credentials"),
+    CONNECTOR("connectors"),
+
+    // AUTH
+    USER("users"),
+    ROLE("roles"),
+
+    // ACME
+    ACME_ACCOUNT("acmeAccounts"),
+    ACME_PROFILE("acmeProfiles"),
+
+    // CERTIFICATES
+    AUTHORITY("authorities"),
+    RA_PROFILE("raProfiles"),
+    CERTIFICATE("certificates"),
+    CERTIFICATE_GROUP("certificateGroups"),
+    COMPLIANCE_PROFILE("complianceProfiles"),
+    DISCOVERY("discoveries"),
+
+    // ENTITIES
+    ENTITY("entities"),
+    LOCATION("locations"),
 
     // TODO Check and remove client and admin after new authorization
     CLIENT("client"),
-    ADMIN("admin"),
-
-    CONNECTOR("connector"),
-    CREDENTIAL("credential"),
-    AUTHORITY("authority"),
-    ACME_ACCOUNT("acmeAccount"),
-    ACME_PROFILE("acmeProfile"),
-    GROUP("group"),
-    DISCOVERY("discovery"),
-    CERTIFICATE("certificate"),
-    AUDIT_LOG("auditLog"),
-    COMPLIANCE_PROFILE("complianceProfile"),
-    ENTITY("entity"),
-    LOCATION("location");
-
+    ADMIN("admin");
 
     @Schema(description = "Resource Name",
             example = "client",

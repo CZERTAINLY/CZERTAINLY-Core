@@ -34,8 +34,6 @@ public interface ConnectorService {
 
     List<ConnectorDto> listConnectorsByFunctionGroup(SecurityFilter filter, FunctionGroupCode functionGroup);
 
-    List<Connector> listConnectorEntityByFunctionGroup(SecurityFilter filter, FunctionGroupCode functionGroup);
-
     List<ConnectorDto> listConnectors(SecurityFilter filter, FunctionGroupCode functionGroup, String kind) throws NotFoundException;
 
     ConnectorDto getConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;

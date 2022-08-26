@@ -25,15 +25,18 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
     @JoinColumn(name = "rule_uuid")
     private ComplianceRule complianceRule;
 
+    @Column(name="rule_uuid", insertable = false, updatable = false)
+    private String complianceRuleUuid;
+
     @Column(name="attributes")
     private String attributes;
-
-    @Column(name="compliance_profile_uuid")
-    private String complianceProfileUuid;
 
     @OneToOne
     @JoinColumn(name = "compliance_profile_uuid")
     private ComplianceProfile complianceProfile;
+
+    @Column(name="compliance_profile_uuid", insertable = false, updatable = false)
+    private String complianceProfileUuid;
 
     @Override
     public ComplianceRulesDto mapToDto(){
@@ -61,6 +64,15 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
 
     public void setComplianceRule(ComplianceRule complianceRule) {
         this.complianceRule = complianceRule;
+        if(complianceRule != null) this.complianceRuleUuid = complianceRule.getUuid();
+    }
+
+    public String getComplianceRuleUuid() {
+        return complianceRuleUuid;
+    }
+
+    public void setComplianceRuleUuid(String complianceRuleUuid) {
+        this.complianceRuleUuid = complianceRuleUuid;
     }
 
     public List<RequestAttributeDto> getAttributes() {

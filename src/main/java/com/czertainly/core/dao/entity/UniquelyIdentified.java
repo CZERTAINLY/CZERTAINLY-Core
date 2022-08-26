@@ -21,12 +21,12 @@ public abstract class UniquelyIdentified {
         return uuid;
     }
 
-    public SecuredUUID getSecuredUuid() {
-        return SecuredUUID.fromString(uuid);
-    }
-
     public void setUuid(String uuid) {
         this.uuid = uuid;
+    }
+
+    public SecuredUUID getSecuredUuid() {
+        return SecuredUUID.fromString(uuid);
     }
 
     @PrePersist

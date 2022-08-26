@@ -88,7 +88,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         credential = new Credential();
         credential.setKind("sample");
         credential.setName(CREDENTIAL_NAME);
-        credential.setConnector(connector);
+        credential.setConnectorUuid(connector.getUuid());
         credential = credentialRepository.save(credential);
     }
 
@@ -112,7 +112,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(credential.getUuid(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(credential.getConnectorUuid(), dto.getConnectorUuid());
     }
 
     @Test
@@ -139,7 +139,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(credential.getConnectorUuid(), dto.getConnectorUuid());
     }
 
     @Test
@@ -171,7 +171,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         CredentialDto dto = credentialService.editCredential(credential.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(credential.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(credential.getConnectorUuid(), dto.getConnectorUuid());
     }
 
     @Test

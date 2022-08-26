@@ -32,10 +32,10 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     private String additionalInformation;
 
     @ManyToOne
-    @JoinColumn(name = "certificate_uuid", nullable = false)
+    @JoinColumn(name = "certificate_uuid", nullable = false, insertable = false, updatable = false)
     private Certificate certificate;
 
-    @Column(name = "certificate_uuid")
+    @Column(name = "certificate_uuid", nullable = false)
     private String certificateUuid;
 
     @Override
@@ -106,6 +106,7 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
 
     public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
+        this.certificateUuid = certificate.getUuid();
     }
 
     public String getCertificateUuid() {

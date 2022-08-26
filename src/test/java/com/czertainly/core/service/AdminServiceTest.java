@@ -54,6 +54,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
         admin = new Admin();
         admin.setUsername(ADMIN_NAME);
         admin.setCertificate(certificate);
+        admin.setCertificateUuid(certificate.getUuid());
         admin.setSerialNumber(certificate.getSerialNumber());
         admin = adminRepository.save(admin);
     }
@@ -73,7 +74,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(admin.getUuid(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificate());
-        Assertions.assertEquals(admin.getCertificate().getUuid(), dto.getCertificate().getUuid());
+        Assertions.assertEquals(admin.getCertificateUuid(), dto.getCertificate().getUuid());
     }
 
     @Test
@@ -85,6 +86,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
     public void testAddAdmin() throws NotFoundException, CertificateException, AlreadyExistException {
         Certificate admin2Cert = new Certificate();
         admin2Cert.setCertificateContent(certificateContent);
+        admin2Cert.setCertificateContentId(certificateContent.getId());
         admin2Cert.setSerialNumber("987654321");
         admin2Cert = certificateRepository.save(admin2Cert);
 

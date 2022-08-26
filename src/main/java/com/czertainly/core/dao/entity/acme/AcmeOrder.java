@@ -28,11 +28,14 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     private String orderId;
 
     @OneToOne
-    @JoinColumn(name = "account_uuid", nullable = false)
+    @JoinColumn(name = "account_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeAccount acmeAccount;
 
+    @Column(name = "account_uuid")
+    private String acmeAccountUuid;
+
     @OneToOne
-    @JoinColumn(name = "certificate_ref")
+    @JoinColumn(name = "certificate_ref", insertable = false, updatable = false)
     private Certificate certificateReference;
 
     @Column(name = "certificate_ref")
@@ -104,6 +107,24 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setAcmeAccount(AcmeAccount acmeAccount) {
         this.acmeAccount = acmeAccount;
+        this.acmeAccountUuid = acmeAccount.getUuid();
+    }
+
+    public Certificate getCertificateReference() {
+        return certificateReference;
+    }
+
+    public void setCertificateReference(Certificate certificateReference) {
+        this.certificateReference = certificateReference;
+        if(certificateReference != null) this.certificateReferenceUuid = certificateReference.getUuid();
+    }
+
+    public String getAcmeAccountUuid() {
+        return acmeAccountUuid;
+    }
+
+    public void setAcmeAccountUuid(String acmeAccountUuid) {
+        this.acmeAccountUuid = acmeAccountUuid;
     }
 
     public Date getNotBefore() {
@@ -152,14 +173,6 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setAuthorizations(Set<AcmeAuthorization> authorizations) {
         this.authorizations = authorizations;
-    }
-
-    public Certificate getCertificateReference() {
-        return certificateReference;
-    }
-
-    public void setCertificateReference(Certificate certificateReference) {
-        this.certificateReference = certificateReference;
     }
 
     public String getCertificateId() {

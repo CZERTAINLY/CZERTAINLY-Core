@@ -77,11 +77,13 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         authorityInstanceReference = new AuthorityInstanceReference();
         authorityInstanceReference.setAuthorityInstanceUuid("1l");
         authorityInstanceReference.setConnector(connector);
+        authorityInstanceReference.setConnectorUuid(connector.getUuid());
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfile.setAuthorityInstanceReferenceUuid(authorityInstanceReference.getUuid());
         raProfile.setEnabled(true);
 
         Map<String, Object> contentMap = new HashMap<>();
@@ -103,11 +105,12 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
         certificate.setCertificateContent(certificateContent);
+        certificate.setCertificateContentId(certificateContent.getId());
         certificate = certificateRepository.save(certificate);
 
         client = new Client();
         client.setName("user");
-        client.setCertificate(certificate);
+        client.setCertificateUuid(certificate.getUuid());
         client.setSerialNumber(certificate.getSerialNumber());
         client.getRaProfiles().add(raProfile);
         client = clientRepository.save(client);

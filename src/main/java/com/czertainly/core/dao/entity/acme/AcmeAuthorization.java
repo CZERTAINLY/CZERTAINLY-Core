@@ -44,10 +44,10 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
     private Boolean wildcard;
 
     @OneToOne
-    @JoinColumn(name = "order_uuid", nullable = false)
+    @JoinColumn(name = "order_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeOrder order;
 
-    @Column(name = "order_uuid")
+    @Column(name = "order_uuid", nullable = false)
     private String orderUuid;
 
     @Override
@@ -78,6 +78,7 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
 
     public void setOrder(AcmeOrder order) {
         this.order = order;
+        this.orderUuid = order.getUuid();
     }
 
     public String getAuthorizationId() {

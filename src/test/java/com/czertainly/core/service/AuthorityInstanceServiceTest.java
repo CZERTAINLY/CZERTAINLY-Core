@@ -70,7 +70,9 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
         Connector2FunctionGroup c2fg = new Connector2FunctionGroup();
         c2fg.setConnector(connector);
+        c2fg.setConnectorUuid(connector.getUuid());
         c2fg.setFunctionGroup(functionGroup);
+        c2fg.setFunctionGroupUuid(functionGroup.getUuid());
         c2fg.setKinds(MetaDefinitions.serializeArrayString(List.of("ApiKey")));
         connector2FunctionGroupRepository.save(c2fg);
 
@@ -80,6 +82,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
         authorityInstance = new AuthorityInstanceReference();
         authorityInstance.setName(AUTHORITY_INSTANCE_NAME);
         authorityInstance.setConnector(connector);
+        authorityInstance.setConnectorUuid(connector.getUuid());
         authorityInstance.setKind("sample");
         authorityInstance.setAuthorityInstanceUuid("1l");
         authorityInstance = authorityInstanceReferenceRepository.save(authorityInstance);

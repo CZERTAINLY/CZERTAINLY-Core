@@ -34,14 +34,14 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     private ClientOperationService clientOperationService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listIssueCertificateAttributes(
             @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
         return clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public void validateIssueCertificateAttributes(
             @PathVariable String raProfileUuid,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
@@ -66,14 +66,14 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listRevokeCertificateAttributes(
             @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
         return clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public void validateRevokeCertificateAttributes(
             @PathVariable String raProfileUuid,
             @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {

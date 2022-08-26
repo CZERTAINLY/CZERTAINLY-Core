@@ -104,6 +104,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfile.setAuthorityInstanceReferenceUuid(authorityInstanceReference.getUuid());
         raProfile.setEnabled(true);
 
         raProfile.setAttributes(AttributeDefinitionUtils.serialize(
@@ -120,11 +121,12 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
         certificate.setCertificateContent(certificateContent);
+        certificate.setCertificateContentId(certificateContent.getId());
         certificate = certificateRepository.save(certificate);
 
         client = new Client();
         client.setName("user");
-        client.setCertificate(certificate);
+        client.setCertificateUuid(certificate.getUuid());
         client.setSerialNumber(certificate.getSerialNumber());
         client.getRaProfiles().add(raProfile);
         client = clientRepository.save(client);

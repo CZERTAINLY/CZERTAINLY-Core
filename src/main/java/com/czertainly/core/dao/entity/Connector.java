@@ -45,7 +45,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @OneToMany(mappedBy = "connector")
     private Set<Connector2FunctionGroup> functionGroups = new HashSet<>();
 
-    @OneToMany(mappedBy = "connector")
+    @OneToMany(mappedBy = "connectorUuid")
     @JsonIgnore
     private Set<Credential> credentials = new HashSet<>();
 

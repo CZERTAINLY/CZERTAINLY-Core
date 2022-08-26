@@ -9,19 +9,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Arrays;
 
 public enum ResourceAction {
+    NONE("NONE"),
+    ANY("ANY"), // Action that is evaluated as any action
 
-    NONE("none"),
-
-    //Common List and Detail actions
+    // Default (CRUD) Actions
     LIST("list"),
     DETAIL("detail"),
-
-    //CRUD Actions
     CREATE("create"),
     UPDATE("update"),
     DELETE("delete"),
-    FORCE_DELETE("forceDelete"),
 
+    // Default change state actions that allows also reverse action (disable/deactivate)
     ENABLE("enable"),
     ACTIVATE("activate"),
 
@@ -31,11 +29,10 @@ public enum ResourceAction {
 
     //Connector actions
     APPROVE("approve"),
-    CONNECT("connect"),
+    CONNECT("connect"), // allows also reconnect action
 
     //Certificate actions
     UPLOAD("upload"),
-    DOWNLOAD("download"),
     RENEW("renew"),
     REVOKE("revoke"),
     ISSUE("issue"),
@@ -51,7 +48,7 @@ public enum ResourceAction {
     EDIT_END_ENTITY("editEndEntity"),
     RESET_PASSWORD("resetPassword"),
 
-    //Audit Log export
+    // Audit Log export
     EXPORT("export"),
 
     //Certificate, RA Profile and Compliance Profile
@@ -62,7 +59,7 @@ public enum ResourceAction {
 
     // RA Profile actions
     ACTIVATE_ACME("activateAcme"),
-    ACME_DETAIL("acmeDetail"),
+//    ACME_DETAIL("acmeDetail"), // used RA Profile detail action
     ;
 
     @Schema(description = "Resource Action Name",

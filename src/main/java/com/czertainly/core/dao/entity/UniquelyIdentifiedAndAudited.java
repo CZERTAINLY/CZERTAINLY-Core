@@ -22,9 +22,8 @@ public abstract class UniquelyIdentifiedAndAudited extends Audited {
     public void setUuid(String uuid) {
         this.uuid = uuid;
     }
-    public SecuredUUID getSecuredUuid() {
-        return SecuredUUID.fromString(uuid);
-    }
+
+    public SecuredUUID getSecuredUuid() { return SecuredUUID.fromString(uuid); }
 
     @PrePersist
     private void generateUuid(){

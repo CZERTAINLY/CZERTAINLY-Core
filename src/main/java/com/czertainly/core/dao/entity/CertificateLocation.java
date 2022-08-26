@@ -27,15 +27,9 @@ public class CertificateLocation implements Serializable {
     @MapsId("locationUuid")
     private Location location;
 
-    @Column(name = "location_uuid")
-    private String locationUuid;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("certificateUuid")
     private Certificate certificate;
-
-    @Column(name = "certificate_uuid")
-    private String certificateUuid;
 
     @Column(name = "metadata")
     private String metadata;
@@ -105,22 +99,6 @@ public class CertificateLocation implements Serializable {
 
     public void setWithKey(boolean hasPrivateKey) {
         this.withKey = hasPrivateKey;
-    }
-
-    public String getLocationUuid() {
-        return locationUuid;
-    }
-
-    public void setLocationUuid(String locationUuid) {
-        this.locationUuid = locationUuid;
-    }
-
-    public String getCertificateUuid() {
-        return certificateUuid;
-    }
-
-    public void setCertificateUuid(String certificateUuid) {
-        this.certificateUuid = certificateUuid;
     }
 
     @Override

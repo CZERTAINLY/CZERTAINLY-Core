@@ -84,13 +84,13 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listPushAttributes(String locationUuid) throws NotFoundException, LocationException {
         return locationService.listPushAttributes(SecuredUUID.fromString(locationUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listCsrAttributes(String locationUuid) throws NotFoundException, LocationException {
         return locationService.listCsrAttributes(SecuredUUID.fromString(locationUuid));
     }

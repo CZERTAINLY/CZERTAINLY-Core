@@ -285,7 +285,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             try {
                 acmeProfile = getAcmeProfileEntity(uuid);
                 SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getUuid(), SecurityFilter.create());
-                // TODO AUTH - if there is forbidden ra profile in the ra profile list, the operation will be denied. Other possibility is to unassign
+                // TODO AUTH - if there is forbidden ra profile in the ra profile list, the operation will be denied. Other possibility is to unassign, ADD back filtering based on allowed and forbidden
                 // acme profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent acme profile.
                 raProfileService.bulkRemoveAssociatedAcmeProfile(raProfiles.getAll().stream().map(UniquelyIdentifiedAndAudited::getSecuredUuid).collect(Collectors.toList()));
                 deleteAcmeProfile(acmeProfile);

@@ -117,7 +117,7 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
 
         client = new Client();
         client.setName(CLIENT_NAME);
-        client.setCertificate(certificate);
+        client.setCertificateUuid(certificate.getUuid());
         client.setSerialNumber(certificate.getSerialNumber());
         client = clientRepository.save(client);
 
@@ -168,7 +168,7 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
         authorization1.setAuthorizationId("auth123");
         authorization1.setStatus(AuthorizationStatus.PENDING);
         authorization1.setWildcard(false);
-        authorization1.setOrder(order1);
+        authorization1.setOrderUuid(order1.getUuid());
         acmeAuthorizationRepository.save(authorization1);
 
         AcmeChallenge challenge2 = new AcmeChallenge();
@@ -176,7 +176,7 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
         challenge2.setStatus(ChallengeStatus.VALID);
         challenge2.setType(ChallengeType.HTTP01);
         challenge2.setToken("122324");
-        challenge2.setAuthorization(authorization1);
+        challenge2.setAuthorizationUuid(authorization1.getUuid());
         acmeChallengeRepository.save(challenge2);
 
     }

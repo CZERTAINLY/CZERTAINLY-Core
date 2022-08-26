@@ -110,11 +110,11 @@ public class ComplianceServiceTest extends BaseSpringBootTest {
         complianceGroup.setKind("default");
         complianceGroup.setDescription("Sample description");
         complianceGroup.setUuid("e8965d90-f1fd-11ec-b939-0242ac120003");
-        complianceGroup.setConnector(connector);
+        complianceGroup.setConnectorUuid(connector.getUuid());
         complianceGroupRepository.save(complianceGroup);
 
         complianceRule = new ComplianceRule();
-        complianceRule.setConnector(connector);
+        complianceRule.setConnectorUuid(connector.getUuid());
         complianceRule.setKind("default");
         complianceRule.setName("Rule1");
         complianceRule.setDescription("Description");

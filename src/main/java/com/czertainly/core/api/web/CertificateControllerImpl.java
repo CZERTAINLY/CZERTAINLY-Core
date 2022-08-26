@@ -94,7 +94,7 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
 	public void check(@PathVariable String uuid)
 			throws CertificateException, IOException, NotFoundException {
 		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
@@ -150,13 +150,13 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE)
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
 	public void validateAllCertificate() {
 		certValidationService.validateAllCertificates();
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.NONE, isListingEndPoint = true)
+	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY, isListingEndPoint = true)
 	public List<SearchFieldDataDto> getSearchableFieldInformation() {
 		return certificateService.getSearchableFieldInformation();
 	}

@@ -39,7 +39,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private String issuerCommonName;
 
     @OneToOne
-    @JoinColumn(name = "certificate_content_id")
+    @JoinColumn(name = "certificate_content_id", insertable = false, updatable = false)
     private CertificateContent certificateContent;
 
     @Column(name = "certificate_content_id")
@@ -86,17 +86,17 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private String subjectAlternativeNames;
 
     @ManyToOne()
-    @JoinColumn(name = "ra_profile_uuid")
+    @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
 
-    @Column(name = "ra_profile_uuid", insertable = false, updatable = false)
+    @Column(name = "ra_profile_uuid")
     private String raProfileUuid;
 
     @ManyToOne
-    @JoinColumn(name = "group_uuid")
+    @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private CertificateGroup group;
 
-    @Column(name = "group_uuid", insertable = false, updatable = false)
+    @Column(name = "group_uuid")
     private String groupUuid;
 
     @OneToMany(
@@ -281,6 +281,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setCertificateContent(CertificateContent certificateContent) {
         this.certificateContent = certificateContent;
+        if(certificateContent != null) this.certificateContentId = certificateContent.getId();
     }
 
     public String getFingerprint() {
@@ -369,6 +370,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
+        if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
     }
 
     public CertificateGroup getGroup() {
@@ -377,6 +379,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setGroup(CertificateGroup group) {
         this.group = group;
+        if(group != null) this.groupUuid = group.getUuid();
     }
 
     public String getCertificateValidationResult() {

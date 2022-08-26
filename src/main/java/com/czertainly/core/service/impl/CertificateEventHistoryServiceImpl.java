@@ -47,7 +47,7 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
         CertificateEventHistory history = new CertificateEventHistory();
         history.setEvent(event);
-        history.setCertificate(certificate);
+        history.setCertificateUuid(certificate.getUuid());
         history.setStatus(status);
         history.setAdditionalInformation(additionalInformation);
         history.setMessage(message);

@@ -94,7 +94,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.ANY)
     public List<SimplifiedRaProfileDto> getAssociatedRAProfiles(String uuid) throws NotFoundException {
         return complianceProfileService.getAssociatedRAProfiles(uuid);
     }
@@ -106,7 +106,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.FORCE_DELETE)
+    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.DELETE)
     public List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
         return complianceProfileService.forceDeleteComplianceProfiles(uuids);
     }

@@ -73,13 +73,13 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listLocationAttributes(String entityUuid) throws ConnectorException {
         return entityInstanceService.listLocationAttributes(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ANY)
     public void validateLocationAttributes(String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         entityInstanceService.validateLocationAttributes(SecuredUUID.fromString(entityUuid), attributes);
     }

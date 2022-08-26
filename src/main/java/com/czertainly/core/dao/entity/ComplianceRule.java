@@ -44,17 +44,17 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     private String description;
 
     @OneToOne
-    @JoinColumn(name = "connector_uuid", nullable = false)
+    @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     private Connector connector;
 
-    @Column(name = "connector_uuid")
+    @Column(name = "connector_uuid", nullable = false)
     private String connectorUuid;
 
     @ManyToOne(cascade=CascadeType.ALL)
     @JoinColumn(name = "group_uuid")
     private ComplianceGroup group;
 
-    @Column(name = "group_uuid")
+    @Column(name = "group_uuid", insertable = false, updatable = false)
     private String groupUuid;
 
     @JsonBackReference
@@ -130,6 +130,7 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
 
     public void setConnector(Connector connector) {
         this.connector = connector;
+        this.connectorUuid = connector.getUuid();
     }
 
     public String getDescription() {
@@ -154,6 +155,7 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
 
     public void setGroup(ComplianceGroup group) {
         this.group = group;
+        if(group != null) this.groupUuid = group.getUuid();
     }
 
     public Set<ComplianceProfileRule> getRules() {

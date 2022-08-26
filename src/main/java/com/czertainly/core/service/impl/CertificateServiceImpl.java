@@ -560,8 +560,10 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         CertificateUtil.prepareCertificate(modal, certificate);
+        CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
-        modal.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
+        modal.setCertificateContent(certificateContent);
+        modal.setCertificateContentId(certificateContent.getId());
 
         return modal;
     }

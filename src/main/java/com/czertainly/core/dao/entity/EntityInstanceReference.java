@@ -30,7 +30,7 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
     private String kind;
 
     @ManyToOne
-    @JoinColumn(name = "connector_uuid")
+    @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 
     @Column(name = "connector_uuid")
@@ -73,6 +73,7 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
 
     public void setConnector(Connector connector) {
         this.connector = connector;
+        if(connector != null) this.connectorUuid = connector.getUuid();
     }
 
     public Set<Location> getLocations() {

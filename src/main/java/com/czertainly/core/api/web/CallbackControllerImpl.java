@@ -22,13 +22,13 @@ public class CallbackControllerImpl implements CallbackController {
     private CallbackService callbackService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
     public Object callback(@PathVariable String uuid, String functionGroup, String kind, @RequestBody RequestAttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException {
         return callbackService.callback(uuid, FunctionGroupCode.findByCode(functionGroup), kind, callback);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ANY)
     public Object raProfileCallback(String authorityUuid, @RequestBody RequestAttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException {
         return callbackService.raProfileCallback(authorityUuid, callback);
     }

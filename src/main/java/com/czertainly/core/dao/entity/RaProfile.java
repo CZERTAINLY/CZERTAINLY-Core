@@ -40,7 +40,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     private String attributes;
 
     @ManyToOne
-    @JoinColumn(name = "authority_instance_ref_uuid")
+    @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
     private AuthorityInstanceReference authorityInstanceReference;
 
     @Column(name = "authority_instance_ref_uuid")
@@ -68,7 +68,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
      * Acme related objects for RA Profile
      */
     @OneToOne
-    @JoinColumn(name="acme_profile_uuid")
+    @JoinColumn(name="acme_profile_uuid", insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
 
     @Column(name = "acme_profile_uuid")
@@ -195,7 +195,12 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setAuthorityInstanceReference(AuthorityInstanceReference authorityInstanceReference) {
         this.authorityInstanceReference = authorityInstanceReference;
+        if(authorityInstanceReference != null) this.authorityInstanceReferenceUuid = authorityInstanceReference.getUuid();
     }
+
+    public String getAuthorityInstanceReferenceUuid() { return authorityInstanceReferenceUuid; }
+
+    public void setAuthorityInstanceReferenceUuid(String authorityInstanceReferenceUuid) { this.authorityInstanceReferenceUuid = authorityInstanceReferenceUuid; }
 
     public AcmeProfile getAcmeProfile() {
         return acmeProfile;
@@ -203,6 +208,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setAcmeProfile(AcmeProfile acmeProfile) {
         this.acmeProfile = acmeProfile;
+        if(acmeProfile != null) this.acmeProfileUuid = acmeProfile.getUuid();
     }
 
     public String getIssueCertificateAttributes() {

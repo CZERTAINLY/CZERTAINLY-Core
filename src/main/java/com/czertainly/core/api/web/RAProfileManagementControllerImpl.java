@@ -111,7 +111,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ACME_DETAIL)
+    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DETAIL)
     public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(String uuid) throws NotFoundException {
         return raProfileService.getAcmeForRaProfile(SecuredUUID.fromString(uuid));
     }
@@ -129,13 +129,13 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
         return raProfileService.listRevokeCertificateAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
         return raProfileService.listIssueCertificateAttributes(SecuredUUID.fromString(uuid));
     }

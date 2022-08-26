@@ -37,10 +37,10 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
     private Date validated;
 
     @OneToOne
-    @JoinColumn(name = "authorization_uuid", nullable = false)
+    @JoinColumn(name = "authorization_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeAuthorization authorization;
 
-    @Column(name = "authorization_uuid")
+    @Column(name = "authorization_uuid", nullable = false)
     private String authorizationUuid;
 
     @Override
@@ -77,12 +77,11 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
         return type;
     }
 
-    public AcmeAuthorization getAuthorization() {
-        return authorization;
-    }
+    public AcmeAuthorization getAuthorization() { return authorization; }
 
     public void setAuthorization(AcmeAuthorization authorization) {
         this.authorization = authorization;
+        this.authorizationUuid = authorization.getUuid();
     }
 
     public void setType(ChallengeType type) {

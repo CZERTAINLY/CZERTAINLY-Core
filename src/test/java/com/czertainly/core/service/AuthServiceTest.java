@@ -49,7 +49,7 @@ public class AuthServiceTest {
 
         admin = new Admin();
         admin.setUsername("user");
-        admin.setCertificate(certificate);
+        admin.setCertificateUuid(certificate.getUuid());
         admin.setSerialNumber(certificate.getSerialNumber());
         admin = adminRepository.save(admin);
 
@@ -82,7 +82,7 @@ public class AuthServiceTest {
         admin.setName("Test1");
         admin.setSurname("Admin1");
         admin.setEmail("test@admin1.com");
-        admin.setCertificate(certificate);
+        admin.setCertificateUuid(certificate.getUuid());
         admin.setSerialNumber(certificate.getSerialNumber());
         admin = adminRepository.save(admin);
 

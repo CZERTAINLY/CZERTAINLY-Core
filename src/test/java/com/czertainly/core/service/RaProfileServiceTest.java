@@ -84,7 +84,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
         client = new Client();
         client.setName(CLIENT_NAME);
-        client.setCertificate(certificate);
+        client.setCertificateUuid(certificate.getUuid());
         client.setSerialNumber(certificate.getSerialNumber());
         client = clientRepository.save(client);
 

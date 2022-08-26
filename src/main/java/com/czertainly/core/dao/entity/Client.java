@@ -24,10 +24,10 @@ public class Client extends UniquelyIdentifiedAndAudited implements Serializable
 	private String serialNumber;
 
 	@OneToOne
-	@JoinColumn(name = "certificate_uuid", nullable = false)
+	@JoinColumn(name = "certificate_uuid", nullable = false, insertable = false, updatable = false)
 	private Certificate certificate;
 
-	@Column(name = "certificate_uuid")
+	@Column(name = "certificate_uuid", nullable = false)
 	private String certificateUuid;
 
 	@ManyToMany(mappedBy = "clients")
@@ -72,6 +72,7 @@ public class Client extends UniquelyIdentifiedAndAudited implements Serializable
 
 	public void setCertificate(Certificate certificate) {
 		this.certificate = certificate;
+		this.certificateUuid = certificate.getUuid();
 	}
 
 	public Set<RaProfile> getRaProfiles() {

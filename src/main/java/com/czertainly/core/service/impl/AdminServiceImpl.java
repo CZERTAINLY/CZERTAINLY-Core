@@ -78,13 +78,15 @@ public class AdminServiceImpl implements AdminService {
         }
 
         String serialNumber;
-
+        String subjectDn;
         if (!StringUtils.isAnyBlank(request.getAdminCertificate())) {
             X509Certificate certificate = CertificateUtil.getX509Certificate(request.getAdminCertificate());
             serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
+            subjectDn = certificate.getSubjectDN().toString();
         } else {
             Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getCertificateUuid()));
             serialNumber = certificate.getSerialNumber();
+            subjectDn = certificate.getSubjectDn();
         }
 
         if (adminRepository.findBySerialNumber(serialNumber).isPresent()) {
@@ -94,7 +96,7 @@ public class AdminServiceImpl implements AdminService {
         Admin admin = createAdmin(request);
 
         adminRepository.save(admin);
-        logger.info("Admin {} registered successfully.", admin.getCertificate().getSubjectDn());
+        logger.info("Admin {} registered successfully.", subjectDn);
 
         return admin.mapToDto();
     }
@@ -227,6 +229,7 @@ public class AdminServiceImpl implements AdminService {
             certificateService.updateCertificateEntity(certificate);
         }
         model.setCertificate(certificate);
+        model.setCertificateUuid(certificate.getUuid());
         model.setUsername(requestDTO.getUsername());
         model.setName(requestDTO.getName());
         model.setDescription(requestDTO.getDescription());

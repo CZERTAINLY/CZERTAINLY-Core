@@ -93,13 +93,13 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listRAProfileAttributes(@PathVariable String uuid) throws NotFoundException, ConnectorException {
         return authorityInstanceService.listRAProfileAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.NONE)
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.ANY)
     public void validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException {
         authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString(uuid), attributes);
     }
@@ -111,7 +111,7 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.FORCE_DELETE)
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.DELETE)
     public List<BulkActionMessageDto> forceDeleteAuthorityInstances(List<String> uuids) throws NotFoundException, ValidationException {
         return authorityInstanceService.forceDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }

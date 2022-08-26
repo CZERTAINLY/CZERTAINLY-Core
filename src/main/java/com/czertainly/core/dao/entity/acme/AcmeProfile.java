@@ -39,7 +39,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     @OneToOne
     @JsonBackReference
-    @JoinColumn(name = "ra_profile_uuid")
+    @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
 
     @Column(name = "ra_profile_uuid")
@@ -185,6 +185,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
+        if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
     }
 
     public String getIssueCertificateAttributes() {

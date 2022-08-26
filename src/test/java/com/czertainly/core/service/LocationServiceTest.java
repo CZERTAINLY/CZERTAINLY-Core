@@ -82,7 +82,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         certificate = certificateRepository.save(certificate);
 
         certificateWithoutLocation = new Certificate();
-        certificateWithoutLocation.setCertificateContent(certificateContent);
+        certificateWithoutLocation.setCertificateContentId(certificateContent.getId());
         certificateWithoutLocation.setSerialNumber("aa4ab59d436a88dae957");
         certificateWithoutLocation = certificateRepository.save(certificateWithoutLocation);
 
@@ -153,7 +153,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
         Location location = new Location();
         location.setName(LOCATION_NAME_NOMULTIENTRIES);
-        location.setEntityInstanceReference(entityInstanceReference);
+        location.setEntityInstanceReferenceUuid(entityInstanceReference.getUuid());
         location.setEnabled(true);
         location.setSupportKeyManagement(true);
         location.setSupportMultipleEntries(false);
