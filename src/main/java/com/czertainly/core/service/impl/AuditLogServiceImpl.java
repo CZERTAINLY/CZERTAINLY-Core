@@ -23,6 +23,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -53,6 +54,9 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Value("${export.auditLog.fileName.prefix:audit-logs}")
     private String fileNamePrefix;
+
+    @Value("${auditLog.enabled:false}")
+    private boolean auditLogEnabled;
 
     @Autowired
     private AuditLogRepository auditLogRepository;
@@ -95,17 +99,21 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @PostConstruct
     public void logStartup() {
-        Map<Object, Object> additionalData = new HashMap<>();
-        additionalData.put("message", "CZERTAINLY backend started");
-        log(ObjectType.BE, ObjectType.BE, null, OperationType.START, OperationStatusEnum.SUCCESS, additionalData);
+        if (auditLogEnabled) {
+            Map<Object, Object> additionalData = new HashMap<>();
+            additionalData.put("message", "CZERTAINLY backend started");
+            log(ObjectType.BE, ObjectType.BE, null, OperationType.START, OperationStatusEnum.SUCCESS, additionalData);
+        }
     }
 
     @Override
     @PreDestroy
     public void logShutdown() {
-        Map<Object, Object> additionalData = new HashMap<>();
-        additionalData.put("message", "CZERTAINLY backend shutdown");
-        log(ObjectType.BE, ObjectType.BE, null, OperationType.STOP, OperationStatusEnum.SUCCESS, additionalData);
+        if (auditLogEnabled) {
+            Map<Object, Object> additionalData = new HashMap<>();
+            additionalData.put("message", "CZERTAINLY backend shutdown");
+            log(ObjectType.BE, ObjectType.BE, null, OperationType.STOP, OperationStatusEnum.SUCCESS, additionalData);
+        }
     }
 
     @Override
