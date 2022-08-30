@@ -117,50 +117,6 @@ public class ConnectorServiceImpl implements ConnectorService {
         return connectors;
     }
 
-    private List<ConnectorDto> filterByFunctionGroup(List<ConnectorDto> connectors, FunctionGroupCode code) {
-        List<ConnectorDto> connectorDtos = new ArrayList<>();
-        for(ConnectorDto connectorDto: connectors) {
-            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
-                if (code == FunctionGroupCode.AUTHORITY_PROVIDER) {
-                    if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
-                        connectorDto.setFunctionGroups(List.of(fg));
-                        connectorDtos.add(connectorDto);
-                    }
-                } else {
-                    if (fg.getFunctionGroupCode() == code) {
-                        connectorDto.setFunctionGroups(List.of(fg));
-                        connectorDtos.add(connectorDto);
-                    }
-                }
-            }
-        }
-        return connectorDtos;
-    }
-
-    private List<ConnectorDto> filterByKind(List<ConnectorDto> connectors, String kind){
-        List<ConnectorDto> connectorDtos = new ArrayList<>();
-        for(ConnectorDto connectorDto: connectors) {
-            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
-                if (fg.getKinds().contains(kind)) {
-                    connectorDtos.add(connectorDto);
-                }
-            }
-        }
-        return connectorDtos;
-    }
-
-    private List<ConnectorDto> filterByStatus(List<ConnectorDto> connectors, ConnectorStatus status) {
-        List<ConnectorDto> connectorDtos = new ArrayList<>();
-        for (ConnectorDto connectorDto : connectors) {
-            if (connectorDto.getStatus().equals(status)) {
-                connectorDtos.add(connectorDto);
-            }
-        }
-        return connectorDtos;
-    }
-
-
-
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
@@ -811,5 +767,47 @@ public class ConnectorServiceImpl implements ConnectorService {
         if (connector2FunctionGroup == null) {
             throw new ValidationException(ValidationError.create("Connector {} doesn't support function group code {}", connector.getName(), functionGroup));
         }
+    }
+
+    private List<ConnectorDto> filterByFunctionGroup(List<ConnectorDto> connectors, FunctionGroupCode code) {
+        List<ConnectorDto> connectorDtos = new ArrayList<>();
+        for(ConnectorDto connectorDto: connectors) {
+            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
+                if (code == FunctionGroupCode.AUTHORITY_PROVIDER) {
+                    if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
+                        connectorDto.setFunctionGroups(List.of(fg));
+                        connectorDtos.add(connectorDto);
+                    }
+                } else {
+                    if (fg.getFunctionGroupCode() == code) {
+                        connectorDto.setFunctionGroups(List.of(fg));
+                        connectorDtos.add(connectorDto);
+                    }
+                }
+            }
+        }
+        return connectorDtos;
+    }
+
+    private List<ConnectorDto> filterByKind(List<ConnectorDto> connectors, String kind){
+        List<ConnectorDto> connectorDtos = new ArrayList<>();
+        for(ConnectorDto connectorDto: connectors) {
+            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
+                if (fg.getKinds().contains(kind)) {
+                    connectorDtos.add(connectorDto);
+                }
+            }
+        }
+        return connectorDtos;
+    }
+
+    private List<ConnectorDto> filterByStatus(List<ConnectorDto> connectors, ConnectorStatus status) {
+        List<ConnectorDto> connectorDtos = new ArrayList<>();
+        for (ConnectorDto connectorDto : connectors) {
+            if (connectorDto.getStatus().equals(status)) {
+                connectorDtos.add(connectorDto);
+            }
+        }
+        return connectorDtos;
     }
 }
