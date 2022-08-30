@@ -36,14 +36,18 @@ public class CzertainlyBaseAuthenticationClient {
 
     public WebClient.RequestBodyUriSpec prepareRequest(HttpMethod method) {
         WebClient.RequestBodySpec request;
-        request = getClient().method(method);
+        request = getClient(null).method(method);
         return (WebClient.RequestBodyUriSpec) request;
 
     }
 
-    public WebClient getClient() {
+    public WebClient getClient(String customAuthServiceUrl) {
         if (client == null) {
-            client = WebClient.builder().baseUrl(authServiceBaseUrl).build();
+            if(customAuthServiceUrl != null){
+                client = WebClient.builder().baseUrl(customAuthServiceUrl).build();
+            } else {
+                client = WebClient.builder().baseUrl(authServiceBaseUrl).build();
+            }
         }
         return client;
     }

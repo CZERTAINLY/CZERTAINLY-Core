@@ -143,9 +143,8 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName("testRaProfile2");
         request.setAttributes(List.of());
-        request.setAuthorityInstanceUuid(authorityInstanceReference.getUuid());
 
-        RaProfileDto dto = raProfileService.addRaProfile(request);
+        RaProfileDto dto = raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }
@@ -153,7 +152,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     @Test
     public void testAddRaProfile_validationFail() {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
-        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(request));
+        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request));
     }
 
     @Test
@@ -161,7 +160,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName(RA_PROFILE_NAME); // raProfile with same username exist
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> raProfileService.addRaProfile(request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request));
     }
 
     @Test
@@ -176,9 +175,8 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
         request.setDescription("some description");
         request.setAttributes(List.of());
-        request.setAuthorityInstanceUuid(authorityInstanceReference.getUuid());
 
-        RaProfileDto dto = raProfileService.editRaProfile(raProfile.getSecuredUuid(), request);
+        RaProfileDto dto = raProfileService.editRaProfile(authorityInstanceReference.getSecuredUuid(), raProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -187,7 +185,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     public void testEditRaProfile_notFound() {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(SecuredUUID.fromString("wrong-uuid"), request));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredUuid(), SecuredUUID.fromString("wrong-uuid"), request));
     }
 
     @Test

@@ -10,20 +10,17 @@ import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
-import com.czertainly.api.model.client.raprofile.RaProfileComplianceCheckDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.RaProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -45,9 +42,9 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.CREATE)
-    public ResponseEntity<?> createRaProfile(@RequestBody AddRaProfileRequestDto request)
-            throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException {
-        RaProfileDto raProfile = raProfileService.addRaProfile(request);
+    public ResponseEntity<?> createRaProfile(String authorityUuid, AddRaProfileRequestDto request)
+            throws AlreadyExistException, ValidationException, ConnectorException {
+        RaProfileDto raProfile = raProfileService.addRaProfile(SecuredUUID.fromString(authorityUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(raProfile.getUuid()).toUri();
         UuidDto dto = new UuidDto();
@@ -57,44 +54,44 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DETAIL)
-    public RaProfileDto getRaProfile(@PathVariable String uuid) throws NotFoundException {
-        return raProfileService.getRaProfile(SecuredUUID.fromString(uuid));
+    public RaProfileDto getRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        return raProfileService.getRaProfile(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.UPDATE)
-    public RaProfileDto editRaProfile(@PathVariable String uuid, @RequestBody EditRaProfileRequestDto request)
-            throws NotFoundException, ConnectorException {
-        return raProfileService.editRaProfile(SecuredUUID.fromString(uuid), request);
+    public RaProfileDto editRaProfile(String authorityUuid, String raProfileUuid, EditRaProfileRequestDto request)
+            throws ConnectorException {
+        return raProfileService.editRaProfile(SecuredUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DELETE)
-    public void deleteRaProfile(@PathVariable String uuid) throws NotFoundException {
+    public void deleteRaProfile(String authorityUuid, String uuid) throws NotFoundException {
         raProfileService.deleteRaProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ENABLE)
-    public void disableRaProfile(@PathVariable String uuid) throws NotFoundException {
+    public void disableRaProfile(String authorityUuid, String uuid) throws NotFoundException {
         raProfileService.disableRaProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ENABLE)
-    public void enableRaProfile(@PathVariable String uuid) throws NotFoundException {
+    public void enableRaProfile(String authorityUuid, String uuid) throws NotFoundException {
         raProfileService.enableRaProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.LIST_AUTHORIZATIONS)
-    public List<SimplifiedClientDto> listClients(@PathVariable String uuid) throws NotFoundException {
+    public List<SimplifiedClientDto> listUsers(String authorityUuid, String uuid) throws NotFoundException {
         return raProfileService.listClients(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DELETE)
-    public void bulkDeleteRaProfile(List<String> uuids) throws NotFoundException, ValidationException {
+    public void bulkDeleteRaProfile(String authorityUuid, List<String> uuids) throws NotFoundException, ValidationException {
         raProfileService.bulkDeleteRaProfile(SecuredUUID.fromList(uuids));
     }
 
@@ -112,37 +109,37 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DETAIL)
-    public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(String uuid) throws NotFoundException {
+    public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(String authorityUuid, String uuid) throws NotFoundException {
         return raProfileService.getAcmeForRaProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ACTIVATE_ACME)
-    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String uuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
-        return raProfileService.activateAcmeForRaProfile(SecuredUUID.fromString(uuid), request);
+    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String authorityUuid, String uuid, String acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
+        return raProfileService.activateAcmeForRaProfile(SecuredUUID.fromString(uuid), SecuredUUID.fromString(acmeProfileUuid), request);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ACTIVATE_ACME)
-    public void deactivateAcmeForRaProfile(String uuid) throws NotFoundException {
+    public void deactivateAcmeForRaProfile(String authorityUuid, String uuid) throws NotFoundException {
         raProfileService.deactivateAcmeForRaProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ANY)
-    public List<AttributeDefinition> listRevokeCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
+    public List<AttributeDefinition> listRevokeCertificateAttributes(String authorityUuid, String uuid) throws ConnectorException {
         return raProfileService.listRevokeCertificateAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ANY)
-    public List<AttributeDefinition> listIssueCertificateAttributes(String uuid) throws NotFoundException, ConnectorException {
+    public List<AttributeDefinition> listIssueCertificateAttributes(String authorityUuid, String uuid) throws ConnectorException {
         return raProfileService.listIssueCertificateAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.CHECK_COMPLIANCE)
-    public void checkCompliance(RaProfileComplianceCheckDto request) throws NotFoundException {
-        raProfileService.checkCompliance(SecuredUUID.fromList(request.getRaProfileUuids()));
+    public void checkCompliance(List<String> uuids) throws NotFoundException {
+        raProfileService.checkCompliance(SecuredUUID.fromList(uuids));
     }
 }

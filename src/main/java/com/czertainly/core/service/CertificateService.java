@@ -86,11 +86,11 @@ public interface CertificateService {
      * @param uuid UUID of the certificate
      * @param request Request for the certificate objects update
      */
-    void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request);
+    void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException;
 
     /**
      * Method to update the Objects of multiple certificates
      * @param request Request to update multiple objects
      */
-    void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request);
+    void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException;
 }

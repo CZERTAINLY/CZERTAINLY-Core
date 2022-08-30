@@ -26,13 +26,13 @@ public interface RaProfileService {
 
     SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(String acmeProfileUuid, SecurityFilter filter);
 
-    RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException;
+    RaProfileDto addRaProfile(SecuredUUID authorityUuid, AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException;
 
     RaProfileDto getRaProfile(SecuredUUID uuid) throws NotFoundException;
 
     RaProfile getRaProfileEntity(SecuredUUID uuid) throws NotFoundException;
 
-    RaProfileDto editRaProfile(SecuredUUID uuid, EditRaProfileRequestDto dto) throws NotFoundException, ConnectorException;
+    RaProfileDto editRaProfile(SecuredUUID authorityUuid, SecuredUUID raProfileUuid, EditRaProfileRequestDto dto) throws NotFoundException, ConnectorException;
 
     void deleteRaProfile(SecuredUUID uuid) throws NotFoundException;
 
@@ -52,7 +52,7 @@ public interface RaProfileService {
 
     RaProfileAcmeDetailResponseDto getAcmeForRaProfile(SecuredUUID uuid) throws NotFoundException;
 
-    RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredUUID uuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException;
+    RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException;
 
     void deactivateAcmeForRaProfile(SecuredUUID uuid) throws NotFoundException;
 

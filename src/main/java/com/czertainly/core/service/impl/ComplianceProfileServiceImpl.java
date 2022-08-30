@@ -459,10 +459,10 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
-    public void checkCompliance(ComplianceProfileComplianceCheckDto request) {
-        for (String uuid : request.getComplianceProfileUuids()) {
+    public void checkCompliance(List<SecuredUUID> uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
-                complianceService.complianceCheckForComplianceProfile(SecuredUUID.fromString(uuid));
+                complianceService.complianceCheckForComplianceProfile(uuid);
             } catch (Exception e) {
                 logger.error("Compliance check failed.", e);
             }

@@ -7,7 +7,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ComplianceProfileController;
 import com.czertainly.api.model.client.compliance.ComplianceGroupRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceGroupsListResponseDto;
-import com.czertainly.api.model.client.compliance.ComplianceProfileComplianceCheckDto;
 import com.czertainly.api.model.client.compliance.ComplianceProfileRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
@@ -126,13 +125,13 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
-    public void associateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException, ConnectorException {
+    public void associateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws ConnectorException {
         complianceProfileService.associateProfile(uuid, raProfiles);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
-    public void disassociateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException, ConnectorException {
+    public void disassociateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws ConnectorException {
         complianceProfileService.disassociateProfile(uuid, raProfiles);
     }
 

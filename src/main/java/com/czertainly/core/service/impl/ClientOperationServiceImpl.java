@@ -89,7 +89,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("UUID of the certificate is {}", certificate.getUuid());
         logger.debug("UUID of the RA Profile is {}", raProfile.getUuid());
-        certificateService.updateRaProfile(SecuredUUID.fromString(certificate.getUuid()), dto);
+        certificateService.updateCertificateObjects(SecuredUUID.fromString(certificate.getUuid()), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);

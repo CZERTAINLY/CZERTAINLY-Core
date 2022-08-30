@@ -233,9 +233,8 @@ public class LocationServiceTest extends BaseSpringBootTest {
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName("testLocation2");
         request.setAttributes(List.of());
-        request.setEntityInstanceUuid(entityInstanceReference.getUuid());
 
-        LocationDto dto = locationService.addLocation(request);
+        LocationDto dto = locationService.addLocation(SecuredUUID.fromString(entityInstanceReference.getUuid()),request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }
@@ -243,7 +242,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
     @Test
     public void testAddLocation_validationFail() {
         AddLocationRequestDto request = new AddLocationRequestDto();
-        Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(request));
+        Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(entityInstanceReference.getSecuredUuid(), request));
     }
 
     @Test
@@ -251,7 +250,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName(LOCATION_NAME); // location with the name that already exists
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> locationService.addLocation(request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> locationService.addLocation(entityInstanceReference.getSecuredUuid(), request));
     }
 
     // TODO
@@ -274,9 +273,8 @@ public class LocationServiceTest extends BaseSpringBootTest {
         EditLocationRequestDto request = new EditLocationRequestDto();
         request.setDescription("some description");
         request.setAttributes(List.of());
-        request.setEntityInstanceUuid(entityInstanceReference.getUuid());
 
-        LocationDto dto = locationService.editLocation(location.getSecuredUuid(), request);
+        LocationDto dto = locationService.editLocation(entityInstanceReference.getSecuredUuid(), location.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -285,7 +283,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
     public void testEditLocation_notFound() {
         EditLocationRequestDto request = new EditLocationRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation(SecuredUUID.fromString("wrong-uuid"), request));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation(entityInstanceReference.getSecuredUuid(), SecuredUUID.fromString("wrong-uuid"), request));
     }
 
 //    @Test

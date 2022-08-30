@@ -25,16 +25,13 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public interface ConnectorService {
-
-    List<ConnectorDto> listConnectors(SecurityFilter filter);
     
     Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAllAttributesOfConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
-    List<ConnectorDto> listConnectorsByFunctionGroup(SecurityFilter filter, FunctionGroupCode functionGroup);
-
-    List<ConnectorDto> listConnectors(SecurityFilter filter, FunctionGroupCode functionGroup, String kind) throws NotFoundException;
+    List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) throws NotFoundException;
 
     ConnectorDto getConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 

@@ -75,7 +75,7 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
 	public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
-		certificateService.updateCertificateObjects(uuid, request);
+		certificateService.updateCertificateObjects(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override

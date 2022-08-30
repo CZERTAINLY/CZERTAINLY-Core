@@ -15,6 +15,7 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -33,6 +34,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 public class ConnectorControllerImpl implements ConnectorController {
@@ -41,24 +43,12 @@ public class ConnectorControllerImpl implements ConnectorController {
     private ConnectorService connectorService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.LIST,isListingEndPoint = true)
-    public List<ConnectorDto> listConnectors() {
-        return connectorService.listConnectors(SecurityFilter.create());
-    }
-
-    @Override
     @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public List<ConnectorDto> listConnectors(
-            @RequestParam FunctionGroupCode functionGroup,
-            @RequestParam String kind) throws NotFoundException {
-        return connectorService.listConnectors(SecurityFilter.create(), functionGroup, kind);
-    }
-
-    @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.LIST, isListingEndPoint = true)
-    public List<ConnectorDto> listConnectorsByFunctionGroup(
-            @RequestParam FunctionGroupCode functionGroup) throws NotFoundException {
-        return connectorService.listConnectorsByFunctionGroup(SecurityFilter.create(), functionGroup);
+            @RequestParam Optional<FunctionGroupCode> functionGroup,
+            @RequestParam Optional<String> kind,
+            @RequestParam Optional<ConnectorStatus> status) throws NotFoundException {
+        return connectorService.listConnectors(SecurityFilter.create(), functionGroup, kind, status);
     }
 
     @Override

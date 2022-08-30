@@ -172,7 +172,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
-        certificateService.updateRaProfile(certificate.getSecuredUuid(), dto);
+        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
@@ -257,7 +257,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
-        certificateService.updateRaProfile(certificate.getSecuredUuid(), dto);
+        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);

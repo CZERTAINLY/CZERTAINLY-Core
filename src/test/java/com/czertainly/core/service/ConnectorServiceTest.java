@@ -32,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class ConnectorServiceTest extends BaseSpringBootTest {
 
@@ -85,8 +86,8 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListConnectors() {
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create());
+    public void testListConnectors() throws NotFoundException {
+        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), null, null, null);
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -95,9 +96,9 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListConnectorsByFunctionGroup() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(
+        List<ConnectorDto> connectors = connectorService.listConnectors(
                 SecurityFilter.create(),
-                FunctionGroupCode.CREDENTIAL_PROVIDER
+                Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER), null, null
         );
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
@@ -106,10 +107,11 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListConnectorsByFunctionGroup_notFound() {
-        List<ConnectorDto> connectors = connectorService.listConnectorsByFunctionGroup(
+    public void testListConnectorsByFunctionGroup_notFound() throws NotFoundException {
+        List<ConnectorDto> connectors = connectorService.listConnectors(
                 SecurityFilter.create(),
-                FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER
+                Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
+                null, null
         );
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
@@ -119,7 +121,8 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     public void testListConnectorsByFunctionGroupAndKind() throws NotFoundException {
         List<ConnectorDto> connectors = connectorService.listConnectors(
                 SecurityFilter.create(),
-                FunctionGroupCode.CREDENTIAL_PROVIDER, "ApiKey"
+                Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER), Optional.of("ApiKey"),
+                null
         );
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
@@ -128,12 +131,12 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListConnectorsByFunctionGroupAndKind_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () ->
+    public void testListConnectorsByFunctionGroupAndKind_notFound() throws NotFoundException {
+        Assertions.assertEquals(0,
                 connectorService.listConnectors(
                         SecurityFilter.create(),
-                        FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER,
-                        "wrong-kind")
+                        Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
+                        Optional.of("wrong-kind"), null).size()
         );
 
     }
@@ -142,8 +145,8 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     public void testListConnectorsByFunctionGroupAndKind_noConnectorOfKind() throws NotFoundException {
         List<ConnectorDto> connectors = connectorService.listConnectors(
                 SecurityFilter.create(),
-                FunctionGroupCode.CREDENTIAL_PROVIDER,
-                "wrong-kind"
+                Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
+                Optional.of("wrong-kind"), null
         );
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());

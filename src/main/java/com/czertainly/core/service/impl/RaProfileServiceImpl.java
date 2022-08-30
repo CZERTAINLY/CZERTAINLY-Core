@@ -73,7 +73,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled) {
-        if(!enabled.isPresent()) {
+        if (!enabled.isPresent()) {
             return raProfileRepository.findUsingSecurityFilter(filter).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
         } else {
             return raProfileRepository.findUsingSecurityFilter(filter, enabled.get()).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
@@ -91,7 +91,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.CREATE)
-    public RaProfileDto addRaProfile(AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException {
+    public RaProfileDto addRaProfile(SecuredUUID authorityInstanceUuid, AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException {
         if (StringUtils.isBlank(dto.getName())) {
             throw new ValidationException("RA profile name must not be empty");
         }
@@ -101,8 +101,8 @@ public class RaProfileServiceImpl implements RaProfileService {
             throw new AlreadyExistException(RaProfile.class, dto.getName());
         }
 
-        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(dto.getAuthorityInstanceUuid())
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, dto.getAuthorityInstanceUuid()));
+        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(authorityInstanceUuid)
+                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityInstanceUuid));
 
         List<AttributeDefinition> attributes = mergeAndValidateAttributes(authorityInstanceRef, dto.getAttributes());
         RaProfile raProfile = createRaProfile(dto, attributes, authorityInstanceRef);
@@ -124,12 +124,12 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
-    public RaProfileDto editRaProfile(SecuredUUID uuid, EditRaProfileRequestDto dto) throws ConnectorException {
+    public RaProfileDto editRaProfile(SecuredUUID authorityInstanceUuid, SecuredUUID uuid, EditRaProfileRequestDto dto) throws ConnectorException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
 
-        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(dto.getAuthorityInstanceUuid())
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, dto.getAuthorityInstanceUuid()));
+        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(authorityInstanceUuid)
+                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityInstanceUuid));
 
         List<AttributeDefinition> attributes = mergeAndValidateAttributes(authorityInstanceRef, dto.getAttributes());
 
@@ -282,10 +282,10 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
     // TODO AUTH - use ra profile service to obtain RA profile
-    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredUUID uuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
+    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
         RaProfile raProfile = getRaProfileEntity(uuid);
-        AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(request.getAcmeProfileUuid())
-                .orElseThrow(() -> new NotFoundException(AcmeProfile.class, request.getAcmeProfileUuid()));
+        AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(acmeProfileUuid)
+                .orElseThrow(() -> new NotFoundException(AcmeProfile.class, acmeProfileUuid));
         raProfile.setAcmeProfile(acmeProfile);
         raProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(
                 extendedAttributeService.mergeAndValidateIssueAttributes

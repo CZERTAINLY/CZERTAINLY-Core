@@ -65,18 +65,18 @@ public class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListConnectors_Empty() {
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create());
+    public void testListConnectors_Empty() throws NotFoundException {
+        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), null, null, null);
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
 
     @Test
-    public void testListConnectors_One() {
+    public void testListConnectors_One() throws NotFoundException {
         Connector connector = new Connector();
         connectorRepository.save(connector);
 
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create());
+        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), null, null, null);
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -132,7 +132,7 @@ public class ConnectorServiceComplexTest extends BaseSpringBootTest {
         Assertions.assertEquals(kindName, loaded.getKinds().get(0));
 
         // check database
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create());
+        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), null, null, null);
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -162,7 +162,7 @@ public class ConnectorServiceComplexTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto.getUuid());
 
         // check database
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create());
+        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), null, null, null);
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -202,7 +202,7 @@ public class ConnectorServiceComplexTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto.getUuid());
 
         // check database
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create());
+        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), null, null, null);
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());

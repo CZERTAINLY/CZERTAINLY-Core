@@ -124,7 +124,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.CREATE)
-    public LocationDto addLocation(AddLocationRequestDto dto) throws AlreadyExistException, LocationException, NotFoundException {
+    public LocationDto addLocation(SecuredUUID entityUuid, AddLocationRequestDto dto) throws AlreadyExistException, LocationException, NotFoundException {
         if (StringUtils.isBlank(dto.getName())) {
             throw new ValidationException("Location name must not be empty");
         }
@@ -134,8 +134,8 @@ public class LocationServiceImpl implements LocationService {
             throw new AlreadyExistException(Location.class, dto.getName());
         }
 
-        EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(dto.getEntityInstanceUuid())
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, dto.getEntityInstanceUuid()));
+        EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
+                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
         List<AttributeDefinition> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), dto.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), dto.getName());
@@ -166,13 +166,13 @@ public class LocationServiceImpl implements LocationService {
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
-    public LocationDto editLocation(SecuredUUID locationUuid, EditLocationRequestDto dto) throws NotFoundException, LocationException {
+    public LocationDto editLocation(SecuredUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto dto) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         EntityInstanceReference entityInstanceRef;
-        entityInstanceRef = entityInstanceReferenceRepository.findByUuid(dto.getEntityInstanceUuid())
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, dto.getEntityInstanceUuid()));
+        entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
+                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
         List<AttributeDefinition> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), location.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), location.getName());

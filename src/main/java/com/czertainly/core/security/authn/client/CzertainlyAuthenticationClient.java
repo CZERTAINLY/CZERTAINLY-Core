@@ -28,10 +28,12 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
     private static List<String> excludedHeaders = List.of("host", "content-length", "content-type", "accept", "accept-encoding", "connection");
 
     private final ObjectMapper objectMapper;
+    private final String customAuthServiceBaseUrl;
 
-    public CzertainlyAuthenticationClient(@Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String authServiceBaseUrl) {
+    public CzertainlyAuthenticationClient(@Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
 
         this.objectMapper = objectMapper;
+        this.customAuthServiceBaseUrl = customAuthServiceBaseUrl;
     }
 
     public AuthenticationInfo authenticate(HttpHeaders headers) throws AuthenticationException {
@@ -44,7 +46,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
                                     .collect(Collectors.joining(","))
                     )
             );
-            WebClient.RequestHeadersSpec<?> request = getClient()
+            WebClient.RequestHeadersSpec<?> request = getClient(customAuthServiceBaseUrl)
                     .get()
                     .uri("/auth/users/profile")
                     .accept(MediaType.APPLICATION_JSON);

@@ -103,55 +103,63 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
-    public List<ConnectorDto> listConnectors(SecurityFilter filter) {
-        return connectorRepository.findUsingSecurityFilter(filter).stream()
-                .map(Connector::mapToDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
-    public List<ConnectorDto> listConnectorsByFunctionGroup(SecurityFilter filter, FunctionGroupCode functionGroup) {
-        List<ConnectorDto> connectors = new ArrayList<>();
-
-        // TODO - this can be done using one select similar to connectorRepository.findConnectedByFunctionGroupAndKind()
-
-        for (Connector connector : connectorRepository.findUsingSecurityFilter(
-                filter,
-                (root, cb) -> cb.equal(root.get("status"), ConnectorStatus.CONNECTED))
-        ) {
-            ConnectorDto connectorDto = connector.mapToDto();
-            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
-                if (functionGroup == FunctionGroupCode.AUTHORITY_PROVIDER) {
-                    if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
-                        connectorDto.setFunctionGroups(List.of(fg));
-                        connectors.add(connectorDto);
-                    }
-                } else {
-                    if (fg.getFunctionGroupCode() == functionGroup) {
-                        connectorDto.setFunctionGroups(List.of(fg));
-                        connectors.add(connectorDto);
-                    }
-                }
-            }
+    public List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) {
+        List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDto).collect(Collectors.toList());
+        if(functionGroup != null && functionGroup.isPresent()){
+            connectors = filterByFunctionGroup(connectors, functionGroup.get());
+        }
+        if(kind != null && kind.isPresent()) {
+            connectors = filterByKind(connectors, kind.get());
+        }
+        if(status != null && status.isPresent()) {
+            connectors = filterByStatus(connectors, status.get());
         }
         return connectors;
     }
 
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
-    public List<ConnectorDto> listConnectors(SecurityFilter filter, FunctionGroupCode functionGroupCode, String kind) throws NotFoundException {
-
-        // TODO AUTH - not used. Should rewrite or delete?
-        FunctionGroup functionGroup = functionGroupRepository.findByCode(functionGroupCode)
-                .orElseThrow(() -> new NotFoundException(FunctionGroup.class, functionGroupCode));
-
-        return connectorRepository.findConnectedByFunctionGroupAndKind(functionGroup, kind).stream()
-                .map(Connector::mapToDto)
-                .collect(Collectors.toList());
+    private List<ConnectorDto> filterByFunctionGroup(List<ConnectorDto> connectors, FunctionGroupCode code) {
+        List<ConnectorDto> connectorDtos = new ArrayList<>();
+        for(ConnectorDto connectorDto: connectors) {
+            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
+                if (code == FunctionGroupCode.AUTHORITY_PROVIDER) {
+                    if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
+                        connectorDto.setFunctionGroups(List.of(fg));
+                        connectorDtos.add(connectorDto);
+                    }
+                } else {
+                    if (fg.getFunctionGroupCode() == code) {
+                        connectorDto.setFunctionGroups(List.of(fg));
+                        connectorDtos.add(connectorDto);
+                    }
+                }
+            }
+        }
+        return connectorDtos;
     }
+
+    private List<ConnectorDto> filterByKind(List<ConnectorDto> connectors, String kind){
+        List<ConnectorDto> connectorDtos = new ArrayList<>();
+        for(ConnectorDto connectorDto: connectors) {
+            for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
+                if (fg.getKinds().contains(kind)) {
+                    connectorDtos.add(connectorDto);
+                }
+            }
+        }
+        return connectorDtos;
+    }
+
+    private List<ConnectorDto> filterByStatus(List<ConnectorDto> connectors, ConnectorStatus status) {
+        List<ConnectorDto> connectorDtos = new ArrayList<>();
+        for (ConnectorDto connectorDto : connectors) {
+            if (connectorDto.getStatus().equals(status)) {
+                connectorDtos.add(connectorDto);
+            }
+        }
+        return connectorDtos;
+    }
+
+
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)

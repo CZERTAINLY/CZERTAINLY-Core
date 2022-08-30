@@ -34,12 +34,13 @@ public interface LocationService {
     /**
      * Add a new location.
      * @param addLocationRequestDto Request containing Attributes for the Location, see {@link AddLocationRequestDto}.
+     * @param entityUuid Entity Uuid.
      * @return New Location created.
      * @throws AlreadyExistException when the Location with the same name already exists.
      * @throws LocationException when the Location failed to be created.
      * @throws NotFoundException when the Entity instance referred in the Location is not found.
      */
-    LocationDto addLocation(AddLocationRequestDto addLocationRequestDto) throws AlreadyExistException, LocationException, NotFoundException;
+    LocationDto addLocation(SecuredUUID entityUuid, AddLocationRequestDto addLocationRequestDto) throws AlreadyExistException, LocationException, NotFoundException;
 
     /**
      * Get existing Location by UUID.
@@ -51,13 +52,14 @@ public interface LocationService {
 
     /**
      * Edit an existing Location.
+     * @param entityUuid Entity Instance UUID
      * @param locationUuid UUID of existing Location.
      * @param editLocationRequestDto Request containing Attributes for the Location, see {@link EditLocationRequestDto}.
      * @return Edited Location.
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the Location failed to be edited.
      */
-    LocationDto editLocation(SecuredUUID locationUuid, EditLocationRequestDto editLocationRequestDto) throws NotFoundException, LocationException;
+    LocationDto editLocation(SecuredUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto editLocationRequestDto) throws NotFoundException, LocationException;
 
     /**
      * Remove existing Location with the given UUID.
