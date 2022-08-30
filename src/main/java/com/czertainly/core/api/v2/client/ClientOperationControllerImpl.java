@@ -12,10 +12,10 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
@@ -36,7 +36,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listIssueCertificateAttributes(
-            @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
+            @PathVariable String raProfileUuid) throws ConnectorException {
         return clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
@@ -44,7 +44,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public void validateIssueCertificateAttributes(
             @PathVariable String raProfileUuid,
-            @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
+            @RequestBody List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
@@ -52,7 +52,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ISSUE)
     public ClientCertificateDataResponseDto issueCertificate(
             @PathVariable String raProfileUuid,
-            @RequestBody ClientCertificateSignRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException {
+            @RequestBody ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException {
         return clientOperationService.issueCertificate(SecuredUUID.fromString(raProfileUuid), request, false);
     }
 
@@ -61,14 +61,14 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateDataResponseDto renewCertificate(
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
-            @RequestBody ClientCertificateRenewRequestDto request) throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+            @RequestBody ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         return clientOperationService.renewCertificate(SecuredUUID.fromString(raProfileUuid), certificateUuid, request, false);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listRevokeCertificateAttributes(
-            @PathVariable String raProfileUuid) throws NotFoundException, ConnectorException {
+            @PathVariable String raProfileUuid) throws ConnectorException {
         return clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
@@ -76,16 +76,16 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public void validateRevokeCertificateAttributes(
             @PathVariable String raProfileUuid,
-            @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException, ValidationException {
+            @RequestBody List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
-	@Override
+    @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.REVOKE)
     public void revokeCertificate(
             @PathVariable String raProfileUuid,
             @PathVariable String certificateUuid,
-            @RequestBody ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
+            @RequestBody ClientCertificateRevocationDto request) throws ConnectorException {
         clientOperationService.revokeCertificate(SecuredUUID.fromString(raProfileUuid), certificateUuid, request, false);
     }
 }

@@ -170,7 +170,7 @@ public interface ComplianceProfileService {
      * Check the compliance for all the certificates associated with the compliance profiles
      * @param request Request parameter containing the list of UUIDs of the compliance profiles
      */
-    void checkCompliance(ComplianceProfileComplianceCheckDto request);
+    void checkCompliance();
 
     /**
      * Disassociate Compliance Profiles from RA Profiles

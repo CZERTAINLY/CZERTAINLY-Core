@@ -6,7 +6,7 @@ import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.certificate.CertificateUpdateRAProfileDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
@@ -42,7 +42,6 @@ import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CsrUtil;
 import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.ValidatorUtil;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -170,7 +169,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
 
         logger.info("Certificate created {}", certificate);
-        CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
+        CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
         certificateService.updateRaProfile(certificate.getSecuredUuid(), dto);
@@ -255,7 +254,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
 
         logger.info("Certificate Renewed: {}", certificate);
-        CertificateUpdateRAProfileDto dto = new CertificateUpdateRAProfileDto();
+        CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setRaProfileUuid(raProfile.getUuid());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
         certificateService.updateRaProfile(certificate.getSecuredUuid(), dto);

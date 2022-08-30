@@ -167,7 +167,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testUpdateRaProfile() throws NotFoundException {
-        CertificateUpdateRAProfileDto uuidDto = new CertificateUpdateRAProfileDto();
+        CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setRaProfileUuid(raProfile.getUuid());
 
         certificateService.updateRaProfile(certificate.getSecuredUuid(), uuidDto);
@@ -177,14 +177,14 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testUpdateRaProfile_certificateNotFound() {
-        CertificateUpdateRAProfileDto uuidDto = new CertificateUpdateRAProfileDto();
+        CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setRaProfileUuid(raProfile.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateRaProfile(SecuredUUID.fromString("wrong-uuid"), uuidDto));
     }
 
     @Test
     public void testUpdateRaProfile_raProfileNotFound() {
-        CertificateUpdateRAProfileDto uuidDto = new CertificateUpdateRAProfileDto();
+        CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setRaProfileUuid("wrong-uuid");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateRaProfile(certificate.getSecuredUuid(), uuidDto));
     }

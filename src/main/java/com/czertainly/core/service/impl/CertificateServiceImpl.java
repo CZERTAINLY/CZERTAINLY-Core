@@ -229,7 +229,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     // TODO auth - move to RaProfileService as addCertificate method and create updateRaProfile method in here
-    public void updateRaProfile(SecuredUUID uuid, CertificateUpdateRAProfileDto request) throws NotFoundException {
+    public void updateRaProfile(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         RaProfile raProfile = raProfileRepository.findByUuid(request.getRaProfileUuid())
@@ -287,7 +287,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
-    public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
+    public void bulkUpdateRaProfile(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));

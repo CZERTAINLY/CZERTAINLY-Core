@@ -74,23 +74,8 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
-	public void updateRaProfile(@PathVariable String uuid, @RequestBody CertificateUpdateRAProfileDto request)
-			throws NotFoundException {
-		certificateService.updateRaProfile(SecuredUUID.fromString(uuid), request);
-	}
-
-	@Override
-	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
-	public void updateCertificateGroup(@PathVariable String uuid,
-			@RequestBody CertificateUpdateGroupDto request) throws NotFoundException {
-		certificateService.updateCertificateGroup(SecuredUUID.fromString(uuid), request);
-	}
-
-	@Override
-	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
-	public void updateOwner(@PathVariable String uuid, @RequestBody CertificateOwnerRequestDto request)
-			throws NotFoundException {
-		certificateService.updateOwner(SecuredUUID.fromString(uuid), request);
+	public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+		certificateService.updateCertificateObjects(uuid, request);
 	}
 
 	@Override
@@ -101,28 +86,10 @@ public class CertificateControllerImpl implements CertificateController {
 		certValidationService.validate(crt);
 	}
 
-	// -------------------- BulkUpdate APIs -------------------
 	@Override
-	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
-	public void bulkUpdateRaProfile(@RequestBody MultipleRAProfileUpdateDto request)
-			throws NotFoundException {
-		certificateService.bulkUpdateRaProfile(request);
+	public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+		certificateService.bulkUpdateCertificateObjects(request);
 	}
-
-	@Override
-	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
-	public void bulkUpdateCertificateGroup(@RequestBody MultipleGroupUpdateDto request)
-			throws NotFoundException {
-		certificateService.bulkUpdateCertificateGroup(request);
-	}
-
-	@Override
-	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPDATE)
-	public void bulkUpdateOwner(@RequestBody CertificateOwnerBulkUpdateDto request)
-			throws NotFoundException {
-		certificateService.bulkUpdateOwner(request);
-	}
-	// ------------------- /Bulk Update API -----------------------
 
 	@Override
 	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.UPLOAD)

@@ -50,16 +50,6 @@ public interface CertificateService {
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     void revokeCertificate(String serialNumber);
-	
-	void updateRaProfile(SecuredUUID uuid, CertificateUpdateRAProfileDto request) throws NotFoundException;
-    void updateCertificateGroup(SecuredUUID uuid, CertificateUpdateGroupDto request) throws NotFoundException;
-
-    void updateOwner(SecuredUUID uuid, CertificateOwnerRequestDto request) throws NotFoundException;
-
-    void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException;
-    void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException;
-
-    void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException;
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
     void bulkDeleteCertificate(RemoveCertificateDto request) throws NotFoundException;
@@ -90,4 +80,17 @@ public interface CertificateService {
      * @param certificate Certificate entity to be updated
      */
     void updateCertificateEntity(Certificate certificate);
+
+    /**
+     * Update the Certificate Objects contents
+     * @param uuid UUID of the certificate
+     * @param request Request for the certificate objects update
+     */
+    void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request);
+
+    /**
+     * Method to update the Objects of multiple certificates
+     * @param request Request to update multiple objects
+     */
+    void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request);
 }

@@ -23,8 +23,8 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.REVOKE)
-    public void revokeAcmeAccount(String uuid) throws NotFoundException {
-        acmeAccountService.revokeAccount(SecuredUUID.fromString(uuid));
+    public void revokeAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
+        acmeAccountService.revokeAccount(SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
@@ -53,19 +53,19 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.DETAIL)
-    public AcmeAccountResponseDto getAcmeAccount(String uuid) throws NotFoundException {
-        return acmeAccountService.getAcmeAccount(SecuredUUID.fromString(uuid));
+    public AcmeAccountResponseDto getAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
+        return acmeAccountService.getAcmeAccount(SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
-    public void enableAcmeAccount(String uuid) throws NotFoundException {
-        acmeAccountService.enableAccount(SecuredUUID.fromString(uuid));
+    public void enableAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
+        acmeAccountService.enableAccount(SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
-    public void disableAcmeAccount(String uuid) throws NotFoundException {
-        acmeAccountService.disableAccount(SecuredUUID.fromString(uuid));
+    public void disableAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
+        acmeAccountService.disableAccount(SecuredUUID.fromString(acmeAccountUuid));
     }
 }
