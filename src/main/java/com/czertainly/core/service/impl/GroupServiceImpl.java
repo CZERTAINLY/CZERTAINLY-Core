@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -115,6 +116,6 @@ public class GroupServiceImpl implements GroupService {
     }
 
     private CertificateGroup getGroupEntity(SecuredUUID uuid) throws NotFoundException {
-        return groupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
+        return groupRepository.findByUuid(UUID.fromString(uuid.toString())).orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
     }
 }

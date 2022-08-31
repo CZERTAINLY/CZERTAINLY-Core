@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authz;
 
+import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.AnonymousPrincipal;
@@ -61,13 +62,38 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                     .filter(this::shouldBeSendToOpa)
                     .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
 
-            OpaRequestedResource resource = new OpaRequestedResource(properties);
-
-            // UUIDs of objects the operation is executed on
-            List<SecuredUUID> objectUUIDs = extractUUIDsFromMethodArguments(methodInvocation);
-
             Optional<ParentUUIDGetter> parentUUIDGetter = getParentUUIDGetter(attributes);
+            if(properties.get("parentName") != Resource.NONE.getCode()) {
+                int result = voteResource(principal, methodInvocation, properties, parentUUIDGetter, true);
+                if(result == ACCESS_DENIED) return result;
+            }
 
+            return voteResource(principal, methodInvocation, properties, parentUUIDGetter, false);
+        } catch (Exception e) {
+            logger.error(String.format("Unable verify access to the method '%s'. Voting to deny access.", methodInvocation.getMethod().getName()), e);
+            return ACCESS_DENIED;
+        }
+    }
+
+    private int voteResource(String principal, MethodInvocation methodInvocation, Map<String, String> properties, Optional<ParentUUIDGetter> parentUUIDGetter, boolean parentResource) {
+        Map<String, String> voteProperties = properties;
+
+        if(parentResource) {
+            Map<String, String> parentProperties = properties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            parentProperties.put("name", properties.get("parentName"));
+            parentProperties.put("action", properties.get("parentAction"));
+            voteProperties = parentProperties;
+        }
+        voteProperties.remove("parentName");
+        voteProperties.remove("parentAction");
+
+        OpaRequestedResource resource = new OpaRequestedResource(voteProperties);
+
+        // UUIDs of objects the operation is executed on
+        List<SecuredUUID> objectUUIDs = parentResource ? extractParentUUIDsFromMethodArguments(methodInvocation) : extractUUIDsFromMethodArguments(methodInvocation);
+
+        // Parent UUID Getter not used for now, remove later
+        if(!parentResource) {
             if (parentUUIDGetter.isPresent()) {
                 if (objectUUIDs.isEmpty()) {
                     logger.error("ParentUUIDGetter specified but no object uuids were found. Access will be denied.");
@@ -81,30 +107,27 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                     resource.setParentObjectUUIDs(parentsUUIDs);
                 }
             }
+        }
 
-            if (!objectUUIDs.isEmpty()) {
-                List<String> uuids = objectUUIDs.stream()
-                        .map(SecuredUUID::toString)
-                        .collect(Collectors.toList());
-                resource.setObjectUUIDs(uuids);
-            }
+        if (!objectUUIDs.isEmpty()) {
+            List<String> uuids = objectUUIDs.stream()
+                    .map(SecuredUUID::toString)
+                    .collect(Collectors.toList());
+            resource.setObjectUUIDs(uuids);
+        }
 
-            OpaResourceAccessResult result = this.checkAccess(principal, resource);
-            if (result.isAuthorized()) {
-                logger.trace(
-                        String.format(
-                                "Access to the method '%s' has been granted by the following rules [%s].",
-                                methodInvocation.getMethod().getName(),
-                                String.join(",", result.getAllow())
-                        )
-                );
-                return ACCESS_GRANTED;
-            } else {
-                logger.trace(String.format("Access to the method '%s' has been denied.", methodInvocation.getMethod().getName()));
-                return ACCESS_DENIED;
-            }
-        } catch (Exception e) {
-            logger.error(String.format("Unable verify access to the method '%s'. Voting to deny access.", methodInvocation.getMethod().getName()), e);
+        OpaResourceAccessResult result = this.checkAccess(principal, resource);
+        if (result.isAuthorized()) {
+            logger.trace(
+                    String.format(
+                            "Access to the method '%s' has been granted by the following rules [%s].",
+                            methodInvocation.getMethod().getName(),
+                            String.join(",", result.getAllow())
+                    )
+            );
+            return ACCESS_GRANTED;
+        } else {
+            logger.trace(String.format("Access to the method '%s' has been denied.", methodInvocation.getMethod().getName()));
             return ACCESS_DENIED;
         }
     }
@@ -152,12 +175,27 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
         List<SecuredUUID> uuids = new ArrayList<>();
 
         Arrays.stream(methodInvocation.getArguments())
-                .filter(arg -> arg instanceof SecuredUUID)
+                .filter(arg -> arg instanceof SecuredUUID && !(arg instanceof SecuredParentUUID))
                 .forEach(arg -> uuids.add((SecuredUUID) arg));
 
         Arrays.stream(methodInvocation.getArguments())
-                .filter(arg -> arg instanceof List && !((List<?>) arg).isEmpty() && ((List<?>) arg).get(0) instanceof SecuredUUID)
+                .filter(arg -> arg instanceof List && !((List<?>) arg).isEmpty() && ((List<?>) arg).get(0) instanceof SecuredUUID && !(((List<?>) arg).get(0) instanceof SecuredParentUUID))
                 .forEach(arg -> uuids.addAll(((List<SecuredUUID>) arg)));
+
+        return uuids;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<SecuredUUID> extractParentUUIDsFromMethodArguments(MethodInvocation methodInvocation) {
+        List<SecuredUUID> uuids = new ArrayList<>();
+
+        Arrays.stream(methodInvocation.getArguments())
+                .filter(arg -> arg instanceof SecuredParentUUID)
+                .forEach(arg -> uuids.add((SecuredParentUUID) arg));
+
+        Arrays.stream(methodInvocation.getArguments())
+                .filter(arg -> arg instanceof List && !((List<?>) arg).isEmpty() && ((List<?>) arg).get(0) instanceof SecuredParentUUID)
+                .forEach(arg -> uuids.addAll(((List<SecuredParentUUID>) arg)));
 
         return uuids;
     }

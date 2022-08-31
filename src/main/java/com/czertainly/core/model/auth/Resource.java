@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.Arrays;
 
 public enum Resource {
+    NONE("NONE"),
 
     // GENERAL
     DASHBOARD("dashboard"),

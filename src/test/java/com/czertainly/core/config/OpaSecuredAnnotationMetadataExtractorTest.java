@@ -78,11 +78,23 @@ class OpaSecuredAnnotationMetadataExtractorTest {
 
         private final Resource resource;
         private final ResourceAction resourceAction;
+        private final Resource parentResource;
+        private final ResourceAction parentResourceAction;
         private final Class<? extends ParentUUIDGetter> parentUUIDGetterClass;
 
         public TestExternalAuthorization(Resource resource, ResourceAction resourceAction, Class<? extends ParentUUIDGetter> parentUUIDGetterClass) {
             this.resource = resource;
             this.resourceAction = resourceAction;
+            this.parentResource = Resource.NONE;
+            this.parentResourceAction = ResourceAction.NONE;
+            this.parentUUIDGetterClass = parentUUIDGetterClass;
+        }
+
+        public TestExternalAuthorization(Resource resource, ResourceAction resourceAction, Resource parentResource, ResourceAction parentResourceAction, Class<? extends ParentUUIDGetter> parentUUIDGetterClass) {
+            this.resource = resource;
+            this.resourceAction = resourceAction;
+            this.parentResource = parentResource;
+            this.parentResourceAction = parentResourceAction;
             this.parentUUIDGetterClass = parentUUIDGetterClass;
         }
 
@@ -95,6 +107,12 @@ class OpaSecuredAnnotationMetadataExtractorTest {
         public ResourceAction action() {
             return resourceAction;
         }
+
+        @Override
+        public Resource parentResource() { return parentResource; }
+
+        @Override
+        public ResourceAction parentAction() { return parentResourceAction; }
 
         @Override
         public Class<? extends ParentUUIDGetter> parentObjectUUIDGetter() {

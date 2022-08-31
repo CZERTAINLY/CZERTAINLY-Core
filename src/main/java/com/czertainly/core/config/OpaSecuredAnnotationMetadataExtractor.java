@@ -24,6 +24,8 @@ public class OpaSecuredAnnotationMetadataExtractor implements AnnotationMetadata
     public Collection<ExternalAuthorizationConfigAttribute> extractAttributes(ExternalAuthorization secured) {
         String action = secured.action().getCode();
         String resource = secured.resource().getCode();
+        String parentAction = secured.parentAction().getCode();
+        String parentResource = secured.parentResource().getCode();
         Optional<Class<? extends ParentUUIDGetter>> parentUUIDGetterClass = Optional.empty();
         if (!NoOpParentUUIDGetter.class.isAssignableFrom(secured.parentObjectUUIDGetter())) {
             parentUUIDGetterClass = Optional.of(secured.parentObjectUUIDGetter());
@@ -32,6 +34,8 @@ public class OpaSecuredAnnotationMetadataExtractor implements AnnotationMetadata
         List<ExternalAuthorizationConfigAttribute> attributes = new ArrayList<>(2);
         attributes.add(new ExternalAuthorizationConfigAttribute("action", action));
         attributes.add(new ExternalAuthorizationConfigAttribute("name", resource));
+        attributes.add(new ExternalAuthorizationConfigAttribute("parentAction", parentAction));
+        attributes.add(new ExternalAuthorizationConfigAttribute("parentName", parentResource));
         parentUUIDGetterClass.ifPresent(value -> attributes.add(new ExternalAuthorizationConfigAttribute("parentUUIDGetter", value)));
 
         logger.trace(

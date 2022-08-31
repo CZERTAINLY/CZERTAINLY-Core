@@ -15,5 +15,9 @@ public @interface ExternalAuthorization {
 
     ResourceAction action() default ResourceAction.NONE;
 
+    Resource parentResource() default Resource.NONE;
+
+    ResourceAction parentAction() default ResourceAction.NONE;
+
     Class<? extends ParentUUIDGetter> parentObjectUUIDGetter() default NoOpParentUUIDGetter.class;
 }
