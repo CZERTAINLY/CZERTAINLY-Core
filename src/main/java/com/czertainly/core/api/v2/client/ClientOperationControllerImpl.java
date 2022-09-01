@@ -36,56 +36,63 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listIssueCertificateAttributes(
-            @PathVariable String raProfileUuid) throws ConnectorException {
+            String authorityUuid,
+            String raProfileUuid) throws ConnectorException {
         return clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public void validateIssueCertificateAttributes(
-            @PathVariable String raProfileUuid,
-            @RequestBody List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
+            String authorityUuid,
+            String raProfileUuid,
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ISSUE)
     public ClientCertificateDataResponseDto issueCertificate(
-            @PathVariable String raProfileUuid,
-            @RequestBody ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException {
+            String authorityUuid,
+            String raProfileUuid,
+            ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException {
         return clientOperationService.issueCertificate(SecuredUUID.fromString(raProfileUuid), request, false);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.RENEW)
     public ClientCertificateDataResponseDto renewCertificate(
-            @PathVariable String raProfileUuid,
-            @PathVariable String certificateUuid,
-            @RequestBody ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+            String authorityUuid,
+            String raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         return clientOperationService.renewCertificate(SecuredUUID.fromString(raProfileUuid), certificateUuid, request, false);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listRevokeCertificateAttributes(
-            @PathVariable String raProfileUuid) throws ConnectorException {
+            String authorityUuid,
+            String raProfileUuid) throws ConnectorException {
         return clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public void validateRevokeCertificateAttributes(
-            @PathVariable String raProfileUuid,
-            @RequestBody List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
+            String authorityUuid,
+            String raProfileUuid,
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.REVOKE)
     public void revokeCertificate(
-            @PathVariable String raProfileUuid,
-            @PathVariable String certificateUuid,
-            @RequestBody ClientCertificateRevocationDto request) throws ConnectorException {
+            String authorityUuid,
+            String raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRevocationDto request) throws ConnectorException {
         clientOperationService.revokeCertificate(SecuredUUID.fromString(raProfileUuid), certificateUuid, request, false);
     }
 }
