@@ -59,6 +59,11 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
+    public RaProfileDto getRaProfile(String raProfileUuid) throws NotFoundException {
+        return raProfileService.getRaProfile(SecuredUUID.fromString(raProfileUuid));
+    }
+
+    @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.UPDATE)
     public RaProfileDto editRaProfile(String authorityUuid, String raProfileUuid, EditRaProfileRequestDto request)
             throws ConnectorException {
@@ -69,6 +74,11 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DELETE)
     public void deleteRaProfile(String authorityUuid, String uuid) throws NotFoundException {
         raProfileService.deleteRaProfile(SecuredUUID.fromString(uuid));
+    }
+
+    @Override
+    public void deleteRaProfile(String raProfileUuid) throws NotFoundException {
+        raProfileService.deleteRaProfile(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
