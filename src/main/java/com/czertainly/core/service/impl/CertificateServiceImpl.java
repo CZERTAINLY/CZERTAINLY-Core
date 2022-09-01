@@ -58,10 +58,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.StringWriter;
+import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -143,8 +140,14 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException {
+    public CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
+        // TODO AUTH - moved logic from controller
+        updateIssuer();
         Certificate entity = getCertificateEntity(uuid);
+        if (entity.getStatus() != CertificateStatus.EXPIRED || entity.getStatus() != CertificateStatus.REVOKED) {
+            certValidationService.validate(entity);
+        }
+
         CertificateDto dto = entity.mapToDto();
         if (entity.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(entity.getComplianceResult()));
@@ -226,7 +229,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    // TODO auth - move to RaProfileService as addCertificate method and create updateRaProfile method in here
     public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
         if (request.getRaProfileUuid() != null) {
             updateRaProfile(uuid, SecuredUUID.fromString(request.getRaProfileUuid()));
@@ -326,8 +328,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    // TODO AUTH - what is the correct action?
+//    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - what is the correct action? It is not necessary to check permissions, internal function that will be later done by scheduler?
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
             if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
@@ -818,7 +820,6 @@ public class CertificateServiceImpl implements CertificateService {
         return "";
     }
 
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     private void updateRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
@@ -838,7 +839,6 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
     }
 
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     private void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
@@ -854,7 +854,6 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
     }
 
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     private void updateOwner(SecuredUUID uuid, String owner) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));

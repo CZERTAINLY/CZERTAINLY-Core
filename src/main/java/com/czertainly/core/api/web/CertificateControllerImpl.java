@@ -57,12 +57,6 @@ public class CertificateControllerImpl implements CertificateController {
 	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DETAIL)
 	public CertificateDto getCertificate(@PathVariable String uuid)
 			throws NotFoundException, CertificateException, IOException {
-		// TODO AUTH - move logic to service
-		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
-		certificateService.updateIssuer();
-		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
-			certValidationService.validate(crt);
-		}
 		return certificateService.getCertificate(SecuredUUID.fromString(uuid));
 	}
 

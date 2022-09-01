@@ -37,16 +37,16 @@ public enum ResourceAction {
     REVOKE("revoke"),
     ISSUE("issue"),
 
-    //Legacy EJBCA operations
-    LIST_ENTITY_PROFILE("listEntityProfile"),
-    LIST_CERTIFICATE_PROFILE("listCertificateProfile"),
-    LIST_CERTIFICATE_AUTHORITY("listCertificateAuthority"),
-    LIST_END_ENTITY("listEndEntity"),
-    ADD_END_ENTITY("addEndEntity"),
-    REVOKE_DELETE_END_ENTITY("revokeDeleteEndEntity"),
-    END_ENTITY_DETAIL("endEntityDetail"),
-    EDIT_END_ENTITY("editEndEntity"),
-    RESET_PASSWORD("resetPassword"),
+    //Legacy EJBCA operations - removed later
+//    LIST_ENTITY_PROFILE("listEntityProfile"),
+//    LIST_CERTIFICATE_PROFILE("listCertificateProfile"),
+//    LIST_CERTIFICATE_AUTHORITY("listCertificateAuthority"),
+//    LIST_END_ENTITY("listEndEntity"),
+//    ADD_END_ENTITY("addEndEntity"),
+//    REVOKE_DELETE_END_ENTITY("revokeDeleteEndEntity"),
+//    END_ENTITY_DETAIL("endEntityDetail"),
+//    EDIT_END_ENTITY("editEndEntity"),
+//    RESET_PASSWORD("resetPassword"),
 
     // Audit Log export
     EXPORT("export"),

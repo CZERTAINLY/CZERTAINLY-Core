@@ -90,7 +90,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetCertificate() throws NotFoundException {
+    public void testGetCertificate() throws NotFoundException, CertificateException, IOException {
         CertificateDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificate.getUuid(), dto.getUuid());
@@ -131,7 +131,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCertificate() throws NotFoundException {
+    public void testRevokeCertificate() throws NotFoundException, CertificateException, IOException {
         certificateService.revokeCertificate(certificate.getSerialNumber());
 
         CertificateDto dto = certificateService.getCertificate(certificate.getSecuredUuid());

@@ -44,7 +44,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.LIST_END_ENTITY)
     public List<ClientEndEntityDto> listEntities(
             @PathVariable String raProfileName)
             throws NotFoundException, ConnectorException {
@@ -52,7 +51,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ADD_END_ENTITY)
     public void addEndEntity(
             @PathVariable String raProfileName,
             @RequestBody ClientAddEndEntityRequestDto request)
@@ -61,7 +59,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.END_ENTITY_DETAIL)
     public ClientEndEntityDto getEndEntity(
             @PathVariable String raProfileName,
             @PathVariable String username)
@@ -70,7 +67,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.EDIT_END_ENTITY)
     public void editEndEntity(
             @PathVariable String raProfileName,
             @PathVariable String username,
@@ -80,13 +76,11 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.REVOKE_DELETE_END_ENTITY)
     public void revokeAndDeleteEndEntity(@PathVariable String raProfileName, @PathVariable String username) throws NotFoundException, ConnectorException {
         clientOperationService.revokeAndDeleteEndEntity(raProfileName, username);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.RESET_PASSWORD)
     public void resetPassword(@PathVariable String raProfileName, @PathVariable String username) throws NotFoundException, ConnectorException {
         clientOperationService.resetPassword(raProfileName, username);
     }

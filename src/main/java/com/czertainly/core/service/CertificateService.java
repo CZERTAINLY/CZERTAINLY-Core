@@ -15,6 +15,7 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
+import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -23,7 +24,7 @@ public interface CertificateService {
 
     CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException;
     
-    CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException;
+    CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
     // TODO AUTH - unable to check access based on certificate content. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByContent(String content);

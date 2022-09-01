@@ -75,19 +75,16 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.LIST_ENTITY_PROFILE)
     public List<NameAndIdDto> listEntityProfiles(@PathVariable String uuid) throws NotFoundException, ConnectorException {
         return authorityInstanceService.listEndEntityProfiles(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.LIST_CERTIFICATE_PROFILE)
     public List<NameAndIdDto> listCertificateProfiles(@PathVariable String uuid, @PathVariable Integer endEntityProfileId) throws NotFoundException, ConnectorException {
         return authorityInstanceService.listCertificateProfiles(SecuredUUID.fromString(uuid), endEntityProfileId);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.LIST_CERTIFICATE_AUTHORITY)
     public List<NameAndIdDto> listCAsInProfile(@PathVariable String uuid, @PathVariable Integer endEntityProfileId) throws NotFoundException, ConnectorException {
         return authorityInstanceService.listCAsInProfile(SecuredUUID.fromString(uuid), endEntityProfileId);
     }

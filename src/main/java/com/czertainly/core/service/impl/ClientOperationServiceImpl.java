@@ -31,6 +31,7 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
@@ -65,12 +66,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ISSUE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ISSUE)
     public ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException {
-        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
-        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
         caRequest.setUsername(request.getUsername());
@@ -104,12 +102,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.REVOKE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String raProfileName, ClientCertificateRevocationDto request) throws ConnectorException {
-        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
-        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         CertRevocationDto caRequest = new CertRevocationDto();
         caRequest.setCertificateSN(request.getCertificateSN());
@@ -127,12 +122,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST_ENTITY_PROFILE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public List<ClientEndEntityDto> listEntities(String raProfileName) throws ConnectorException {
-        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
-        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         List<EndEntityDto> endEntities = endEntityApiClient.listEntities(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
@@ -148,10 +140,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException {
-        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
-        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         AddEndEntityRequestDto caRequest = new AddEndEntityRequestDto();
         caRequest.setUsername(request.getUsername());
@@ -171,12 +160,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.END_ENTITY_DETAIL)
     public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws ConnectorException {
-        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
-        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         EndEntityDto endEntity = endEntityApiClient.getEndEntity(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
@@ -189,12 +174,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.EDIT_END_ENTITY)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException {
-        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
-        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         EditEndEntityRequestDto caRequest = new EditEndEntityRequestDto();
         caRequest.setPassword(request.getPassword());
@@ -214,12 +196,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.REVOKE_DELETE_END_ENTITY)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void revokeAndDeleteEndEntity(String raProfileName, String username) throws ConnectorException {
-        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
-        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         endEntityApiClient.revokeAndDeleteEndEntity(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
@@ -230,12 +209,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ACCESS, operation = OperationType.RESET)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.RESET_PASSWORD)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void resetPassword(String raProfileName, String username) throws ConnectorException {
-        // TODO AUTH - use uuid instead of name, then ValidationUtils will no longer be needed.
-        // ValidatorUtil.validateAuthToRaProfile(raProfileName);
-        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+        RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         endEntityApiClient.resetPassword(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
@@ -268,5 +244,19 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         dto.setStatus(caDto.getStatus());
         dto.setExtensionData(caDto.getExtensionData());
         return dto;
+    }
+
+    private RaProfile getRaProfileEntityChecked(String raProfileName) throws NotFoundException {
+        RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
+
+        checkAccessPermissions(raProfile.getSecuredUuid(), SecuredParentUUID.fromString(raProfile.getAuthorityInstanceReferenceUuid()));
+
+        return raProfile;
+    }
+
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    private void checkAccessPermissions(SecuredUUID raProfileUuid, SecuredParentUUID authorityUuid) {
+
     }
 }
