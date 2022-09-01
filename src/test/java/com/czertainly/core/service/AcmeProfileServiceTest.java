@@ -43,6 +43,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
         acmeProfile.setDnsResolverPort("53");
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
+        acmeProfile.setEnabled(false);
         acmeProfileRepository.save(acmeProfile);
     }
 
@@ -121,7 +122,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
     @Test
     public void testEditAcmeProfile_validationFail() {
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.editAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test

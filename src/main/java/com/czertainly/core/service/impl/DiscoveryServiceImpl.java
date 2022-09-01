@@ -4,6 +4,8 @@ import com.czertainly.api.clients.DiscoveryApiClient;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
@@ -237,6 +239,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
+        }
+        if(request.getConnectorUuid() == null){
+            throw new ValidationException(ValidationError.create("Connector UUID is empty"));
         }
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 

@@ -13,16 +13,16 @@ class SecuredListTest {
     @Test
     void createsSecuredListGivenOnlySpecificObjectsAllowed() {
         // given
-        SecurableTestItem A = new SecurableTestItem("uuid_A", "A");
-        SecurableTestItem B = new SecurableTestItem("uuid_B", "B");
-        SecurableTestItem C = new SecurableTestItem("uuid_C", "C");
-        SecurableTestItem D = new SecurableTestItem("uuid_D", "D");
-        SecurableTestItem E = new SecurableTestItem("uuid_E", "E");
+        SecurableTestItem A = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120002", "A");
+        SecurableTestItem B = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120003", "B");
+        SecurableTestItem C = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120004", "C");
+        SecurableTestItem D = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120005", "D");
+        SecurableTestItem E = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120006", "E");
         List<SecurableTestItem> items = List.of(A, B, C, D, E);
 
         SecurityFilter filter = SecurityFilter.create();
         filter.setAreOnlySpecificObjectsAllowed(true);
-        filter.addAllowedObjects(List.of("uuid_A", "uuid_C"));
+        filter.addAllowedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
 
         // when
         SecuredList<SecurableTestItem> list = SecuredList.fromFilter(filter, items);
@@ -34,16 +34,16 @@ class SecuredListTest {
     @Test
     void createsSecuredListGivenAccessIsAllowedToGroupOfObjects() {
         // given
-        SecurableTestItem A = new SecurableTestItem("uuid_A", "A");
-        SecurableTestItem B = new SecurableTestItem("uuid_B", "B");
-        SecurableTestItem C = new SecurableTestItem("uuid_C", "C");
-        SecurableTestItem D = new SecurableTestItem("uuid_D", "D");
-        SecurableTestItem E = new SecurableTestItem("uuid_E", "E");
+        SecurableTestItem A = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120002", "A");
+        SecurableTestItem B = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120003", "B");
+        SecurableTestItem C = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120004", "C");
+        SecurableTestItem D = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120005", "D");
+        SecurableTestItem E = new SecurableTestItem("abfbc322-29e1-11ed-a261-0242ac120006", "E");
         List<SecurableTestItem> items = List.of(A, B, C, D, E);
 
         SecurityFilter filter = SecurityFilter.create();
         filter.setAreOnlySpecificObjectsAllowed(false);
-        filter.addDeniedObjects(List.of("uuid_A", "uuid_C"));
+        filter.addDeniedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
 
         // when
         SecuredList<SecurableTestItem> list = SecuredList.fromFilter(filter, items);

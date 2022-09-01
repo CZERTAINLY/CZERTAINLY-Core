@@ -109,7 +109,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     @Override
     public Boolean complianceGroupExists(SecuredUUID uuid, Connector connector, String kind) {
-        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid.toString(), connector, kind).isPresent();
+        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).isPresent();
     }
 
     @Override
@@ -210,7 +210,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Override
     // TODO AUTH - do not return DB Entity, return Dto instead, use UUIDS instead of IDs
     public List<ComplianceRule> getComplianceRuleEntityForIds(List<String> ids) {
-        return complianceRuleRepository.findByUuidIn(ids);
+        return complianceRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
     // TODO AUTH - create separate service for ComplianceRule?
@@ -223,7 +223,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     private ComplianceGroup getComplianceGroupEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {
-        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid.toString(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, uuid));
+        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, uuid));
     }
 
     private ComplianceRule getComplianceRuleEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {

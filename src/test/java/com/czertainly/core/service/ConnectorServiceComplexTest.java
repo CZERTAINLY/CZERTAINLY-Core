@@ -74,6 +74,7 @@ public class ConnectorServiceComplexTest extends BaseSpringBootTest {
     @Test
     public void testListConnectors_One() throws NotFoundException {
         Connector connector = new Connector();
+        connector.setName("Demo");
         connectorRepository.save(connector);
 
         List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), null, null, null);
@@ -103,6 +104,7 @@ public class ConnectorServiceComplexTest extends BaseSpringBootTest {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
+        functionGroup.setUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         functionGroup.setCode(FunctionGroupCode.CREDENTIAL_PROVIDER);
         functionGroup.setName(FunctionGroupCode.CREDENTIAL_PROVIDER.getCode());
         functionGroupRepository.save(functionGroup);
@@ -113,8 +115,6 @@ public class ConnectorServiceComplexTest extends BaseSpringBootTest {
         ConnectorDto request = new ConnectorDto();
         request.setName("testConnector");
         request.setFunctionGroups(Arrays.asList(fgDto));
-
-
 
         ConnectorDto dto = connectorService.createConnector(request, ConnectorStatus.CONNECTED);
         Assertions.assertNotNull(dto);

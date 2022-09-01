@@ -45,7 +45,7 @@ public class CoreCallbackServiceTest extends BaseSpringBootTest {
         List<JsonAttributeContent> credentials = coreCallbackService.coreGetCredentials(callback);
         Assertions.assertNotNull(credentials);
         Assertions.assertFalse(credentials.isEmpty());
-        Assertions.assertEquals(credential.getUuid(), ((NameAndUuidDto) credentials.get(0).getData()).getUuid());
+        Assertions.assertEquals(credential.getUuid().toString(), ((NameAndUuidDto) credentials.get(0).getData()).getUuid());
     }
 
 

@@ -91,7 +91,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
-        Assertions.assertEquals(connector.getUuid(), connectors.get(0).getUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), connectors.get(0).getUuid());
     }
 
     @Test
@@ -103,7 +103,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
-        Assertions.assertEquals(connector.getUuid(), connectors.get(0).getUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), connectors.get(0).getUuid());
     }
 
     @Test
@@ -127,7 +127,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
-        Assertions.assertEquals(connector.getUuid(), connectors.get(0).getUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), connectors.get(0).getUuid());
     }
 
     @Test
@@ -177,7 +177,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
 
         ConnectorDto dto = connectorService.getConnector(connector.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(connector.getUuid(), dto.getUuid());
+        Assertions.assertEquals(connector.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(connector.getName(), dto.getName());
     }
 

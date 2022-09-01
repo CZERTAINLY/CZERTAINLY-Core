@@ -103,16 +103,16 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(credentials);
         Assertions.assertFalse(credentials.isEmpty());
         Assertions.assertEquals(1, credentials.size());
-        Assertions.assertEquals(credential.getUuid(), credentials.get(0).getUuid());
+        Assertions.assertEquals(credential.getUuid().toString(), credentials.get(0).getUuid());
     }
 
     @Test
     public void testGetCredential() throws NotFoundException {
         CredentialDto dto = credentialService.getCredential(credential.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(credential.getUuid(), dto.getUuid());
+        Assertions.assertEquals(credential.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(credential.getConnectorUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(credential.getConnectorUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
@@ -139,7 +139,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(credential.getConnectorUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(credential.getConnectorUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
@@ -171,7 +171,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         CredentialDto dto = credentialService.editCredential(credential.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(credential.getConnectorUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(credential.getConnectorUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
@@ -236,7 +236,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(attrs.get(0).getContent() instanceof JsonAttributeContent);
 
         CredentialDto credentialDto = (CredentialDto) ((JsonAttributeContent) attrs.get(0).getContent()).getData();
-        Assertions.assertEquals(credential.getUuid(), credentialDto.getUuid());
+        Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
 
@@ -301,7 +301,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(requestAttributeCallback.getRequestBody().get(credentialBodyKey) instanceof CredentialDto);
 
         CredentialDto credentialDto = (CredentialDto) requestAttributeCallback.getRequestBody().get(credentialBodyKey);
-        Assertions.assertEquals(credential.getUuid(), credentialDto.getUuid());
+        Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
 

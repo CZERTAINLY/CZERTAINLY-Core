@@ -99,7 +99,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(authorityInstances);
         Assertions.assertFalse(authorityInstances.isEmpty());
         Assertions.assertEquals(1, authorityInstances.size());
-        Assertions.assertEquals(authorityInstance.getUuid(), authorityInstances.get(0).getUuid());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), authorityInstances.get(0).getUuid());
     }
 
     @Test
@@ -110,9 +110,9 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
         AuthorityInstanceDto dto = authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(authorityInstance.getUuid(), dto.getUuid());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(authorityInstance.getConnector().getUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
@@ -143,12 +143,14 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(authorityInstance.getConnector().getUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
     public void testAddAuthorityInstance_notFound() {
         AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
+        request.setName("Demo");
+        request.setConnectorUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         // connector uui not set
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.createAuthorityInstance(request));
     }

@@ -199,14 +199,13 @@ public class LocationServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(locations);
         Assertions.assertFalse(locations.isEmpty());
         Assertions.assertEquals(3, locations.size());
-        Assertions.assertEquals(location.getUuid(), locations.get(0).getUuid());
     }
 
     @Test
     public void testGetLocationByUuid() throws NotFoundException {
         LocationDto dto = locationService.getLocation(location.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(location.getUuid(), dto.getUuid());
+        Assertions.assertEquals(location.getUuid().toString(), dto.getUuid());
     }
 
     @Test

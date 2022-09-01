@@ -17,6 +17,9 @@ public class SecuredUUID {
     }
 
     public static SecuredUUID fromString(String value) {
+        if(value == null){
+            return null;
+        }
         return new SecuredUUID(value);
     }
 

@@ -77,16 +77,16 @@ public class ClientServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(clients);
         Assertions.assertFalse(clients.isEmpty());
         Assertions.assertEquals(1, clients.size());
-        Assertions.assertEquals(client.getUuid(), clients.get(0).getUuid());
+        Assertions.assertEquals(client.getUuid().toString(), clients.get(0).getUuid());
     }
 
     @Test
     public void testGetClientByUuid() throws NotFoundException {
         ClientDto dto = clientService.getClient(client.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(client.getUuid(), dto.getUuid());
+        Assertions.assertEquals(client.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificate());
-        Assertions.assertEquals(client.getCertificate().getUuid(), dto.getCertificate().getUuid());
+        Assertions.assertEquals(client.getCertificate().getUuid().toString(), dto.getCertificate().getUuid());
     }
 
     @Test
@@ -202,7 +202,7 @@ public class ClientServiceTest extends BaseSpringBootTest {
         List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getSecuredUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertFalse(auths.isEmpty());
-        Assertions.assertEquals(raProfile.getUuid(), auths.get(0).getUuid());
+        Assertions.assertEquals(raProfile.getUuid().toString(), auths.get(0).getUuid());
     }
 
     @Test
@@ -228,7 +228,7 @@ public class ClientServiceTest extends BaseSpringBootTest {
         List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getSecuredUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertFalse(auths.isEmpty());
-        Assertions.assertEquals(raProfile.getUuid(), auths.get(0).getUuid());
+        Assertions.assertEquals(raProfile.getUuid().toString(), auths.get(0).getUuid());
     }
 
     @Test

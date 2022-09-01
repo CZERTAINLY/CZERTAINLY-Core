@@ -93,15 +93,15 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(discoveries);
         Assertions.assertFalse(discoveries.isEmpty());
         Assertions.assertEquals(1, discoveries.size());
-        Assertions.assertEquals(discovery.getUuid(), discoveries.get(0).getUuid());
+        Assertions.assertEquals(discovery.getUuid().toString(), discoveries.get(0).getUuid());
     }
 
     @Test
     public void testGetDiscovery() throws NotFoundException {
         DiscoveryHistoryDto dto = discoveryService.getDiscovery(discovery.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(discovery.getUuid(), dto.getUuid());
-        Assertions.assertEquals(discovery.getConnectorUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(discovery.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals(discovery.getConnectorUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
@@ -133,8 +133,9 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     @Test
     public void testAddDiscovery_notFound() {
         DiscoveryDto request = new DiscoveryDto();
+        request.setName("Demo");
         // connector uui not set
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.createDiscoveryModal(request));
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscoveryModal(request));
     }
 
     @Test

@@ -154,7 +154,7 @@ public class ComplianceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void checkRuleNotExistsTest(){
-        Boolean isExists = complianceService.complianceRuleExists(SecuredUUID.fromString("random"), connector, "default");
+        Boolean isExists = complianceService.complianceRuleExists(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), connector, "default");
         Assertions.assertEquals(false, isExists);
     }
 
@@ -166,7 +166,7 @@ public class ComplianceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void checkGroupNotExistsTest(){
-        Boolean isExists = complianceService.complianceGroupExists(SecuredUUID.fromString("random"), connector, "default");
+        Boolean isExists = complianceService.complianceGroupExists(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), connector, "default");
         Assertions.assertEquals(false, isExists);
     }
 }

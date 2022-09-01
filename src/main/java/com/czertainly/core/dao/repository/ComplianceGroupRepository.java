@@ -17,7 +17,7 @@ public interface ComplianceGroupRepository extends SecurityFilterRepository<Comp
 
     List<ComplianceGroup> findByConnectorAndKind(Connector connector, String kind);
 
-    Optional<ComplianceGroup> findByUuidAndConnectorAndKind(String uuid, Connector connector, String kind);
+    Optional<ComplianceGroup> findByUuidAndConnectorAndKind(UUID uuid, Connector connector, String kind);
 
     List<ComplianceGroup> findByConnector(Connector connector);
 }

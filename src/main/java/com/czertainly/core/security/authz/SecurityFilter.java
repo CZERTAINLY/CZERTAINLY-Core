@@ -2,18 +2,20 @@ package com.czertainly.core.security.authz;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class SecurityFilter {
 
     /**
      * List of object uuids user can access
      */
-    private final List<String> allowedObjects;
+    private List<UUID> allowedObjects;
 
     /**
      * List of object uuids user can not access
      */
-    private final List<String> forbiddenObjects;
+    private List<UUID> forbiddenObjects;
 
     /**
      * Specifies whether the user has access to all objects or only those explicitly allowed.
@@ -27,8 +29,8 @@ public class SecurityFilter {
     }
 
     public SecurityFilter(List<String> allowedObjects, List<String> forbiddenObjects, boolean areOnlySpecificObjectsAllowed) {
-        this.allowedObjects = allowedObjects;
-        this.forbiddenObjects = forbiddenObjects;
+        this.allowedObjects = allowedObjects.stream().map(UUID::fromString).collect(Collectors.toList());
+        this.forbiddenObjects = forbiddenObjects.stream().map(UUID::fromString).collect(Collectors.toList());
         this.areOnlySpecificObjectsAllowed = areOnlySpecificObjectsAllowed;
     }
 
@@ -36,20 +38,20 @@ public class SecurityFilter {
         return new SecurityFilter();
     }
 
-    public List<String> getAllowedObjects() {
+    public List<UUID> getAllowedObjects() {
         return allowedObjects;
     }
 
-    public List<String> getForbiddenObjects() {
+    public List<UUID> getForbiddenObjects() {
         return forbiddenObjects;
     }
 
     public void addAllowedObjects(List<String> objectUUIDs) {
-        this.allowedObjects.addAll(objectUUIDs);
+        this.allowedObjects.addAll(objectUUIDs.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
     public void addDeniedObjects(List<String> objectUUIDs) {
-        this.forbiddenObjects.addAll(objectUUIDs);
+        this.forbiddenObjects.addAll(objectUUIDs.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
     public boolean areOnlySpecificObjectsAllowed() {

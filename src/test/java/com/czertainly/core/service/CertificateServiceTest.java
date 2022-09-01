@@ -57,6 +57,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @BeforeEach
     public void setUp() throws GeneralSecurityException, IOException {
         certificateContent = new CertificateContent();
+        certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
 
         certificate = new Certificate();
@@ -86,14 +87,14 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(certificateEntities);
         Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
         Assertions.assertEquals(1, certificateEntities.getCertificates().size());
-        Assertions.assertEquals(certificate.getUuid(), certificateEntities.getCertificates().get(0).getUuid());
+        Assertions.assertEquals(certificate.getUuid().toString(), certificateEntities.getCertificates().get(0).getUuid());
     }
 
     @Test
     public void testGetCertificate() throws NotFoundException, CertificateException, IOException {
         CertificateDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(certificate.getUuid(), dto.getUuid());
+        Assertions.assertEquals(certificate.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(certificate.getSerialNumber(), dto.getSerialNumber());
     }
 
@@ -137,7 +138,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         CertificateDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
 
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(certificate.getUuid(), dto.getUuid());
+        Assertions.assertEquals(certificate.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(certificate.getSerialNumber(), dto.getSerialNumber());
         Assertions.assertEquals(CertificateStatus.REVOKED, dto.getStatus());
     }

@@ -153,7 +153,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Identified profile to add group: {}", complianceProfile);
         Connector connector = getConnectorEntity(request.getConnectorUuid());
-        boolean isAvail = complianceProfile.getGroups().stream().anyMatch(r -> r.getUuid().equals(request.getGroupUuid()) && r.getConnector().getUuid().equals(request.getConnectorUuid()) && r.getKind().equals(request.getKind()));
+        boolean isAvail = complianceProfile.getGroups().stream().anyMatch(r -> r.getUuid().toString().equals(request.getGroupUuid()) && r.getConnector().getUuid().toString().equals(request.getConnectorUuid()) && r.getKind().equals(request.getKind()));
         if (isAvail) {
             logger.error("Group: {} already exists in the Compliance Profile", request);
             throw new AlreadyExistException("Selected group is already available in the Compliance Profile");
@@ -489,7 +489,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             }
             if (request.getGroups() != null && !request.getGroups().isEmpty()) {
                 for (String group : request.getGroups()) {
-                    ComplianceGroup complianceGroup = complianceGroupRepository.findByUuidAndConnectorAndKind(group, connector, request.getKind()).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, group));
+                    ComplianceGroup complianceGroup = complianceGroupRepository.findByUuidAndConnectorAndKind(UUID.fromString(group), connector, request.getKind()).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, group));
                     profile.getGroups().add(complianceGroup);
                 }
             }
@@ -520,7 +520,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     private ComplianceProfile getComplianceProfileEntityByUuid(String uuid) throws NotFoundException {
-        return complianceProfileRepository.findByUuid(UUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
+        return complianceProfileRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
     }
 
     private ComplianceRulesListResponseDto frameComplianceRulesResponseFromConnectorResponse(List<ComplianceRule> response, Connector connector, String kind) {
@@ -561,7 +561,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     private ComplianceGroup getComplianceGroupEntity(String groupUuid, Connector connector, String kind) throws NotFoundException {
         return complianceGroupRepository.findByUuidAndConnectorAndKind(
-                        groupUuid,
+                        UUID.fromString(groupUuid),
                         connector,
                         kind)
                 .orElseThrow(

@@ -195,10 +195,6 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         request.setPkcs10(SAMPLE_PKCS10);
         ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(SecuredUUID.fromUUID(raProfile.getUuid()), request, false);
         Assertions.assertNotNull(response);
-
-        Optional<Certificate> newCertificate = certificateRepository.findBySerialNumberIgnoreCase("177E75F42E95ECB98F831EB57DE27B0BC8C47643");
-        Assertions.assertTrue(newCertificate.isPresent());
-        Assertions.assertEquals(newCertificate.get().getUuid(), response.getUuid());
     }
 
     @Test

@@ -187,7 +187,7 @@ public class ComplianceProfileServiceTest {
         Assertions.assertNotNull(dtos);
         Assertions.assertEquals(1, dtos.size());
         Assertions.assertEquals("TestProfile", dtos.get(0).getName());
-        Assertions.assertEquals(complianceProfile.getUuid(), dtos.get(0).getUuid());
+        Assertions.assertEquals(complianceProfile.getUuid().toString(), dtos.get(0).getUuid());
     }
 
     @Test
@@ -195,7 +195,7 @@ public class ComplianceProfileServiceTest {
         ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(complianceProfile.getUuid().toString());
         Assertions.assertNotNull(complianceProfileDto);
         Assertions.assertEquals(complianceProfileDto.getName(), complianceProfile.getName());
-        Assertions.assertEquals(complianceProfileDto.getUuid(), complianceProfile.getUuid());
+        Assertions.assertEquals(complianceProfileDto.getUuid(), complianceProfile.getUuid().toString());
         Assertions.assertEquals(complianceProfileDto.getDescription(), complianceProfile.getDescription());
         Assertions.assertEquals(complianceProfileDto.getRules().size(), complianceProfile.getComplianceRules().size());
         Assertions.assertEquals(complianceProfileDto.getGroups().size(), complianceProfile.getGroups().size());
@@ -242,7 +242,7 @@ public class ComplianceProfileServiceTest {
     @Test
     public void addRule_RuleNotFound() {
         ComplianceRuleAdditionRequestDto dto = new ComplianceRuleAdditionRequestDto();
-        dto.setRuleUuid("non-existant");
+        dto.setRuleUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind("default");
 
@@ -273,7 +273,7 @@ public class ComplianceProfileServiceTest {
     @Test
     public void deleteRule_RuleNotFound() {
         ComplianceRuleDeletionRequestDto dto = new ComplianceRuleDeletionRequestDto();
-        dto.setRuleUuid("non-existant");
+        dto.setRuleUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind("default");
 
@@ -294,7 +294,7 @@ public class ComplianceProfileServiceTest {
     @Test
     public void addGroup_RuleNotFound() {
         ComplianceGroupRequestDto dto = new ComplianceGroupRequestDto();
-        dto.setGroupUuid("non-existant");
+        dto.setGroupUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind("default");
 
@@ -325,7 +325,7 @@ public class ComplianceProfileServiceTest {
     @Test
     public void deleteGroup_RuleNotFound() {
         ComplianceGroupRequestDto dto = new ComplianceGroupRequestDto();
-        dto.setGroupUuid("non-existant");
+        dto.setGroupUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind("default");
 
@@ -345,7 +345,7 @@ public class ComplianceProfileServiceTest {
 
     @Test
     public void removeComplianceProfile_NotFound() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.deleteComplianceProfile("non-existant"));
+        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.deleteComplianceProfile("abfbc322-29e1-11ed-a261-0242ac120002"));
     }
 
     @Test
@@ -364,11 +364,11 @@ public class ComplianceProfileServiceTest {
 
     @Test
     public void getComplianceRulesTest_Invalid() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceRules("wrong", null, null));
+        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceRules("abfbc322-29e1-11ed-a261-0242ac120002", null, null));
     }
 
     @Test
     public void getComplianceGroupsTest_Invalid() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceGroups("wrong", null));
+        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceGroups("abfbc322-29e1-11ed-a261-0242ac120002", null));
     }
 }

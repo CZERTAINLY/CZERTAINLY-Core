@@ -42,14 +42,14 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(certificateGroups);
         Assertions.assertFalse(certificateGroups.isEmpty());
         Assertions.assertEquals(1, certificateGroups.size());
-        Assertions.assertEquals(certificateGroup.getUuid(), certificateGroups.get(0).getUuid());
+        Assertions.assertEquals(certificateGroup.getUuid().toString(), certificateGroups.get(0).getUuid());
     }
 
     @Test
     public void testGetCertificateGroup() throws NotFoundException {
         GroupDto dto = groupService.getGroup(certificateGroup.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(certificateGroup.getUuid(), dto.getUuid());
+        Assertions.assertEquals(certificateGroup.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(certificateGroup.getName(), dto.getName());
     }
 

@@ -103,6 +103,10 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
             throw new AlreadyExistException(EntityInstanceReference.class, request.getName());
         }
 
+        if(request.getConnectorUuid() == null){
+            throw new ValidationException(ValidationError.create("Connector UUID is empty"));
+        }
+
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;

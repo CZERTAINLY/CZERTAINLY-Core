@@ -14,7 +14,7 @@ public interface ComplianceRuleRepository extends SecurityFilterRepository<Compl
 
     Optional<ComplianceRule> findByUuid(UUID uuid);
 
-    List<ComplianceRule> findByUuidIn(List<String> uuid);
+    List<ComplianceRule> findByUuidIn(List<UUID> uuid);
 
     Optional<ComplianceRule> findByName(String name);
 

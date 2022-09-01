@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -95,7 +96,7 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(entityInstances);
         Assertions.assertFalse(entityInstances.isEmpty());
         Assertions.assertEquals(1, entityInstances.size());
-        Assertions.assertEquals(entityInstance.getUuid(), entityInstances.get(0).getUuid());
+        Assertions.assertEquals(entityInstance.getUuid().toString(), entityInstances.get(0).getUuid());
     }
 
     @Test
@@ -106,9 +107,9 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
         EntityInstanceDto dto = entityInstanceService.getEntityInstance(entityInstance.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(entityInstance.getUuid(), dto.getUuid());
+        Assertions.assertEquals(entityInstance.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(entityInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(entityInstance.getConnector().getUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
@@ -139,14 +140,15 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(entityInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(entityInstance.getConnector().getUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
     public void testAddEntityInstance_notFound() {
         EntityInstanceRequestDto request = new EntityInstanceRequestDto();
+        request.setName("Demo");
         // connector uuid not set
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.createEntityInstance(request));
+        Assertions.assertThrows(ValidationException.class, () -> entityInstanceService.createEntityInstance(request));
     }
 
     @Test
