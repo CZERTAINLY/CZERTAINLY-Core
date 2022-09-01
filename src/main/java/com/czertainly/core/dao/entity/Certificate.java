@@ -20,6 +20,7 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "certificate")
@@ -90,14 +91,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private RaProfile raProfile;
 
     @Column(name = "ra_profile_uuid")
-    private String raProfileUuid;
+    private UUID raProfileUuid;
 
     @ManyToOne
     @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private CertificateGroup group;
 
     @Column(name = "group_uuid")
-    private String groupUuid;
+    private UUID groupUuid;
 
     @OneToMany(
             mappedBy = "certificate",
@@ -151,7 +152,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setBasicConstraints(basicConstraints);
         dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
         dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage));
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setStatus(status);
         dto.setFingerprint(fingerprint);
         dto.setMeta(MetaDefinitions.deserialize(meta));
@@ -170,7 +171,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
             raDto.setName(raProfile.getName());
-            raDto.setUuid(raProfile.getUuid());
+            raDto.setUuid(raProfile.getUuid().toString());
             raDto.setEnabled(raProfile.getEnabled());
             dto.setRaProfile(raDto);
         }
@@ -406,20 +407,28 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.locations = locations;
     }
 
-    public String getRaProfileUuid() {
+    public UUID getRaProfileUuid() {
         return raProfileUuid;
     }
 
-    public void setRaProfileUuid(String raProfileUuid) {
+    public void setRaProfileUuid(UUID raProfileUuid) {
         this.raProfileUuid = raProfileUuid;
     }
 
-    public String getGroupUuid() {
+    public void setRaProfileUuid(String raProfileUuid) {
+        this.raProfileUuid = UUID.fromString(raProfileUuid);
+    }
+
+    public UUID getGroupUuid() {
         return groupUuid;
     }
 
+    public void setGroupUuid(UUID groupId) {
+        this.groupUuid = groupId;
+    }
+
     public void setGroupUuid(String groupId) {
-        this.groupUuid = groupUuid;
+        this.groupUuid = UUID.fromString(groupId);
     }
 
     public CertificateComplianceStorageDto getComplianceResult() {

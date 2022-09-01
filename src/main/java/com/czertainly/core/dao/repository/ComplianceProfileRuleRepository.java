@@ -6,11 +6,12 @@ import com.czertainly.core.dao.entity.ComplianceRule;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface ComplianceProfileRuleRepository extends SecurityFilterRepository<ComplianceProfileRule, Long> {
 
-    Optional<ComplianceProfileRule> findByUuid(String uuid);
+    Optional<ComplianceProfileRule> findByUuid(UUID uuid);
 
     Optional<ComplianceProfileRule> findByComplianceProfileAndComplianceRule(ComplianceProfile complianceProfile, ComplianceRule complianceRule);
 }

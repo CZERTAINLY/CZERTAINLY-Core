@@ -8,6 +8,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "admin")
@@ -33,7 +34,7 @@ public class Admin extends UniquelyIdentifiedAndAudited implements Serializable,
 	private Certificate certificate;
 
     @Column(name = "certificate_uuid", nullable = false)
-    private String certificateUuid;
+    private UUID certificateUuid;
 
     @Column(name = "serial_number")
     private String serialNumber;
@@ -129,18 +130,22 @@ public class Admin extends UniquelyIdentifiedAndAudited implements Serializable,
         this.certificateUuid = certificate.getUuid();
     }
 
-    public String getCertificateUuid() {
+    public UUID getCertificateUuid() {
         return certificateUuid;
     }
 
-    public void setCertificateUuid(String certificateUuid) {
+    public void setCertificateUuid(UUID certificateUuid) {
         this.certificateUuid = certificateUuid;
+    }
+
+    public void setCertificateUuid(String certificateUuid) {
+        this.certificateUuid = UUID.fromString(certificateUuid);
     }
 
     @Override
     public AdminDto mapToDto() {
         AdminDto dto = new AdminDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setUsername(username);
         dto.setName(name);
         dto.setDescription(description);

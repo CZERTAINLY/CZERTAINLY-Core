@@ -116,6 +116,6 @@ public class GroupServiceImpl implements GroupService {
     }
 
     private CertificateGroup getGroupEntity(SecuredUUID uuid) throws NotFoundException {
-        return groupRepository.findByUuid(UUID.fromString(uuid.toString())).orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
+        return groupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
     }
 }

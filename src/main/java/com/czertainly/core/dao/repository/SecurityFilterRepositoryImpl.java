@@ -37,7 +37,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             CriteriaBuilder cb = entityManager.getCriteriaBuilder();
             CriteriaQuery<T> cr = cb.createQuery(entity);
             Root<T> root = cr.from(entity);
-            cr.select(root).where(cb.equal(root.get("uuid"), uuid.toString()));
+            cr.select(root).where(cb.equal(root.get("uuid"), uuid.getValue()));
 
             if (additionalWhereClause != null) {
                 cr.where(additionalWhereClause.apply(root, cb));

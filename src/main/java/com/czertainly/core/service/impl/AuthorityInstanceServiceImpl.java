@@ -77,7 +77,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
         AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
         authorityInstanceDto.setName(authorityInstanceReference.getName());
-        authorityInstanceDto.setUuid(authorityInstanceReference.getUuid());
+        authorityInstanceDto.setUuid(authorityInstanceReference.getUuid().toString());
         authorityInstanceDto.setKind(authorityInstanceReference.getKind());
         if (authorityInstanceReference.getConnector() == null) {
             authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnectorName() + " (Deleted)");
@@ -92,7 +92,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(authorityProviderInstanceDto.getAttributes()));
         authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
         authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnector().getName());
-        authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid());
+        authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid().toString());
         return authorityInstanceDto;
     }
 

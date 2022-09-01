@@ -117,7 +117,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -135,7 +135,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
         AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
         request.setName("testAuthorityInstance2");
-        request.setConnectorUuid(connector.getUuid());
+        request.setConnectorUuid(connector.getUuid().toString());
         request.setAttributes(List.of());
         request.setKind("Ejbca");
 
@@ -163,7 +163,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEditAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString("wrong-uuid"), null));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
@@ -187,7 +187,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetRaProfileAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.listRAProfileAttributes(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.listRAProfileAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -201,12 +201,12 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testValidateRaProfileAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString("wrong-uuid"), null));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
     public void testRemoveAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test

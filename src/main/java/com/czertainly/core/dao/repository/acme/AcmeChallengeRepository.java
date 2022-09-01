@@ -6,10 +6,11 @@ import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Transactional
 public interface AcmeChallengeRepository extends SecurityFilterRepository<AcmeChallenge, Long> {
-    Optional<AcmeChallenge> findByUuid(String uuid);
+    Optional<AcmeChallenge> findByUuid(UUID uuid);
     Optional<AcmeChallenge> findByChallengeId(String challengeId);
 }

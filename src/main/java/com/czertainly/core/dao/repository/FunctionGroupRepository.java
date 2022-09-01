@@ -6,12 +6,13 @@ import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Transactional
 public interface FunctionGroupRepository extends SecurityFilterRepository<FunctionGroup, Long> {
 
-    Optional<FunctionGroup> findByUuid(String uuid);
+    Optional<FunctionGroup> findByUuid(UUID uuid);
 
     Optional<FunctionGroup> findByName(String name);
 

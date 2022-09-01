@@ -18,6 +18,7 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
@@ -32,14 +33,14 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     private AcmeAccount acmeAccount;
 
     @Column(name = "account_uuid")
-    private String acmeAccountUuid;
+    private UUID acmeAccountUuid;
 
     @OneToOne
     @JoinColumn(name = "certificate_ref", insertable = false, updatable = false)
     private Certificate certificateReference;
 
     @Column(name = "certificate_ref")
-    private String certificateReferenceUuid;
+    private UUID certificateReferenceUuid;
 
     @Column(name="certificate_id")
     private String certificateId;
@@ -119,12 +120,16 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
         if(certificateReference != null) this.certificateReferenceUuid = certificateReference.getUuid();
     }
 
-    public String getAcmeAccountUuid() {
+    public UUID getAcmeAccountUuid() {
         return acmeAccountUuid;
     }
 
-    public void setAcmeAccountUuid(String acmeAccountUuid) {
+    public void setAcmeAccountUuid(UUID acmeAccountUuid) {
         this.acmeAccountUuid = acmeAccountUuid;
+    }
+
+    public void setAcmeAccountUuid(String acmeAccountUuid) {
+        this.acmeAccountUuid = UUID.fromString(acmeAccountUuid);
     }
 
     public Date getNotBefore() {
@@ -183,12 +188,16 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
         this.certificateId = certificateId;
     }
 
-    public String getCertificateReferenceUuid() {
+    public UUID getCertificateReferenceUuid() {
         return certificateReferenceUuid;
     }
 
-    public void setCertificateReferenceUuid(String certificateReferenceUuid) {
+    public void setCertificateReferenceUuid(UUID certificateReferenceUuid) {
         this.certificateReferenceUuid = certificateReferenceUuid;
+    }
+
+    public void setCertificateReferenceUuid(String certificateReferenceUuid) {
+        this.certificateReferenceUuid = UUID.fromString(certificateReferenceUuid);
     }
 
     // Customer Getter for Order

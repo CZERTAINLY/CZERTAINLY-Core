@@ -10,6 +10,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Entity containing the relation between the Compliance Profile and the Rule. This has to be maintained separately
@@ -26,7 +27,7 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
     private ComplianceRule complianceRule;
 
     @Column(name="rule_uuid", insertable = false, updatable = false)
-    private String complianceRuleUuid;
+    private UUID complianceRuleUuid;
 
     @Column(name="attributes")
     private String attributes;
@@ -36,13 +37,13 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
     private ComplianceProfile complianceProfile;
 
     @Column(name="compliance_profile_uuid", insertable = false, updatable = false)
-    private String complianceProfileUuid;
+    private UUID complianceProfileUuid;
 
     @Override
     public ComplianceRulesDto mapToDto(){
         ComplianceRulesDto dto = new ComplianceRulesDto();
         dto.setName(complianceRule.getName());
-        dto.setUuid(complianceRule.getUuid());
+        dto.setUuid(complianceRule.getUuid().toString());
         dto.setAttributes(getAttributes());
         dto.setDescription(complianceRule.getDescription());
         return dto;
@@ -67,11 +68,15 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
         if(complianceRule != null) this.complianceRuleUuid = complianceRule.getUuid();
     }
 
-    public String getComplianceRuleUuid() {
+    public UUID getComplianceRuleUuid() {
         return complianceRuleUuid;
     }
 
     public void setComplianceRuleUuid(String complianceRuleUuid) {
+        this.complianceRuleUuid = UUID.fromString(complianceRuleUuid);
+    }
+
+    public void setComplianceRuleUuid(UUID complianceRuleUuid) {
         this.complianceRuleUuid = complianceRuleUuid;
     }
 
@@ -91,11 +96,15 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
         this.complianceProfile = complianceProfile;
     }
 
-    public String getComplianceProfileUuid() {
+    public UUID getComplianceProfileUuid() {
         return complianceProfileUuid;
     }
 
     public void setComplianceProfileUuid(String complianceProfileUuid) {
+        this.complianceProfileUuid = UUID.fromString(complianceProfileUuid);
+    }
+
+    public void setComplianceProfileUuid(UUID complianceProfileUuid) {
         this.complianceProfileUuid = complianceProfileUuid;
     }
 }

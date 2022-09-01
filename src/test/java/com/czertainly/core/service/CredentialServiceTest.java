@@ -117,7 +117,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -131,7 +131,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
         CredentialRequestDto request = new CredentialRequestDto();
         request.setName("testCredential2");
-        request.setConnectorUuid(connector.getUuid());
+        request.setConnectorUuid(connector.getUuid().toString());
         request.setAttributes(List.of());
         request.setKind("ApiKey");
 
@@ -176,7 +176,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEditCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.editCredential(SecuredUUID.fromString("wrong-uuid"), null));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.editCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
@@ -187,7 +187,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.deleteCredential(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.deleteCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -198,7 +198,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEnableCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.enableCredential(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.enableCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -209,7 +209,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testDisableCredential_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.disableCredential(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.disableCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -222,7 +222,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     public void testLoadFullData_attributes() throws NotFoundException {
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
         HashMap<String, Object> content = new HashMap<>();
-        nameAndUuidMap.put("uuid", credential.getUuid());
+        nameAndUuidMap.put("uuid", credential.getUuid().toString());
         nameAndUuidMap.put("name", credential.getName());
         content.put("value", credential.getUuid());
         content.put("data", nameAndUuidMap);
@@ -244,7 +244,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     public void testLoadFullData_attributesNotFound() throws NotFoundException {
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
         HashMap<String, Object> contentMap = new HashMap<>();
-        nameAndUuidMap.put("uuid", "wrong-uuid");
+        nameAndUuidMap.put("uuid", "abfbc322-29e1-11ed-a261-0242ac120002");
         nameAndUuidMap.put("name", "wrong-name");
         contentMap.put("value", "wrong-name");
         contentMap.put("data", nameAndUuidMap);
@@ -274,7 +274,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         String credentialBodyKey = "testCredential";
 
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
-        nameAndUuidMap.put("uuid", credential.getUuid());
+        nameAndUuidMap.put("uuid", credential.getUuid().toString());
         nameAndUuidMap.put("name", credential.getName());
 
         HashMap<String, Serializable> attrib = new HashMap<>();
@@ -310,11 +310,11 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         String credentialBodyKey = "testCredential";
 
         HashMap<String, String> nameAndUuidMap = new HashMap<>();
-        nameAndUuidMap.put("uuid", "wrong-uuid");
+        nameAndUuidMap.put("uuid", "abfbc322-29e1-11ed-a261-0242ac120002");
         nameAndUuidMap.put("name", "wrong-name");
 
         HashMap<String, Serializable> attrib = new HashMap<>();
-        attrib.put("value", "wrong-uuid");
+        attrib.put("value", "abfbc322-29e1-11ed-a261-0242ac120002");
         attrib.put("data", nameAndUuidMap);
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(

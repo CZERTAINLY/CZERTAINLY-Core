@@ -8,6 +8,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Entity storing the available groups obtained from the Compliance Provider. These entities have relations with the
@@ -35,7 +36,7 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
     private Connector connector;
 
     @Column(name = "connector_uuid", nullable = false)
-    private String connectorUuid;
+    private UUID connectorUuid;
 
     @JsonBackReference
     @OneToMany(mappedBy = "group")
@@ -47,7 +48,7 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
 
     public ComplianceGroupsResponseDto mapToGroupResponse(){
         ComplianceGroupsResponseDto dto = new ComplianceGroupsResponseDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(description);
         return dto;
@@ -72,14 +73,6 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
         this.name = name;
     }
 
-    public String getUuid() {
-        return uuid;
-    }
-
-    public void setUuid(String uuid) {
-        this.uuid = uuid;
-    }
-
     public String getKind() {
         return kind;
     }
@@ -97,9 +90,11 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
         this.connectorUuid = connector.getUuid();
     }
 
-    public String getConnectorUuid() { return connectorUuid; }
+    public UUID getConnectorUuid() { return connectorUuid; }
 
-    public void setConnectorUuid(String connectorUuid) { this.connectorUuid = connectorUuid; }
+    public void setConnectorUuid(UUID connectorUuid) { this.connectorUuid = connectorUuid; }
+
+    public void setConnectorUuid(String connectorUuid) { this.connectorUuid = UUID.fromString(connectorUuid); }
 
     public String getDescription() {
         return description;

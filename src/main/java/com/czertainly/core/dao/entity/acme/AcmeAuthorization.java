@@ -17,6 +17,7 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
@@ -48,7 +49,7 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
     private AcmeOrder order;
 
     @Column(name = "order_uuid", nullable = false)
-    private String orderUuid;
+    private UUID orderUuid;
 
     @Override
     public Authorization mapToDto() {
@@ -146,11 +147,15 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
         return wildcard;
     }
 
-    public String getOrderUuid() {
+    public UUID getOrderUuid() {
         return orderUuid;
     }
 
-    public void setOrderUuid(String orderUuid) {
+    public void setOrderUuid(UUID orderUuid) {
         this.orderUuid = orderUuid;
+    }
+
+    public void setOrderUuid(String orderUuid) {
+        this.orderUuid = UUID.fromString(orderUuid);
     }
 }

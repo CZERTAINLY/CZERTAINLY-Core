@@ -2,9 +2,8 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.core.security.authz.SecuredUUID;
 import org.hibernate.annotations.Type;
+
 import javax.persistence.Column;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.MappedSuperclass;
 import javax.persistence.PrePersist;
@@ -15,24 +14,28 @@ public abstract class UniquelyIdentified {
 
     @Id
     @Column(name = "uuid", nullable = false, updatable = false)
-    protected String uuid;
+    public UUID uuid;
 
-    public String getUuid() {
+    public UUID getUuid() {
         return uuid;
     }
 
     public void setUuid(String uuid) {
+        this.uuid = UUID.fromString(uuid);
+    }
+
+    public void setUuid(UUID uuid) {
         this.uuid = uuid;
     }
 
     public SecuredUUID getSecuredUuid() {
-        return SecuredUUID.fromString(uuid);
+        return SecuredUUID.fromUUID(uuid);
     }
 
     @PrePersist
-    private void generateUuid(){
+    private void generateUuid() {
         if (uuid == null) {
-            setUuid(UUID.randomUUID().toString());
+            setUuid(UUID.randomUUID());
         }
     }
 

@@ -66,7 +66,7 @@ public class LocalAdminServiceTest extends BaseSpringBootTest {
         request.setName("Test");
         request.setSurname("Admin2");
         request.setEmail("test@admin2.com");
-        request.setCertificateUuid(admin2Cert.getUuid());
+        request.setCertificateUuid(admin2Cert.getUuid().toString());
 
         AdminDto dto = localAdminService.addAdmin(request);
         Assertions.assertNotNull(dto);
@@ -99,7 +99,7 @@ public class LocalAdminServiceTest extends BaseSpringBootTest {
         request.setName("Test");
         request.setSurname("Admin2");
         request.setEmail("test@admin2.com");
-        request.setCertificateUuid(certificate.getUuid()); // admin with same certificate exist
+        request.setCertificateUuid(certificate.getUuid().toString()); // admin with same certificate exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> localAdminService.addAdmin(request));
     }

@@ -46,6 +46,7 @@ import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -84,7 +85,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(String acmeProfileUuid, SecurityFilter filter) {
-        List<RaProfile> raProfiles = raProfileRepository.findAllByAcmeProfileUuid(acmeProfileUuid);
+        List<RaProfile> raProfiles = raProfileRepository.findAllByAcmeProfileUuid(UUID.fromString(acmeProfileUuid));
         return SecuredList.fromFilter(filter, raProfiles);
     }
 
@@ -184,7 +185,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         List<SimplifiedClientDto> clients = new ArrayList<>();
         for (Client client : raProfile.getClients()) {
             SimplifiedClientDto dto = new SimplifiedClientDto();
-            dto.setUuid(client.getUuid());
+            dto.setUuid(client.getUuid().toString());
             dto.setName(client.getName());
             dto.setEnabled(client.getEnabled());
             clients.add(dto);
@@ -266,7 +267,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void bulkRemoveAssociatedAcmeProfile(List<SecuredUUID> uuids) {
         List<RaProfile> raProfiles = raProfileRepository.findAllByUuidIn(
-                uuids.stream().map(SecuredUUID::toString).collect(Collectors.toList())
+                uuids.stream().map(SecuredUUID::getValue).collect(Collectors.toList())
         );
         raProfiles.forEach(raProfile -> raProfile.setAcmeProfile(null));
         raProfileRepository.saveAll(raProfiles);

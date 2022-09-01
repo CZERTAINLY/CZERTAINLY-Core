@@ -211,7 +211,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetLocationByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.getLocation(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.getLocation(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -234,7 +234,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         request.setName("testLocation2");
         request.setAttributes(List.of());
 
-        LocationDto dto = locationService.addLocation(SecuredUUID.fromString(entityInstanceReference.getUuid()),request);
+        LocationDto dto = locationService.addLocation(SecuredUUID.fromUUID(entityInstanceReference.getUuid()),request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }
@@ -283,7 +283,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
     public void testEditLocation_notFound() {
         EditLocationRequestDto request = new EditLocationRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation(entityInstanceReference.getSecuredUuid(), SecuredUUID.fromString("wrong-uuid"), request));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation(entityInstanceReference.getSecuredUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
 //    @Test
@@ -310,7 +310,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveLocation_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.deleteLocation(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.deleteLocation(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -321,7 +321,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEnableLocation_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.enableLocation(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.enableLocation(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -332,7 +332,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testDisableLocation_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.disableLocation(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.disableLocation(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     // TODO: testing the location push, remove, issue, sync
@@ -344,7 +344,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
         Assertions.assertThrows(LocationException.class, () -> locationService.pushCertificateToLocation(
                 locationNoMultiEntries.getSecuredUuid(),
-                certificateWithoutLocation.getUuid(),
+                certificateWithoutLocation.getUuid().toString(),
                 request)
         );
     }

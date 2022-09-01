@@ -132,7 +132,7 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListAdmins() {
+    public void testListAccounts() {
         List<AcmeAccountListResponseDto> accounts = acmeAccountService.listAcmeAccounts(SecurityFilter.create());
         Assertions.assertNotNull(accounts);
         Assertions.assertFalse(accounts.isEmpty());
@@ -141,7 +141,7 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAdminById() throws NotFoundException {
+    public void testGetAccountById() throws NotFoundException {
         AcmeAccountResponseDto dto = acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeAccount.getAccountId(), dto.getAccountId());
@@ -149,44 +149,44 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAdminById_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("wrong-uuid")));
+    public void testGetAccountById_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testRemoveAdmin() throws NotFoundException {
+    public void testRemoveAccount() throws NotFoundException {
         acmeAccountService.revokeAccount(acmeAccount.getSecuredUuid());
         Assertions.assertEquals(AccountStatus.REVOKED, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).getStatus());
     }
 
     @Test
-    public void testRemoveAdmin_notFound() {
+    public void testRemoveAccount_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class, 
-                () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("some-id"))
+                () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
         );
     }
 
     @Test
-    public void testEnableAdmin() throws NotFoundException, CertificateException {
+    public void testEnableAccount() throws NotFoundException, CertificateException {
         acmeAccountService.enableAccount(acmeAccount.getSecuredUuid());
         Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 
     @Test
-    public void testEnableAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.enableAccount(SecuredUUID.fromString("wrong-uuid")));
+    public void testEnableAccount_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.enableAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testDisableAdmin() throws NotFoundException {
+    public void testDisableAccount() throws NotFoundException {
         acmeAccountService.disableAccount(acmeAccount.getSecuredUuid());
         Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 
     @Test
-    public void testDisableAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.disableAccount(SecuredUUID.fromString("wrong-uuid")));
+    public void testDisableAccount_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.disableAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test

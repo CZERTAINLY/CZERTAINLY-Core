@@ -152,13 +152,13 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString(raProfile.getUuid()));
+        List<AttributeDefinition> attributes = clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     public void testListIssueCertificateAttributes_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString("wrong-name")));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -167,14 +167,14 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result = clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString(raProfile.getUuid()), List.of());
+        boolean result = clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromUUID(raProfile.getUuid()), List.of());
         Assertions.assertTrue(result);
     }
 
     @Test
     public void testValidateIssueCertificateAttributes_validationFail() {
         Assertions.assertThrows(NotFoundException.class,
-                () -> clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString("wrong-name"), null));
+                () -> clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
 
@@ -193,7 +193,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(SecuredUUID.fromString(raProfile.getUuid()), request, false);
+        ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(SecuredUUID.fromUUID(raProfile.getUuid()), request, false);
         Assertions.assertNotNull(response);
 
         Optional<Certificate> newCertificate = certificateRepository.findBySerialNumberIgnoreCase("177E75F42E95ECB98F831EB57DE27B0BC8C47643");
@@ -203,7 +203,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
     @Test
     public void testIssueCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate(SecuredUUID.fromString("wrong-name"), null, false));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null, false));
     }
 
     @Test
@@ -215,12 +215,12 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
         ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        clientOperationService.renewCertificate(SecuredUUID.fromString(raProfile.getUuid()), certificate.getUuid(), request, false);
+        clientOperationService.renewCertificate(SecuredUUID.fromUUID(raProfile.getUuid()), certificate.getUuid().toString(), request, false);
     }
 
     @Test
     public void testRenewCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate(SecuredUUID.fromString("wrong-name"), null, null, false));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null, null, false));
     }
 
     @Test
@@ -229,13 +229,13 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString(raProfile.getUuid()));
+        List<AttributeDefinition> attributes = clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromUUID(raProfile.getUuid()));
         Assertions.assertNotNull(attributes);
     }
 
     @Test
     public void testListRevokeCertificateAttributes_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString("wrong-name")));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -244,14 +244,14 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        boolean result = clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString(raProfile.getUuid()), List.of());
+        boolean result = clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromUUID(raProfile.getUuid()), List.of());
         Assertions.assertTrue(result);
     }
 
     @Test
     public void testValidateRevokeCertificateAttributes_validationFail() {
         Assertions.assertThrows(NotFoundException.class,
-                () -> clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString("wrong-name"), null));
+                () -> clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
@@ -267,11 +267,11 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
-        clientOperationService.revokeCertificate(SecuredUUID.fromString(raProfile.getUuid()), certificate.getUuid(), request, false);
+        clientOperationService.revokeCertificate(SecuredUUID.fromUUID(raProfile.getUuid()), certificate.getUuid().toString(), request, false);
     }
 
     @Test
     public void testRevokeCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate(SecuredUUID.fromString("wrong-name"), "wrong-cert-id", null, false));
+        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), "wrong-cert-id", null, false));
     }
 }

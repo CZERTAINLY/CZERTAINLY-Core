@@ -39,6 +39,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -91,7 +92,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
             serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
         } else {
             Certificate certificate = certificateRepository
-                    .findByUuid(request.getCertificateUuid())
+                    .findByUuid(UUID.fromString(request.getCertificateUuid()))
                     .orElseThrow(() -> new NotFoundException(Certificate.class, request.getCertificateUuid()));
             serialNumber = certificate.getSerialNumber();
         }
@@ -115,7 +116,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         Certificate certificate;
         if (StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
             certificate = certificateRepository
-                    .findByUuid(requestDTO.getCertificateUuid())
+                    .findByUuid(UUID.fromString(requestDTO.getCertificateUuid()))
                     .orElseThrow(() -> new NotFoundException(Certificate.class, requestDTO.getCertificateUuid()));
             model.setCertificate(certificate);
         } else {

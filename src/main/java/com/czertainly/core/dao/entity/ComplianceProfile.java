@@ -56,7 +56,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
-        complianceProfileDto.setUuid(uuid);
+        complianceProfileDto.setUuid(uuid.toString());
         complianceProfileDto.setRaProfiles(raProfiles.stream().map(RaProfile::mapToDtoSimplified).collect(Collectors.toList()));
         Map<String, List<ComplianceRulesDto>> rules = new HashMap<>();
         //Frame a map with the Unique ID as Connector UUID, Name and Kind. This will later than be used to group the response
@@ -82,7 +82,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         for(ComplianceGroup complianceGroup: groups){
             String groupKey = complianceGroup.getConnector().getUuid() + ":" + complianceGroup.getConnector().getName() + ":" + complianceGroup.getKind();
             ComplianceGroupsDto uuidDto = new ComplianceGroupsDto();
-            uuidDto.setUuid(complianceGroup.getUuid());
+            uuidDto.setUuid(complianceGroup.getUuid().toString());
             uuidDto.setName(complianceGroup.getName());
             uuidDto.setDescription(complianceGroup.getDescription());
             locGroups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(uuidDto);
@@ -107,7 +107,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
-        complianceProfileDto.setUuid(uuid);
+        complianceProfileDto.setUuid(uuid.toString());
         return complianceProfileDto;
     }
 
@@ -118,7 +118,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
     public ComplianceProfilesListDto ListMapToDTO(){
         ComplianceProfilesListDto complianceProfileDto = new ComplianceProfilesListDto();
         complianceProfileDto.setName(name);
-        complianceProfileDto.setUuid(uuid);
+        complianceProfileDto.setUuid(uuid.toString());
 
         Map<String, Integer> providerGroupSummary = new HashMap<>();
         Map<String, Integer> providerGroupSummaryRules = new HashMap<>();

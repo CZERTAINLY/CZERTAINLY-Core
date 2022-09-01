@@ -106,7 +106,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetDiscovery_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -120,7 +120,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
 
         DiscoveryDto request = new DiscoveryDto();
         request.setName("testDiscovery2");
-        request.setConnectorUuid(connector.getUuid());
+        request.setConnectorUuid(connector.getUuid().toString());
         request.setAttributes(List.of());
         request.setKind("ApiKey");
 
@@ -173,7 +173,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson("false")));
 
         DiscoveryDto request = new DiscoveryDto();
-        request.setConnectorUuid(connector.getUuid());
+        request.setConnectorUuid(connector.getUuid().toString());
         Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, discovery));
     }
 
@@ -185,7 +185,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveDiscovery_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.deleteDiscovery(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.deleteDiscovery(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test

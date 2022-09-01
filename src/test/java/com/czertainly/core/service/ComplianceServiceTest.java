@@ -143,12 +143,12 @@ public class ComplianceServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/complianceProvider/[^/]+/compliance"))
                 .willReturn(WireMock.okJson("{'status':'ok','rules':['uuid':'121212121212', 'name':'tests', 'status':'ok']}")));
-        Assertions.assertDoesNotThrow(() -> complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfile.getUuid())));
+        Assertions.assertDoesNotThrow(() -> complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfile.getUuid().toString())));
     }
 
     @Test
     public void checkRuleExistsTest(){
-        Boolean isExists = complianceService.complianceRuleExists(SecuredUUID.fromString(complianceRule.getUuid()), connector, "default");
+        Boolean isExists = complianceService.complianceRuleExists(SecuredUUID.fromString(complianceRule.getUuid().toString()), connector, "default");
         Assertions.assertEquals(true, isExists);
     }
 
@@ -160,7 +160,7 @@ public class ComplianceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void checkGroupExistsTest(){
-        Boolean isExists = complianceService.complianceGroupExists(SecuredUUID.fromString(complianceGroup.getUuid()), connector, "default");
+        Boolean isExists = complianceService.complianceGroupExists(SecuredUUID.fromString(complianceGroup.getUuid().toString()), connector, "default");
         Assertions.assertEquals(true, isExists);
     }
 

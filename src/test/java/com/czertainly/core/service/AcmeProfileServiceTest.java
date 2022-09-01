@@ -54,7 +54,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(acmeProfiles);
         Assertions.assertFalse(acmeProfiles.isEmpty());
         Assertions.assertEquals(1, acmeProfiles.size());
-        Assertions.assertEquals(acmeProfile.getUuid(), acmeProfiles.get(0).getUuid());
+        Assertions.assertEquals(acmeProfile.getUuid().toString(), acmeProfiles.get(0).getUuid());
     }
 
     @Test
@@ -63,12 +63,12 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
         acmeProfileRepository.save(acmeProfile);
         AcmeProfileDto dto = acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(acmeProfile.getUuid(), dto.getUuid());
+        Assertions.assertEquals(acmeProfile.getUuid().toString(), dto.getUuid());
     }
 
     @Test
     public void testGetAcmeProfileByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -121,7 +121,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
     @Test
     public void testEditAcmeProfile_validationFail() {
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
-        Assertions.assertThrows(NullPointerException.class, () -> acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request));
     }
 
     @Test
@@ -132,7 +132,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(SecuredUUID.fromString("some-id")));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -143,7 +143,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEnableAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.enableAcmeProfile(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.enableAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -156,7 +156,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testDisableAcmeProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.disableAcmeProfile(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.disableAcmeProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test

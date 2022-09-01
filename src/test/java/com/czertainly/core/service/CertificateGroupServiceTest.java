@@ -55,7 +55,7 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetCertificateGroup_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> groupService.getGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -98,7 +98,7 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
         GroupRequestDto request = new GroupRequestDto();
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> groupService.editGroup(SecuredUUID.fromString("wrong-uuid"), request)
+                () -> groupService.editGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request)
         );
     }
 
@@ -115,7 +115,7 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
     public void testRemoveCertificateGroup_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> groupService.deleteGroup(SecuredUUID.fromString("wrong-uuid"))
+                () -> groupService.deleteGroup(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
         );
     }
 

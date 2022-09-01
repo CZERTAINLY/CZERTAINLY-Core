@@ -6,20 +6,21 @@ import org.springframework.stereotype.Repository;
 import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Transactional
 public interface RaProfileRepository extends SecurityFilterRepository<RaProfile, Long> {
 
-    Optional<RaProfile> findByUuid(String uuid);
+    Optional<RaProfile> findByUuid(UUID uuid);
 
     Optional<RaProfile> findByName(String name);
 
     Optional<RaProfile> findByNameAndEnabledIsTrue(String name);
 
-    Optional<RaProfile> findByUuidAndEnabledIsTrue(String uuid);
+    Optional<RaProfile> findByUuidAndEnabledIsTrue(UUID uuid);
 
-    List<RaProfile> findAllByAcmeProfileUuid(String acmeProfileUuid);
+    List<RaProfile> findAllByAcmeProfileUuid(UUID acmeProfileUuid);
 
-    List<RaProfile> findAllByUuidIn(List<String>uuids);
+    List<RaProfile> findAllByUuidIn(List<UUID>uuids);
 }

@@ -202,7 +202,7 @@ public class LocationServiceImpl implements LocationService {
         if (!location.getCertificates().isEmpty()) {
             errors.add(ValidationError.create("Location {} contains {} Certificate", location.getName(),
                     location.getCertificates().size()));
-            location.getCertificates().forEach(c -> errors.add(ValidationError.create(c.getCertificate().getUuid())));
+            location.getCertificates().forEach(c -> errors.add(ValidationError.create(c.getCertificate().getUuid().toString())));
         }
 
         if (!errors.isEmpty()) {
@@ -244,7 +244,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DETAIL)
     public List<AttributeDefinition> listPushAttributes(SecuredUUID locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.toString())
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         try {
@@ -261,7 +261,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DETAIL)
     public List<AttributeDefinition> listCsrAttributes(SecuredUUID locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.toString())
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         try {
@@ -278,7 +278,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
     public LocationDto removeCertificateFromLocation(SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.toString())
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
@@ -377,7 +377,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
     public LocationDto pushCertificateToLocation(SecuredUUID locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.toString())
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
@@ -412,7 +412,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
     public LocationDto issueCertificateToLocation(SecuredUUID locationUuid, String raProfileUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.toString())
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         if (!location.isSupportKeyManagement()) {
@@ -447,7 +447,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
     public LocationDto updateLocationContent(SecuredUUID locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.toString())
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         EntityInstanceReference entityInstanceRef = location.getEntityInstanceReference();
@@ -479,7 +479,7 @@ public class LocationServiceImpl implements LocationService {
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
     public LocationDto renewCertificateInLocation(SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException {
-        locationRepository.findByUuidAndEnabledIsTrue(locationUuid.toString())
+        locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         CertificateLocation certificateLocation = getCertificateLocation(locationUuid.toString(), certificateUuid);
@@ -575,7 +575,7 @@ public class LocationServiceImpl implements LocationService {
         try {
             clientCertificateDataResponseDto = clientOperationService.renewCertificate(
                     certificateLocation.getCertificate().getRaProfile().getSecuredUuid(),
-                    certificateLocation.getCertificate().getUuid(),
+                    certificateLocation.getCertificate().getUuid().toString(),
                     clientCertificateRenewRequestDto, true
             );
         } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException |
@@ -627,8 +627,8 @@ public class LocationServiceImpl implements LocationService {
         List<AttributeDefinition> fullPushAttributes;
         List<AttributeDefinition> fullCsrAttributes;
         try {
-            fullPushAttributes = listPushAttributes(SecuredUUID.fromString(location.getUuid()));
-            fullCsrAttributes = listCsrAttributes(SecuredUUID.fromString(location.getUuid()));
+            fullPushAttributes = listPushAttributes(SecuredUUID.fromString(location.getUuid().toString()));
+            fullCsrAttributes = listCsrAttributes(SecuredUUID.fromString(location.getUuid().toString()));
         } catch (NotFoundException e) {
             logger.error("Unable to find the location with uuid: {}", location.getUuid());
             throw new LocationException("Failed to get Attributes for Location: " + location.getName());
@@ -691,7 +691,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private CertificateLocation getCertificateLocation(String locationUuid, String certificateUuid) throws NotFoundException {
-        Location location = locationRepository.findByUuid(locationUuid)
+        Location location = locationRepository.findByUuid(UUID.fromString(locationUuid))
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));

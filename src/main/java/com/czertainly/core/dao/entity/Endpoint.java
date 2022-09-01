@@ -7,6 +7,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "endpoint")
@@ -29,12 +30,12 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     private FunctionGroup functionGroup;
 
     @Column(name = "function_group_uuid", nullable = false)
-    private String functionGroupUuid;
+    private UUID functionGroupUuid;
 
     @Override
     public EndpointDto mapToDto() {
         EndpointDto dto = new EndpointDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setContext(this.context);
         dto.setMethod(this.method);
@@ -85,11 +86,15 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
         this.required = required;
     }
 
-    public String getFunctionGroupUuid() {
+    public UUID getFunctionGroupUuid() {
         return functionGroupUuid;
     }
 
-    public void setFunctionGroupUuid(String functionGroupUuid) {
+    public void setFunctionGroupUuid(UUID functionGroupUuid) {
         this.functionGroupUuid = functionGroupUuid;
+    }
+
+    public void setFunctionGroupUuid(String functionGroupUuid) {
+        this.functionGroupUuid = UUID.fromString(functionGroupUuid);
     }
 }

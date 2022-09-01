@@ -6,10 +6,11 @@ import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Transactional
 public interface AcmeAuthorizationRepository extends SecurityFilterRepository<AcmeAuthorization, Long> {
-    Optional<AcmeAuthorization> findByUuid(String uuid);
+    Optional<AcmeAuthorization> findByUuid(UUID uuid);
     Optional<AcmeAuthorization> findByAuthorizationId(String authorizationId);
 }

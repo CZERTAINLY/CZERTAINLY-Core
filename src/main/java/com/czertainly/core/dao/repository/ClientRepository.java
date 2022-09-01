@@ -7,12 +7,13 @@ import org.springframework.stereotype.Repository;
 import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Transactional
 public interface ClientRepository extends SecurityFilterRepository<Client, Long> {
 
-    Optional<Client> findByUuid(String uuid);
+    Optional<Client> findByUuid(UUID uuid);
 
     Optional<Client> findBySerialNumber(String serialNumber);
 

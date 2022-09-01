@@ -59,14 +59,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 
 import javax.transaction.Transactional;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -278,7 +271,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     private Set<Connector2FunctionGroup> setFunctionGroups(List<FunctionGroupDto> functionGroups, Connector connector) throws NotFoundException {
         // adding phase
         for (FunctionGroupDto dto : functionGroups) {
-            FunctionGroup functionGroup = functionGroupRepository.findByUuid(dto.getUuid())
+            FunctionGroup functionGroup = functionGroupRepository.findByUuid(UUID.fromString(dto.getUuid()))
                     .orElseThrow(() -> new NotFoundException(FunctionGroup.class, dto.getUuid()));
 
             Connector2FunctionGroup c2fg = connector2FunctionGroupRepository.findByConnectorAndFunctionGroup(connector, functionGroup).orElse(null);

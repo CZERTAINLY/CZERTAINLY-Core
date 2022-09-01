@@ -12,6 +12,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "authority_instance_reference")
@@ -35,7 +36,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     private Connector connector;
 
     @Column(name = "connector_uuid")
-    private String connectorUuid;
+    private UUID connectorUuid;
 
     @Column(name="connector_name")
     private String connectorName;
@@ -97,23 +98,27 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
 
     public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
 
-    public String getConnectorUuid() {
+    public UUID getConnectorUuid() {
         return connectorUuid;
     }
 
-    public void setConnectorUuid(String connectorUuid) {
+    public void setConnectorUuid(UUID connectorUuid) {
         this.connectorUuid = connectorUuid;
+    }
+
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = UUID.fromString(connectorUuid);
     }
 
     public AuthorityInstanceDto mapToDto() {
         AuthorityInstanceDto dto = new AuthorityInstanceDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setStatus(this.status);
         dto.setKind(kind);
         dto.setConnectorName(this.connectorName);
         if (this.connector != null) {
-            dto.setConnectorUuid(this.connector.getUuid());
+            dto.setConnectorUuid(this.connector.getUuid().toString());
         }
         return dto;
     }

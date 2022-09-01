@@ -14,6 +14,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Entity containing the list of all discovered rules from a compliance provider. The rules are fetched from the compliance
@@ -48,14 +49,14 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     private Connector connector;
 
     @Column(name = "connector_uuid", nullable = false)
-    private String connectorUuid;
+    private UUID connectorUuid;
 
     @ManyToOne(cascade=CascadeType.ALL)
     @JoinColumn(name = "group_uuid")
     private ComplianceGroup group;
 
     @Column(name = "group_uuid", insertable = false, updatable = false)
-    private String groupUuid;
+    private UUID groupUuid;
 
     @JsonBackReference
     @OneToMany(mappedBy = "complianceRule")
@@ -65,7 +66,7 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     public ComplianceRulesDto mapToDto(){
         ComplianceRulesDto complianceRulesDto = new ComplianceRulesDto();
         complianceRulesDto.setName(name);
-        complianceRulesDto.setUuid(uuid);
+        complianceRulesDto.setUuid(uuid.toString());
         complianceRulesDto.setDescription(description);
         complianceRulesDto.setCertificateType(certificateType);
         complianceRulesDto.setAttributes(AttributeDefinitionUtils.deserializeRequestAttributes(attributes));
@@ -75,10 +76,10 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     public ComplianceRulesResponseDto mapToComplianceResponse(){
         ComplianceRulesResponseDto dto = new ComplianceRulesResponseDto();
         dto.setName(name);
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setDescription(description);
         if(group != null ) {
-            dto.setGroupUuid(group.getUuid());
+            dto.setGroupUuid(group.getUuid().toString());
         }
         dto.setCertificateType(certificateType);
         dto.setAttributes(getAttributes());
@@ -174,19 +175,27 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
         this.decommissioned = decommissioned;
     }
 
-    public String getConnectorUuid() {
+    public UUID getConnectorUuid() {
         return connectorUuid;
     }
 
-    public void setConnectorUuid(String connectorUuid) {
+    public void setConnectorUuid(UUID connectorUuid) {
         this.connectorUuid = connectorUuid;
     }
 
-    public String getGroupUuid() {
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = UUID.fromString(connectorUuid);
+    }
+
+    public UUID getGroupUuid() {
         return groupUuid;
     }
 
     public void setGroupUuid(String groupUuid) {
+        this.groupUuid = UUID.fromString(groupUuid);
+    }
+
+    public void setGroupUuid(UUID groupUuid) {
         this.groupUuid = groupUuid;
     }
 }

@@ -87,8 +87,8 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         EntityInstanceDto entityInstanceDto = new EntityInstanceDto();
         entityInstanceDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(entityProviderInstanceDto.getAttributes()));
         entityInstanceDto.setName(entityProviderInstanceDto.getName());
-        entityInstanceDto.setUuid(entityInstanceReference.getUuid());
-        entityInstanceDto.setConnectorUuid(entityInstanceReference.getConnector().getUuid());
+        entityInstanceDto.setUuid(entityInstanceReference.getUuid().toString());
+        entityInstanceDto.setConnectorUuid(entityInstanceReference.getConnector().getUuid().toString());
         entityInstanceDto.setKind(entityInstanceReference.getKind());
         entityInstanceDto.setConnectorName(entityInstanceReference.getConnectorName());
 
@@ -107,7 +107,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(SecuredUUID.fromString(connector.getUuid()), codeToSearch,
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), codeToSearch,
                 request.getAttributes(), request.getKind());
 
         // Load complete credential data

@@ -14,6 +14,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.UUID;
 
 @Entity
 @Table(name = "acme_challenge")
@@ -41,7 +42,7 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
     private AcmeAuthorization authorization;
 
     @Column(name = "authorization_uuid", nullable = false)
-    private String authorizationUuid;
+    private UUID authorizationUuid;
 
     @Override
     public Challenge mapToDto(){
@@ -112,12 +113,16 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
         this.validated = validated;
     }
 
-    public String getAuthorizationUuid() {
+    public UUID getAuthorizationUuid() {
         return authorizationUuid;
     }
 
-    public void setAuthorizationUuid(String authorizationUuid) {
+    public void setAuthorizationUuid(UUID authorizationUuid) {
         this.authorizationUuid = authorizationUuid;
+    }
+
+    public void setAuthorizationUuid(String authorizationUuid) {
+        this.authorizationUuid = UUID.fromString(authorizationUuid);
     }
 
     // Customer Getter for Challenge URL

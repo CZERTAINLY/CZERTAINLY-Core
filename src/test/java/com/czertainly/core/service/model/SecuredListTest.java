@@ -4,6 +4,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -53,16 +54,21 @@ class SecuredListTest {
 
     static class SecurableTestItem implements Securable {
 
-        private final String uuid;
+        private final UUID uuid;
         private final String name;
 
-        public SecurableTestItem(String uuid, String name) {
+        public SecurableTestItem(UUID uuid, String name) {
             this.uuid = uuid;
             this.name = name;
         }
 
+        public SecurableTestItem(String uuid, String name) {
+            this.uuid = UUID.fromString(uuid);
+            this.name = name;
+        }
+
         @Override
-        public String getUuid() {
+        public UUID getUuid() {
             return uuid;
         }
 

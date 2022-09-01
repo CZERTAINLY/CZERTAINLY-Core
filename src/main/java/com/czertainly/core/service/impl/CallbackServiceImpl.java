@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -70,7 +71,7 @@ public class CallbackServiceImpl implements CallbackService {
     // TODO AUTH - what are the required permissions? Use services instead of repositories
     public Object raProfileCallback(String authorityUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
         List<AttributeDefinition> definitions;
-        AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(authorityUuid)
+        AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
         definitions = authorityInstanceApiClient.listRAProfileAttributes(authorityInstance.getConnector().mapToDto(), authorityInstance.getAuthorityInstanceUuid());
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions).getAttributeCallback();

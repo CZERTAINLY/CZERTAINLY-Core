@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 public class CertificateControllerImpl implements CertificateController {
@@ -125,7 +126,7 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DETAIL)
 	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
-		return certificateEventHistoryService.getCertificateEventHistory(uuid);
+		return certificateEventHistoryService.getCertificateEventHistory(UUID.fromString(uuid));
 	}
 
 	@Override

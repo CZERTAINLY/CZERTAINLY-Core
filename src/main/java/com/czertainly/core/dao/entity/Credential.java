@@ -10,6 +10,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "credential")
@@ -30,7 +31,7 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
     private Boolean enabled;
 
     @Column(name = "connector_uuid")
-    private String connectorUuid;
+    private UUID connectorUuid;
 
     @Column(name="connector_name")
     private String connectorName;
@@ -67,11 +68,11 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         this.enabled = enabled;
     }
 
-    public String getConnectorUuid() {
+    public UUID getConnectorUuid() {
         return connectorUuid;
     }
 
-    public void setConnectorUuid(String connectorUuid) {
+    public void setConnectorUuid(UUID connectorUuid) {
         this.connectorUuid = connectorUuid;
     }
 
@@ -81,12 +82,12 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
 
     public CredentialDto mapToDtoSimple() {
         CredentialDto dto = new CredentialDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setKind(this.kind);
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
-        dto.setConnectorUuid(this.connectorUuid);
+        dto.setConnectorUuid(this.connectorUuid.toString());
 
         return dto;
     }
@@ -94,13 +95,13 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
     @Override
     public CredentialDto mapToDto() {
         CredentialDto dto = new CredentialDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setKind(this.kind);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
-        dto.setConnectorUuid(this.connectorUuid);
+        dto.setConnectorUuid(this.connectorUuid.toString());
 
         return dto;
     }

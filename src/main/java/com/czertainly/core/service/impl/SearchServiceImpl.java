@@ -283,7 +283,7 @@ public class SearchServiceImpl implements SearchService {
                         String raProfileUuid = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getUuid().toString();
                         qp += filter.getConditions().get(0).getCode() + " '" + raProfileUuid + "'";
                     } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
-                        String groupUuid = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getUuid();
+                        String groupUuid = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getUuid().toString();
                         qp += filter.getConditions().get(0).getCode() + " '" + groupUuid + "'";
                     } else {
                         qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "'";

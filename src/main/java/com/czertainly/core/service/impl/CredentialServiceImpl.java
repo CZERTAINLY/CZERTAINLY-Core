@@ -36,6 +36,7 @@ import javax.transaction.Transactional;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -75,7 +76,7 @@ public class CredentialServiceImpl implements CredentialService {
         }
 
         List<NameAndUuidDto> credentialDataList = credentials.stream()
-                .map(c -> new NameAndUuidDto(c.getUuid(), c.getName()))
+                .map(c -> new NameAndUuidDto(c.getUuid().toString(), c.getName()))
                 .collect(Collectors.toList());
 
         return credentialDataList;
@@ -115,7 +116,7 @@ public class CredentialServiceImpl implements CredentialService {
         credential.setKind(request.getKind());
         credential.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         credential.setEnabled(true);
-        credential.setConnectorUuid(request.getConnectorUuid());
+        credential.setConnectorUuid(UUID.fromString(request.getConnectorUuid()));
         credential.setConnectorName(connector.getName());
         credentialRepository.save(credential);
 
@@ -127,7 +128,7 @@ public class CredentialServiceImpl implements CredentialService {
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.UPDATE)
     public CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException {
         Credential credential = getCredentialEntity(uuid);
-        SecuredUUID connectorUuid = SecuredUUID.fromString(credential.getConnectorUuid());
+        SecuredUUID connectorUuid = SecuredUUID.fromUUID(credential.getConnectorUuid());
 
         // TODO AUTH do we need to check permissions of connector?
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(

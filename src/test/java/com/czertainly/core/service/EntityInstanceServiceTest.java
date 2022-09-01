@@ -113,7 +113,7 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.getEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -131,7 +131,7 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
         EntityInstanceRequestDto request = new EntityInstanceRequestDto();
         request.setName("testEntityInstance2");
-        request.setConnectorUuid(connector.getUuid());
+        request.setConnectorUuid(connector.getUuid().toString());
         request.setAttributes(List.of());
         request.setKind("TestKind");
 
@@ -159,7 +159,7 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEditEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.editEntityInstance(SecuredUUID.fromString("wrong-uuid"), null));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.editEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
@@ -183,7 +183,7 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetLocationAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.listLocationAttributes(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.listLocationAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -197,11 +197,11 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testValidateLocationAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.validateLocationAttributes(SecuredUUID.fromString("wrong-uuid"), null));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.validateLocationAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
     public void testRemoveEntityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.deleteEntityInstance(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> entityInstanceService.deleteEntityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 }

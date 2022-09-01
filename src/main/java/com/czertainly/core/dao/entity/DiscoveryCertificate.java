@@ -8,6 +8,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.UUID;
 
 @Entity
 @Table(name = "discovery_certificate")
@@ -44,12 +45,12 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     private DiscoveryHistory discovery;
 
     @Column(name = "discovery_uuid", nullable = false)
-    private String discoveryUuid;
+    private UUID discoveryUuid;
 
     @Override
     public DiscoveryCertificatesDto mapToDto() {
         DiscoveryCertificatesDto dto = new DiscoveryCertificatesDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setCommonName(commonName);
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
@@ -132,11 +133,11 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
         this.certificateContentId = certificateContentId;
     }
 
-    public String getDiscoveryUuid() {
+    public UUID getDiscoveryUuid() {
         return discoveryUuid;
     }
 
     public void setDiscoveryUuid(String discoveryUuid) {
-        this.discoveryUuid = discoveryUuid;
+        this.discoveryUuid = UUID.fromString(discoveryUuid);
     }
 }

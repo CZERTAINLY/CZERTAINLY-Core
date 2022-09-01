@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 
@@ -44,7 +45,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     private AuthorityInstanceReference authorityInstanceReference;
 
     @Column(name = "authority_instance_ref_uuid")
-    private String authorityInstanceReferenceUuid;
+    private UUID authorityInstanceReferenceUuid;
 
     @Column(name = "enabled")
     private Boolean enabled;
@@ -72,7 +73,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     private AcmeProfile acmeProfile;
 
     @Column(name = "acme_profile_uuid")
-    private String acmeProfileUuid;
+    private UUID acmeProfileUuid;
 
     @Column(name="acme_issue_certificate_attributes")
     private String issueCertificateAttributes;
@@ -87,7 +88,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             return dto;
         }
         dto.setName(acmeProfile.getName());
-        dto.setUuid(acmeProfile.getUuid());
+        dto.setUuid(acmeProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueCertificateAttributes)));
         dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(revokeCertificateAttributes)));
         dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/raProfile/" + name + "/directory");
@@ -97,7 +98,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public RaProfileDto mapToDtoSimple() {
         RaProfileDto dto = new RaProfileDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         if(acmeProfile != null) {
             dto.setEnabledProtocols(List.of("ACME"));
@@ -105,7 +106,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setDescription(this.description);
         dto.setAuthorityInstanceName(this.authorityInstanceName);
         try {
-            dto.setAuthorityInstanceUuid(this.authorityInstanceReference.getUuid());
+            dto.setAuthorityInstanceUuid(this.authorityInstanceReference.getUuid().toString());
         }catch (NullPointerException e){
             dto.setAuthorityInstanceUuid(null);
         }
@@ -116,7 +117,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public SimplifiedRaProfileDto mapToDtoSimplified() {
         SimplifiedRaProfileDto dto = new SimplifiedRaProfileDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setEnabled(this.enabled);
         return dto;
@@ -126,11 +127,11 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Transient
     public RaProfileDto mapToDto() {
         RaProfileDto dto = new RaProfileDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
-        dto.setAuthorityInstanceUuid(authorityInstanceReference != null ? authorityInstanceReference.getUuid() : null);
+        dto.setAuthorityInstanceUuid(authorityInstanceReference != null ? authorityInstanceReference.getUuid().toString() : null);
         dto.setAuthorityInstanceName(this.authorityInstanceName);
         dto.setEnabled(enabled);
         if (complianceProfiles != null) {
@@ -198,9 +199,11 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         if(authorityInstanceReference != null) this.authorityInstanceReferenceUuid = authorityInstanceReference.getUuid();
     }
 
-    public String getAuthorityInstanceReferenceUuid() { return authorityInstanceReferenceUuid; }
+    public UUID getAuthorityInstanceReferenceUuid() { return authorityInstanceReferenceUuid; }
 
-    public void setAuthorityInstanceReferenceUuid(String authorityInstanceReferenceUuid) { this.authorityInstanceReferenceUuid = authorityInstanceReferenceUuid; }
+    public void setAuthorityInstanceReferenceUuid(UUID authorityInstanceReferenceUuid) { this.authorityInstanceReferenceUuid = authorityInstanceReferenceUuid; }
+
+    public void setAuthorityInstanceReferenceUuid(String authorityInstanceReferenceUuid) { this.authorityInstanceReferenceUuid = UUID.fromString(authorityInstanceReferenceUuid); }
 
     public AcmeProfile getAcmeProfile() {
         return acmeProfile;

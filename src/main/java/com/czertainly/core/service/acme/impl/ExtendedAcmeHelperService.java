@@ -719,7 +719,7 @@ public class ExtendedAcmeHelperService {
         revokeRequest.setReason(RevocationReason.fromCode(request.getReason().getCode()));
         revokeRequest.setAttributes(List.of());
         try {
-            clientOperationService.revokeCertificate(cert.getRaProfile().getSecuredUuid(), cert.getUuid(), revokeRequest, true);
+            clientOperationService.revokeCertificate(cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest, true);
             return ResponseEntity
                     .ok()
                     .header(NONCE_HEADER_NAME, generateNonce())

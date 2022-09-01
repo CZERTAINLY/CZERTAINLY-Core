@@ -19,6 +19,7 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
@@ -56,14 +57,14 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     private RaProfile raProfile;
 
     @Column(name = "ra_profile_uuid", nullable = false)
-    private String raProfileUuid;
+    private UUID raProfileUuid;
 
     @OneToOne
     @JoinColumn(name = "acme_profile_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
 
     @Column(name = "acme_profile_uuid", nullable = false)
-    private String acmeProfileUuid;
+    private UUID acmeProfileUuid;
 
     @Override
     public Account mapToDto(){
@@ -76,17 +77,17 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
 
     public AcmeAccountResponseDto mapToDtoForUi(){
         AcmeAccountResponseDto account = new AcmeAccountResponseDto();
-        account.setUuid(uuid);
+        account.setUuid(uuid.toString());
         account.setAccountId(accountId);
         account.setEnabled(isEnabled);
         account.setContact(MetaDefinitions.deserializeArrayString(contact));
         if(acmeProfile != null) {
             account.setAcmeProfileName(acmeProfile.getName());
-            account.setAcmeProfileUuid(acmeProfile.getUuid());
+            account.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         }
         if(raProfile != null) {
             account.setRaProfileName(raProfile.getName());
-            account.setRaProfileUuid(raProfile.getUuid());
+            account.setRaProfileUuid(raProfile.getUuid().toString());
         }
         account.setSuccessfulOrders(orders.stream()
                 .filter(acmeOrder -> acmeOrder.getStatus()
@@ -117,7 +118,7 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
 
     public AcmeAccountListResponseDto mapToDtoForUiSimple(){
         AcmeAccountListResponseDto account = new AcmeAccountListResponseDto();
-        account.setUuid(uuid);
+        account.setUuid(uuid.toString());
         account.setAccountId(accountId);
         account.setEnabled(isEnabled);
         if(acmeProfile != null) {
@@ -223,19 +224,23 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
         return termsOfServiceAgreed;
     }
 
-    public String getRaProfileUuid() {
+    public UUID getRaProfileUuid() {
         return raProfileUuid;
     }
 
-    public void setRaProfileUuid(String raProfileUuid) {
+    public void setRaProfileUuid(UUID raProfileUuid) {
         this.raProfileUuid = raProfileUuid;
     }
 
-    public String getAcmeProfileUuid() {
+    public void setRaProfileUuid(String raProfileUuid) {
+        this.raProfileUuid = UUID.fromString(raProfileUuid);
+    }
+
+    public UUID getAcmeProfileUuid() {
         return acmeProfileUuid;
     }
 
     public void setAcmeProfileUuid(String acmeProfileUuid) {
-        this.acmeProfileUuid = acmeProfileUuid;
+        this.acmeProfileUuid = UUID.fromString(acmeProfileUuid);
     }
 }

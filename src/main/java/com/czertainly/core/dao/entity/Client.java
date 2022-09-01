@@ -9,6 +9,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "client")
@@ -28,7 +29,7 @@ public class Client extends UniquelyIdentifiedAndAudited implements Serializable
 	private Certificate certificate;
 
 	@Column(name = "certificate_uuid", nullable = false)
-	private String certificateUuid;
+	private UUID certificateUuid;
 
 	@ManyToMany(mappedBy = "clients")
 	private Set<RaProfile> raProfiles = new HashSet<>();
@@ -39,7 +40,7 @@ public class Client extends UniquelyIdentifiedAndAudited implements Serializable
 	@Override
 	public ClientDto mapToDto() {
 		ClientDto dto = new ClientDto();
-		dto.setUuid(uuid);
+		dto.setUuid(uuid.toString());
 		dto.setName(name);
 		dto.setDescription(description);
 		dto.setEnabled(enabled);
@@ -99,12 +100,16 @@ public class Client extends UniquelyIdentifiedAndAudited implements Serializable
 		this.serialNumber = serialNumber;
 	}
 
-	public String getCertificateUuid() {
+	public UUID getCertificateUuid() {
 		return certificateUuid;
 	}
 
-	public void setCertificateUuid(String certificateUuid) {
+	public void setCertificateUuid(UUID certificateUuid) {
 		this.certificateUuid = certificateUuid;
+	}
+
+	public void setCertificateUuid(String certificateUuid) {
+		this.certificateUuid = UUID.fromString(certificateUuid);
 	}
 
 	@Override

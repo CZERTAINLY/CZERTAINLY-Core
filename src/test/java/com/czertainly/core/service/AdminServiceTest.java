@@ -65,21 +65,21 @@ public class AdminServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(admins);
         Assertions.assertFalse(admins.isEmpty());
         Assertions.assertEquals(1, admins.size());
-        Assertions.assertEquals(admin.getUuid(), admins.get(0).getUuid());
+        Assertions.assertEquals(admin.getUuid().toString(), admins.get(0).getUuid());
     }
 
     @Test
     public void testGetAdminByUuid() throws NotFoundException {
         AdminDto dto = adminService.getAdminByUuid(admin.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(admin.getUuid(), dto.getUuid());
+        Assertions.assertEquals(admin.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificate());
-        Assertions.assertEquals(admin.getCertificateUuid(), dto.getCertificate().getUuid());
+        Assertions.assertEquals(admin.getCertificateUuid().toString(), dto.getCertificate().getUuid());
     }
 
     @Test
     public void testGetAdminByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> adminService.getAdminByUuid(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> adminService.getAdminByUuid(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -95,7 +95,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
         request.setName("Test");
         request.setSurname("Admin2");
         request.setEmail("test@admin2.com");
-        request.setCertificateUuid(admin2Cert.getUuid());
+        request.setCertificateUuid(admin2Cert.getUuid().toString());
 
         AdminDto dto = adminService.addAdmin(request);
         Assertions.assertNotNull(dto);
@@ -128,7 +128,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
         request.setName("Test");
         request.setSurname("Admin2");
         request.setEmail("test@admin2.com");
-        request.setCertificateUuid(certificate.getUuid()); // admin with same certificate exist
+        request.setCertificateUuid(certificate.getUuid().toString()); // admin with same certificate exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> adminService.addAdmin(request));
     }
@@ -144,7 +144,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
         request.setName("Test");
         request.setSurname("Admin2");
         request.setEmail("test@admin2.com");
-        request.setCertificateUuid(admin2Cert.getUuid());
+        request.setCertificateUuid(admin2Cert.getUuid().toString());
 
         AdminDto dto = adminService.editAdmin(admin.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
@@ -167,7 +167,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
         request.setSurname("Admin2");
         request.setEmail("test@admin2.com");
 
-        Assertions.assertThrows(NotFoundException.class, () -> adminService.editAdmin(SecuredUUID.fromString("wrong-uuid"), request));
+        Assertions.assertThrows(NotFoundException.class, () -> adminService.editAdmin(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
@@ -178,7 +178,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> adminService.deleteAdmin(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> adminService.deleteAdmin(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -189,7 +189,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEnableAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> adminService.enableAdmin(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> adminService.enableAdmin(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -200,7 +200,7 @@ public class AdminServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testDisableAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> adminService.disableAdmin(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> adminService.disableAdmin(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test

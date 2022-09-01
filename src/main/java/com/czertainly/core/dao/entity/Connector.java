@@ -128,7 +128,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Override
     public ConnectorDto mapToDto() {
         ConnectorDto dto = new ConnectorDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setUrl(this.url);
         dto.setAuthType(authType);

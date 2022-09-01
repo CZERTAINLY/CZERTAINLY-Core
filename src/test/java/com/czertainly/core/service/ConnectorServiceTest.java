@@ -166,7 +166,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetAllAttributesOfConnector_notFund() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getAllAttributesOfConnector(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getAllAttributesOfConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -183,7 +183,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -229,7 +229,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEditConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.editConnector(SecuredUUID.fromString("wrong-uuid"), new ConnectorUpdateRequestDto()));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.editConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), new ConnectorUpdateRequestDto()));
     }
 
     @Test
@@ -240,7 +240,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveConnector_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> connectorService.deleteConnector(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> connectorService.deleteConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -269,7 +269,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     public void testApproveConnector_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> connectorService.approve(SecuredUUID.fromString("wrong-uuid"))
+                () -> connectorService.approve(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
         );
     }
 
@@ -289,7 +289,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     public void testCheckHealth_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> connectorService.checkHealth(SecuredUUID.fromString("wrong-uuid"))
+                () -> connectorService.checkHealth(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
         );
     }
 
@@ -322,7 +322,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     public void testGetAttributes_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> connectorService.getAttributes(SecuredUUID.fromString("wrong-uuid"),
+                () -> connectorService.getAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
                         null,
                         null
                 )
@@ -390,7 +390,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     public void testValidateAttributes_notFound() {
         Assertions.assertThrows(NotFoundException.class,
                 () -> connectorService.validateAttributes(
-                        SecuredUUID.fromString("wrong-uuid"),
+                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
                         null,
                         null,
                         null

@@ -44,14 +44,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -94,7 +87,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
     public ComplianceProfileDto getComplianceProfile(String uuid) throws NotFoundException {
         logger.info("Requesting Compliance Profile details for: {}", uuid);
-        ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
+        ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(UUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
         logger.debug("Compliance Profile: {}", complianceProfile);
         return complianceProfile.mapToDto();
     }
@@ -102,7 +95,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     public ComplianceProfile getComplianceProfileEntity(String uuid) throws NotFoundException {
         logger.debug("Gathering details for Entity: {}", uuid);
-        return complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
+        return complianceProfileRepository.findByUuid(UUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
     }
 
     @Override
@@ -484,7 +477,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             List<ComplianceRule> complianceRulesFromConnector = complianceRuleRepository.findByConnectorAndKind(connector, request.getKind());
             Map<String, ComplianceRule> ruleMap = new HashMap<>();
             if (request.getRules() != null && !request.getRules().isEmpty()) {
-                complianceRulesFromConnector.forEach(r -> ruleMap.put(r.getUuid(), r));
+                complianceRulesFromConnector.forEach(r -> ruleMap.put(r.getUuid().toString(), r));
                 for (ComplianceRequestRulesDto complianceRequestRulesDto : request.getRules()) {
                     if (ruleMap.get(complianceRequestRulesDto.getUuid()) != null) {
                         ComplianceProfileRule complianceProfileRule = generateComplianceProfileRule(profile, ruleMap.get(complianceRequestRulesDto.getUuid()), complianceRequestRulesDto.getAttributes());
@@ -527,14 +520,14 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     private ComplianceProfile getComplianceProfileEntityByUuid(String uuid) throws NotFoundException {
-        return complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
+        return complianceProfileRepository.findByUuid(UUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
     }
 
     private ComplianceRulesListResponseDto frameComplianceRulesResponseFromConnectorResponse(List<ComplianceRule> response, Connector connector, String kind) {
         logger.error("Connector Response: {}", response);
         ComplianceRulesListResponseDto dto = new ComplianceRulesListResponseDto();
         dto.setConnectorName(connector.getName());
-        dto.setConnectorUuid(connector.getUuid());
+        dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind(kind);
         dto.setRules(response.stream().map(ComplianceRule::mapToComplianceResponse).collect(Collectors.toList()));
         return dto;
@@ -544,7 +537,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.error("Connector Response: {}", response);
         ComplianceGroupsListResponseDto dto = new ComplianceGroupsListResponseDto();
         dto.setConnectorName(connector.getName());
-        dto.setConnectorUuid(connector.getUuid());
+        dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind(kind);
         dto.setGroups(response.stream().map(ComplianceGroup::mapToGroupResponse).collect(Collectors.toList()));
         return dto;
@@ -552,7 +545,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     private ComplianceRule getComplianceRuleEntity(String ruleUuid, Connector connector, String kind) throws NotFoundException {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(
-                        ruleUuid,
+                        UUID.fromString(ruleUuid),
                         connector,
                         kind)
                 .orElseThrow(
@@ -578,7 +571,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     private Connector getConnectorEntity(String uuid) throws NotFoundException {
-        return connectorRepository.findByUuid(uuid)
+        return connectorRepository.findByUuid(UUID.fromString(uuid))
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
 

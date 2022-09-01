@@ -47,6 +47,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -113,7 +114,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     @Override
     public Boolean complianceRuleExists(SecuredUUID uuid, Connector connector, String kind) {
-        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.toString(), connector, kind).isPresent();
+        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).isPresent();
     }
 
     @Override
@@ -136,7 +137,7 @@ public class ComplianceServiceImpl implements ComplianceService {
             Set<ComplianceGroup> applicableGroups = complianceProfile.getGroups();
             Map<String, List<ComplianceRulesDto>> groupRuleMap = new HashMap<>();
             for (ComplianceGroup grp : applicableGroups) {
-                groupRuleMap.computeIfAbsent(grp.getConnector().getUuid(), k -> new ArrayList<>()).addAll(grp.getRules().stream().map(ComplianceRule::mapToDto).collect(Collectors.toList()));
+                groupRuleMap.computeIfAbsent(grp.getConnector().getUuid().toString(), k -> new ArrayList<>()).addAll(grp.getRules().stream().map(ComplianceRule::mapToDto).collect(Collectors.toList()));
             }
 
             for (ComplianceConnectorAndRulesDto connector : complianceProfile.mapToDto().getRules()) {
@@ -149,7 +150,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                 }
                 if (applicableRules.isEmpty()) {
                     logger.debug("Compliance Profile {} does not have any rule for Connector:{}", complianceProfile.getName(), connector.getConnectorName());
-                    setComplianceForCertificate(certificate.getUuid(), ComplianceStatus.NA, complianceResults);
+                    setComplianceForCertificate(certificate.getUuid().toString(), ComplianceStatus.NA, complianceResults);
                     return;
                 }
                 complianceRequestDto.setRules(getComplianceRequestRules(applicableRules));
@@ -162,7 +163,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
                 for (ComplianceResponseRulesDto rule : responseDto.getRules()) {
                     String ruleUuid = getComplianceRuleEntity(SecuredUUID.fromString(rule.getUuid()),
-                            getConnectorEntity(connector.getConnectorUuid()), connector.getKind()).getUuid();
+                            getConnectorEntity(connector.getConnectorUuid()), connector.getKind()).getUuid().toString();
                     switch (rule.getStatus()) {
                         case OK:
                             complianceResults.getOk().add(ruleUuid);
@@ -179,7 +180,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         }
         ComplianceStatus overallStatus = computeOverallComplianceStatus(complianceResults);
         logger.debug("Overall Status: {}", overallStatus);
-        setComplianceForCertificate(certificate.getUuid(), overallStatus, complianceResults);
+        setComplianceForCertificate(certificate.getUuid().toString(), overallStatus, complianceResults);
     }
 
     @Override
@@ -226,7 +227,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     private ComplianceRule getComplianceRuleEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {
-        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.toString(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
+        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
     }
 
     private void complianceCheckForRaProfile(RaProfile raProfile) throws ConnectorException {
@@ -238,7 +239,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private void setComplianceForCertificate(String uuid, ComplianceStatus status,
                                              CertificateComplianceStorageDto result) throws NotFoundException {
-        Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        Certificate certificate = certificateRepository.findByUuid(UUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         certificate.setComplianceStatus(status);
         certificate.setComplianceResult(result);
     }
@@ -349,7 +350,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private void decommUnavailableGroups(List<String> groups, Connector connector, String kind) throws NotFoundException {
         logger.info("Preparing the decommision process for the groups that are removed from connector: {}", connector);
-        List<String> currentGroupsInDatabase = complianceGroupRepository.findAll().stream().map(ComplianceGroup::getUuid).collect(Collectors.toList());
+        List<String> currentGroupsInDatabase = complianceGroupRepository.findAll().stream().map(ComplianceGroup::getUuid).map(UUID::toString).collect(Collectors.toList());
         currentGroupsInDatabase.removeAll(groups);
         for (String currentGroupUuid : currentGroupsInDatabase) {
             ComplianceGroup complianceGroup = getComplianceGroupEntity(SecuredUUID.fromString(currentGroupUuid), connector, kind);
@@ -384,7 +385,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private void decommUnavailableRules(List<String> rules, Connector connector, String kind) throws NotFoundException {
         logger.info("Preparing the decommision process for the rules that are removed from connector: {}", connector);
-        List<String> currentRulesInDatabase = complianceRuleRepository.findAll().stream().map(ComplianceRule::getUuid).collect(Collectors.toList());
+        List<String> currentRulesInDatabase = complianceRuleRepository.findAll().stream().map(ComplianceRule::getUuid).map(UUID::toString).collect(Collectors.toList());
         currentRulesInDatabase.removeAll(rules);
         for (String currentRuleUuid : currentRulesInDatabase) {
             ComplianceRule complianceRule = getComplianceRuleEntity(SecuredUUID.fromString(currentRuleUuid), connector, kind);
@@ -416,7 +417,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     private Connector getConnectorEntity(String uuid) throws NotFoundException {
-        return connectorRepository.findByUuid(uuid)
+        return connectorRepository.findByUuid(UUID.fromString(uuid))
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
 }

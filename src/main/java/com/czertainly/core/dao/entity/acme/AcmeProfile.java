@@ -14,6 +14,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "acme_profile")
@@ -43,7 +44,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     private RaProfile raProfile;
 
     @Column(name = "ra_profile_uuid")
-    private String raProfileUuid;
+    private UUID raProfileUuid;
 
     @Column(name = "issue_certificate_attributes")
     private String issueCertificateAttributes;
@@ -81,7 +82,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         acmeProfileDto.setDescription(description);
         acmeProfileDto.setEnabled(isEnabled);
         acmeProfileDto.setName(name);
-        acmeProfileDto.setUuid(uuid);
+        acmeProfileDto.setUuid(uuid.toString());
         acmeProfileDto.setDnsResolverIp(dnsResolverIp);
         acmeProfileDto.setDnsResolverPort(dnsResolverPort);
         acmeProfileDto.setRetryInterval(retryInterval);
@@ -104,12 +105,12 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         AcmeProfileListDto acmeProfileDto = new AcmeProfileListDto();
         if(raProfile != null) {
             acmeProfileDto.setRaProfileName(raProfile.getName());
-            acmeProfileDto.setRaProfileUuid(raProfile.getUuid());
+            acmeProfileDto.setRaProfileUuid(raProfile.getUuid().toString());
         }
         acmeProfileDto.setDescription(description);
         acmeProfileDto.setEnabled(isEnabled);
         acmeProfileDto.setName(name);
-        acmeProfileDto.setUuid(uuid);
+        acmeProfileDto.setUuid(uuid.toString());
         if(raProfile != null) {
             acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/" + name + "/directory");
         }
@@ -260,11 +261,15 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         this.termsOfServiceChangeUrl = termsOfServiceChangeUrl;
     }
 
-    public String getRaProfileUuid() {
+    public UUID getRaProfileUuid() {
         return raProfileUuid;
     }
 
-    public void setRaProfileUuid(String raProfileUuid) {
+    public void setRaProfileUuid(UUID raProfileUuid) {
         this.raProfileUuid = raProfileUuid;
+    }
+
+    public void setRaProfileUuid(String raProfileUuid) {
+        this.raProfileUuid = UUID.fromString(raProfileUuid);
     }
 }

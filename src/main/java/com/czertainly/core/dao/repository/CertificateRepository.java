@@ -16,12 +16,13 @@ import javax.transaction.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Transactional
 public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
-    Optional<Certificate> findByUuid(String uuid);
+    Optional<Certificate> findByUuid(UUID uuid);
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
 
     Certificate findByCertificateContent(CertificateContent certificateContent);

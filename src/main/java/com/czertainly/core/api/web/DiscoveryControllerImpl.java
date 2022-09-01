@@ -55,7 +55,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 				.buildAndExpand(modal.getUuid())
 				.toUri();
 		UuidDto dto = new UuidDto();
-		dto.setUuid(modal.getUuid());
+		dto.setUuid(modal.getUuid().toString());
 		return ResponseEntity.created(location).body(dto);
 	}
 

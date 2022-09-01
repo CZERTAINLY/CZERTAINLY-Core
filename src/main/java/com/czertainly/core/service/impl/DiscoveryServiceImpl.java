@@ -122,7 +122,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             discoveryRepository.delete(discovery);
-            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(discovery.getConnectorUuid()));
+            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
             discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
@@ -251,7 +251,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         modal.setConnectorName(connector.getName());
         modal.setStartTime(new Date());
         modal.setStatus(DiscoveryStatus.IN_PROGRESS);
-        modal.setConnectorUuid(connector.getUuid());
+        modal.setConnectorUuid(connector.getUuid().toString());
         modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         modal.setKind(request.getKind());
 

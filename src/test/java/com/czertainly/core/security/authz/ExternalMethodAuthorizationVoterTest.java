@@ -123,14 +123,14 @@ class ExternalMethodAuthorizationVoterTest {
                 .thenReturn(accessGranted());
 
         // given
-        MethodInvocation mi = methodInvocationWithSecuredUUID("123-456");
+        MethodInvocation mi = methodInvocationWithSecuredUUID("abfbc322-29e1-11ed-a261-0242ac120002");
 
         // when
         voter.vote(authentication, mi, List.of());
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
-        assertEquals(List.of("123-456"), resource.getObjectUUIDs());
+        assertEquals(List.of("abfbc322-29e1-11ed-a261-0242ac120002"), resource.getObjectUUIDs());
     }
 
     @Test
@@ -141,14 +141,14 @@ class ExternalMethodAuthorizationVoterTest {
                 .thenReturn(accessGranted());
 
         // given
-        MethodInvocation mi = methodInvocationWithListOfSecuredUUIDs("123-456", "789-abc");
+        MethodInvocation mi = methodInvocationWithListOfSecuredUUIDs("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120003");
 
         // when
         voter.vote(authentication, mi, List.of());
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
-        assertEquals(List.of("123-456", "789-abc"), resource.getObjectUUIDs());
+        assertEquals(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120003"), resource.getObjectUUIDs());
     }
 
     @Test
@@ -163,11 +163,11 @@ class ExternalMethodAuthorizationVoterTest {
         attributes.add(new ExternalAuthorizationConfigAttribute("parentUUIDsGetter", TestParentUUIDGetter.class));
 
         // when
-        voter.vote(authentication, methodInvocationWithSecuredUUID("123-456"), attributes);
+        voter.vote(authentication, methodInvocationWithSecuredUUID("abfbc322-29e1-11ed-a261-0242ac120002"), attributes);
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
-        assertEquals(List.of("abc-def", "987-asd"), resource.getParentObjectUUIDs());
+        assertEquals(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120003"), resource.getParentObjectUUIDs());
     }
 
     @Test
@@ -182,7 +182,7 @@ class ExternalMethodAuthorizationVoterTest {
         attributes.add(new ExternalAuthorizationConfigAttribute("parentUUIDsGetter", NoOpParentUUIDGetter.class));
 
         // when
-        voter.vote(authentication, methodInvocationWithSecuredUUID("123-456"), attributes);
+        voter.vote(authentication, methodInvocationWithSecuredUUID("abfbc322-29e1-11ed-a261-0242ac120002"), attributes);
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
@@ -283,7 +283,7 @@ class ExternalMethodAuthorizationVoterTest {
 
         @Override
         public List<String> getParentsUUID(List<String> objectsUUID) {
-            return List.of("abc-def", "987-asd");
+            return List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120003");
         }
     }
 

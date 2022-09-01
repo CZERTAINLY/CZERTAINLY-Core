@@ -84,10 +84,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         logger.info("Certificate Created. Adding the certificate to Inventory");
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
-        dto.setRaProfileUuid(raProfile.getUuid());
+        dto.setRaProfileUuid(raProfile.getUuid().toString());
         logger.debug("UUID of the certificate is {}", certificate.getUuid());
         logger.debug("UUID of the RA Profile is {}", raProfile.getUuid());
-        certificateService.updateCertificateObjects(SecuredUUID.fromString(certificate.getUuid()), dto);
+        certificateService.updateCertificateObjects(SecuredUUID.fromString(certificate.getUuid().toString()), dto);
         certificateService.updateIssuer();
         try {
             certValidationService.validate(certificate);
@@ -250,7 +250,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
-        checkAccessPermissions(raProfile.getSecuredUuid(), SecuredParentUUID.fromString(raProfile.getAuthorityInstanceReferenceUuid()));
+        checkAccessPermissions(raProfile.getSecuredUuid(), SecuredParentUUID.fromString(raProfile.getAuthorityInstanceReferenceUuid().toString()));
 
         return raProfile;
     }

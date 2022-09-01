@@ -18,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "location")
@@ -41,7 +42,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
     private EntityInstanceReference entityInstanceReference;
 
     @Column(name = "entity_instance_ref_uuid")
-    private String entityInstanceReferenceUuid;
+    private UUID entityInstanceReferenceUuid;
 
     @Column(name = "enabled")
     private Boolean enabled;
@@ -144,23 +145,27 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         this.metadata = MetaDefinitions.serialize(metadata);
     }
 
-    public String getEntityInstanceReferenceUuid() {
+    public UUID getEntityInstanceReferenceUuid() {
         return entityInstanceReferenceUuid;
     }
 
-    public void setEntityInstanceReferenceUuid(String entityInstanceReferenceUuid) {
+    public void setEntityInstanceReferenceUuid(UUID entityInstanceReferenceUuid) {
         this.entityInstanceReferenceUuid = entityInstanceReferenceUuid;
+    }
+
+    public void setEntityInstanceReferenceUuid(String entityInstanceReferenceUuid) {
+        this.entityInstanceReferenceUuid = UUID.fromString(entityInstanceReferenceUuid);
     }
 
     @Override
     @Transient
     public LocationDto mapToDto() {
         LocationDto dto = new LocationDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
-        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid() : null);
+        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
@@ -173,7 +178,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
             cilDto.setMetadata(certificateLocation.getMetadata());
             cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
-            cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid());
+            cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid().toString());
             cilDto.setWithKey(certificateLocation.isWithKey());
             cilDto.setPushAttributes(AttributeDefinitionUtils.getClientAttributes(certificateLocation.getPushAttributes()));
             cilDto.setCsrAttributes(AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
@@ -187,10 +192,10 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     public LocationDto mapToDtoSimple() {
         LocationDto dto = new LocationDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid() : null);
+        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);

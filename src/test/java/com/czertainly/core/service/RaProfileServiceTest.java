@@ -128,7 +128,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetRaProfileByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -185,7 +185,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     public void testEditRaProfile_notFound() {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredUuid(), SecuredUUID.fromString("wrong-uuid"), request));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
@@ -196,7 +196,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.deleteRaProfile(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.deleteRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -207,7 +207,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEnableRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.enableRaProfile(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.enableRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -218,7 +218,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testDisableRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -234,7 +234,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListClients_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.listClients(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.listClients(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test

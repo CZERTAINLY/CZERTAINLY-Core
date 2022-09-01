@@ -76,6 +76,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -270,19 +271,19 @@ public class CertificateServiceImpl implements CertificateService {
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null) {
             for (String uuid : request.getUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(uuid)
+                Certificate certificate = certificateRepository.findByUuid(UUID.fromString(uuid))
                         .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
                 if (!adminRepository.findByCertificate(certificate).isEmpty()) {
                     logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
                     batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client ", "", certificate));
-                    failedDeleteCerts.add(certificate.getUuid());
+                    failedDeleteCerts.add(certificate.getUuid().toString());
                     continue;
                 }
 
                 if (!clientRepository.findByCertificate(certificate).isEmpty()) {
                     logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
                     batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin ", "", certificate));
-                    failedDeleteCerts.add(certificate.getUuid());
+                    failedDeleteCerts.add(certificate.getUuid().toString());
                     continue;
                 }
 
@@ -694,7 +695,7 @@ public class CertificateServiceImpl implements CertificateService {
     private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter) {
         List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
         CertificateComplianceCheckDto dto = new CertificateComplianceCheckDto();
-        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).collect(Collectors.toList()));
+        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).map(UUID::toString).collect(Collectors.toList()));
         checkCompliance(dto);
     }
 
@@ -873,7 +874,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getFilters() == null) {
             List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                Certificate certificate = certificateRepository.findByUuid(UUID.fromString(certificateUuid))
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
                 certificate.setRaProfile(raProfile);
@@ -899,7 +900,7 @@ public class CertificateServiceImpl implements CertificateService {
             List<Certificate> batchOperationList = new ArrayList<>();
 
             for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                Certificate certificate = certificateRepository.findByUuid(UUID.fromString(certificateUuid))
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + certificateGroup.getName(), "", certificate));
                 certificate.setGroup(certificateGroup);
@@ -922,7 +923,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getFilters() == null) {
             List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
+                Certificate certificate = certificateRepository.findByUuid(UUID.fromString(certificateUuid))
                         .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
                 certificate.setOwner(request.getOwner());

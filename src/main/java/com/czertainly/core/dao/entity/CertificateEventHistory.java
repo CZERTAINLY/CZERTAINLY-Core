@@ -12,6 +12,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.UUID;
 
 @Entity
 @Table(name = "certificate_event_history")
@@ -36,7 +37,7 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     private Certificate certificate;
 
     @Column(name = "certificate_uuid", nullable = false)
-    private String certificateUuid;
+    private UUID certificateUuid;
 
     @Override
     public String toString() {
@@ -53,7 +54,7 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     @Override
     public CertificateEventHistoryDto mapToDto(){
         CertificateEventHistoryDto certificateEventHistoryDto = new CertificateEventHistoryDto();
-        certificateEventHistoryDto.setCertificateUuid(certificate.getUuid());
+        certificateEventHistoryDto.setCertificateUuid(certificate.getUuid().toString());
         certificateEventHistoryDto.setEvent(event);
         try {
             certificateEventHistoryDto.setAdditionalInformation(new ObjectMapper().readValue(additionalInformation, HashMap.class));
@@ -61,7 +62,7 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
             certificateEventHistoryDto.setAdditionalInformation(null);
         }
         certificateEventHistoryDto.setMessage(message);
-        certificateEventHistoryDto.setUuid(uuid);
+        certificateEventHistoryDto.setUuid(uuid.toString());
         certificateEventHistoryDto.setCreated(created);
         certificateEventHistoryDto.setCreatedBy(author);
         certificateEventHistoryDto.setStatus(status);
@@ -109,11 +110,15 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
         this.certificateUuid = certificate.getUuid();
     }
 
-    public String getCertificateUuid() {
+    public UUID getCertificateUuid() {
         return certificateUuid;
     }
 
-    public void setCertificateUuid(String certificateUuid) {
+    public void setCertificateUuid(UUID certificateUuid) {
         this.certificateUuid = certificateUuid;
+    }
+
+    public void setCertificateUuid(String certificateUuid) {
+        this.certificateUuid = UUID.fromString(certificateUuid);
     }
 }

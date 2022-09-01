@@ -37,6 +37,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -155,7 +156,7 @@ public class ClientServiceImpl implements ClientService {
         // TODO AUTH - use RaProfileService
         for (RaProfile profile : client.getRaProfiles()) {
             SimplifiedRaProfileDto dto = new SimplifiedRaProfileDto();
-            dto.setUuid(profile.getUuid());
+            dto.setUuid(profile.getUuid().toString());
             dto.setEnabled(profile.getEnabled());
             dto.setName(profile.getName());
             profiles.add(dto);
@@ -171,7 +172,7 @@ public class ClientServiceImpl implements ClientService {
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
         // TODO AUTH - use RaProfileService
-        RaProfile raProfile = raProfileRepository.findByUuid(raProfileUuid)
+        RaProfile raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid))
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         raProfile.getClients().add(client);
@@ -186,7 +187,7 @@ public class ClientServiceImpl implements ClientService {
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
         // TODO AUTH - use RaProfileService
-        RaProfile raProfile = raProfileRepository.findByUuid(raProfileUuid)
+        RaProfile raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid))
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         raProfile.getClients().remove(client);
@@ -225,7 +226,7 @@ public class ClientServiceImpl implements ClientService {
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
                 if (client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()) {
                     BulkActionMessageDto forceModal = new BulkActionMessageDto();
-                    forceModal.setUuid(client.getUuid());
+                    forceModal.setUuid(client.getUuid().toString());
                     forceModal.setName(client.getName());
                     forceModal.setMessage("Client has " + client.getRaProfiles().size() + " authorized RA Profile(s)");
                     messages.add(forceModal);

@@ -7,11 +7,12 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface ComplianceRuleRepository extends SecurityFilterRepository<ComplianceRule, Long> {
 
-    Optional<ComplianceRule> findByUuid(String uuid);
+    Optional<ComplianceRule> findByUuid(UUID uuid);
 
     List<ComplianceRule> findByUuidIn(List<String> uuid);
 
@@ -21,7 +22,7 @@ public interface ComplianceRuleRepository extends SecurityFilterRepository<Compl
 
     List<ComplianceRule> findByConnectorAndKindAndCertificateTypeIn(Connector connector, String kind, List<CertificateType> certificateTypes);
 
-    Optional<ComplianceRule> findByUuidAndConnectorAndKind(String uuid, Connector connector, String kind);
+    Optional<ComplianceRule> findByUuidAndConnectorAndKind(UUID uuid, Connector connector, String kind);
 
     List<ComplianceRule> findByConnector(Connector connector);
 }

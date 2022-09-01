@@ -7,6 +7,7 @@ import javax.persistence.Column;
 import javax.persistence.Embeddable;
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  Embedded class for a composite primary key
@@ -15,31 +16,31 @@ import java.util.Objects;
 public class CertificateLocationId implements Serializable {
 
     @Column(name = "location_uuid")
-    private String locationUuid;
+    private UUID locationUuid;
 
     @Column(name = "certificate_uuid")
-    private String certificateUuid;
+    private UUID certificateUuid;
 
     public CertificateLocationId() {}
 
-    public CertificateLocationId (String locationUuid, String certificateUuid) {
+    public CertificateLocationId (UUID locationUuid, UUID certificateUuid) {
         this.locationUuid = locationUuid;
         this.certificateUuid = certificateUuid;
     }
 
-    public String getLocationUuid() {
+    public UUID getLocationUuid() {
         return locationUuid;
     }
 
-    public void setLocationUuid(String locationUuid) {
+    public void setLocationUuid(UUID locationUuid) {
         this.locationUuid = locationUuid;
     }
 
-    public String getCertificateUuid() {
+    public UUID getCertificateUuid() {
         return certificateUuid;
     }
 
-    public void setCertificateUuid(String certificateUuid) {
+    public void setCertificateUuid(UUID certificateUuid) {
         this.certificateUuid = certificateUuid;
     }
 

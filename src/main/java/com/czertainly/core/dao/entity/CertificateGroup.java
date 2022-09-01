@@ -51,7 +51,7 @@ public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Se
     public GroupDto mapToDto() {
         GroupDto dto = new GroupDto();
         dto.setName(this.name);
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setDescription(description);
         return dto;
     }

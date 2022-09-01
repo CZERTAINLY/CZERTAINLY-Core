@@ -99,7 +99,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetCertificate_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -127,7 +127,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveCertificate_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.deleteCertificate(SecuredUUID.fromString("wrong-uuid")));
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.deleteCertificate(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -145,7 +145,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     @Disabled("Revoke doesn't throw NotFoundException")
     public void testRevokeCertificate_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.revokeCertificate("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.revokeCertificate("abfbc322-29e1-11ed-a261-0242ac120002"));
     }
 
     @Test
@@ -168,7 +168,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateRaProfile() throws NotFoundException {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setRaProfileUuid(raProfile.getUuid());
+        uuidDto.setRaProfileUuid(raProfile.getUuid().toString());
 
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
 
@@ -178,21 +178,21 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateRaProfile_certificateNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setRaProfileUuid(raProfile.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("wrong-uuid"), uuidDto));
+        uuidDto.setRaProfileUuid(raProfile.getUuid().toString());
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), uuidDto));
     }
 
     @Test
     public void testUpdateRaProfile_raProfileNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setRaProfileUuid("wrong-uuid");
+        uuidDto.setRaProfileUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
     }
 
     @Test
     public void testUpdateCertificateGroup() throws NotFoundException {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid(certificateGroup.getUuid());
+        uuidDto.setGroupUuid(certificateGroup.getUuid().toString());
 
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
 
@@ -202,14 +202,14 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateCertificateGroup_certificateNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid(certificateGroup.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("wrong-uuid"), uuidDto));
+        uuidDto.setGroupUuid(certificateGroup.getUuid().toString());
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), uuidDto));
     }
 
     @Test
     public void testUpdateCertificateGroup_groupNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid("wrong-uuid");
+        uuidDto.setGroupUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
     }
 
@@ -227,7 +227,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     public void testUpdateCertificateOwner_certificateNotFound() {
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setOwner("testOwner");
-        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("wrong-uuid"), dto));
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), dto));
     }
 
     @Test
@@ -240,7 +240,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     public void testBulkRemove() throws NotFoundException {
         RemoveCertificateDto request = new RemoveCertificateDto();
-        request.setUuids(List.of(certificate.getUuid()));
+        request.setUuids(List.of(certificate.getUuid().toString()));
 
         certificateService.bulkDeleteCertificate(request);
 
