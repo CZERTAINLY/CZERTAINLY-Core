@@ -21,7 +21,7 @@ public class SyncRequestDto {
     private ResourceAction actionName;
 
     @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No", required = true, example = "false", defaultValue = "false")
-    private boolean isListingEndpoint = false;
+    private boolean isListingEndpoint;
 
     public String getName() {
         return name;
@@ -68,7 +68,7 @@ public class SyncRequestDto {
     }
 
     public void setIsListingEndpoint(boolean isListingEndpoint) {
-        isListingEndpoint = isListingEndpoint;
+        this.isListingEndpoint = isListingEndpoint;
     }
 
     @Override

@@ -1,6 +1,8 @@
 package com.czertainly.core.auth;
 
 import com.czertainly.core.model.auth.SyncRequestDto;
+import com.czertainly.core.model.auth.SyncResponseDto;
+import com.czertainly.core.security.authn.client.EndPointApiClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,14 +19,16 @@ public class AuthEndpointSynchronizer {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthEndpointSynchronizer.class);
     private EndpointsListener endpointsListener;
-    @Value("${auth-service.host:http://authorization-provider-service:8080}")
-    private String authorizationServiceEndpoint;
-    @Value("${auth-service.endpoint-sync-uri:/auth/v1/endpoints/sync}")
-    private String syncContext;
+    private EndPointApiClient endPointApiClient;
 
     @Autowired
     public void setEndpointsListener(EndpointsListener endpointsListener) {
         this.endpointsListener = endpointsListener;
+    }
+
+    @Autowired
+    public void setEndPointApiClient(EndPointApiClient endPointApiClient) {
+        this.endPointApiClient = endPointApiClient;
     }
 
     @EventListener({ApplicationReadyEvent.class})
@@ -32,9 +36,8 @@ public class AuthEndpointSynchronizer {
         logger.info("Initiating Endpoints sync");
         List<SyncRequestDto> endpoints = endpointsListener.getEndpoints();
         logger.debug("Endpoints: {}", endpoints);
-        String baseURI = authorizationServiceEndpoint + syncContext;
-        logger.info("Endpoint Sync URI: {}", baseURI);
         //Sync API Operation here
-        logger.info("Sync operation completed");
+        SyncResponseDto response = endPointApiClient.syncEndPoints(endpoints);
+        logger.info("Sync operation completed, Response is {}", response);
     }
 }
