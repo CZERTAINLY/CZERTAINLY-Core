@@ -35,13 +35,11 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     private ClientService clientService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public List<ClientDto> listClients() {
         return clientService.listClients(SecurityFilter.create());
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.CREATE)
     public ResponseEntity<UuidDto> createClient(
             @RequestBody AddClientRequestDto request)
             throws CertificateException, AlreadyExistException, NotFoundException, ValidationException {
@@ -60,13 +58,11 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DETAIL)
     public ClientDto getClient(@PathVariable String uuid) throws NotFoundException {
         return clientService.getClient(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.UPDATE)
     public ClientDto editClient(
             @PathVariable String uuid,
             @RequestBody EditClientRequestDto request)
@@ -75,7 +71,6 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DELETE)
     public void deleteClient(
             @PathVariable String uuid)
             throws NotFoundException {
@@ -83,7 +78,6 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.DELETE)
     public ResponseEntity<List<BulkActionMessageDto>> bulkDeleteClient(List<String> clientUuids) throws NotFoundException {
         List<BulkActionMessageDto> messages = clientService.bulkDeleteClient(SecuredUUID.fromList(clientUuids));
         if(messages.isEmpty()){
@@ -93,7 +87,6 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.LIST_AUTHORIZATIONS, isListingEndPoint = true)
     public List<SimplifiedRaProfileDto> listAuthorizations(
             @PathVariable String uuid)
             throws NotFoundException {
@@ -101,31 +94,26 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.ENABLE)
     public void disableClient(@PathVariable String uuid) throws NotFoundException {
         clientService.disableClient(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.ENABLE)
     public void enableClient(@PathVariable String uuid) throws NotFoundException, CertificateException {
         clientService.enableClient(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.ENABLE)
     public void bulkDisableClient(List<String> clientUuids) throws NotFoundException {
         clientService.bulkDisableClient(SecuredUUID.fromList(clientUuids));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.ENABLE)
     public void bulkEnableClient(List<String> clientUuids) throws NotFoundException {
         clientService.bulkEnableClient(SecuredUUID.fromList(clientUuids));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.AUTHORIZE_CLIENT)
     public void authorizeClient(
             @PathVariable String uuid,
             @PathVariable String raProfileUuid)
@@ -134,7 +122,6 @@ public class ClientManagementControllerImpl implements ClientManagementControlle
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CLIENT, actionName = ResourceAction.UNAUTHORIZE_CLIENT)
     public void unauthorizeClient(
             @PathVariable String uuid,
             @PathVariable String raProfileUuid)

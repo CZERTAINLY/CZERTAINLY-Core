@@ -32,13 +32,11 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 	private AdminService adminService;
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.LIST, isListingEndPoint = true)
 	public List<AdminDto> listAdmins() {
 		return adminService.listAdmins(SecurityFilter.create());
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.CREATE)
 	public ResponseEntity<?> createAdmin(@RequestBody AddAdminRequestDto request)
 			throws CertificateException, AlreadyExistException, ValidationException, NotFoundException {
 		AdminDto adminDTO = adminService.addAdmin(request);
@@ -52,50 +50,42 @@ public class AdminManagementControllerImpl implements AdminManagementController 
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.DETAIL)
 	public AdminDto getAdmin(@PathVariable String uuid) throws NotFoundException {
 		return adminService.getAdminByUuid(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.UPDATE)
 	public AdminDto editAdmin(@PathVariable String uuid, @RequestBody EditAdminRequestDto request)
 			throws CertificateException, NotFoundException, AlreadyExistException {
 		return adminService.editAdmin(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.DELETE)
 	public void bulkDeleteAdmin(List<String> adminUuids) throws NotFoundException {
 		adminService.bulkDeleteAdmin(SecuredUUID.fromList(adminUuids));
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.DELETE)
 	public void deleteAdmin(@PathVariable String uuid) throws NotFoundException {
 		adminService.deleteAdmin(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.ENABLE)
 	public void disableAdmin(@PathVariable String uuid) throws NotFoundException {
 		adminService.disableAdmin(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.ENABLE)
 	public void enableAdmin(@PathVariable String uuid) throws NotFoundException, CertificateException {
 		adminService.enableAdmin(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.ENABLE)
 	public void bulkDisableAdmin(List<String> adminUuids) throws NotFoundException {
 		adminService.bulkDisableAdmin(SecuredUUID.fromList(adminUuids));
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.ENABLE)
 	public void bulkEnableAdmin(List<String> adminUuids) throws NotFoundException {
 		adminService.bulkEnableAdmin(SecuredUUID.fromList(adminUuids));
 	}
