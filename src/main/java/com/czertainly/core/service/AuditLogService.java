@@ -58,4 +58,11 @@ public interface AuditLogService {
      * @return {@link ExportResultDto}
      */
     ExportResultDto exportAuditLogs(AuditLogFilter filter, Sort sort);
+
+    /**
+     * Removes the audit logs from the database
+     * @param filter {@link AuditLogFilter}
+     * @param sort {@link Sort}
+     */
+    void purgeAuditLogs(AuditLogFilter filter, Sort sort);
 }

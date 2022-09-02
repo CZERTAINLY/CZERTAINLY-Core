@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -140,6 +139,14 @@ public class AuditLogServiceImpl implements AuditLogService {
         List<AuditLogDto> dtos = entities.stream().map(AuditLog::mapToDto).collect(Collectors.toList());
 
         return exportProcessor.generateExport(fileNamePrefix, dtos);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
+    public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
+        Predicate predicate = createPredicate(filter);
+        Iterable<AuditLog> entities = auditLogRepository.findAll(predicate, sort);
+        auditLogRepository.deleteAll(entities);
     }
 
     private Predicate createPredicate(AuditLogFilter filter) {
