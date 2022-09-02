@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +39,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public List<AttributeDefinition> listIssueCertificateAttributes(
             String authorityUuid,
             String raProfileUuid) throws ConnectorException {
-        return clientOperationService.listIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
+        return clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
@@ -47,7 +48,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
-        clientOperationService.validateIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid), attributes);
+        clientOperationService.validateIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
     @Override
@@ -56,7 +57,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException {
-        return clientOperationService.issueCertificate(SecuredUUID.fromString(raProfileUuid), request, false);
+        return clientOperationService.issueCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 
     @Override
@@ -66,7 +67,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String raProfileUuid,
             String certificateUuid,
             ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
-        return clientOperationService.renewCertificate(SecuredUUID.fromString(raProfileUuid), certificateUuid, request, false);
+        return clientOperationService.renewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 
     @Override
@@ -74,7 +75,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public List<AttributeDefinition> listRevokeCertificateAttributes(
             String authorityUuid,
             String raProfileUuid) throws ConnectorException {
-        return clientOperationService.listRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
+        return clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
@@ -83,7 +84,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
-        clientOperationService.validateRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid), attributes);
+        clientOperationService.validateRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
     @Override
@@ -93,6 +94,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request) throws ConnectorException {
-        clientOperationService.revokeCertificate(SecuredUUID.fromString(raProfileUuid), certificateUuid, request, false);
+        clientOperationService.revokeCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 }

@@ -25,6 +25,7 @@ import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeNonceRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
@@ -596,7 +597,7 @@ public class ExtendedAcmeHelperService {
             logger.debug("Initiating issue Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());
         }
         try {
-            ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(order.getAcmeAccount().getRaProfile().getSecuredUuid(), certificateSignRequestDto, true);
+            ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(order.getAcmeAccount().getRaProfile().getAuthorityInstanceReferenceUuid()), order.getAcmeAccount().getRaProfile().getSecuredUuid(), certificateSignRequestDto);
             order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
             order.setCertificateReference(certificateService.getCertificateEntity(SecuredUUID.fromString(certificateOutput.getUuid())));
             order.setStatus(OrderStatus.VALID);
@@ -719,7 +720,7 @@ public class ExtendedAcmeHelperService {
         revokeRequest.setReason(RevocationReason.fromCode(request.getReason().getCode()));
         revokeRequest.setAttributes(List.of());
         try {
-            clientOperationService.revokeCertificate(cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest, true);
+            clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(cert.getRaProfile().getAuthorityInstanceReferenceUuid()), cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest);
             return ResponseEntity
                     .ok()
                     .header(NONCE_HEADER_NAME, generateNonce())

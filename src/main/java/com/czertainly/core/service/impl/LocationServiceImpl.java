@@ -25,9 +25,11 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateLocationRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertificateEventHistoryService;
@@ -55,6 +57,7 @@ public class LocationServiceImpl implements LocationService {
     private LocationRepository locationRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private CertificateLocationRepository certificateLocationRepository;
+    private RaProfileRepository raProfileRepository;
     private EntityInstanceApiClient entityInstanceApiClient;
     private LocationApiClient locationApiClient;
     private CertificateService certificateService;
@@ -74,6 +77,11 @@ public class LocationServiceImpl implements LocationService {
     @Autowired
     public void setCertificateLocationRepository(CertificateLocationRepository certificateLocationRepository) {
         this.certificateLocationRepository = certificateLocationRepository;
+    }
+
+    @Autowired
+    public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
+        this.raProfileRepository = raProfileRepository;
     }
 
     @Autowired
@@ -556,8 +564,14 @@ public class LocationServiceImpl implements LocationService {
 
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
-            clientCertificateDataResponseDto = clientOperationService.issueCertificate(
-                    SecuredUUID.fromString(raProfileUuid), clientCertificateSignRequestDto, true);
+            // TODO AUTH: introduces raProfileRepository, services probably need to be reorganized
+            Optional<RaProfile> raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid));
+            if(raProfile.isEmpty() || raProfile.get().getAuthorityInstanceReferenceUuid() == null) {
+                logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
+                        ". RA profile is not existing or does not have set authority");
+                throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". RA profile is not existing or does not have set authority");
+            }
+            clientCertificateDataResponseDto = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.get().getAuthorityInstanceReferenceUuid()), raProfile.get().getSecuredUuid(), clientCertificateSignRequestDto);
         } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException e) {
             logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
                     ": " + e.getMessage());
@@ -574,9 +588,10 @@ public class LocationServiceImpl implements LocationService {
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
             clientCertificateDataResponseDto = clientOperationService.renewCertificate(
+                    SecuredParentUUID.fromUUID(certificateLocation.getCertificate().getRaProfile().getAuthorityInstanceReferenceUuid()),
                     certificateLocation.getCertificate().getRaProfile().getSecuredUuid(),
-                    certificateLocation.getCertificate().getUuid().toString(),
-                    clientCertificateRenewRequestDto, true
+                    certificateLocation.getCertificate().getSecuredUuid().toString(),
+                    clientCertificateRenewRequestDto
             );
         } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException |
                  CertificateOperationException e) {

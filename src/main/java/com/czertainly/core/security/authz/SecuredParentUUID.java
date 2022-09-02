@@ -16,4 +16,8 @@ public class SecuredParentUUID extends SecuredUUID {
     public static SecuredParentUUID fromString(String value) {
         return new SecuredParentUUID(value);
     }
+
+    public static SecuredParentUUID fromUUID(UUID value) {
+        return new SecuredParentUUID(value);
+    }
 }
