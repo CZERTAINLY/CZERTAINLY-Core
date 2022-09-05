@@ -37,7 +37,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.LIST)
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public List<LocationDto> listLocations(Optional<Boolean> enabled) {
         return locationService.listLocations(SecurityFilter.create(), enabled);
     }
@@ -96,7 +96,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.CREATE)
+    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.UPDATE)
     public LocationDto pushCertificate(String entityUuid, String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
         return locationService.pushCertificateToLocation(
                 SecuredUUID.fromString(locationUuid),
@@ -115,7 +115,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ISSUE)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.CREATE)
     public LocationDto issueCertificate(String entityUuid, String locationUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException {
         return locationService.issueCertificateToLocation(
                 SecuredUUID.fromString(locationUuid),

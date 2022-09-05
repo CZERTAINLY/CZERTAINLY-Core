@@ -35,7 +35,6 @@ public enum ResourceAction {
     UPLOAD("upload"),
     RENEW("renew"),
     REVOKE("revoke"),
-    ISSUE("issue"),
 
     //Legacy EJBCA operations - removed later
 //    LIST_ENTITY_PROFILE("listEntityProfile"),

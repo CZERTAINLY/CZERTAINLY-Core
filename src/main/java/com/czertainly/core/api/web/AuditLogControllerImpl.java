@@ -36,7 +36,7 @@ public class AuditLogControllerImpl implements AuditLogController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ADMIN, actionName = ResourceAction.EXPORT)
+    @AuthEndpoint(resourceName = Resource.AUDIT_LOG, actionName = ResourceAction.EXPORT)
     public ResponseEntity<org.springframework.core.io.Resource> exportAuditLogs(AuditLogFilter filter, Pageable pageable) {
         ExportResultDto export = auditLogService.exportAuditLogs(filter, pageable.getSort());
 

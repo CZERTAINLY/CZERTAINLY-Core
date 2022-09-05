@@ -52,7 +52,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ISSUE)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.CREATE)
     public ClientCertificateDataResponseDto issueCertificate(
             String authorityUuid,
             String raProfileUuid,
