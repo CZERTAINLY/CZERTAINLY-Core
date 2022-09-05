@@ -23,11 +23,11 @@ public class CertificateLocation implements Serializable {
     @EmbeddedId
     private CertificateLocationId id = new CertificateLocationId();
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @MapsId("locationId")
     private Location location;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @MapsId("certificateId")
     private Certificate certificate;
 
