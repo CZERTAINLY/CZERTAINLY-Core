@@ -260,7 +260,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (ConnectorException e) {
             logger.debug("Failed to list push Attributes for Location {}, {}: {}",
                     location.getName(), location.getUuid(), e.getMessage());
-            throw new LocationException("Failed to list push Attributes for the Location " + location.getName());
+            throw new LocationException("Failed to list push Attributes for the Location " + location.getName() + ". Reason: " + e.getMessage());
         }
     }
 
@@ -276,7 +276,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (ConnectorException e) {
             logger.debug("Failed to list CSR Attributes for Location {}, {}: {}",
                     location.getName(), location.getUuid(), e.getMessage());
-            throw new LocationException("Failed to list CSR Attributes for the Location " + location.getName());
+            throw new LocationException("Failed to list CSR Attributes for the Location " + location.getName() + ". Reason: " + e.getMessage());
         }
     }
 
@@ -309,7 +309,7 @@ public class LocationServiceImpl implements LocationService {
             logger.debug("Failed to remove Certificate {} from Location {},{}: {}", certificate.getUuid(),
                     location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to remove Certificate " + certificate.getUuid() +
-                    " from Location " + location.getName());
+                    " from Location " + location.getName() + ". Reason: " + e.getMessage());
         }
 
         // save record into the certificate history
@@ -459,7 +459,7 @@ public class LocationServiceImpl implements LocationService {
                     entityInstanceRef.getConnector().mapToDto(), entityInstanceRef.getEntityInstanceUuid(), locationDetailRequestDto);
         } catch (ConnectorException e) {
             logger.debug("Failed to get Location details: {}, {}, reason: {}", location.getName(), location.getUuid(), e.getMessage());
-            throw new LocationException("Failed to get details for Location " + location.getName());
+            throw new LocationException("Failed to get details for Location " + location.getName() + ". Reason: " + e.getMessage());
         }
 
         try {
@@ -540,7 +540,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (ConnectorException e) {
             logger.debug("Failed to generate CSR for the Location " + location.getName() + ", " + location.getUuid() +
                     ", with Attributes " + csrAttributes + ": " + e.getMessage());
-            throw new LocationException("Failed to generate CSR for Location " + location.getName());
+            throw new LocationException("Failed to generate CSR for Location " + location.getName() + ". Reason: " + e.getMessage());
         }
         return generateCsrResponseDto;
     }
@@ -558,7 +558,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException e) {
             logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
                     ": " + e.getMessage());
-            throw new LocationException("Failed to issue Certificate for Location " + location.getName());
+            throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". Reason: " + e.getMessage());
         }
         return clientCertificateDataResponseDto;
     }
@@ -578,7 +578,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException | CertificateOperationException e) {
             logger.debug("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() +
                     ", " + certificateLocation.getLocation().getUuid() + ": " + e.getMessage());
-            throw new LocationException("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName());
+            throw new LocationException("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() + ". Reason: " + e.getMessage());
         }
         return clientCertificateDataResponseDto;
     }
@@ -615,7 +615,7 @@ public class LocationServiceImpl implements LocationService {
             logger.debug("Failed to push Certificate {} to Location {}, {}: {}",
                     certificate.getUuid(), location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to push Certificate " + certificate.getUuid() +
-                    " to Location " + location.getName());
+                    " to Location " + location.getName() + ". Reason: " + e.getMessage());
         }
 
         //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
@@ -627,7 +627,7 @@ public class LocationServiceImpl implements LocationService {
             fullCsrAttributes = listCsrAttributes(location.getUuid());
         } catch (NotFoundException e) {
             logger.error("Unable to find the location with uuid: {}", location.getUuid());
-            throw new LocationException("Failed to get Attributes for Location: " + location.getName());
+            throw new LocationException("Failed to get Attributes for Location: " + location.getName() + ". Location not found");
         }
 
         List<AttributeDefinition> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
@@ -667,7 +667,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (ConnectorException e) {
             // TODO: masking of the SECRET Attributes in the debug message?
             logger.debug("Failed to validate Attributes {} for the Location {}: {}", requestAttributes, locationName, e.getMessage());
-            throw new LocationException("Failed to create Location: " + locationName);
+            throw new LocationException("Failed to create Location: " + locationName + ". Reason: " + e.getMessage());
         }
         return attributes;
     }
@@ -681,7 +681,7 @@ public class LocationServiceImpl implements LocationService {
                     entityInstanceReference.getConnector().mapToDto(), entityInstanceReference.getEntityInstanceUuid(), locationDetailRequestDto);
         } catch (ConnectorException e) {
             logger.debug("Failed to get Location {} details: {}", locationName, e.getMessage());
-            throw new LocationException("Failed to get details for Location " + locationName);
+            throw new LocationException("Failed to get details for Location " + locationName + ". Reason: " + e.getMessage());
         }
         return locationDetailResponseDto;
     }
@@ -835,7 +835,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (ConnectorException e) {
             logger.debug("Failed to list push Attributes for Entity Instance {}: {}",
                     entityInstanceUuid, e.getMessage());
-            throw new LocationException("Failed to list push Attributes for the Entity " + entityInstanceUuid);
+            throw new LocationException("Failed to list push Attributes for the Entity " + entityInstanceUuid + ". Reason: " + e.getMessage());
         }
     }
 
@@ -848,7 +848,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (ConnectorException e) {
             logger.debug("Failed to list CSR Attributes for Entity Instance {}: {}",
                     entityInstanceUuid, e.getMessage());
-            throw new LocationException("Failed to list CSR Attributes for the Entity " + entityInstanceUuid);
+            throw new LocationException("Failed to list CSR Attributes for the Entity " + entityInstanceUuid + ". Reason: " + e.getMessage());
         }
     }
 }
