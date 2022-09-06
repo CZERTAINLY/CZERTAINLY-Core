@@ -3,9 +3,9 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.UserManagementController;
 import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.auth.AddUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.security.cert.CertificateException;
 import java.util.List;
 
 @RestController
@@ -39,8 +40,8 @@ public class UserManagementControllerImpl implements UserManagementController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.CREATE)
-    public ResponseEntity<UuidDto> createUser(UserRequestDto request) throws NotFoundException {
-        UserDto userDto = userManagementService.createGroup(request);
+    public ResponseEntity<UuidDto> createUser(AddUserRequestDto request) throws NotFoundException, CertificateException {
+        UserDto userDto = userManagementService.createUser(request);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
