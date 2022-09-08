@@ -37,7 +37,7 @@ public class AuthEndpointSynchronizer {
         List<SyncRequestDto> endpoints = endpointsListener.getEndpoints();
         logger.debug("Endpoints: {}", endpoints);
         //Sync API Operation here
-        SyncResponseDto response = endPointApiClient.syncEndPoints(endpoints);
-        logger.info("Sync operation completed, Response is {}", response);
+//        SyncResponseDto response = endPointApiClient.syncEndPoints(endpoints);
+//        logger.info("Sync operation completed, Response is {}", response);
     }
 }

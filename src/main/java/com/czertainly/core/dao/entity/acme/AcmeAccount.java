@@ -123,6 +123,7 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
         account.setEnabled(isEnabled);
         if(acmeProfile != null) {
             account.setAcmeProfileName(acmeProfile.getName());
+            account.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         }
         if(raProfile != null) {
             account.setRaProfileName(raProfile.getName());
