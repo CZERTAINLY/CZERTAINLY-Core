@@ -499,6 +499,12 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + certificateLocation.getLocation().getName() + " does not support key management");
         }
 
+        Certificate certificateInScope = certificateService.getCertificateEntity(certificateUuid);
+        if(certificateInScope.getRaProfile() == null) {
+            logger.debug("Certificate {} is not associated with any RA Profile. Cannot renew the certificate", certificateInScope.getCommonName());
+            throw new LocationException("Certificate is not associated with any RA Profile. Cannot renew the certificate in the location");
+        }
+
         // remove the current certificate from location
         removeCertificateFromLocation(certificateLocation.getLocation().getUuid(), certificateLocation.getCertificate().getUuid());
 
