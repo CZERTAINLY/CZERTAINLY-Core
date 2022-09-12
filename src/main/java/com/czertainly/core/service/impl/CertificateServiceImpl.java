@@ -17,6 +17,7 @@ import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -74,8 +75,11 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -642,6 +646,17 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     public void updateCertificateEntity(Certificate certificate) {
         certificateRepository.save(certificate);
+    }
+
+    @Override
+    public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException {
+        String validationResult = getCertificateEntity(uuid).getCertificateValidationResult();
+        try {
+            return MetaDefinitions.deserializeValidation(validationResult);
+        } catch (IllegalStateException e) {
+            logger.error(e.getMessage());
+        }
+        return new HashMap<>();
     }
 
 

@@ -183,12 +183,6 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 //        if (locations != null) {
 //            dto.setLocations(locations.mapToDto());
 //        }
-        try {
-            dto.setCertificateValidationResult(MetaDefinitions.deserializeValidation(certificateValidationResult));
-        } catch (IllegalStateException e) {
-            logger.error(e.getMessage());
-            logger.debug(dto.toString());
-        }
         return dto;
     }
 
