@@ -85,7 +85,7 @@ public class ClientServiceImpl implements ClientService {
             throw new AlreadyExistException(Client.class, serialNumber);
         }
 
-        Client client = createClient(request);
+        Client client = createClient(request, serialNumber);
 
         clientRepository.save(client);
         logger.info("Client {} registered successfully.", dn);
@@ -261,7 +261,7 @@ public class ClientServiceImpl implements ClientService {
         return client.mapToDto();
     }
 
-    private Client createClient(AddClientRequestDto requestDTO) throws CertificateException, NotFoundException, AlreadyExistException {
+    private Client createClient(AddClientRequestDto requestDTO, String serialNumber) throws CertificateException, NotFoundException, AlreadyExistException {
         Client client = new Client();
         Certificate certificate;
         if ((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
@@ -271,7 +271,11 @@ public class ClientServiceImpl implements ClientService {
             } else {
                 UploadCertificateRequestDto request = new UploadCertificateRequestDto();
                 request.setCertificate(requestDTO.getClientCertificate());
-                certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
+                if (certificateService.getCertificateEntityBySerial(serialNumber) == null) {
+                    certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
+                }else {
+                    certificate = certificateService.getCertificateEntityBySerial(serialNumber);
+                }
             }
             client.setCertificate(certificate);
             client.setSerialNumber(certificate.getSerialNumber());
