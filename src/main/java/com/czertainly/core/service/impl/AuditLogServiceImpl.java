@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -127,7 +128,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         response.setPage(result.getNumber());
         response.setSize(result.getNumberOfElements());
         response.setTotalPages(result.getTotalPages());
-        if(result.hasNext()) {
+        if(result.getSize() > 0) {
             response.setItems(result.get().map(AuditLog::mapToDto).collect(Collectors.toList()));
         } else {
             response.setItems(new ArrayList<>());
