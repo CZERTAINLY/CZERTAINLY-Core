@@ -121,10 +121,14 @@ public class AuditLogServiceImpl implements AuditLogService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.REQUEST)
     public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
 
+        AuditLogResponseDto response = new AuditLogResponseDto();;
+
+        if (auditLogRepository.count() <= 0) {
+            return response;
+        }
+
         Predicate predicate = createPredicate(filter);
         Page<AuditLog> result = auditLogRepository.findAll(predicate, pageable);
-
-        AuditLogResponseDto response = new AuditLogResponseDto();
         response.setPage(result.getNumber());
         response.setSize(result.getNumberOfElements());
         response.setTotalPages(result.getTotalPages());
