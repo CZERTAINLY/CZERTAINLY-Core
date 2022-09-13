@@ -588,7 +588,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException {
+    public Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException {
         String validationResult = getCertificateEntity(uuid).getCertificateValidationResult();
         try {
             return MetaDefinitions.deserializeValidation(validationResult);
@@ -684,7 +684,7 @@ public class CertificateServiceImpl implements CertificateService {
     private List<CertificateComplianceResultDto> frameComplianceResult(CertificateComplianceStorageDto storageDto) {
         logger.debug("Framing Compliance Result from stored data: {}", storageDto);
         List<CertificateComplianceResultDto> result = new ArrayList<>();
-        List<ComplianceRule> rules = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
+        List<ComplianceProfileRule> rules = complianceService.getComplianceProfileRuleEntityForIds(storageDto.getNok());
         // List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
         for (ComplianceProfileRule complianceRule : rules) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));

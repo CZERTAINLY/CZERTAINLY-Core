@@ -167,19 +167,19 @@ public class ComplianceServiceImpl implements ComplianceService {
                 logger.debug("Certificate Compliance Response from Connector: {}", responseDto);
 
                 for (ComplianceResponseRulesDto rule : responseDto.getRules()) {
-                    ComplianceRule complianceRule = getComplianceRuleEntity(rule.getUuid(),
+                    ComplianceRule complianceRule = getComplianceRuleEntity(SecuredUUID.fromString(rule.getUuid()),
                             getConnectorEntity(connector.getConnectorUuid()), connector.getKind());
                     ComplianceProfileRule complianceProfileRule = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule)
                             .orElseThrow(() -> new NotFoundException("Unable to find compliance profile rule for the result"));
                     switch (rule.getStatus()) {
                         case OK:
-                            complianceResults.getOk().add(complianceProfileRule.getId());
+                            complianceResults.getOk().add(complianceProfileRule.getUuid().toString());
                             break;
                         case NOK:
-                            complianceResults.getNok().add(complianceProfileRule.getId());
+                            complianceResults.getNok().add(complianceProfileRule.getUuid().toString());
                             break;
                         case NA:
-                            complianceResults.getNa().add(complianceProfileRule.getId());
+                            complianceResults.getNa().add(complianceProfileRule.getUuid().toString());
                     }
                 }
                 logger.debug("Status from the Connector: {}", responseDto.getStatus());
@@ -237,8 +237,8 @@ public class ComplianceServiceImpl implements ComplianceService {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
     }
     @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<Long> ids) {
-        return complianceProfileRuleRepository.findByIdIn(ids);
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids) {
+        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
 

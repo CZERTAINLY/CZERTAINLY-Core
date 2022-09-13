@@ -285,11 +285,11 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
-    public LocationDto removeCertificateFromLocation(SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException {
+    public LocationDto removeCertificateFromLocation(SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
 
         CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getUuid());
         CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
@@ -486,11 +486,11 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
-    public LocationDto renewCertificateInLocation(SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException {
+    public LocationDto renewCertificateInLocation(SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException {
         locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        CertificateLocation certificateLocation = getCertificateLocation(locationUuid.toString(), certificateUuid);
+        CertificateLocation certificateLocation = getCertificateLocation(locationUuid.toString(), certificateUuid.toString());
 
         // Check if everything is available to do the renewal
         if (certificateLocation.getPushAttributes() == null || certificateLocation.getPushAttributes().isEmpty()) {

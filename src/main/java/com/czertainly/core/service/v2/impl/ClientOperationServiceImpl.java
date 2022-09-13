@@ -225,7 +225,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
                     pushRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(cl.getPushAttributes()));
 
-                    locationService.removeCertificateFromLocation(cl.getLocation().getSecuredUuid(), oldCertificate.getUuid().toString());
+                    locationService.removeCertificateFromLocation(cl.getLocation().getSecuredUuid(), oldCertificate.getSecuredUuid());
                     certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), "", oldCertificate);
 
                     locationService.pushCertificateToLocation(cl.getLocation().getSecuredUuid(), certificate.getUuid().toString(), pushRequest);

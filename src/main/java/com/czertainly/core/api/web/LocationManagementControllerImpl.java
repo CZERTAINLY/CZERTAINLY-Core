@@ -110,7 +110,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     public LocationDto removeCertificate(String entityUuid, String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
         return locationService.removeCertificateFromLocation(
                 SecuredUUID.fromString(locationUuid),
-                certificateUuid
+                SecuredUUID.fromString(certificateUuid)
         );
     }
 
@@ -135,7 +135,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     public LocationDto renewCertificateInLocation(String entityUuid, String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
         return locationService.renewCertificateInLocation(
                 SecuredUUID.fromString(locationUuid),
-                certificateUuid
+                SecuredUUID.fromString(certificateUuid)
         );
     }
 

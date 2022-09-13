@@ -41,4 +41,6 @@ public interface ClientService {
     List<BulkActionMessageDto> bulkDeleteClient(List<SecuredUUID> clientUuids);
 
     void bulkEnableClient(List<SecuredUUID> clientUuids);
+
+    ClientDto getClientBySerialNumber(String serialNumber) throws NotFoundException;
 }

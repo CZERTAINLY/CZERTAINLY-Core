@@ -102,5 +102,5 @@ public interface CertificateService {
      * @return Certificate Validation result
      * @throws NotFoundException
      */
-    Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException;
+    Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException;
 }

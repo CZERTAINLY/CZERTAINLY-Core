@@ -109,7 +109,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be removed from the Location.
      */
-    LocationDto removeCertificateFromLocation(SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException;
+    LocationDto removeCertificateFromLocation(SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException;
 
     /**
      * Remove existing Certificate from all associated Locations.
@@ -156,6 +156,6 @@ public interface LocationService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be renewed in the Location.
      */
-    LocationDto renewCertificateInLocation(SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException;
+    LocationDto renewCertificateInLocation(SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException;
 
 }

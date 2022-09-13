@@ -16,5 +16,5 @@ public interface ComplianceProfileRuleRepository extends SecurityFilterRepositor
 
     Optional<ComplianceProfileRule> findByComplianceProfileAndComplianceRule(ComplianceProfile complianceProfile, ComplianceRule complianceRule);
 
-    List<ComplianceProfileRule> findByIdIn(List<Long> ids);
+    List<ComplianceProfileRule> findByUuidIn(List<UUID> uuid);
 }
