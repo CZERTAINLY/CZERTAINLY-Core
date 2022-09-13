@@ -20,12 +20,14 @@ import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.ComplianceGroup;
 import com.czertainly.core.dao.entity.ComplianceProfile;
+import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceRule;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ComplianceGroupRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRepository;
+import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
@@ -76,6 +78,9 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     @Autowired
     private ComplianceRuleRepository complianceRuleRepository;
+
+    @Autowired
+    private ComplianceProfileRuleRepository complianceProfileRuleRepository;
 
     @Override
     // TODO AUTH - Secure with @ExternalAuthorization. Move to another service?
@@ -162,17 +167,19 @@ public class ComplianceServiceImpl implements ComplianceService {
                 logger.debug("Certificate Compliance Response from Connector: {}", responseDto);
 
                 for (ComplianceResponseRulesDto rule : responseDto.getRules()) {
-                    String ruleUuid = getComplianceRuleEntity(SecuredUUID.fromString(rule.getUuid()),
-                            getConnectorEntity(connector.getConnectorUuid()), connector.getKind()).getUuid().toString();
+                    ComplianceRule complianceRule = getComplianceRuleEntity(rule.getUuid(),
+                            getConnectorEntity(connector.getConnectorUuid()), connector.getKind());
+                    ComplianceProfileRule complianceProfileRule = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule)
+                            .orElseThrow(() -> new NotFoundException("Unable to find compliance profile rule for the result"));
                     switch (rule.getStatus()) {
                         case OK:
-                            complianceResults.getOk().add(ruleUuid);
+                            complianceResults.getOk().add(complianceProfileRule.getId());
                             break;
                         case NOK:
-                            complianceResults.getNok().add(ruleUuid);
+                            complianceResults.getNok().add(complianceProfileRule.getId());
                             break;
                         case NA:
-                            complianceResults.getNa().add(ruleUuid);
+                            complianceResults.getNa().add(complianceProfileRule.getId());
                     }
                 }
                 logger.debug("Status from the Connector: {}", responseDto.getStatus());
@@ -229,6 +236,11 @@ public class ComplianceServiceImpl implements ComplianceService {
     private ComplianceRule getComplianceRuleEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
     }
+    @Override
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<Long> ids) {
+        return complianceProfileRuleRepository.findByIdIn(ids);
+    }
+
 
     private void complianceCheckForRaProfile(RaProfile raProfile) throws ConnectorException {
         List<Certificate> certificates = certificateRepository.findByRaProfile(raProfile);

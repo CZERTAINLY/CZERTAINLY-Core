@@ -35,7 +35,7 @@ public abstract class UniquelyIdentified {
     @PrePersist
     private void generateUuid() {
         if (uuid == null) {
-            setUuid(UUID.randomUUID());
+            setUuid(UUID.randomUUID().toString());
         }
     }
 

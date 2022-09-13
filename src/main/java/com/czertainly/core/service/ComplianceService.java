@@ -4,6 +4,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.ComplianceGroup;
+import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceRule;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -59,6 +60,13 @@ public interface ComplianceService {
      * @return List of compliance rule entity
      */
     List<ComplianceRule> getComplianceRuleEntityForIds(List<String> ids);
+
+    /**
+     * Get the list of compliance profile rules based on the Ids
+     * @param ids Ids of the compliance rules
+     * @return List of compliance profile rule entity
+     */
+    List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<Long> ids);
 
     /**
      * Fetch the list of groups and rules from the compliance provider and add them into the database

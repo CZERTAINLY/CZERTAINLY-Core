@@ -181,12 +181,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 //        if (locations != null) {
 //            dto.setLocations(locations.mapToDto());
 //        }
-        try {
-            dto.setCertificateValidationResult(MetaDefinitions.deserializeValidation(certificateValidationResult));
-        } catch (IllegalStateException e) {
-            logger.error(e.getMessage());
-            logger.debug(dto.toString());
-        }
         return dto;
     }
 

@@ -214,19 +214,20 @@ public class AdminServiceImpl implements AdminService {
     private Admin createAdmin(AddAdminRequestDto requestDTO) throws CertificateException, AlreadyExistException, NotFoundException {
         Admin model = new Admin();
 
-        Certificate certificate;
+        Certificate certificate = null;
         if (StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
             certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(requestDTO.getCertificateUuid()));
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getAdminCertificate());
             try {
-                certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
-                throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
+                certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
             } catch (NotFoundException e) {
                 logger.debug("New Certificate uploaded for admin");
             }
-            certificate = certificateService.createCertificateEntity(x509Cert);
-            certificateService.updateCertificateEntity(certificate);
+            if(certificate != null) {
+                certificate = certificateService.createCertificateEntity(x509Cert);
+                certificateService.updateCertificateEntity(certificate);
+            }
         }
         model.setCertificate(certificate);
         model.setCertificateUuid(certificate.getUuid());

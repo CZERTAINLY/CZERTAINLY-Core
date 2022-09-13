@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpd
 import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Map;
 
 public interface CertificateService {
 
@@ -94,4 +96,11 @@ public interface CertificateService {
      * @param request Request to update multiple objects
      */
     void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException;
+
+    /** Function to get the validation result of the certificate
+     * @param uuid UUID of the certificate
+     * @return Certificate Validation result
+     * @throws NotFoundException
+     */
+    Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException;
 }

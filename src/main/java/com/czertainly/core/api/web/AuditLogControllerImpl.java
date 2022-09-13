@@ -48,6 +48,11 @@ public class AuditLogControllerImpl implements AuditLogController {
     }
 
     @Override
+    public void purgeAuditLogs(AuditLogFilter filter, Pageable pageable) {
+        auditLogService.purgeAuditLogs(filter, pageable.getSort());
+    }
+
+    @Override
     public List<String> listObjects() {
         return Arrays.stream(ObjectType.values()).map(ObjectType::name).collect(Collectors.toList());
     }

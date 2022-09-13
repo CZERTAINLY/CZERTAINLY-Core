@@ -91,7 +91,7 @@ public class ClientServiceImpl implements ClientService {
             throw new AlreadyExistException(Client.class, serialNumber);
         }
 
-        Client client = createClient(request);
+        Client client = createClient(request, serialNumber);
 
         clientRepository.save(client);
         logger.info("Client {} registered successfully.", dn);
@@ -272,7 +272,17 @@ public class ClientServiceImpl implements ClientService {
         }
     }
 
-    private Client createClient(AddClientRequestDto requestDTO) throws CertificateException, NotFoundException, AlreadyExistException {
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
+    public ClientDto getClientBySerialNumber(String serialNumber) throws NotFoundException {
+        Client client = clientRepository.findBySerialNumber(serialNumber)
+                .orElseThrow(() -> new NotFoundException(Client.class, serialNumber));
+
+        return client.mapToDto();
+    }
+
+    private Client createClient(AddClientRequestDto requestDTO, String serialNumber) throws CertificateException, NotFoundException, AlreadyExistException {
         Client client = new Client();
         Certificate certificate;
         if ((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {

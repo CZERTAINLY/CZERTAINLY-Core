@@ -5,6 +5,7 @@ import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceRule;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -14,4 +15,6 @@ public interface ComplianceProfileRuleRepository extends SecurityFilterRepositor
     Optional<ComplianceProfileRule> findByUuid(UUID uuid);
 
     Optional<ComplianceProfileRule> findByComplianceProfileAndComplianceRule(ComplianceProfile complianceProfile, ComplianceRule complianceRule);
+
+    List<ComplianceProfileRule> findByIdIn(List<Long> ids);
 }

@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -41,6 +42,7 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.LocationService;
 import com.czertainly.core.service.SearchService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.OcspUtil;
@@ -72,8 +74,11 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -582,6 +587,17 @@ public class CertificateServiceImpl implements CertificateService {
         certificateRepository.save(certificate);
     }
 
+    @Override
+    public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException {
+        String validationResult = getCertificateEntity(uuid).getCertificateValidationResult();
+        try {
+            return MetaDefinitions.deserializeValidation(validationResult);
+        } catch (IllegalStateException e) {
+            logger.error(e.getMessage());
+        }
+        return new HashMap<>();
+    }
+
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
 
@@ -670,7 +686,7 @@ public class CertificateServiceImpl implements CertificateService {
         List<CertificateComplianceResultDto> result = new ArrayList<>();
         List<ComplianceRule> rules = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
         // List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
-        for (ComplianceRule complianceRule : rules) {
+        for (ComplianceProfileRule complianceRule : rules) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
         // NA Rules are not required to be displayed in the UI
@@ -681,11 +697,12 @@ public class CertificateServiceImpl implements CertificateService {
         return result;
     }
 
-    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceRule rule, ComplianceRuleStatus status) {
+    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceProfileRule rule, ComplianceRuleStatus status) {
         CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
-        dto.setConnectorName(rule.getConnector().getName());
-        dto.setRuleName(rule.getName());
-        dto.setRuleDescription(rule.getDescription());
+        dto.setConnectorName(rule.getComplianceRule().getConnector().getName());
+        dto.setRuleName(rule.getComplianceRule().getName());
+        dto.setRuleDescription(rule.getComplianceRule().getDescription());
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(rule.getAttributes()));
         dto.setStatus(status);
         return dto;
     }

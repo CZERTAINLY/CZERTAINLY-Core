@@ -119,6 +119,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         ComplianceProfilesListDto complianceProfileDto = new ComplianceProfilesListDto();
         complianceProfileDto.setName(name);
         complianceProfileDto.setUuid(uuid.toString());
+        complianceProfileDto.setDescription(description);
 
         Map<String, Integer> providerGroupSummary = new HashMap<>();
         Map<String, Integer> providerGroupSummaryRules = new HashMap<>();
@@ -139,12 +140,18 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         }
 
         Map<String, Integer> providerSummary = new HashMap<>();
-        for(ComplianceProfileRule complianceRule : complianceRules){
-            String connectorName = complianceRule.getComplianceRule().getConnector().getName();
-            if(providerSummary.containsKey(connectorName)){
-                providerSummary.put(connectorName, providerSummary.get(connectorName) + 1);
-            } else {
+        if(complianceRules != null && complianceRules.isEmpty()) {
+            for(String connectorName : providerGroupSummaryRules.keySet()) {
                 providerSummary.put(connectorName, providerGroupSummaryRules.getOrDefault(connectorName, 1));
+            }
+        } else {
+            for (ComplianceProfileRule complianceRule : complianceRules) {
+                String connectorName = complianceRule.getComplianceRule().getConnector().getName();
+                if (providerSummary.containsKey(connectorName)) {
+                    providerSummary.put(connectorName, providerSummary.get(connectorName) + 1);
+                } else {
+                    providerSummary.put(connectorName, providerGroupSummaryRules.getOrDefault(connectorName, 1));
+                }
             }
         }
 

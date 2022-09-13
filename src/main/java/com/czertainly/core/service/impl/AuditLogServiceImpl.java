@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.transaction.Transactional;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,9 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Value("${export.auditLog.fileName.prefix:audit-logs}")
     private String fileNamePrefix;
+
+    @Value("${auditLog.enabled:false}")
+    private boolean auditLogEnabled;
 
     @Autowired
     private AuditLogRepository auditLogRepository;
@@ -95,17 +100,21 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @PostConstruct
     public void logStartup() {
-        Map<Object, Object> additionalData = new HashMap<>();
-        additionalData.put("message", "CZERTAINLY backend started");
-        log(ObjectType.BE, ObjectType.BE, null, OperationType.START, OperationStatusEnum.SUCCESS, additionalData);
+        if (auditLogEnabled) {
+            Map<Object, Object> additionalData = new HashMap<>();
+            additionalData.put("message", "CZERTAINLY backend started");
+            log(ObjectType.BE, ObjectType.BE, null, OperationType.START, OperationStatusEnum.SUCCESS, additionalData);
+        }
     }
 
     @Override
     @PreDestroy
     public void logShutdown() {
-        Map<Object, Object> additionalData = new HashMap<>();
-        additionalData.put("message", "CZERTAINLY backend shutdown");
-        log(ObjectType.BE, ObjectType.BE, null, OperationType.STOP, OperationStatusEnum.SUCCESS, additionalData);
+        if (auditLogEnabled) {
+            Map<Object, Object> additionalData = new HashMap<>();
+            additionalData.put("message", "CZERTAINLY backend shutdown");
+            log(ObjectType.BE, ObjectType.BE, null, OperationType.STOP, OperationStatusEnum.SUCCESS, additionalData);
+        }
     }
 
     @Override
@@ -114,14 +123,22 @@ public class AuditLogServiceImpl implements AuditLogService {
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.LIST)
     public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
 
+        AuditLogResponseDto response = new AuditLogResponseDto();;
+
+        if (auditLogRepository.count() <= 0) {
+            return response;
+        }
+
         Predicate predicate = createPredicate(filter);
         Page<AuditLog> result = auditLogRepository.findAll(predicate, pageable);
-
-        AuditLogResponseDto response = new AuditLogResponseDto();
         response.setPage(result.getNumber());
         response.setSize(result.getNumberOfElements());
         response.setTotalPages(result.getTotalPages());
-        response.setItems(result.get().map(AuditLog::mapToDto).collect(Collectors.toList()));
+        if(result.getSize() > 0) {
+            response.setItems(result.get().map(AuditLog::mapToDto).collect(Collectors.toList()));
+        } else {
+            response.setItems(new ArrayList<>());
+        }
 
         return response;
     }
@@ -136,6 +153,14 @@ public class AuditLogServiceImpl implements AuditLogService {
         List<AuditLogDto> dtos = entities.stream().map(AuditLog::mapToDto).collect(Collectors.toList());
 
         return exportProcessor.generateExport(fileNamePrefix, dtos);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
+    public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
+        Predicate predicate = createPredicate(filter);
+        List<AuditLog> entities = auditLogRepository.findAll(predicate, sort);
+        auditLogRepository.deleteAll(entities);
     }
 
     private Predicate createPredicate(AuditLogFilter filter) {

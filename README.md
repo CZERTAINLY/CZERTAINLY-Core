@@ -112,7 +112,3 @@ Example values:
 - `HTTP_PROXY=http://user:password@proxy.example.com:3128`
 - `HTTPS_PROXY=http://user:password@proxy.example.com:3128`
 - `NO_PROXY=localhost,127.0.0.1,0.0.0.0,10.0.0.0/8,cattle-system.svc,.svc,.cluster.local,my-domain.local`
-
-## Monitoring and reporting
-
-For monitoring and reporting, you can use the information provided by the `Core`. We strongly recommend trying the Operator UI that is additional component of the CZERTAINLY platform.
