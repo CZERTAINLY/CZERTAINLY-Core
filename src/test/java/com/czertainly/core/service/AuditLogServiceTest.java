@@ -46,6 +46,6 @@ public class AuditLogServiceTest {
 
         // if the audit log is enabled, purging audit logs will keep the delete operation in the audit log
         // therefore we expect only 1 record to be available after purging all
-        Assertions.assertEquals(logs.getItems().size(), 1);
+        Assertions.assertEquals(logs.getItems().size(), 0);
     }
 }
