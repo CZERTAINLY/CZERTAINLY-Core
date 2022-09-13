@@ -42,7 +42,6 @@ public class AuditLog extends Audited implements Serializable, DtoMapper<AuditLo
 
     @Column(name = "additional_data")
     @Lob
-    @Basic(fetch = FetchType.LAZY)
     private String additionalData;
 
     @Override
