@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.transaction.Transactional;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,7 +128,11 @@ public class AuditLogServiceImpl implements AuditLogService {
         response.setPage(result.getNumber());
         response.setSize(result.getNumberOfElements());
         response.setTotalPages(result.getTotalPages());
-        response.setItems(result.get().map(AuditLog::mapToDto).collect(Collectors.toList()));
+        if(result.getSize() > 0) {
+            response.setItems(result.get().map(AuditLog::mapToDto).collect(Collectors.toList()));
+        } else {
+            response.setItems(new ArrayList<>());
+        }
 
         return response;
     }
@@ -145,7 +151,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
     public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
         Predicate predicate = createPredicate(filter);
-        Iterable<AuditLog> entities = auditLogRepository.findAll(predicate, sort);
+        List<AuditLog> entities = auditLogRepository.findAll(predicate, sort);
         auditLogRepository.deleteAll(entities);
     }
 
