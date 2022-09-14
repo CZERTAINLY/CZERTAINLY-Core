@@ -62,8 +62,7 @@ public class CertificateControllerImpl implements CertificateController {
 			throws NotFoundException, CertificateException, IOException {
 		return certificateService.getCertificate(SecuredUUID.fromString(uuid));
 	}
-
-	@Override
+	
 	@AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.DELETE)
 	public void deleteCertificate(@PathVariable String uuid) throws NotFoundException {
 		certificateService.deleteCertificate(SecuredUUID.fromString(uuid));

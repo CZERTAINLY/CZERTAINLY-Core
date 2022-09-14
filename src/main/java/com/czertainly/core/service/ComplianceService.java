@@ -69,6 +69,13 @@ public interface ComplianceService {
     List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids);
 
     /**
+     * Get the list of compliance profile rules based on the Ids
+     * @param ids Ids of the compliance rules
+     * @return List of compliance profile rule entity
+     */
+    List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<Long> ids);
+
+    /**
      * Fetch the list of groups and rules from the compliance provider and add them into the database
      * @param connector Connector Entity which implements CREDENTIAL_PROVIDER functional group
      * @throws ConnectorException Raises when there are issues with communicating with the connector

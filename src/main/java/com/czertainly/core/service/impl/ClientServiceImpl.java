@@ -292,7 +292,11 @@ public class ClientServiceImpl implements ClientService {
             } else {
                 UploadCertificateRequestDto request = new UploadCertificateRequestDto();
                 request.setCertificate(requestDTO.getClientCertificate());
-                certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateService.upload(request).getUuid()));
+                if (certificateService.getCertificateEntityBySerial(serialNumber) == null) {
+                    certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateService.upload(request).getUuid()));
+                }else {
+                    certificate = certificateService.getCertificateEntityBySerial(serialNumber);
+                }
             }
             client.setCertificate(certificate);
             client.setSerialNumber(certificate.getSerialNumber());
