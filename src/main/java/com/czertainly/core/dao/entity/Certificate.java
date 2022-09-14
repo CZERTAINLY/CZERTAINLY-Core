@@ -173,6 +173,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             raDto.setName(raProfile.getName());
             raDto.setUuid(raProfile.getUuid().toString());
             raDto.setEnabled(raProfile.getEnabled());
+            if(raProfile.getAuthorityInstanceReference() != null) {
+                raDto.setAuthorityInstanceUuid(raProfile.getAuthorityInstanceReference().getUuid().toString());
+            }
             dto.setRaProfile(raDto);
         }
         if (group != null) {
