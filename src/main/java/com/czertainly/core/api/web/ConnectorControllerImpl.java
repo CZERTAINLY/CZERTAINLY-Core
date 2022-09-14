@@ -9,7 +9,7 @@ import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
@@ -134,12 +134,12 @@ public class ConnectorControllerImpl implements ConnectorController {
 	}
 
     @Override
-    public List<ForceDeleteMessageDto> bulkRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException {
+    public List<BulkActionMessageDto> bulkRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException {
         return connectorService.bulkRemoveConnector(uuids);
     }
 
     @Override
-    public void bulkForceRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException {
-        connectorService.bulkForceRemoveConnector(uuids);
+    public List<BulkActionMessageDto> bulkForceRemoveConnector(List<String> uuids) throws NotFoundException, ValidationException {
+        return connectorService.bulkForceRemoveConnector(uuids);
     }
 }

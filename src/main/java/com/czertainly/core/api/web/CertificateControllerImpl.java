@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.certificate.BulkOperationStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class CertificateControllerImpl implements CertificateController {
@@ -50,10 +52,6 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public CertificateDto getCertificate(@PathVariable String uuid)
 			throws NotFoundException, CertificateException, IOException {
-		Certificate crt = certificateService.getCertificateEntity(uuid);
-		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
-			certValidationService.validate(crt);
-		}
 		return certificateService.getCertificate(uuid);
 	}
 
@@ -153,6 +151,16 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public void checkCompliance(CertificateComplianceCheckDto request) throws NotFoundException {
 		certificateService.checkCompliance(request);
+	}
+
+	@Override
+	public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException, CertificateException, IOException {
+		Certificate crt = certificateService.getCertificateEntity(uuid);
+		certificateService.updateIssuer();
+		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
+			certValidationService.validate(crt);
+		}
+		return certificateService.getCertificateValidationResult(uuid);
 	}
 
 }
