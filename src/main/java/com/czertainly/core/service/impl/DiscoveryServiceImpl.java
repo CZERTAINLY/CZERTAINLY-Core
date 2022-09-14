@@ -140,46 +140,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     public void bulkRemoveDiscovery(List<String> discoveryUuids) throws NotFoundException {
         for (String uuid : discoveryUuids) {
-            DiscoveryHistory discovery;
-            try {
-                discovery = discoveryRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
-            } catch (NotFoundException e) {
-                logger.warn("Unable to find the discovery with ID {}. It may have deleted", uuid);
-                continue;
-            }
-
-            for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
-                try {
-                    discoveryCertificateRepository.delete(cert);
-                } catch (Exception e) {
-                    logger.warn("Unable to delete the discovery certificate");
-                    logger.warn(e.getMessage());
-                }
-                if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null) {
-                    CertificateContent content = certificateContentRepository.findById(cert.getCertificateContent().getId())
-                            .orElse(null);
-                    if (content != null) {
-                        try {
-                            certificateContentRepository.delete(content);
-                        } catch (Exception e) {
-                            logger.warn("Failed to delete the certificate.");
-                            logger.warn(e.getMessage());
-                        }
-                    }
-                }
-            }
-            try {
-                String referenceUuid = discovery.getDiscoveryConnectorReference();
-                discoveryRepository.delete(discovery);
-                Connector connector = connectorService.getConnectorEntity(discovery.getConnectorUuid());
-                discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
-            } catch (ConnectorException e) {
-                logger.warn("Failed to delete discovery in the connector. But core history is deleted");
-                logger.warn(e.getMessage());
-            } catch (Exception e) {
-                logger.warn(e.getMessage());
-            }
+            removeDiscovery(uuid);
         }
     }
 

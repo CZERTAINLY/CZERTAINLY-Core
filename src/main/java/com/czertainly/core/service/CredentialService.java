@@ -4,7 +4,6 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.AttributeCallback;
@@ -37,7 +36,7 @@ public interface CredentialService {
 
     void disableCredential(String uuid) throws NotFoundException;
 
-    List<ForceDeleteMessageDto> bulkRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException;
+    void bulkRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException;
 
     void bulkForceRemoveCredential(List<String> uuids) throws ValidationException, NotFoundException;
 

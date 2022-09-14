@@ -182,9 +182,7 @@ public class AdminServiceImpl implements AdminService {
     public void bulkRemoveAdmin(List<String> adminUuids) {
         for (String uuid : adminUuids) {
             try {
-                Admin admin = adminRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
-                adminRepository.delete(admin);
+                removeAdmin(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to delete the admin with id {}", uuid);
             }
@@ -196,11 +194,7 @@ public class AdminServiceImpl implements AdminService {
     public void bulkDisableAdmin(List<String> adminUuids) {
         for (String uuid : adminUuids) {
             try {
-                Admin admin = adminRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
-
-                admin.setEnabled(false);
-                adminRepository.save(admin);
+                disableAdmin(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to disable admin with id {}", uuid);
             }
@@ -212,12 +206,8 @@ public class AdminServiceImpl implements AdminService {
     public void bulkEnableAdmin(List<String> adminUuids) {
         for (String uuid : adminUuids) {
             try {
-                Admin admin = adminRepository.findByUuid(uuid)
-                        .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
-
-                admin.setEnabled(true);
-                adminRepository.save(admin);
-            } catch (NotFoundException e) {
+                enableAdmin(uuid);
+            } catch (NotFoundException | CertificateException e) {
                 logger.warn("Unable to enable admin with id {}", uuid);
             }
         }
@@ -226,19 +216,20 @@ public class AdminServiceImpl implements AdminService {
     private Admin createAdmin(AddAdminRequestDto requestDTO) throws CertificateException, AlreadyExistException, NotFoundException {
         Admin model = new Admin();
 
-        Certificate certificate;
+        Certificate certificate = null;
         if (StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
             certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getAdminCertificate());
             try {
-                certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
-                throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
+                certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
             } catch (NotFoundException e) {
                 logger.debug("New Certificate uploaded for admin");
             }
-            certificate = certificateService.createCertificateEntity(x509Cert);
-            certificateService.updateCertificateEntity(certificate);
+            if(certificate != null) {
+                certificate = certificateService.createCertificateEntity(x509Cert);
+                certificateService.updateCertificateEntity(certificate);
+            }
         }
         model.setCertificate(certificate);
         model.setUsername(requestDTO.getUsername());

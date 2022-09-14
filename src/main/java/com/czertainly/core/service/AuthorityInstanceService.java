@@ -6,7 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
-import com.czertainly.api.model.client.connector.ForceDeleteMessageDto;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
@@ -35,7 +35,7 @@ public interface AuthorityInstanceService {
 
     Boolean validateRAProfileAttributes(String uuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException;
 
-    List<ForceDeleteMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException;
+    List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException;
 
-    void bulkForceRemoveAuthorityInstance(List<String> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<String> uuids) throws ValidationException, NotFoundException;
 }

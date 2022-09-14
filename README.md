@@ -100,16 +100,13 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 You may need to configure proxy to allow `Core` to communicate with external systems.
 To enable proxy, use the following environment variables for docker container:
 
-| Variable               | Description                                                                 | Required | Default value                   |
-|------------------------|-----------------------------------------------------------------------------|----------|---------------------------------|
-| `HTTP_PROXY_HOST`      | The hostname, or address, of the http proxy server                          | No       | N/A                             |
-| `HTTP_PROXY_PORT`      | The port number of the http proxy server                                    | No       | 80                              |
-| `HTTPS_PROXY_HOST`     | The hostname, or address, of the https proxy server                         | No       | N/A                             |
-| `HTTPS_PROXY_PORT`     | The port number of the https proxy server                                   | No       | 443                             |
-| `HTTP_NONPROXY_HOSTS`  | Indicates the hosts that should be accessed without going through the proxy | No       | localhost&#124;127.*&#124;[::1] |
+| Variable      | Description                                                                                                                                                | Required | Default value |
+|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|---------------|
+| `HTTP_PROXY`  | The proxy URL to use for http connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>`  | No       | N/A           |
+| `HTTPS_PROXY` | The proxy URL to use for https connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>` | No       | N/A           |
+| `NO_PROXY`    | A comma-separated list of host names that shouldn't go through any proxy                                                                                   | No       | N/A           |
 
-The list of hosts in the `HTTP_NONPROXY_HOSTS` is separated by the `|` character. In addition, the wildcard character `*` can be used for pattern matching. For example `-Dhttp.nonProxyHosts=*.foo.com|localhost` will indicate that every host in the foo.com domain and the localhost should be accessed directly even if a proxy server is specified.
-
-## Monitoring and reporting
-
-For monitoring and reporting, you can use the information provided by the `Core`. We strongly recommend trying the Operator UI that is additional component of the CZERTAINLY platform.
+Example values:
+- `HTTP_PROXY=http://user:password@proxy.example.com:3128`
+- `HTTPS_PROXY=http://user:password@proxy.example.com:3128`
+- `NO_PROXY=localhost,127.0.0.1,0.0.0.0,10.0.0.0/8,cattle-system.svc,.svc,.cluster.local,my-domain.local`

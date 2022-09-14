@@ -17,6 +17,7 @@ import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -38,6 +39,7 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.LocationService;
 import com.czertainly.core.service.SearchService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.OcspUtil;
@@ -73,6 +75,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -410,9 +413,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
-            if (certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
-                logger.debug("Certificate with UUID {} is self signed / CA", certificate.getUuid());
-            } else {
+            if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
                 for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
                     X509Certificate subCert;
                     X509Certificate issCert;
@@ -647,6 +648,17 @@ public class CertificateServiceImpl implements CertificateService {
         certificateRepository.save(certificate);
     }
 
+    @Override
+    public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException {
+        String validationResult = getCertificateEntity(uuid).getCertificateValidationResult();
+        try {
+            return MetaDefinitions.deserializeValidation(validationResult);
+        } catch (IllegalStateException e) {
+            logger.error(e.getMessage());
+        }
+        return new HashMap<>();
+    }
+
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
 
@@ -676,6 +688,7 @@ public class CertificateServiceImpl implements CertificateService {
                 groupFilter,
                 SearchLabelConstants.OWNER_FILTER,
                 SearchLabelConstants.STATUS_FILTER,
+                SearchLabelConstants.COMPLIANCE_STATUS_FILTER,
                 SearchLabelConstants.ISSUER_COMMON_NAME_FILTER,
                 SearchLabelConstants.FINGERPRINT_FILTER,
                 signatureAlgorithmFilter,
@@ -732,23 +745,25 @@ public class CertificateServiceImpl implements CertificateService {
     private List<CertificateComplianceResultDto> frameComplianceResult(CertificateComplianceStorageDto storageDto) {
         logger.debug("Framing Compliance Result from stored data: {}", storageDto);
         List<CertificateComplianceResultDto> result = new ArrayList<>();
-        List<ComplianceRule> rules = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
-        List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
-        for (ComplianceRule complianceRule : rules) {
+        List<ComplianceProfileRule> rules = complianceService.getComplianceProfileRuleEntityForIds(storageDto.getNok());
+        // List<ComplianceProfileRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
+        for (ComplianceProfileRule complianceRule : rules) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
-        for (ComplianceRule complianceRule : naRules) {
-            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
-        }
+        // NA Rules are not required to be displayed in the UI
+        // for (ComplianceRule complianceRule : naRules) {
+        //     result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
+        // }
         logger.debug("Compliance Result: {}", result);
         return result;
     }
 
-    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceRule rule, ComplianceRuleStatus status) {
+    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceProfileRule rule, ComplianceRuleStatus status) {
         CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
-        dto.setConnectorName(rule.getConnector().getName());
-        dto.setRuleName(rule.getName());
-        dto.setRuleDescription(rule.getDescription());
+        dto.setConnectorName(rule.getComplianceRule().getConnector().getName());
+        dto.setRuleName(rule.getComplianceRule().getName());
+        dto.setRuleDescription(rule.getComplianceRule().getDescription());
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(rule.getAttributes()));
         dto.setStatus(status);
         return dto;
     }

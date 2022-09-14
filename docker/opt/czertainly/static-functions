@@ -1,0 +1,17 @@
+#!/bin/bash
+
+log() {
+    # 2022-02-08 15:49:15
+    dateString="$(date +%F' '%T)"
+    logLevel=$(printf '%-5s' "${1:-INFO}")
+    className="$0"
+    processId="$$"
+    #threadId="$(ps H -o 'tid' $processId | tail -n 1| tr -d ' ')"
+    if [ -z "$2" ] ; then
+        while read line ; do
+            echo "[$dateString] $logLevel [$className] (process:$processId) ${line}"
+        done
+    else
+        echo "[$dateString] $logLevel [$className] (process:$processId) ${2}"
+    fi
+}
