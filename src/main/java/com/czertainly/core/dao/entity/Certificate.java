@@ -409,20 +409,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.raProfileUuid = raProfileUuid;
     }
 
-    public void setRaProfileUuid(String raProfileUuid) {
-        this.raProfileUuid = UUID.fromString(raProfileUuid);
-    }
-
     public UUID getGroupUuid() {
         return groupUuid;
     }
 
     public void setGroupUuid(UUID groupId) {
         this.groupUuid = groupId;
-    }
-
-    public void setGroupUuid(String groupId) {
-        this.groupUuid = UUID.fromString(groupId);
     }
 
     public CertificateComplianceStorageDto getComplianceResult() {

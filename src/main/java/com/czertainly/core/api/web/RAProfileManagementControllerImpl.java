@@ -83,25 +83,25 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ENABLE)
-    public void disableRaProfile(String authorityUuid, String uuid) throws NotFoundException {
-        raProfileService.disableRaProfile(SecuredUUID.fromString(uuid));
+    public void disableRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        raProfileService.disableRaProfile(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ENABLE)
-    public void enableRaProfile(String authorityUuid, String uuid) throws NotFoundException {
-        raProfileService.enableRaProfile(SecuredUUID.fromString(uuid));
+    public void enableRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        raProfileService.enableRaProfile(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.LIST_AUTHORIZATIONS)
-    public List<SimplifiedClientDto> listUsers(String authorityUuid, String uuid) throws NotFoundException {
-        return raProfileService.listClients(SecuredUUID.fromString(uuid));
+    public List<SimplifiedClientDto> listUsers(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        return raProfileService.listClients(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DELETE)
-    public void bulkDeleteRaProfile(String authorityUuid, List<String> uuids) throws NotFoundException, ValidationException {
+    public void bulkDeleteRaProfile(List<String> uuids) throws NotFoundException, ValidationException {
         raProfileService.bulkDeleteRaProfile(SecuredUUID.fromList(uuids));
     }
 
@@ -119,14 +119,14 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.DETAIL)
-    public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(String authorityUuid, String uuid) throws NotFoundException {
-        return raProfileService.getAcmeForRaProfile(SecuredUUID.fromString(uuid));
+    public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        return raProfileService.getAcmeForRaProfile(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ACTIVATE_ACME)
-    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String authorityUuid, String uuid, String acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
-        return raProfileService.activateAcmeForRaProfile(SecuredUUID.fromString(uuid), SecuredUUID.fromString(acmeProfileUuid), request);
+    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String authorityUuid, String raProfileUuid, String acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
+        return raProfileService.activateAcmeForRaProfile(SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(acmeProfileUuid), request);
     }
 
     @Override
@@ -137,14 +137,14 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ANY)
-    public List<AttributeDefinition> listRevokeCertificateAttributes(String authorityUuid, String uuid) throws ConnectorException {
-        return raProfileService.listRevokeCertificateAttributes(SecuredUUID.fromString(uuid));
+    public List<AttributeDefinition> listRevokeCertificateAttributes(String authorityUuid, String raProfileUuid) throws ConnectorException {
+        return raProfileService.listRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.RA_PROFILE, actionName = ResourceAction.ANY)
-    public List<AttributeDefinition> listIssueCertificateAttributes(String authorityUuid, String uuid) throws ConnectorException {
-        return raProfileService.listIssueCertificateAttributes(SecuredUUID.fromString(uuid));
+    public List<AttributeDefinition> listIssueCertificateAttributes(String authorityUuid, String raProfileUuid) throws ConnectorException {
+        return raProfileService.listIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override

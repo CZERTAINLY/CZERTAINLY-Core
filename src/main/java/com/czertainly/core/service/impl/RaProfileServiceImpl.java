@@ -166,10 +166,12 @@ public class RaProfileServiceImpl implements RaProfileService {
         List<AcmeProfile> acmeProfiles = acmeProfileRepository.findByRaProfile(raProfile);
         for (AcmeProfile acmeProfile : acmeProfiles) {
             acmeProfile.setRaProfile(null);
+            acmeProfile.setRaProfileUuid(null);
             acmeProfileRepository.save(acmeProfile);
         }
         for (Certificate certificate : certificateRepository.findByRaProfile(raProfile)) {
             certificate.setRaProfile(null);
+            certificate.setRaProfileUuid(null);
             certificateRepository.save(certificate);
         }
 

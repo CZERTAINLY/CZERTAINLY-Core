@@ -269,7 +269,4 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         this.raProfileUuid = raProfileUuid;
     }
 
-    public void setRaProfileUuid(String raProfileUuid) {
-        this.raProfileUuid = UUID.fromString(raProfileUuid);
-    }
 }

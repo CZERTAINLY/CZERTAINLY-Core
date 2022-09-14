@@ -237,13 +237,13 @@ public class ComplianceServiceImpl implements ComplianceService {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
     }
     @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids) {
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForUuids(List<String> ids) {
         return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
     @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<Long> ids) {
-        return complianceProfileRuleRepository.findByIdIn(ids);
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids) {
+        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
 

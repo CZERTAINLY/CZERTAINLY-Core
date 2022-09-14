@@ -105,10 +105,6 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
         this.connectorUuid = connectorUuid;
     }
 
-    public void setConnectorUuid(String connectorUuid) {
-        this.connectorUuid = UUID.fromString(connectorUuid);
-    }
-
     public EntityInstanceDto mapToDto() {
         EntityInstanceDto dto = new EntityInstanceDto();
         dto.setUuid(this.uuid.toString());

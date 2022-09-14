@@ -623,6 +623,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 if (!connector.getAuthorityInstanceReferences().isEmpty()) {
                     for (AuthorityInstanceReference ref : connector.getAuthorityInstanceReferences()) {
                         ref.setConnector(null);
+                        ref.setConnectorUuid(null);
                         authorityInstanceReferenceRepository.save(ref);
                     }
                     connector.getAuthorityInstanceReferences().removeAll(connector.getAuthorityInstanceReferences());
@@ -632,6 +633,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 if (!connector.getEntityInstanceReferences().isEmpty()) {
                     for (EntityInstanceReference ref : connector.getEntityInstanceReferences()) {
                         ref.setConnector(null);
+                        ref.setConnectorUuid(null);
                         entityInstanceReferenceRepository.save(ref);
                     }
                     connector.getEntityInstanceReferences().removeAll(connector.getEntityInstanceReferences());

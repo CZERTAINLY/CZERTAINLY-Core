@@ -106,10 +106,6 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
         this.connectorUuid = connectorUuid;
     }
 
-    public void setConnectorUuid(String connectorUuid) {
-        this.connectorUuid = UUID.fromString(connectorUuid);
-    }
-
     public AuthorityInstanceDto mapToDto() {
         AuthorityInstanceDto dto = new AuthorityInstanceDto();
         dto.setUuid(this.uuid.toString());

@@ -120,6 +120,11 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setEnabled(this.enabled);
+        try {
+            dto.setAuthorityInstanceUuid(this.authorityInstanceReference.getUuid().toString());
+        }catch (NullPointerException e){
+            dto.setAuthorityInstanceUuid(null);
+        }
         return dto;
     }
 

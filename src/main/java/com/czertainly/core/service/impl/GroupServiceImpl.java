@@ -86,6 +86,7 @@ public class GroupServiceImpl implements GroupService {
         CertificateGroup certificateGroup = getGroupEntity(uuid);
         for(Certificate certificate: certificateRepository.findByGroup(certificateGroup)){
             certificate.setGroup(null);
+            certificate.setGroupUuid(null);
             certificateRepository.save(certificate);
         }
         groupRepository.delete(certificateGroup);

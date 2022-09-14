@@ -87,7 +87,9 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         dto.setKind(this.kind);
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
-        dto.setConnectorUuid(this.connectorUuid.toString());
+        if(this.connectorUuid != null) {
+            dto.setConnectorUuid(this.connectorUuid.toString());
+        }
 
         return dto;
     }
@@ -101,7 +103,9 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
-        dto.setConnectorUuid(this.connectorUuid.toString());
+        if(this.connectorUuid != null) {
+            dto.setConnectorUuid(this.connectorUuid.toString());
+        }
 
         return dto;
     }
