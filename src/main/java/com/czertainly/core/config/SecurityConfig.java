@@ -23,7 +23,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import java.util.List;
 
 @Configuration
-@EnableWebSecurity(debug = true)
+@EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     @Autowired
