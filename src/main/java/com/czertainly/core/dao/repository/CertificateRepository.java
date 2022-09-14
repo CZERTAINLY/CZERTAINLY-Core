@@ -67,13 +67,13 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Object[]> getCertificatesCountByGroup();
 
     @Query("SELECT g.uuid, g.name FROM CertificateGroup g WHERE g.uuid IN ?1")
-    List<Object[]> getGroupNamesWithUuids(List<String> uuids);
+    List<Object[]> getGroupNamesWithUuids(List<UUID> uuids);
 
     @Query(value = "SELECT c.raProfileUuid, COUNT(c.raProfileUuid) FROM Certificate AS c WHERE c.raProfileUuid IS NOT NULL GROUP BY c.raProfileUuid")
     List<Object[]> getCertificatesCountByRaProfile();
 
     @Query("SELECT p.uuid, p.name FROM RaProfile p WHERE p.uuid IN ?1")
-    List<Object[]> getRaProfileNamesWithUuids(List<String> uuids);
+    List<Object[]> getRaProfileNamesWithUuids(List<UUID> uuids);
 
     @Query(value = "SELECT c.certificateType, COUNT(c.certificateType) FROM Certificate AS c WHERE c.certificateType IS NOT NULL GROUP BY c.certificateType")
     List<Object[]> getCertificatesCountByType();

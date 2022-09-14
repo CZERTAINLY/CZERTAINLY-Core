@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -81,18 +82,18 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private Map<String, Long> getGroupStatByCertificateCount(StatisticsDto dto) {
-        List<String> keys = new ArrayList<>();
+        List<UUID> keys = new ArrayList<>();
         var result = certificateRepository.getCertificatesCountByGroup();
-        for (Object[] item : result) keys.add((String) item[0]);
+        for (Object[] item : result) keys.add((UUID) item[0]);
         var labels = certificateRepository.getGroupNamesWithUuids(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
     }
 
     private Map<String, Long> getRaProfileStatByCertificateCount(StatisticsDto dto) {
-        List<String> keys = new ArrayList<>();
+        List<UUID> keys = new ArrayList<>();
         var result = certificateRepository.getCertificatesCountByRaProfile();
-        for (Object[] item : result) keys.add((String) item[0]);
+        for (Object[] item : result) keys.add((UUID) item[0]);
         var labels = certificateRepository.getRaProfileNamesWithUuids(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
@@ -159,10 +160,10 @@ public class StatisticsServiceImpl implements StatisticsService {
             }
         } else {
             Map<String, String> labels = new HashMap<>();
-            for (Object[] item : resultLabels) labels.put((String) item[0], item[1].toString());
+            for (Object[] item : resultLabels) labels.put(item[0].toString(), item[1].toString());
             for (Object[] item : resultStats) {
                 totalStatsCount += (long) item[1];
-                stats.put(labels.get((String) item[0]), (long) item[1]);
+                stats.put(labels.get(item[0].toString()), (long) item[1]);
             }
         }
 
