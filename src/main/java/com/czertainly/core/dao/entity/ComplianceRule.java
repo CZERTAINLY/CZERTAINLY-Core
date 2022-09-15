@@ -14,6 +14,7 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Entity containing the list of all discovered rules from a compliance provider. The rules are fetched from the compliance
@@ -22,19 +23,10 @@ import java.util.Set;
  */
 @Entity
 @Table(name = "compliance_rule")
-public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "compliance_rule_seq")
-    @SequenceGenerator(name = "compliance_rule_seq", sequenceName = "compliance_rule_id_seq", allocationSize = 1)
-    private Long id;
+public class ComplianceRule extends UniquelyIdentified implements Serializable, DtoMapper<ComplianceRulesDto> {
 
     @Column(name = "name")
     private String name;
-
-    @Column(name = "uuid")
-    private String uuid;
 
     @Column(name = "kind")
     private String kind;
@@ -53,12 +45,18 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
     private String description;
 
     @OneToOne
-    @JoinColumn(name = "connector_id", nullable = false)
+    @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     private Connector connector;
 
-    @ManyToOne
-    @JoinColumn(name = "group_id")
+    @Column(name = "connector_uuid", nullable = false)
+    private UUID connectorUuid;
+
+    @ManyToOne(cascade=CascadeType.ALL)
+    @JoinColumn(name = "group_uuid")
     private ComplianceGroup group;
+
+    @Column(name = "group_uuid", insertable = false, updatable = false)
+    private UUID groupUuid;
 
     @JsonBackReference
     @OneToMany(mappedBy = "complianceRule")
@@ -68,7 +66,7 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
     public ComplianceRulesDto mapToDto(){
         ComplianceRulesDto complianceRulesDto = new ComplianceRulesDto();
         complianceRulesDto.setName(name);
-        complianceRulesDto.setUuid(uuid);
+        complianceRulesDto.setUuid(uuid.toString());
         complianceRulesDto.setDescription(description);
         complianceRulesDto.setCertificateType(certificateType);
         complianceRulesDto.setAttributes(AttributeDefinitionUtils.deserializeRequestAttributes(attributes));
@@ -78,10 +76,10 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
     public ComplianceRulesResponseDto mapToComplianceResponse(){
         ComplianceRulesResponseDto dto = new ComplianceRulesResponseDto();
         dto.setName(name);
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setDescription(description);
         if(group != null ) {
-            dto.setGroupUuid(group.getUuid());
+            dto.setGroupUuid(group.getUuid().toString());
         }
         dto.setCertificateType(certificateType);
         dto.setAttributes(getAttributes());
@@ -103,28 +101,12 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
                 .toString();
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
     public String getName() {
         return name;
     }
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public String getUuid() {
-        return uuid;
-    }
-
-    public void setUuid(String uuid) {
-        this.uuid = uuid;
     }
 
     public String getKind() {
@@ -149,6 +131,7 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
 
     public void setConnector(Connector connector) {
         this.connector = connector;
+        this.connectorUuid = connector.getUuid();
     }
 
     public String getDescription() {
@@ -173,6 +156,7 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
 
     public void setGroup(ComplianceGroup group) {
         this.group = group;
+        if(group != null) this.groupUuid = group.getUuid();
     }
 
     public Set<ComplianceProfileRule> getRules() {
@@ -189,5 +173,29 @@ public class ComplianceRule implements Serializable, DtoMapper<ComplianceRulesDt
 
     public void setDecommissioned(Boolean decommissioned) {
         this.decommissioned = decommissioned;
+    }
+
+    public UUID getConnectorUuid() {
+        return connectorUuid;
+    }
+
+    public void setConnectorUuid(UUID connectorUuid) {
+        this.connectorUuid = connectorUuid;
+    }
+
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = UUID.fromString(connectorUuid);
+    }
+
+    public UUID getGroupUuid() {
+        return groupUuid;
+    }
+
+    public void setGroupUuid(String groupUuid) {
+        this.groupUuid = UUID.fromString(groupUuid);
+    }
+
+    public void setGroupUuid(UUID groupUuid) {
+        this.groupUuid = groupUuid;
     }
 }

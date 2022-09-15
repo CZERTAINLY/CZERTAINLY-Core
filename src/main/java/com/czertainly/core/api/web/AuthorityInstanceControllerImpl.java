@@ -13,6 +13,11 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.AuthorityInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -31,16 +36,19 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     private AuthorityInstanceService authorityInstanceService;
 
     @Override
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public List<AuthorityInstanceDto> listAuthorityInstances() {
-        return authorityInstanceService.listAuthorityInstances();
+        return authorityInstanceService.listAuthorityInstances(SecurityFilter.create());
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.DETAIL)
     public AuthorityInstanceDto getAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
-        return authorityInstanceService.getAuthorityInstance(uuid);
+        return authorityInstanceService.getAuthorityInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.CREATE)
     public ResponseEntity<?> createAuthorityInstance(@RequestBody AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         AuthorityInstanceDto authorityInstance = authorityInstanceService.createAuthorityInstance(request);
 
@@ -55,47 +63,53 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    public AuthorityInstanceDto updateAuthorityInstance(@PathVariable String uuid, @RequestBody AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException {
-        return authorityInstanceService.updateAuthorityInstance(uuid, request);
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.UPDATE)
+    public AuthorityInstanceDto editAuthorityInstance(@PathVariable String uuid, @RequestBody AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException {
+        return authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    public void removeAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
-        authorityInstanceService.removeAuthorityInstance(uuid);
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.DELETE)
+    public void deleteAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
+        authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public List<NameAndIdDto> listEntityProfiles(@PathVariable String uuid) throws NotFoundException, ConnectorException {
-        return authorityInstanceService.listEndEntityProfiles(uuid);
+        return authorityInstanceService.listEndEntityProfiles(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public List<NameAndIdDto> listCertificateProfiles(@PathVariable String uuid, @PathVariable Integer endEntityProfileId) throws NotFoundException, ConnectorException {
-        return authorityInstanceService.listCertificateProfiles(uuid, endEntityProfileId);
+        return authorityInstanceService.listCertificateProfiles(SecuredUUID.fromString(uuid), endEntityProfileId);
     }
 
     @Override
     public List<NameAndIdDto> listCAsInProfile(@PathVariable String uuid, @PathVariable Integer endEntityProfileId) throws NotFoundException, ConnectorException {
-        return authorityInstanceService.listCAsInProfile(uuid, endEntityProfileId);
+        return authorityInstanceService.listCAsInProfile(SecuredUUID.fromString(uuid), endEntityProfileId);
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listRAProfileAttributes(@PathVariable String uuid) throws NotFoundException, ConnectorException {
-        return authorityInstanceService.listRAProfileAttributes(uuid);
+        return authorityInstanceService.listRAProfileAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.ANY)
     public void validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException {
-        authorityInstanceService.validateRAProfileAttributes(uuid, attributes);
+        authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString(uuid), attributes);
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
-        return authorityInstanceService.bulkRemoveAuthorityInstance(uuids);
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
+        return authorityInstanceService.bulkDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException {
-        return authorityInstanceService.bulkForceRemoveAuthorityInstance(uuids);
+    @AuthEndpoint(resourceName = Resource.AUTHORITY, actionName = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> forceDeleteAuthorityInstances(List<String> uuids) throws NotFoundException, ValidationException {
+        return authorityInstanceService.forceDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 }

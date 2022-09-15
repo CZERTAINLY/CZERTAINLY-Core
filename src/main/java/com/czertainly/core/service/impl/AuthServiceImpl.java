@@ -11,7 +11,6 @@ import com.czertainly.core.dao.repository.AdminRepository;
 import com.czertainly.core.service.AuthService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
@@ -21,7 +20,7 @@ import javax.transaction.Transactional;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
+// TODO AUTH - rewrite to call auth microservice
 public class AuthServiceImpl implements AuthService {
 
     @Autowired

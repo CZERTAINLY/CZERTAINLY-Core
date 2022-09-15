@@ -12,16 +12,11 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "entity_instance_reference")
-public class EntityInstanceReference extends Audited implements Serializable, DtoMapper<EntityInstanceDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "entity_instance_reference_seq")
-    @SequenceGenerator(name = "entity_instance_reference_seq", sequenceName = "entity_instance_reference_id_seq", allocationSize = 1)
-    private Long id;
+public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<EntityInstanceDto> {
 
     @Column(name = "entity_instance_uuid")
     private String entityInstanceUuid;
@@ -36,8 +31,11 @@ public class EntityInstanceReference extends Audited implements Serializable, Dt
     private String kind;
 
     @ManyToOne
-    @JoinColumn(name = "connector_id")
+    @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
+
+    @Column(name = "connector_uuid")
+    private UUID connectorUuid;
 
     @Column(name="connector_name")
     private String connectorName;
@@ -45,14 +43,6 @@ public class EntityInstanceReference extends Audited implements Serializable, Dt
     @OneToMany(mappedBy = "entityInstanceReference")
     @JsonIgnore
     private Set<Location> locations = new HashSet<>();
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getEntityInstanceUuid() {
         return entityInstanceUuid;
@@ -84,6 +74,7 @@ public class EntityInstanceReference extends Audited implements Serializable, Dt
 
     public void setConnector(Connector connector) {
         this.connector = connector;
+        if(connector != null) this.connectorUuid = connector.getUuid();
     }
 
     public Set<Location> getLocations() {
@@ -106,15 +97,23 @@ public class EntityInstanceReference extends Audited implements Serializable, Dt
 
     public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
 
+    public UUID getConnectorUuid() {
+        return connectorUuid;
+    }
+
+    public void setConnectorUuid(UUID connectorUuid) {
+        this.connectorUuid = connectorUuid;
+    }
+
     public EntityInstanceDto mapToDto() {
         EntityInstanceDto dto = new EntityInstanceDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setStatus(this.status);
         dto.setKind(kind);
         dto.setConnectorName(this.connectorName);
         if (this.connector != null) {
-            dto.setConnectorUuid(this.connector.getUuid());
+            dto.setConnectorUuid(this.connector.getUuid().toString());
         }
         return dto;
     }
@@ -122,7 +121,6 @@ public class EntityInstanceReference extends Audited implements Serializable, Dt
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("entityInstanceUuid", entityInstanceUuid)
                 .append("name", name)
@@ -137,11 +135,11 @@ public class EntityInstanceReference extends Audited implements Serializable, Dt
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         EntityInstanceReference that = (EntityInstanceReference) o;
-        return new EqualsBuilder().append(id, that.id).isEquals();
+        return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(id).toHashCode();
+        return new HashCodeBuilder(17, 37).append(uuid).toHashCode();
     }
 }

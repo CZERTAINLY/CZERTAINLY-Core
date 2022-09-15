@@ -13,6 +13,11 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Admin;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.AdminRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AdminService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.util.CertificateUtil;
@@ -20,7 +25,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -31,7 +35,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_SUPERADMINISTRATOR"})
 public class AdminServiceImpl implements AdminService {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminServiceImpl.class);
@@ -43,14 +46,16 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.REQUEST)
-    public List<AdminDto> listAdmins() {
-        List<Admin> admins = adminRepository.findAll();
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.LIST)
+    public List<AdminDto> listAdmins(SecurityFilter filter) {
+        List<Admin> admins = adminRepository.findUsingSecurityFilter(filter);
 
         return admins.stream().map(Admin::mapToDto).collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.CREATE)
     public AdminDto addAdmin(AddAdminRequestDto request)
             throws CertificateException, AlreadyExistException, ValidationException, NotFoundException {
 
@@ -73,13 +78,15 @@ public class AdminServiceImpl implements AdminService {
         }
 
         String serialNumber;
-
+        String subjectDn;
         if (!StringUtils.isAnyBlank(request.getAdminCertificate())) {
             X509Certificate certificate = CertificateUtil.getX509Certificate(request.getAdminCertificate());
             serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
+            subjectDn = certificate.getSubjectDN().toString();
         } else {
-            Certificate certificate = certificateService.getCertificateEntity(request.getCertificateUuid());
+            Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getCertificateUuid()));
             serialNumber = certificate.getSerialNumber();
+            subjectDn = certificate.getSubjectDn();
         }
 
         if (adminRepository.findBySerialNumber(serialNumber).isPresent()) {
@@ -89,38 +96,23 @@ public class AdminServiceImpl implements AdminService {
         Admin admin = createAdmin(request);
 
         adminRepository.save(admin);
-        logger.info("Admin {} registered successfully.", admin.getCertificate().getSubjectDn());
+        logger.info("Admin {} registered successfully.", subjectDn);
 
         return admin.mapToDto();
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.REQUEST)
-    public AdminDto getAdminBySerialNumber(String serialNumber) throws NotFoundException {
-        Admin admin = adminRepository.findBySerialNumber(serialNumber)
-                .orElseThrow(() -> new NotFoundException(Admin.class, serialNumber));
-        return admin.mapToDto();
-    }
-
-    @Override
-    public AdminDto getAdminByUuid(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.DETAIL)
+    public AdminDto getAdminByUuid(SecuredUUID uuid) throws NotFoundException {
         Admin admin = adminRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
         return admin.mapToDto();
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.REQUEST)
-    public AdminDto getAdminByUsername(String username) throws NotFoundException {
-        Admin admin = adminRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException(Admin.class, username));
-
-        return admin.mapToDto();
-    }
-
-    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.CHANGE)
-    public AdminDto editAdmin(String uuid, EditAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException {
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.UPDATE)
+    public AdminDto editAdmin(SecuredUUID uuid, EditAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException {
         if (StringUtils.isAnyBlank(request.getName(), request.getSurname())) {
             throw new ValidationException("name and surname must not be empty");
         }
@@ -151,7 +143,8 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DELETE)
-    public void removeAdmin(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.DELETE)
+    public void deleteAdmin(SecuredUUID uuid) throws NotFoundException {
         Admin admin = adminRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
         adminRepository.delete(admin);
@@ -159,7 +152,8 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.ENABLE)
-    public void enableAdmin(String uuid) throws NotFoundException, CertificateException {
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.ENABLE)
+    public void enableAdmin(SecuredUUID uuid) throws NotFoundException, CertificateException {
         Admin admin = adminRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
 
@@ -169,7 +163,8 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DISABLE)
-    public void disableAdmin(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.ENABLE)
+    public void disableAdmin(SecuredUUID uuid) throws NotFoundException {
         Admin admin = adminRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Admin.class, uuid));
 
@@ -179,10 +174,11 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DELETE)
-    public void bulkRemoveAdmin(List<String> adminUuids) {
-        for (String uuid : adminUuids) {
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.DETAIL)
+    public void bulkDeleteAdmin(List<SecuredUUID> adminUuids) {
+        for (SecuredUUID uuid : adminUuids) {
             try {
-                removeAdmin(uuid);
+                deleteAdmin(uuid);
             } catch (NotFoundException e) {
                 logger.warn("Unable to delete the admin with id {}", uuid);
             }
@@ -191,8 +187,9 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.DISABLE)
-    public void bulkDisableAdmin(List<String> adminUuids) {
-        for (String uuid : adminUuids) {
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.ENABLE)
+    public void bulkDisableAdmin(List<SecuredUUID> adminUuids) {
+        for (SecuredUUID uuid : adminUuids) {
             try {
                 disableAdmin(uuid);
             } catch (NotFoundException e) {
@@ -203,8 +200,9 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ADMINISTRATOR, operation = OperationType.ENABLE)
-    public void bulkEnableAdmin(List<String> adminUuids) {
-        for (String uuid : adminUuids) {
+    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.ENABLE)
+    public void bulkEnableAdmin(List<SecuredUUID> adminUuids) {
+        for (SecuredUUID uuid : adminUuids) {
             try {
                 enableAdmin(uuid);
             } catch (NotFoundException | CertificateException e) {
@@ -218,7 +216,7 @@ public class AdminServiceImpl implements AdminService {
 
         Certificate certificate = null;
         if (StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
-            certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
+            certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(requestDTO.getCertificateUuid()));
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getAdminCertificate());
             try {
@@ -232,6 +230,7 @@ public class AdminServiceImpl implements AdminService {
             }
         }
         model.setCertificate(certificate);
+        model.setCertificateUuid(certificate.getUuid());
         model.setUsername(requestDTO.getUsername());
         model.setName(requestDTO.getName());
         model.setDescription(requestDTO.getDescription());
@@ -248,7 +247,7 @@ public class AdminServiceImpl implements AdminService {
         Certificate certificate;
         if ((dto.getAdminCertificate() != null && !dto.getAdminCertificate().isEmpty()) || (dto.getCertificateUuid() != null && !dto.getCertificateUuid().isEmpty())) {
             if (!dto.getCertificateUuid().isEmpty()) {
-                certificate = certificateService.getCertificateEntity(dto.getCertificateUuid());
+                certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(dto.getCertificateUuid()));
 
             } else {
                 X509Certificate x509Cert = CertificateUtil.parseCertificate(dto.getAdminCertificate());

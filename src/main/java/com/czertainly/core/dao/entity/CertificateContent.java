@@ -23,7 +23,7 @@ public class CertificateContent {
 	@Column(name = "fingerprint")
 	private String fingerprint;
 	
-	@Column(name = "content", length = 4096)
+	@Column(name = "content", length = 8192)
 	private String content;
 
 	public Long getId() {

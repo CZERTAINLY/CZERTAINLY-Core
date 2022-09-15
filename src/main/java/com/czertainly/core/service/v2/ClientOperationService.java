@@ -10,6 +10,8 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
 
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -17,31 +19,37 @@ import java.util.List;
 public interface ClientOperationService {
 
     List<AttributeDefinition> listIssueCertificateAttributes(
-            String raProfileUuid) throws ConnectorException;
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid) throws ConnectorException;
 
     boolean validateIssueCertificateAttributes(
-            String raProfileUuid,
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException;
 
     ClientCertificateDataResponseDto issueCertificate(
-            String raProfileUuid,
-            ClientCertificateSignRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException;
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
+            ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException;
 
     ClientCertificateDataResponseDto renewCertificate(
-            String raProfileUuid,
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
             String certificateUuid,
-            ClientCertificateRenewRequestDto request, Boolean ignoreAuthToRa) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
+            ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
 
     List<AttributeDefinition> listRevokeCertificateAttributes(
-            String raProfileUuid) throws ConnectorException;
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid) throws ConnectorException;
 
     boolean validateRevokeCertificateAttributes(
-            String raProfileUuid,
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException;
 
     void revokeCertificate(
-            String raProfileUuid,
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
             String certificateUuid,
-            ClientCertificateRevocationDto request,
-            Boolean ignoreAuthToRa) throws ConnectorException;
+            ClientCertificateRevocationDto request) throws ConnectorException;
 }

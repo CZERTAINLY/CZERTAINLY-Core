@@ -8,7 +8,9 @@ import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.repository.CredentialRepository;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CoreCallbackService;
+import com.czertainly.core.service.CredentialService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +26,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
     public static final String CREDENTIAL_KIND_PATH_VARIABLE = "credentialKind";
 
     @Autowired
-    private CredentialRepository credentialRepository;
+    private CredentialService credentialService;
 
     @Override
     public List<JsonAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws NotFoundException, ValidationException {
@@ -34,15 +36,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
         }
 
         String kind = callback.getPathVariables().get(CREDENTIAL_KIND_PATH_VARIABLE).toString();
-
-        List<Credential> credentials = credentialRepository.findByKindAndEnabledTrue(kind);
-        if (credentials == null || credentials.isEmpty()) {
-            throw new NotFoundException(Credential.class, kind);
-        }
-
-        List<NameAndUuidDto> credentialDataList = credentials.stream()
-                .map(c -> new NameAndUuidDto(c.getUuid(), c.getName()))
-                .collect(Collectors.toList());
+        List<NameAndUuidDto> credentialDataList = credentialService.listCredentialsCallback(SecurityFilter.create(), kind);
 
         List<JsonAttributeContent> jsonContent = new ArrayList<>();
         for (NameAndUuidDto credentialData : credentialDataList) {

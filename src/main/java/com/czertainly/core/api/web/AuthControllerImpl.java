@@ -21,6 +21,10 @@ public class AuthControllerImpl implements AuthController{
     }
 
     @Override
+    public Object getPermission() throws NotFoundException {
+        return null;
+    }
+
     public void editProfile(@RequestBody EditAuthProfileDto authProfileDTO) throws NotFoundException {
         authService.editAuthProfile(authProfileDTO);
     }

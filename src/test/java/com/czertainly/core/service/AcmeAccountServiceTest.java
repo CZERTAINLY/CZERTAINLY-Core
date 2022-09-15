@@ -20,23 +20,18 @@ import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class AcmeAccountServiceTest {
+public class AcmeAccountServiceTest extends BaseSpringBootTest {
 
     private static final String ADMIN_NAME = "ACME_USER";
 
@@ -44,7 +39,7 @@ public class AcmeAccountServiceTest {
     private static final String CLIENT_NAME = "testClient1";
 
     @Autowired
-    private RaProfileService raProfileService;
+    private com.czertainly.core.service.RaProfileService raProfileService;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -95,7 +90,7 @@ public class AcmeAccountServiceTest {
 
         client = new Client();
         client.setName(CLIENT_NAME);
-        client.setCertificate(certificate);
+        client.setCertificateUuid(certificate.getUuid());
         client.setSerialNumber(certificate.getSerialNumber());
         client = clientRepository.save(client);
 
@@ -123,12 +118,10 @@ public class AcmeAccountServiceTest {
         acmeProfile.setDnsResolverPort("53");
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
-        acmeProfile.setUuid("1757e43e-7d12-11ec-90d6-0242ac120003");
         acmeProfileRepository.save(acmeProfile);
 
 
         acmeAccount = new AcmeAccount();
-        acmeAccount.setUuid("1757e43e-7d12-11ec-90d6-0242ac120004");
         acmeAccount.setStatus(AccountStatus.VALID);
         acmeAccount.setEnabled(true);
         acmeAccount.setAccountId("D65fAtrgfAD");
@@ -139,8 +132,8 @@ public class AcmeAccountServiceTest {
     }
 
     @Test
-    public void testListAdmins() {
-        List<AcmeAccountListResponseDto> accounts = acmeAccountService.listAcmeAccounts();
+    public void testListAccounts() {
+        List<AcmeAccountListResponseDto> accounts = acmeAccountService.listAcmeAccounts(SecurityFilter.create());
         Assertions.assertNotNull(accounts);
         Assertions.assertFalse(accounts.isEmpty());
         Assertions.assertEquals(1, accounts.size());
@@ -148,66 +141,69 @@ public class AcmeAccountServiceTest {
     }
 
     @Test
-    public void testGetAdminById() throws NotFoundException {
-        AcmeAccountResponseDto dto = acmeAccountService.getAcmeAccount(acmeAccount.getUuid());
+    public void testGetAccountById() throws NotFoundException {
+        AcmeAccountResponseDto dto = acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeAccount.getAccountId(), dto.getAccountId());
-        Assertions.assertNotNull(acmeAccount.getId());
+        Assertions.assertNotNull(acmeAccount.getUuid());
     }
 
     @Test
-    public void testGetAdminById_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount("wrong-uuid"));
+    public void testGetAccountById_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testRemoveAdmin() throws NotFoundException {
-        acmeAccountService.revokeAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(AccountStatus.REVOKED, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getStatus());
+    public void testRemoveAccount() throws NotFoundException {
+        acmeAccountService.revokeAccount(acmeAccount.getSecuredUuid());
+        Assertions.assertEquals(AccountStatus.REVOKED, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).getStatus());
     }
 
     @Test
-    public void testRemoveAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.getAcmeAccount("some-id"));
+    public void testRemoveAccount_notFound() {
+        Assertions.assertThrows(
+                NotFoundException.class, 
+                () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
+        );
     }
 
     @Test
-    public void testEnableAdmin() throws NotFoundException, CertificateException {
-        acmeAccountService.enableAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
+    public void testEnableAccount() throws NotFoundException, CertificateException {
+        acmeAccountService.enableAccount(acmeAccount.getSecuredUuid());
+        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 
     @Test
-    public void testEnableAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.enableAccount("wrong-uuid"));
+    public void testEnableAccount_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.enableAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testDisableAdmin() throws NotFoundException {
-        acmeAccountService.disableAccount(acmeAccount.getUuid());
-        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
+    public void testDisableAccount() throws NotFoundException {
+        acmeAccountService.disableAccount(acmeAccount.getSecuredUuid());
+        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 
     @Test
-    public void testDisableAdmin_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.disableAccount("wrong-uuid"));
+    public void testDisableAccount_notFound() {
+        Assertions.assertThrows(NotFoundException.class, () -> acmeAccountService.disableAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException {
-        acmeAccountService.bulkRevokeAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(AccountStatus.REVOKED ,acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).getStatus());
+        acmeAccountService.bulkRevokeAccount(List.of(acmeAccount.getSecuredUuid()));
+        Assertions.assertEquals(AccountStatus.REVOKED ,acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).getStatus());
     }
 
     @Test
     public void testBulkEnable() throws NotFoundException {
-        acmeAccountService.bulkEnableAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
+        acmeAccountService.bulkEnableAccount(List.of(acmeAccount.getSecuredUuid()));
+        Assertions.assertEquals(true, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 
     @Test
     public void testBulkDisable() throws NotFoundException {
-        acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getUuid()));
-        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getUuid()).isEnabled());
+        acmeAccountService.bulkDisableAccount(List.of(acmeAccount.getSecuredUuid()));
+        Assertions.assertEquals(false, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).isEnabled());
     }
 }

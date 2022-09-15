@@ -7,21 +7,21 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
-import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.ConnectorRegistrationService;
 import com.czertainly.core.service.ConnectorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 
 @Service
 @Transactional
-@Secured({"ROLE_ANONYMOUS"})
 public class ConnectorRegistrationServiceImpl implements ConnectorRegistrationService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorRegistrationServiceImpl.class);
 
@@ -31,7 +31,7 @@ public class ConnectorRegistrationServiceImpl implements ConnectorRegistrationSe
     @Override
     @AuditLogged(originator = ObjectType.CONNECTOR, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
     public UuidDto registerConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException {
-        ConnectorDto connectorDto = connectorService.createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
+        ConnectorDto connectorDto = connectorService.createNewWaitingConnector(request);
         logger.info("Connector {} registered and is waiting for approval.", request.getName());
         UuidDto dto = new UuidDto();
         dto.setUuid(connectorDto.getUuid());

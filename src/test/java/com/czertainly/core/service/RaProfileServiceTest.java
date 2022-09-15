@@ -21,6 +21,9 @@ import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -28,25 +31,18 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.Optional;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class RaProfileServiceTest {
+public class RaProfileServiceTest extends BaseSpringBootTest {
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";
     private static final String CLIENT_NAME = "testClient1";
 
     @Autowired
-    private RaProfileService raProfileService;
+    private com.czertainly.core.service.RaProfileService raProfileService;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -88,7 +84,7 @@ public class RaProfileServiceTest {
 
         client = new Client();
         client.setName(CLIENT_NAME);
-        client.setCertificate(certificate);
+        client.setCertificateUuid(certificate.getUuid());
         client.setSerialNumber(certificate.getSerialNumber());
         client = clientRepository.save(client);
 
@@ -105,6 +101,7 @@ public class RaProfileServiceTest {
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfile.setEnabled(true);
         raProfile = raProfileRepository.save(raProfile);
     }
 
@@ -115,23 +112,23 @@ public class RaProfileServiceTest {
 
     @Test
     public void testListRaProfiles() {
-        List<RaProfileDto> raProfiles = raProfileService.listRaProfiles();
+        List<RaProfileDto> raProfiles = raProfileService.listRaProfiles(SecurityFilter.create(), Optional.of(true));
         Assertions.assertNotNull(raProfiles);
         Assertions.assertFalse(raProfiles.isEmpty());
         Assertions.assertEquals(1, raProfiles.size());
-        Assertions.assertEquals(raProfile.getUuid(), raProfiles.get(0).getUuid());
+        Assertions.assertEquals(raProfile.getUuid().toString(), raProfiles.get(0).getUuid());
     }
 
     @Test
     public void testGetRaProfileByUuid() throws NotFoundException {
-        RaProfileDto dto = raProfileService.getRaProfile(raProfile.getUuid());
+        RaProfileDto dto = raProfileService.getRaProfile(raProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(raProfile.getUuid(), dto.getUuid());
+        Assertions.assertEquals(raProfile.getUuid().toString(), dto.getUuid());
     }
 
     @Test
     public void testGetRaProfileByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -146,9 +143,8 @@ public class RaProfileServiceTest {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName("testRaProfile2");
         request.setAttributes(List.of());
-        request.setAuthorityInstanceUuid(authorityInstanceReference.getUuid());
 
-        RaProfileDto dto = raProfileService.addRaProfile(request);
+        RaProfileDto dto = raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }
@@ -156,7 +152,7 @@ public class RaProfileServiceTest {
     @Test
     public void testAddRaProfile_validationFail() {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
-        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(request));
+        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request));
     }
 
     @Test
@@ -164,7 +160,7 @@ public class RaProfileServiceTest {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName(RA_PROFILE_NAME); // raProfile with same username exist
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> raProfileService.addRaProfile(request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request));
     }
 
     @Test
@@ -179,9 +175,8 @@ public class RaProfileServiceTest {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
         request.setDescription("some description");
         request.setAttributes(List.of());
-        request.setAuthorityInstanceUuid(authorityInstanceReference.getUuid());
 
-        RaProfileDto dto = raProfileService.editRaProfile(raProfile.getUuid(), request);
+        RaProfileDto dto = raProfileService.editRaProfile(authorityInstanceReference.getSecuredUuid(), raProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -190,40 +185,40 @@ public class RaProfileServiceTest {
     public void testEditRaProfile_notFound() {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile("wrong-uuid", request));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
     public void testRemoveRaProfile() throws NotFoundException {
-        raProfileService.removeRaProfile(raProfile.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getUuid()));
+        raProfileService.deleteRaProfile(raProfile.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.removeRaProfile("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.deleteRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testEnableRaProfile() throws NotFoundException, CertificateException {
-        raProfileService.enableRaProfile(raProfile.getUuid());
+        raProfileService.enableRaProfile(raProfile.getSecuredUuid());
         Assertions.assertEquals(true, raProfile.getEnabled());
     }
 
     @Test
     public void testEnableRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.enableRaProfile("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.enableRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testDisableRaProfile() throws NotFoundException {
-        raProfileService.disableRaProfile(raProfile.getUuid());
+        raProfileService.disableRaProfile(raProfile.getSecuredUuid());
         Assertions.assertEquals(false, raProfile.getEnabled());
     }
 
     @Test
     public void testDisableRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -231,39 +226,39 @@ public class RaProfileServiceTest {
         raProfile.getClients().add(client);
         raProfileRepository.save(raProfile);
 
-        List<SimplifiedClientDto> clients = raProfileService.listClients(raProfile.getUuid());
+        List<SimplifiedClientDto> clients = raProfileService.listClients(raProfile.getSecuredUuid());
         Assertions.assertNotNull(clients);
         Assertions.assertFalse(clients.isEmpty());
-        Assertions.assertEquals(client.getUuid(), clients.get(0).getUuid());
+        Assertions.assertEquals(client.getUuid().toString(), clients.get(0).getUuid());
     }
 
     @Test
     public void testListClients_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.listClients("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.listClients(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testListClients_emptyClients() throws NotFoundException {
-        List<SimplifiedClientDto> auths = raProfileService.listClients(raProfile.getUuid());
+        List<SimplifiedClientDto> auths = raProfileService.listClients(raProfile.getSecuredUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }
 
     @Test
     public void testBulkRemove() {
-        raProfileService.bulkRemoveRaProfile(List.of(raProfile.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getUuid()));
+        raProfileService.bulkDeleteRaProfile(List.of(raProfile.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
     }
 
     @Test
     public void testBulkEnable() {
-        raProfileService.bulkEnableRaProfile(List.of(raProfile.getUuid()));
+        raProfileService.bulkEnableRaProfile(List.of(raProfile.getSecuredUuid()));
         Assertions.assertTrue(raProfile.getEnabled());
     }
 
     @Test
     public void testBulkDisable() {
-        raProfileService.bulkDisableRaProfile(List.of(raProfile.getUuid()));
+        raProfileService.bulkDisableRaProfile(List.of(raProfile.getSecuredUuid()));
         Assertions.assertFalse(raProfile.getEnabled());
     }
 }

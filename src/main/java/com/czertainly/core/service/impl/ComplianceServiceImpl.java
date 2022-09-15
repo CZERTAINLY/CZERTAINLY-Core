@@ -31,6 +31,10 @@ import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ComplianceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +49,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -78,6 +83,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     private ComplianceProfileRuleRepository complianceProfileRuleRepository;
 
     @Override
+    // TODO AUTH - Secure with @ExternalAuthorization. Move to another service?
     public void addFetchGroupsAndRules(Connector connector) throws ConnectorException {
         logger.info("Fetching rules and groups for the Compliance Provider: {}", connector);
         FunctionGroupDto functionGroupDto = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().orElse(null);
@@ -92,6 +98,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
+    // TODO AUTH - Secure with @ExternalAuthorization. Move to another service?
     public void updateGroupsAndRules(Connector connector) throws ConnectorException {
         logger.info("Fetching the rules and groups of the Compliance Provider: {}", connector);
         FunctionGroupDto functionGroupDto = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().orElse(null);
@@ -106,36 +113,17 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    public ComplianceGroup getComplianceGroupEntity(String uuid, Connector connector, String kind) throws NotFoundException {
-        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, uuid));
+    public Boolean complianceGroupExists(SecuredUUID uuid, Connector connector, String kind) {
+        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).isPresent();
     }
 
     @Override
-    public Boolean complianceGroupExists(String uuid, Connector connector, String kind) {
-        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).isPresent();
+    public Boolean complianceRuleExists(SecuredUUID uuid, Connector connector, String kind) {
+        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).isPresent();
     }
 
     @Override
-    public ComplianceRule getComplianceRuleEntity(String uuid, Connector connector, String kind) throws NotFoundException {
-        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
-    }
-
-    @Override
-    public Boolean complianceRuleExists(String uuid, Connector connector, String kind) {
-        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid, connector, kind).isPresent();
-    }
-
-    @Override
-    public void saveComplianceGroup(ComplianceGroup complianceGroup) {
-        complianceGroupRepository.save(complianceGroup);
-    }
-
-    @Override
-    public void saveComplianceRule(ComplianceRule complianceRule) {
-        complianceRuleRepository.save(complianceRule);
-    }
-
-    @Override
+    // TODO AUTH - make private or pass certificate UUID as method parameter instead of database entity, secure with @ExternalAuthorization
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException {
         logger.debug("Checking the Compliance of the Certificate: {}", certificate);
         RaProfile raProfile = certificate.getRaProfile();
@@ -154,7 +142,7 @@ public class ComplianceServiceImpl implements ComplianceService {
             Set<ComplianceGroup> applicableGroups = complianceProfile.getGroups();
             Map<String, List<ComplianceRulesDto>> groupRuleMap = new HashMap<>();
             for (ComplianceGroup grp : applicableGroups) {
-                groupRuleMap.computeIfAbsent(grp.getConnector().getUuid(), k -> new ArrayList<>()).addAll(grp.getRules().stream().map(ComplianceRule::mapToDto).collect(Collectors.toList()));
+                groupRuleMap.computeIfAbsent(grp.getConnector().getUuid().toString(), k -> new ArrayList<>()).addAll(grp.getRules().stream().map(ComplianceRule::mapToDto).collect(Collectors.toList()));
             }
 
             for (ComplianceConnectorAndRulesDto connector : complianceProfile.mapToDto().getRules()) {
@@ -167,7 +155,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                 }
                 if (applicableRules.isEmpty()) {
                     logger.debug("Compliance Profile {} does not have any rule for Connector:{}", complianceProfile.getName(), connector.getConnectorName());
-                    setComplianceForCertificate(certificate.getUuid(), ComplianceStatus.NA, complianceResults);
+                    setComplianceForCertificate(certificate.getUuid().toString(), ComplianceStatus.NA, complianceResults);
                     return;
                 }
                 complianceRequestDto.setRules(getComplianceRequestRules(applicableRules));
@@ -179,19 +167,19 @@ public class ComplianceServiceImpl implements ComplianceService {
                 logger.debug("Certificate Compliance Response from Connector: {}", responseDto);
 
                 for (ComplianceResponseRulesDto rule : responseDto.getRules()) {
-                    ComplianceRule complianceRule = getComplianceRuleEntity(rule.getUuid(),
+                    ComplianceRule complianceRule = getComplianceRuleEntity(SecuredUUID.fromString(rule.getUuid()),
                             getConnectorEntity(connector.getConnectorUuid()), connector.getKind());
                     ComplianceProfileRule complianceProfileRule = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule)
                             .orElseThrow(() -> new NotFoundException("Unable to find compliance profile rule for the result"));
                     switch (rule.getStatus()) {
                         case OK:
-                            complianceResults.getOk().add(complianceProfileRule.getId());
+                            complianceResults.getOk().add(complianceProfileRule.getUuid().toString());
                             break;
                         case NOK:
-                            complianceResults.getNok().add(complianceProfileRule.getId());
+                            complianceResults.getNok().add(complianceProfileRule.getUuid().toString());
                             break;
                         case NA:
-                            complianceResults.getNa().add(complianceProfileRule.getId());
+                            complianceResults.getNa().add(complianceProfileRule.getUuid().toString());
                     }
                 }
                 logger.debug("Status from the Connector: {}", responseDto.getStatus());
@@ -199,12 +187,13 @@ public class ComplianceServiceImpl implements ComplianceService {
         }
         ComplianceStatus overallStatus = computeOverallComplianceStatus(complianceResults);
         logger.debug("Overall Status: {}", overallStatus);
-        setComplianceForCertificate(certificate.getUuid(), overallStatus, complianceResults);
+        setComplianceForCertificate(certificate.getUuid().toString(), overallStatus, complianceResults);
     }
 
     @Override
     @Async
-    public void complianceCheckForRaProfile(String uuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
+    public void complianceCheckForRaProfile(SecuredUUID uuid) throws ConnectorException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
         logger.debug("Checking compliance for all the certificates in RA Profile");
@@ -214,7 +203,8 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     @Override
     @Async
-    public void complianceCheckForComplianceProfile(String uuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
+    public void complianceCheckForComplianceProfile(SecuredUUID uuid) throws ConnectorException {
         ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(
                 () -> new NotFoundException(ComplianceProfile.class, uuid));
         logger.debug("Checking the compliance for all the Certificates with profile: {}", complianceProfile);
@@ -225,18 +215,35 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    public ComplianceRule getComplianceRuleEntity(Long id) {
-        return complianceRuleRepository.getById(id);
+    // TODO AUTH - do not return DB Entity, return Dto instead, use UUIDS instead of IDs
+    public List<ComplianceRule> getComplianceRuleEntityForIds(List<String> ids) {
+        return complianceRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
+    }
+
+    // TODO AUTH - create separate service for ComplianceRule?
+    public void saveComplianceRule(ComplianceRule complianceRule) {
+        complianceRuleRepository.save(complianceRule);
+    }
+
+    private void saveComplianceGroup(ComplianceGroup complianceGroup) {
+        complianceGroupRepository.save(complianceGroup);
+    }
+
+    private ComplianceGroup getComplianceGroupEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {
+        return complianceGroupRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, uuid));
+    }
+
+    private ComplianceRule getComplianceRuleEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {
+        return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
+    }
+    @Override
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForUuids(List<String> ids) {
+        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
     @Override
-    public List<ComplianceRule> getComplianceRuleEntityForIds(List<Long> ids) {
-        return complianceRuleRepository.findByIdIn(ids);
-    }
-
-    @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<Long> ids) {
-        return complianceProfileRuleRepository.findByIdIn(ids);
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids) {
+        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
 
@@ -249,7 +256,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private void setComplianceForCertificate(String uuid, ComplianceStatus status,
                                              CertificateComplianceStorageDto result) throws NotFoundException {
-        Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        Certificate certificate = certificateRepository.findByUuid(UUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         certificate.setComplianceStatus(status);
         certificate.setComplianceResult(result);
     }
@@ -339,8 +346,8 @@ public class ComplianceServiceImpl implements ComplianceService {
         complianceRule.setCertificateType(rule.getCertificateType());
         complianceRule.setAttributes(rule.getAttributes());
         if (rule.getGroupUuid() != null && !rule.getGroupUuid().isEmpty()) {
-            if (complianceGroupExists(rule.getGroupUuid(), connector, kind)) {
-                complianceRule.setGroup(getComplianceGroupEntity(rule.getGroupUuid(), connector, kind));
+            if (complianceGroupExists(SecuredUUID.fromString(rule.getGroupUuid()), connector, kind)) {
+                complianceRule.setGroup(getComplianceGroupEntity(SecuredUUID.fromString(rule.getGroupUuid()), connector, kind));
             } else {
                 logger.warn("Compliance Rule: {}, tags unknown group:{}", rule.getUuid(), rule.getGroupUuid());
             }
@@ -360,10 +367,10 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private void decommUnavailableGroups(List<String> groups, Connector connector, String kind) throws NotFoundException {
         logger.info("Preparing the decommision process for the groups that are removed from connector: {}", connector);
-        List<String> currentGroupsInDatabase = complianceGroupRepository.findAll().stream().map(ComplianceGroup::getUuid).collect(Collectors.toList());
+        List<String> currentGroupsInDatabase = complianceGroupRepository.findAll().stream().map(ComplianceGroup::getUuid).map(UUID::toString).collect(Collectors.toList());
         currentGroupsInDatabase.removeAll(groups);
         for (String currentGroupUuid : currentGroupsInDatabase) {
-            ComplianceGroup complianceGroup = getComplianceGroupEntity(currentGroupUuid, connector, kind);
+            ComplianceGroup complianceGroup = getComplianceGroupEntity(SecuredUUID.fromString(currentGroupUuid), connector, kind);
             logger.debug("Group: {} no longer available", complianceGroup);
             complianceGroup.setDecommissioned(true);
             saveComplianceGroup(complianceGroup);
@@ -372,11 +379,11 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private void updateGroups(Connector connector, String kind, List<ComplianceGroupsResponseDto> groups) throws NotFoundException {
         for (ComplianceGroupsResponseDto group : groups) {
-            if (!complianceGroupExists(group.getUuid(), connector, kind)) {
+            if (!complianceGroupExists(SecuredUUID.fromString(group.getUuid()), connector, kind)) {
                 saveComplianceGroup(frameComplianceGroup(connector, kind, group));
             } else {
                 logger.debug("New group found. Adding group: {}", group);
-                ComplianceGroup complianceGroup = getComplianceGroupEntity(group.getUuid(), connector, kind);
+                ComplianceGroup complianceGroup = getComplianceGroupEntity(SecuredUUID.fromString(group.getUuid()), connector, kind);
                 complianceGroup.setName(group.getName());
                 complianceGroup.setDescription(group.getDescription());
                 saveComplianceGroup(complianceGroup);
@@ -395,10 +402,10 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private void decommUnavailableRules(List<String> rules, Connector connector, String kind) throws NotFoundException {
         logger.info("Preparing the decommision process for the rules that are removed from connector: {}", connector);
-        List<String> currentRulesInDatabase = complianceRuleRepository.findAll().stream().map(ComplianceRule::getUuid).collect(Collectors.toList());
+        List<String> currentRulesInDatabase = complianceRuleRepository.findAll().stream().map(ComplianceRule::getUuid).map(UUID::toString).collect(Collectors.toList());
         currentRulesInDatabase.removeAll(rules);
         for (String currentRuleUuid : currentRulesInDatabase) {
-            ComplianceRule complianceRule = getComplianceRuleEntity(currentRuleUuid, connector, kind);
+            ComplianceRule complianceRule = getComplianceRuleEntity(SecuredUUID.fromString(currentRuleUuid), connector, kind);
             logger.debug("Rule: {} no longer available", complianceRule);
             complianceRule.setDecommissioned(true);
             saveComplianceRule(complianceRule);
@@ -407,16 +414,16 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private void updateRules(Connector connector, String kind, List<ComplianceRulesResponseDto> rules) throws NotFoundException {
         for (ComplianceRulesResponseDto rule : rules) {
-            if (!complianceRuleExists(rule.getUuid(), connector, kind)) {
+            if (!complianceRuleExists(SecuredUUID.fromString(rule.getUuid()), connector, kind)) {
                 saveComplianceRule(frameComplianceRule(connector, kind, rule));
             } else {
-                ComplianceRule complianceRule = getComplianceRuleEntity(rule.getUuid(), connector, kind);
+                ComplianceRule complianceRule = getComplianceRuleEntity(SecuredUUID.fromString(rule.getUuid()), connector, kind);
                 complianceRule.setName(rule.getName());
                 complianceRule.setDescription(rule.getDescription());
                 complianceRule.setCertificateType(rule.getCertificateType());
                 if (rule.getGroupUuid() != null && !rule.getGroupUuid().isEmpty()) {
-                    if (complianceGroupExists(rule.getUuid(), connector, kind)) {
-                        complianceRule.setGroup(getComplianceGroupEntity(rule.getUuid(), connector, kind));
+                    if (complianceGroupExists(SecuredUUID.fromString(rule.getUuid()), connector, kind)) {
+                        complianceRule.setGroup(getComplianceGroupEntity(SecuredUUID.fromString(rule.getUuid()), connector, kind));
                     } else {
                         logger.warn("Compliance Rule: {}, tags unknown group:{}", rule.getUuid(), rule.getGroupUuid());
                     }
@@ -427,7 +434,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     private Connector getConnectorEntity(String uuid) throws NotFoundException {
-        return connectorRepository.findByUuid(uuid)
+        return connectorRepository.findByUuid(UUID.fromString(uuid))
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
 }

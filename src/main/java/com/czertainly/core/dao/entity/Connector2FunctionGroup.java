@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import javax.persistence.*;
+import java.util.UUID;
 
 @Entity
 @Table(name = "connector_2_function_group")
@@ -15,28 +16,61 @@ public class Connector2FunctionGroup {
 	private Long id;
 	
 	@ManyToOne
-    @JoinColumn(name = "connector_id", nullable = false)
+    @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     @JsonIgnore
     private Connector connector;
-	
+
+	@Column(name = "connector_uuid", nullable = false)
+	private UUID connectorUuid;
+
+
 	@ManyToOne
-    @JoinColumn(name = "function_group_id", nullable = false)
+    @JoinColumn(name = "function_group_uuid", nullable = false, insertable = false, updatable = false)
 	private FunctionGroup functionGroup;
+
+	@Column(name = "function_group_uuid", nullable = false)
+	private UUID functionGroupUuid;
 	
 	@Column(name = "kinds")
 	private String kinds;
+
+	public UUID getConnectorUuid() {
+		return connectorUuid;
+	}
+
+	public void setConnectorUuid(UUID connectorUuid) {
+		this.connectorUuid = connectorUuid;
+	}
+
+	public void setConnectorUuid(String connectorUuid) {
+		this.connectorUuid = UUID.fromString(connectorUuid);
+	}
+
+	public UUID getFunctionGroupUuid() {
+		return functionGroupUuid;
+	}
+
+	public void setFunctionGroupUuid(UUID functionGroupUuid) {
+		this.functionGroupUuid = functionGroupUuid;
+	}
+
+	public void setFunctionGroupUuid(String functionGroupUuid) {
+		this.functionGroupUuid = UUID.fromString(functionGroupUuid);
+	}
 	
 	public Connector getConnector() {
 		return connector;
 	}
 	public void setConnector(Connector connector) {
 		this.connector = connector;
+		this.connectorUuid = connector.getUuid();
 	}
 	public FunctionGroup getFunctionGroup() {
 		return functionGroup;
 	}
 	public void setFunctionGroup(FunctionGroup functionGroup) {
 		this.functionGroup = functionGroup;
+		this.functionGroupUuid = functionGroup.getUuid();
 	}
 	public String getKinds() {
 		return kinds;

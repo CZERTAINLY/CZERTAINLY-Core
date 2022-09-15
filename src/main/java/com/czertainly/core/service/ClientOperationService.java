@@ -13,6 +13,7 @@ import com.czertainly.api.model.client.authority.ClientEndEntityDto;
 import java.security.cert.CertificateException;
 import java.util.List;
 
+// TODO AUTH - Use UUID instead of string name
 public interface ClientOperationService {
 
     ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws NotFoundException, AlreadyExistException, CertificateException, ConnectorException;

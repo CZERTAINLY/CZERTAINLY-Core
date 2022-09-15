@@ -11,20 +11,15 @@ import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.repository.AdminRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 
-@SpringBootTest
-@Transactional
-@Rollback
-public class LocalAdminServiceTest {
+public class LocalAdminServiceTest extends BaseSpringBootTest {
 
     private static final String ADMIN_NAME = "testAdmin1";
 
@@ -71,7 +66,7 @@ public class LocalAdminServiceTest {
         request.setName("Test");
         request.setSurname("Admin2");
         request.setEmail("test@admin2.com");
-        request.setCertificateUuid(admin2Cert.getUuid());
+        request.setCertificateUuid(admin2Cert.getUuid().toString());
 
         AdminDto dto = localAdminService.addAdmin(request);
         Assertions.assertNotNull(dto);
@@ -104,7 +99,7 @@ public class LocalAdminServiceTest {
         request.setName("Test");
         request.setSurname("Admin2");
         request.setEmail("test@admin2.com");
-        request.setCertificateUuid(certificate.getUuid()); // admin with same certificate exist
+        request.setCertificateUuid(certificate.getUuid().toString()); // admin with same certificate exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> localAdminService.addAdmin(request));
     }

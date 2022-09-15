@@ -2,11 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.EndEntityProfileApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
@@ -24,6 +20,11 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AuthorityInstanceService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
@@ -32,7 +33,6 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +42,6 @@ import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     private static final Logger logger = LoggerFactory.getLogger(AuthorityInstanceServiceImpl.class);
 
@@ -61,20 +60,24 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
-    public List<AuthorityInstanceDto> listAuthorityInstances() {
-        return authorityInstanceReferenceRepository.findAll().stream().map(AuthorityInstanceReference::mapToDto)
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
+    public List<AuthorityInstanceDto> listAuthorityInstances(SecurityFilter filter) {
+        return authorityInstanceReferenceRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(AuthorityInstanceReference::mapToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
-    public AuthorityInstanceDto getAuthorityInstance(String uuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    public AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
 
         AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
         authorityInstanceDto.setName(authorityInstanceReference.getName());
-        authorityInstanceDto.setUuid(authorityInstanceReference.getUuid());
+        authorityInstanceDto.setUuid(authorityInstanceReference.getUuid().toString());
         authorityInstanceDto.setKind(authorityInstanceReference.getKind());
         if (authorityInstanceReference.getConnector() == null) {
             authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnectorName() + " (Deleted)");
@@ -89,18 +92,19 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(authorityProviderInstanceDto.getAttributes()));
         authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
         authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnector().getName());
-        authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid());
+        authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid().toString());
         return authorityInstanceDto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.CREATE)
     public AuthorityInstanceDto createAuthorityInstance(com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto request) throws AlreadyExistException, ConnectorException {
         if (authorityInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(AuthorityInstanceReference.class, request.getName());
         }
 
-        Connector connector = connectorService.getConnectorEntity(request.getConnectorUuid());
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.AUTHORITY_PROVIDER;
 
@@ -111,7 +115,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             }
         }
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), request.getKind());
 
         // Load complete credential data
@@ -138,11 +142,12 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
-    public AuthorityInstanceDto updateAuthorityInstance(String uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.UPDATE)
+    public AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         AuthorityInstanceDto ref = getAuthorityInstance(uuid);
-        Connector connector = connectorService.getConnectorEntity(ref.getConnectorUuid());
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.AUTHORITY_PROVIDER;
 
@@ -153,7 +158,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             }
         }
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getUuid(), codeToSearch,
+        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), ref.getKind());
 
         // Load complete credential data
@@ -171,7 +176,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
-    public void removeAuthorityInstance(String uuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
+    public void deleteAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         removeAuthorityInstance(authorityInstanceRef);
@@ -179,7 +185,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.END_ENTITY_PROFILE, operation = OperationType.REQUEST)
-    public List<NameAndIdDto> listEndEntityProfiles(String uuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    public List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
 
@@ -189,7 +196,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.END_ENTITY_PROFILE, operation = OperationType.REQUEST)
-    public List<NameAndIdDto> listCertificateProfiles(String uuid, Integer endEntityProfileId) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    public List<NameAndIdDto> listCertificateProfiles(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
 
@@ -199,7 +207,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.END_ENTITY_PROFILE, operation = OperationType.REQUEST)
-    public List<NameAndIdDto> listCAsInProfile(String uuid, Integer endEntityProfileId) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    public List<NameAndIdDto> listCAsInProfile(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
 
@@ -209,7 +218,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    public List<AttributeDefinition> listRAProfileAttributes(String uuid) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    public List<AttributeDefinition> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         Connector connector = authorityInstance.getConnector();
@@ -219,7 +229,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    public Boolean validateRAProfileAttributes(String uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    public Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         Connector connector = authorityInstance.getConnector();
@@ -230,9 +241,9 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws ValidationException {
+    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
-        for (String uuid : uuids) {
+        for (SecuredUUID uuid : uuids) {
             AuthorityInstanceReference authorityInstanceRef = null;
             try {
                 authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
@@ -242,7 +253,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                 logger.error("Authority Instance not found: {}", uuid);
             } catch (Exception e) {
                 logger.warn(e.getMessage());
-                messages.add(new BulkActionMessageDto(uuid, authorityInstanceRef != null ? authorityInstanceRef.getName() : "", e.getMessage()));
+                messages.add(new BulkActionMessageDto(uuid.toString(), authorityInstanceRef != null ? authorityInstanceRef.getName() : "", e.getMessage()));
             }
         }
         return messages;
@@ -250,9 +261,10 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<String> uuids) throws ValidationException {
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> forceDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
-        for (String uuid : uuids) {
+        for (SecuredUUID uuid : uuids) {
             AuthorityInstanceReference authorityInstanceRef = null;
             try {
                 authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
@@ -268,7 +280,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                 removeAuthorityInstance(authorityInstanceRef);
             } catch (Exception e) {
                 logger.warn("Unable to delete the Authority instance with uuid {}. It may have been deleted. {}", uuid, e.getMessage());
-                messages.add(new BulkActionMessageDto(uuid, authorityInstanceRef != null ? authorityInstanceRef.getName() : "", e.getMessage()));
+                messages.add(new BulkActionMessageDto(uuid.toString(), authorityInstanceRef != null ? authorityInstanceRef.getName() : "", e.getMessage()));
             }
         }
         return messages;

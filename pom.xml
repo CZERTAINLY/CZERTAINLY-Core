@@ -40,7 +40,7 @@
         <dependency>
             <groupId>com.czertainly</groupId>
             <artifactId>interfaces</artifactId>
-            <version>1.4.0</version>
+            <version>1.4.1-SNAPSHOT</version>
         </dependency>
 
         <!-- Spring  -->
@@ -122,9 +122,9 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>2.1.210</version>
+            <groupId>org.hsqldb</groupId>
+            <artifactId>hsqldb</artifactId>
+            <version>2.3.4</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -143,6 +143,18 @@
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
             <version>9.15.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>4.10.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>4.10.0</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

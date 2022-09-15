@@ -6,17 +6,19 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
 public interface DiscoveryService {
 
-    List<DiscoveryHistoryDto> listDiscovery();
-    DiscoveryHistoryDto getDiscovery(String uuid) throws NotFoundException;
+    List<DiscoveryHistoryDto> listDiscoveries(SecurityFilter filter);
+    DiscoveryHistoryDto getDiscovery(SecuredUUID uuid) throws NotFoundException;
     DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException;
 
     void createDiscovery(DiscoveryDto request, DiscoveryHistory modal) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    void removeDiscovery(String uuid) throws NotFoundException;
-    void bulkRemoveDiscovery(List<String> discoveryUuids) throws NotFoundException;
+    void deleteDiscovery(SecuredUUID uuid) throws NotFoundException;
+    void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException;
 }
