@@ -8,7 +8,6 @@ import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -17,12 +16,13 @@ import javax.transaction.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Transactional
-public interface CertificateRepository extends JpaRepository<Certificate, Long>, CustomCertificateRepository {
+public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
-    Optional<Certificate> findByUuid(String uuid);
+    Optional<Certificate> findByUuid(UUID uuid);
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
 
     Certificate findByCertificateContent(CertificateContent certificateContent);
@@ -56,24 +56,24 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long>,
     @Query("SELECT DISTINCT publicKeyAlgorithm FROM Certificate")
     List<String> findDistinctPublicKeyAlgorithm();
 
-    List<Certificate> findAllByOrderByIdDesc(Pageable p);
+    List<Certificate> findAllByOrderByCreatedDesc(Pageable p);
 
     @Modifying
-    @Query("delete from Certificate u where u.id in ?1")
-    void deleteCertificateWithIds(List<Long> ids);
+    @Query("delete from Certificate u where u.uuid in ?1")
+    void deleteCertificateWithIds(List<String> uuids);
 
     /* Stats queries */
-    @Query(value = "SELECT c.groupId, COUNT(c.groupId) FROM Certificate AS c WHERE c.groupId IS NOT NULL GROUP BY c.groupId")
+    @Query(value = "SELECT c.groupUuid, COUNT(c.groupUuid) FROM Certificate AS c WHERE c.groupUuid IS NOT NULL GROUP BY c.groupUuid")
     List<Object[]> getCertificatesCountByGroup();
 
-    @Query("SELECT g.id, g.name FROM CertificateGroup g WHERE g.id IN ?1")
-    List<Object[]> getGroupNamesWithIds(List<Long> ids);
+    @Query("SELECT g.uuid, g.name FROM CertificateGroup g WHERE g.uuid IN ?1")
+    List<Object[]> getGroupNamesWithUuids(List<UUID> uuids);
 
-    @Query(value = "SELECT c.raProfileId, COUNT(c.raProfileId) FROM Certificate AS c WHERE c.raProfileId IS NOT NULL GROUP BY c.raProfileId")
+    @Query(value = "SELECT c.raProfileUuid, COUNT(c.raProfileUuid) FROM Certificate AS c WHERE c.raProfileUuid IS NOT NULL GROUP BY c.raProfileUuid")
     List<Object[]> getCertificatesCountByRaProfile();
 
-    @Query("SELECT p.id, p.name FROM RaProfile p WHERE p.id IN ?1")
-    List<Object[]> getRaProfileNamesWithIds(List<Long> ids);
+    @Query("SELECT p.uuid, p.name FROM RaProfile p WHERE p.uuid IN ?1")
+    List<Object[]> getRaProfileNamesWithUuids(List<UUID> uuids);
 
     @Query(value = "SELECT c.certificateType, COUNT(c.certificateType) FROM Certificate AS c WHERE c.certificateType IS NOT NULL GROUP BY c.certificateType")
     List<Object[]> getCertificatesCountByType();

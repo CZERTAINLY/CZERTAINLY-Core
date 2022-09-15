@@ -3,6 +3,8 @@ package com.czertainly.core.service;
 import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.czertainly.api.model.core.audit.AuditLogResponseDto;
 import com.czertainly.api.model.core.audit.ExportResultDto;
+import com.czertainly.core.service.AuditLogService;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +20,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 
 @SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class AuditLogServiceTest {
+public class AuditLogExportTest extends BaseSpringBootTest {
 
     @Autowired
     private AuditLogService auditLogService;

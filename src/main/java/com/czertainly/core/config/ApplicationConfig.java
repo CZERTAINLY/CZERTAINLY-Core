@@ -1,6 +1,9 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.clients.*;
+import com.czertainly.core.security.authn.client.EndPointApiClient;
+import com.czertainly.core.security.authn.client.RoleManagementApiClient;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,4 +107,13 @@ public class ApplicationConfig {
 
     @Bean
     public ComplianceApiClient complianceApiClient(WebClient webClient) { return new ComplianceApiClient(webClient); }
+
+    @Bean
+    public UserManagementApiClient userManagementApiClient(){ return new UserManagementApiClient();};
+
+    @Bean
+    public RoleManagementApiClient roleManagementApiClient(){ return new RoleManagementApiClient();};
+
+    @Bean
+    public EndPointApiClient endPointApiClient(){ return new EndPointApiClient();};
 }

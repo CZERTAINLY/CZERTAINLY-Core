@@ -18,16 +18,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "location")
-public class Location extends Audited implements Serializable, DtoMapper<LocationDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "location_seq")
-    @SequenceGenerator(name = "location_seq", sequenceName = "location_id_seq", allocationSize = 1)
-    private Long id;
+public class Location extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<LocationDto> {
 
     @Column(name = "name")
     private String name;
@@ -43,8 +38,11 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
     private String attributes;
 
     @ManyToOne
-    @JoinColumn(name = "entity_instance_ref_id")
+    @JoinColumn(name = "entity_instance_ref_uuid", insertable = false, updatable = false)
     private EntityInstanceReference entityInstanceReference;
+
+    @Column(name = "entity_instance_ref_uuid")
+    private UUID entityInstanceReferenceUuid;
 
     @Column(name = "enabled")
     private Boolean enabled;
@@ -65,14 +63,6 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
 
     @Column(name = "metadata")
     private String metadata;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getName() {
         return name;
@@ -112,6 +102,7 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
 
     public void setEntityInstanceReference(EntityInstanceReference entityInstanceReference) {
         this.entityInstanceReference = entityInstanceReference;
+        if(entityInstanceReference != null) this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
     }
 
     public Boolean getEnabled() {
@@ -154,15 +145,27 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
         this.metadata = MetaDefinitions.serialize(metadata);
     }
 
+    public UUID getEntityInstanceReferenceUuid() {
+        return entityInstanceReferenceUuid;
+    }
+
+    public void setEntityInstanceReferenceUuid(UUID entityInstanceReferenceUuid) {
+        this.entityInstanceReferenceUuid = entityInstanceReferenceUuid;
+    }
+
+    public void setEntityInstanceReferenceUuid(String entityInstanceReferenceUuid) {
+        this.entityInstanceReferenceUuid = UUID.fromString(entityInstanceReferenceUuid);
+    }
+
     @Override
     @Transient
     public LocationDto mapToDto() {
         LocationDto dto = new LocationDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
-        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid() : null);
+        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
@@ -175,7 +178,7 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
             cilDto.setMetadata(certificateLocation.getMetadata());
             cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
-            cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid());
+            cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid().toString());
             cilDto.setWithKey(certificateLocation.isWithKey());
             cilDto.setPushAttributes(AttributeDefinitionUtils.getClientAttributes(certificateLocation.getPushAttributes()));
             cilDto.setCsrAttributes(AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
@@ -189,10 +192,10 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
 
     public LocationDto mapToDtoSimple() {
         LocationDto dto = new LocationDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid() : null);
+        dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
@@ -205,7 +208,6 @@ public class Location extends Audited implements Serializable, DtoMapper<Locatio
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("name", name)
                 .append("enabled", enabled)

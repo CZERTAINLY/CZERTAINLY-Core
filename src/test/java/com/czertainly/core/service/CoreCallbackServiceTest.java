@@ -8,6 +8,7 @@ import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.service.impl.CoreCallbackServiceImpl;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +24,7 @@ import java.util.Map;
 @Transactional
 @Rollback
 @WithMockUser(roles="SUPERADMINISTRATOR")
-public class CoreCallbackServiceTest {
+public class CoreCallbackServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private CoreCallbackService coreCallbackService;
@@ -44,7 +45,7 @@ public class CoreCallbackServiceTest {
         List<JsonAttributeContent> credentials = coreCallbackService.coreGetCredentials(callback);
         Assertions.assertNotNull(credentials);
         Assertions.assertFalse(credentials.isEmpty());
-        Assertions.assertEquals(credential.getUuid(), ((NameAndUuidDto) credentials.get(0).getData()).getUuid());
+        Assertions.assertEquals(credential.getUuid().toString(), ((NameAndUuidDto) credentials.get(0).getData()).getUuid());
     }
 
 

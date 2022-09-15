@@ -18,6 +18,11 @@ import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ClientService;
 import com.czertainly.core.util.CertificateUtil;
@@ -25,7 +30,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -33,11 +37,11 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class ClientServiceImpl implements ClientService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClientServiceImpl.class);
@@ -51,13 +55,15 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
-    public List<ClientDto> listClients() {
-        List<Client> clients = clientRepository.findAll();
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.LIST)
+    public List<ClientDto> listClients(SecurityFilter filter) {
+        List<Client> clients = clientRepository.findUsingSecurityFilter(filter);
         return clients.stream().map(Client::mapToDto).collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.CREATE)
     public ClientDto addClient(AddClientRequestDto request)
             throws CertificateException, AlreadyExistException, NotFoundException, ValidationException {
         if (StringUtils.isAnyBlank(request.getName())) {
@@ -72,7 +78,7 @@ public class ClientServiceImpl implements ClientService {
             dn = CertificateUtil.getDnFromX509Certificate(certificate);
             serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
         } else {
-            Certificate certificate = certificateService.getCertificateEntity(request.getCertificateUuid());
+            Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getCertificateUuid()));
             dn = certificate.getSubjectDn();
             serialNumber = certificate.getSerialNumber();
         }
@@ -95,7 +101,8 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
-    public ClientDto getClient(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.DETAIL)
+    public ClientDto getClient(SecuredUUID uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
@@ -104,7 +111,8 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.CHANGE)
-    public ClientDto editClient(String uuid, EditClientRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.UPDATE)
+    public ClientDto editClient(SecuredUUID uuid, EditClientRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
@@ -128,7 +136,8 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.DELETE)
-    public void removeClient(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.DELETE)
+    public void deleteClient(SecuredUUID uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
         if (client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()) {
@@ -139,13 +148,15 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
-    public List<SimplifiedRaProfileDto> listAuthorizations(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.LIST)
+    public List<SimplifiedRaProfileDto> listAuthorizations(SecuredUUID uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
         List<SimplifiedRaProfileDto> profiles = new ArrayList<>();
+        // TODO AUTH - use RaProfileService
         for (RaProfile profile : client.getRaProfiles()) {
             SimplifiedRaProfileDto dto = new SimplifiedRaProfileDto();
-            dto.setUuid(profile.getUuid());
+            dto.setUuid(profile.getUuid().toString());
             dto.setEnabled(profile.getEnabled());
             dto.setName(profile.getName());
             profiles.add(dto);
@@ -155,11 +166,13 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.AUTH)
-    public void authorizeClient(String uuid, String raProfileUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.AUTHORIZE_CLIENT)
+    public void authorizeClient(SecuredUUID uuid, String raProfileUuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
-        RaProfile raProfile = raProfileRepository.findByUuid(raProfileUuid)
+        // TODO AUTH - use RaProfileService
+        RaProfile raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid))
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         raProfile.getClients().add(client);
@@ -168,11 +181,13 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.AUTH)
-    public void unauthorizeClient(String uuid, String raProfileUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.UNAUTHORIZE_CLIENT)
+    public void unauthorizeClient(SecuredUUID uuid, String raProfileUuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
-        RaProfile raProfile = raProfileRepository.findByUuid(raProfileUuid)
+        // TODO AUTH - use RaProfileService
+        RaProfile raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid))
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         raProfile.getClients().remove(client);
@@ -181,7 +196,8 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.ENABLE)
-    public void enableClient(String uuid) throws NotFoundException, CertificateException {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.ENABLE)
+    public void enableClient(SecuredUUID uuid) throws NotFoundException, CertificateException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
@@ -191,7 +207,8 @@ public class ClientServiceImpl implements ClientService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.DISABLE)
-    public void disableClient(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.ENABLE)
+    public void disableClient(SecuredUUID uuid) throws NotFoundException {
         Client client = clientRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Client.class, uuid));
 
@@ -200,15 +217,16 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkRemoveClient(List<String> clientUuids) {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> bulkDeleteClient(List<SecuredUUID> clientUuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
-        for (String uuid : clientUuids) {
+        for (SecuredUUID uuid : clientUuids) {
             try {
                 Client client = clientRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
                 if (client.getRaProfiles() != null && !client.getRaProfiles().isEmpty()) {
                     BulkActionMessageDto forceModal = new BulkActionMessageDto();
-                    forceModal.setUuid(client.getUuid());
+                    forceModal.setUuid(client.getUuid().toString());
                     forceModal.setName(client.getName());
                     forceModal.setMessage("Client has " + client.getRaProfiles().size() + " authorized RA Profile(s)");
                     messages.add(forceModal);
@@ -223,8 +241,9 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
-    public void bulkDisableClient(List<String> clientUuids) {
-        for (String uuid : clientUuids) {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.ENABLE)
+    public void bulkDisableClient(List<SecuredUUID> clientUuids) {
+        for (SecuredUUID uuid : clientUuids) {
             try {
                 Client client = clientRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
@@ -238,8 +257,9 @@ public class ClientServiceImpl implements ClientService {
     }
 
     @Override
-    public void bulkEnableClient(List<String> clientUuids) {
-        for (String uuid : clientUuids) {
+    @ExternalAuthorization(resource = Resource.CLIENT, action = ResourceAction.ENABLE)
+    public void bulkEnableClient(List<SecuredUUID> clientUuids) {
+        for (SecuredUUID uuid : clientUuids) {
             try {
                 Client client = clientRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Client.class, uuid));
@@ -251,6 +271,7 @@ public class ClientServiceImpl implements ClientService {
             }
         }
     }
+
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
@@ -266,13 +287,13 @@ public class ClientServiceImpl implements ClientService {
         Certificate certificate;
         if ((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
             if (!requestDTO.getCertificateUuid().isEmpty()) {
-                certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
+                certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(requestDTO.getCertificateUuid()));
 
             } else {
                 UploadCertificateRequestDto request = new UploadCertificateRequestDto();
                 request.setCertificate(requestDTO.getClientCertificate());
                 if (certificateService.getCertificateEntityBySerial(serialNumber) == null) {
-                    certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
+                    certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateService.upload(request).getUuid()));
                 }else {
                     certificate = certificateService.getCertificateEntityBySerial(serialNumber);
                 }
@@ -292,12 +313,12 @@ public class ClientServiceImpl implements ClientService {
         Certificate certificate;
         if ((requestDTO.getClientCertificate() != null && !requestDTO.getClientCertificate().isEmpty()) || (requestDTO.getCertificateUuid() != null && !requestDTO.getCertificateUuid().isEmpty())) {
             if (!requestDTO.getCertificateUuid().isEmpty()) {
-                certificate = certificateService.getCertificateEntity(requestDTO.getCertificateUuid());
+                certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(requestDTO.getCertificateUuid()));
 
             } else {
                 UploadCertificateRequestDto request = new UploadCertificateRequestDto();
                 request.setCertificate(requestDTO.getClientCertificate());
-                certificate = certificateService.getCertificateEntity(certificateService.upload(request).getUuid());
+                certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateService.upload(request).getUuid()));
             }
             client.setCertificate(certificate);
             client.setSerialNumber(certificate.getSerialNumber());

@@ -15,24 +15,19 @@ import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import java.security.cert.CertificateException;
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class ClientServiceTest {
+public class ClientServiceTest extends BaseSpringBootTest {
 
     private static final String CLIENT_NAME = "testClient1";
 
@@ -78,25 +73,25 @@ public class ClientServiceTest {
 
     @Test
     public void testListClients() {
-        List<ClientDto> clients = clientService.listClients();
+        List<ClientDto> clients = clientService.listClients(SecurityFilter.create());
         Assertions.assertNotNull(clients);
         Assertions.assertFalse(clients.isEmpty());
         Assertions.assertEquals(1, clients.size());
-        Assertions.assertEquals(client.getUuid(), clients.get(0).getUuid());
+        Assertions.assertEquals(client.getUuid().toString(), clients.get(0).getUuid());
     }
 
     @Test
     public void testGetClientByUuid() throws NotFoundException {
-        ClientDto dto = clientService.getClient(client.getUuid());
+        ClientDto dto = clientService.getClient(client.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(client.getUuid(), dto.getUuid());
+        Assertions.assertEquals(client.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificate());
-        Assertions.assertEquals(client.getCertificate().getUuid(), dto.getCertificate().getUuid());
+        Assertions.assertEquals(client.getCertificate().getUuid().toString(), dto.getCertificate().getUuid());
     }
 
     @Test
     public void testGetClientByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -108,13 +103,13 @@ public class ClientServiceTest {
 
         AddClientRequestDto request = new AddClientRequestDto();
         request.setName("testClient2");
-        request.setCertificateUuid(client2Cert.getUuid());
+        request.setCertificateUuid(client2Cert.getUuid().toString());
 
         ClientDto dto = clientService.addClient(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getCertificate());
-        Assertions.assertEquals(request.getCertificateUuid() , dto.getCertificate().getUuid());
+        Assertions.assertEquals(request.getCertificateUuid(), dto.getCertificate().getUuid());
     }
 
     @Test
@@ -127,7 +122,7 @@ public class ClientServiceTest {
     public void testAddClient_alreadyExist() {
         AddClientRequestDto request = new AddClientRequestDto();
         request.setName(CLIENT_NAME); // client with same username exist
-        request.setCertificateUuid(certificate.getUuid());
+        request.setCertificateUuid(certificate.getUuid().toString());
 
         Assertions.assertThrows(AlreadyExistException.class, () -> clientService.addClient(request));
     }
@@ -136,7 +131,7 @@ public class ClientServiceTest {
     public void testAddClient_alreadyExistBySerialNumber() {
         AddClientRequestDto request = new AddClientRequestDto();
         request.setName("testClient2");
-        request.setCertificateUuid(certificate.getUuid()); // client with same certificate exist
+        request.setCertificateUuid(certificate.getUuid().toString()); // client with same certificate exist
 
         Assertions.assertThrows(AlreadyExistException.class, () -> clientService.addClient(request));
     }
@@ -150,9 +145,9 @@ public class ClientServiceTest {
 
         EditClientRequestDto request = new EditClientRequestDto();
         request.setDescription("some description");
-        request.setCertificateUuid(client2Cert.getUuid());
+        request.setCertificateUuid(client2Cert.getUuid().toString());
 
-        ClientDto dto = clientService.editClient(client.getUuid(), request);
+        ClientDto dto = clientService.editClient(client.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
         Assertions.assertNotNull(dto.getCertificate());
@@ -163,40 +158,40 @@ public class ClientServiceTest {
     public void testEditClient_notFound() {
         EditClientRequestDto request = new EditClientRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.editClient("wrong-uuid", request));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.editClient(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
     public void testRemoveClient() throws NotFoundException {
-        clientService.removeClient(client.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(client.getUuid()));
+        clientService.deleteClient(client.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(client.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveClient_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.removeClient("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.deleteClient(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testEnableClient() throws NotFoundException, CertificateException {
-        clientService.enableClient(client.getUuid());
+        clientService.enableClient(client.getSecuredUuid());
         Assertions.assertEquals(true, client.getEnabled());
     }
 
     @Test
     public void testEnableClient_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.enableClient("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.enableClient(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testDisableClient() throws NotFoundException {
-        clientService.disableClient(client.getUuid());
+        clientService.disableClient(client.getSecuredUuid());
         Assertions.assertEquals(false, client.getEnabled());
     }
 
     @Test
     public void testDisableClient_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.disableClient("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.disableClient(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -204,46 +199,46 @@ public class ClientServiceTest {
         client.getRaProfiles().add(raProfile);
         clientRepository.save(client);
 
-        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getSecuredUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertFalse(auths.isEmpty());
-        Assertions.assertEquals(raProfile.getUuid(), auths.get(0).getUuid());
+        Assertions.assertEquals(raProfile.getUuid().toString(), auths.get(0).getUuid());
     }
 
     @Test
     public void testListAuthorizations_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.listAuthorizations("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.listAuthorizations(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testListAuthorizations_emptyAuthorizations() throws NotFoundException {
-        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getSecuredUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }
 
     @Test
     public void testAuthorizeClient() throws NotFoundException {
-        clientService.authorizeClient(client.getUuid(), raProfile.getUuid());
+        clientService.authorizeClient(client.getSecuredUuid(), raProfile.getUuid().toString());
 
         // refresh relations
         entityManager.flush();
         entityManager.refresh(client);
 
-        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getSecuredUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertFalse(auths.isEmpty());
-        Assertions.assertEquals(raProfile.getUuid(), auths.get(0).getUuid());
+        Assertions.assertEquals(raProfile.getUuid().toString(), auths.get(0).getUuid());
     }
 
     @Test
     public void testAuthorizeClient_clientNotFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.authorizeClient("wrong-uuid", raProfile.getUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.authorizeClient(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), raProfile.getUuid().toString()));
     }
 
     @Test
     public void testAuthorizeClient_raProfileNotFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.authorizeClient(client.getUuid(), "wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.authorizeClient(client.getSecuredUuid(), "abfbc322-29e1-11ed-a261-0242ac120002"));
     }
 
     @Test
@@ -251,42 +246,42 @@ public class ClientServiceTest {
         client.getRaProfiles().add(raProfile);
         clientRepository.save(client);
 
-        clientService.unauthorizeClient(client.getUuid(), raProfile.getUuid());
+        clientService.unauthorizeClient(client.getSecuredUuid(), raProfile.getUuid().toString());
 
         // refresh relations
         entityManager.flush();
         entityManager.refresh(client);
 
-        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getUuid());
+        List<SimplifiedRaProfileDto> auths = clientService.listAuthorizations(client.getSecuredUuid());
         Assertions.assertNotNull(auths);
         Assertions.assertTrue(auths.isEmpty());
     }
 
     @Test
     public void testUnauthorizeClient_clientNotFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.unauthorizeClient("wrong-uuid", raProfile.getUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.unauthorizeClient(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), raProfile.getUuid().toString()));
     }
 
     @Test
     public void testUnauthorizeClient_raProfileNotFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.unauthorizeClient(client.getUuid(), "wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.unauthorizeClient(client.getSecuredUuid(), "abfbc322-29e1-11ed-a261-0242ac120002"));
     }
 
     @Test
     public void testBulkRemove() {
-        clientService.bulkRemoveClient(List.of(client.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(client.getUuid()));
+        clientService.bulkDeleteClient(List.of(client.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> clientService.getClient(client.getSecuredUuid()));
     }
 
     @Test
     public void testBulkEnable() {
-        clientService.bulkEnableClient(List.of(client.getUuid()));
+        clientService.bulkEnableClient(List.of(client.getSecuredUuid()));
         Assertions.assertTrue(client.getEnabled());
     }
 
     @Test
     public void testBulkDisable() {
-        clientService.bulkDisableClient(List.of(client.getUuid()));
+        clientService.bulkDisableClient(List.of(client.getSecuredUuid()));
         Assertions.assertFalse(client.getEnabled());
     }
 }

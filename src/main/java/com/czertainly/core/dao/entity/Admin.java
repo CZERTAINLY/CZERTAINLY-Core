@@ -8,16 +8,11 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "admin")
-public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "admin_seq")
-    @SequenceGenerator(name = "admin_seq", sequenceName = "admin_id_seq", allocationSize = 1)
-    private Long id;
+public class Admin extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AdminDto> {
 
     @Column(name = "username")
     private String username;
@@ -35,8 +30,11 @@ public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> 
     private String email;
 
     @OneToOne
-	@JoinColumn(name = "certificate_id", nullable = false)
+	@JoinColumn(name = "certificate_uuid", nullable = false, insertable = false, updatable = false)
 	private Certificate certificate;
+
+    @Column(name = "certificate_uuid", nullable = false)
+    private UUID certificateUuid;
 
     @Column(name = "serial_number")
     private String serialNumber;
@@ -51,21 +49,12 @@ public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> 
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("username", username)
                 .append("name", name)
                 .append("email", email)
                 .append("surname", surname)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getUsername() {
@@ -138,12 +127,25 @@ public class Admin extends Audited implements Serializable, DtoMapper<AdminDto> 
 
 	public void setCertificate(Certificate certificate) {
 		this.certificate = certificate;
-	}
+        this.certificateUuid = certificate.getUuid();
+    }
 
-	@Override
+    public UUID getCertificateUuid() {
+        return certificateUuid;
+    }
+
+    public void setCertificateUuid(UUID certificateUuid) {
+        this.certificateUuid = certificateUuid;
+    }
+
+    public void setCertificateUuid(String certificateUuid) {
+        this.certificateUuid = UUID.fromString(certificateUuid);
+    }
+
+    @Override
     public AdminDto mapToDto() {
         AdminDto dto = new AdminDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setUsername(username);
         dto.setName(name);
         dto.setDescription(description);

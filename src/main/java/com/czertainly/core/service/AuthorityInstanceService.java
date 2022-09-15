@@ -11,31 +11,33 @@ import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
 public interface AuthorityInstanceService {
-    List<AuthorityInstanceDto> listAuthorityInstances();
+    List<AuthorityInstanceDto> listAuthorityInstances(SecurityFilter filter);
 
-    AuthorityInstanceDto getAuthorityInstance(String uuid) throws NotFoundException, ConnectorException;
+    AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
     AuthorityInstanceDto createAuthorityInstance(AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
-    AuthorityInstanceDto updateAuthorityInstance(String uuid, AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException;
+    AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException;
 
-    void removeAuthorityInstance(String uuid) throws NotFoundException, ConnectorException;
+    void deleteAuthorityInstance(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
-    List<NameAndIdDto> listEndEntityProfiles(String uuid) throws NotFoundException, ConnectorException;
+    List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
-    List<NameAndIdDto> listCertificateProfiles(String uuid, Integer endEntityProfileId) throws NotFoundException, ConnectorException;
+    List<NameAndIdDto> listCertificateProfiles(SecuredUUID uuid, Integer endEntityProfileId) throws NotFoundException, ConnectorException;
 
-    List<NameAndIdDto> listCAsInProfile(String uuid, Integer endEntityProfileId) throws NotFoundException, ConnectorException;
+    List<NameAndIdDto> listCAsInProfile(SecuredUUID uuid, Integer endEntityProfileId) throws NotFoundException, ConnectorException;
 
-    List<AttributeDefinition> listRAProfileAttributes(String uuid) throws NotFoundException, ConnectorException;
+    List<AttributeDefinition> listRAProfileAttributes(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
-    Boolean validateRAProfileAttributes(String uuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException;
+    Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException;
 
-    List<BulkActionMessageDto> bulkRemoveAuthorityInstance(List<String> uuids) throws NotFoundException, ValidationException, ConnectorException;
+    List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<SecuredUUID> uuids) throws NotFoundException, ValidationException, ConnectorException;
 
-    List<BulkActionMessageDto> bulkForceRemoveAuthorityInstance(List<String> uuids) throws ValidationException, NotFoundException;
+    List<BulkActionMessageDto> forceDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 }

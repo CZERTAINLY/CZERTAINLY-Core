@@ -10,6 +10,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Entity containing the relation between the Compliance Profile and the Rule. This has to be maintained separately
@@ -19,29 +20,30 @@ import java.util.List;
  */
 @Entity
 @Table(name = "compliance_profile_rule")
-public class ComplianceProfileRule extends Audited implements Serializable, DtoMapper<ComplianceRulesDto> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "compliance_profile_rule_seq")
-    @SequenceGenerator(name = "compliance_profile_rule_seq", sequenceName = "compliance_profile_rule_id_seq", allocationSize = 1)
-    private Long id;
+public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceRulesDto> {
 
-    @OneToOne
-    @JoinColumn(name = "rule_id")
+    @OneToOne(cascade=CascadeType.ALL)
+    @JoinColumn(name = "rule_uuid")
     private ComplianceRule complianceRule;
+
+    @Column(name="rule_uuid", insertable = false, updatable = false)
+    private UUID complianceRuleUuid;
 
     @Column(name="attributes")
     private String attributes;
 
     @OneToOne
-    @JoinColumn(name = "compliance_profile_id")
+    @JoinColumn(name = "compliance_profile_uuid")
     private ComplianceProfile complianceProfile;
+
+    @Column(name="compliance_profile_uuid", insertable = false, updatable = false)
+    private UUID complianceProfileUuid;
 
     @Override
     public ComplianceRulesDto mapToDto(){
         ComplianceRulesDto dto = new ComplianceRulesDto();
         dto.setName(complianceRule.getName());
-        dto.setUuid(complianceRule.getUuid());
+        dto.setUuid(complianceRule.getUuid().toString());
         dto.setAttributes(getAttributes());
         dto.setDescription(complianceRule.getDescription());
         return dto;
@@ -50,19 +52,11 @@ public class ComplianceProfileRule extends Audited implements Serializable, DtoM
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("rule", complianceRule)
+                .append("uuid", uuid)
                 .append("attributes", attributes)
                 .append("complianceProfile", complianceProfile)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public ComplianceRule getComplianceRule() {
@@ -71,6 +65,19 @@ public class ComplianceProfileRule extends Audited implements Serializable, DtoM
 
     public void setComplianceRule(ComplianceRule complianceRule) {
         this.complianceRule = complianceRule;
+        if(complianceRule != null) this.complianceRuleUuid = complianceRule.getUuid();
+    }
+
+    public UUID getComplianceRuleUuid() {
+        return complianceRuleUuid;
+    }
+
+    public void setComplianceRuleUuid(String complianceRuleUuid) {
+        this.complianceRuleUuid = UUID.fromString(complianceRuleUuid);
+    }
+
+    public void setComplianceRuleUuid(UUID complianceRuleUuid) {
+        this.complianceRuleUuid = complianceRuleUuid;
     }
 
     public List<RequestAttributeDto> getAttributes() {
@@ -87,5 +94,17 @@ public class ComplianceProfileRule extends Audited implements Serializable, DtoM
 
     public void setComplianceProfile(ComplianceProfile complianceProfile) {
         this.complianceProfile = complianceProfile;
+    }
+
+    public UUID getComplianceProfileUuid() {
+        return complianceProfileUuid;
+    }
+
+    public void setComplianceProfileUuid(String complianceProfileUuid) {
+        this.complianceProfileUuid = UUID.fromString(complianceProfileUuid);
+    }
+
+    public void setComplianceProfileUuid(UUID complianceProfileUuid) {
+        this.complianceProfileUuid = complianceProfileUuid;
     }
 }

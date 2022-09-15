@@ -6,8 +6,6 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.*;
-import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
-import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.CertificateComplianceResultDto;
@@ -33,6 +31,11 @@ import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
@@ -53,15 +56,11 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.StringWriter;
+import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -82,11 +81,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
 public class CertificateServiceImpl implements CertificateService {
 
     // Default page size for the certificate search API when page size is not provided
@@ -137,15 +136,24 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST)
+    public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
+        // TODO AUTH - use SecurityFilter
         return getCertificatesWithFilter(request);
 
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public CertificateDto getCertificate(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
+        // TODO AUTH - moved logic from controller
+        updateIssuer();
         Certificate entity = getCertificateEntity(uuid);
+        if (entity.getStatus() != CertificateStatus.EXPIRED || entity.getStatus() != CertificateStatus.REVOKED) {
+            certValidationService.validate(entity);
+        }
+
         CertificateDto dto = entity.mapToDto();
         if (entity.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(entity.getComplianceResult()));
@@ -157,12 +165,16 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    public Certificate getCertificateEntity(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException {
         return certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    // TODO AUTH - how to secure when no uuid is provided? Maybe this one does not have to be secured as it is used only internaly.
+    // Alternatively SecurityFilter can be used and permision checkes programaticaly after the entity is obtained and uuid is know.
     public Certificate getCertificateEntityByContent(String content) {
         CertificateContent certificateContent = certificateContentRepository.findByContent(content);
         return certificateRepository.findByCertificateContent(certificateContent);
@@ -170,6 +182,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
+    // TODO AUTH - same as above
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException {
         return certificateRepository.findBySerialNumberIgnoreCase(serialNumber)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
@@ -177,8 +191,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void removeCertificate(String uuid) throws NotFoundException {
+    public void deleteCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
 
@@ -219,153 +234,61 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateRaProfile(String uuid, CertificateUpdateRAProfileDto request) throws NotFoundException {
-        Certificate certificate = certificateRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        RaProfile raProfile = raProfileRepository.findByUuid(request.getRaProfileUuid())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
-        String originalProfile = "undefined";
-        if (certificate.getRaProfile() != null) {
-            originalProfile = certificate.getRaProfile().getName();
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+        if (request.getRaProfileUuid() != null) {
+            updateRaProfile(uuid, SecuredUUID.fromString(request.getRaProfileUuid()));
         }
-        certificate.setRaProfile(raProfile);
-        certificateRepository.save(certificate);
-        try {
-            complianceService.checkComplianceOfCertificate(certificate);
-        } catch (ConnectorException e) {
-            logger.error("Error when checking compliance:", e);
+        if (request.getGroupUuid() != null) {
+            updateCertificateGroup(uuid, SecuredUUID.fromString(request.getGroupUuid()));
         }
-        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateCertificateGroup(String uuid, CertificateUpdateGroupDto request) throws NotFoundException {
-        Certificate certificate = certificateRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-
-        CertificateGroup certificateGroup = groupRepository.findByUuid(request.getGroupUuid())
-                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getGroupUuid()));
-        String originalGroup = "undefined";
-        if (certificate.getGroup() != null) {
-            originalGroup = certificate.getGroup().getName();
+        if (request.getOwner() != null) {
+            updateOwner(uuid, request.getOwner());
         }
-        certificate.setGroup(certificateGroup);
-        certificateRepository.save(certificate);
-        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void updateOwner(String uuid, CertificateOwnerRequestDto request) throws NotFoundException {
-        Certificate certificate = certificateRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        String originalOwner = certificate.getOwner();
-        if (originalOwner == null || originalOwner.isEmpty()) {
-            originalOwner = "undefined";
-        }
-        certificate.setOwner(request.getOwner());
-        certificateRepository.save(certificate);
-        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + request.getOwner(), "", certificate);
     }
 
     @Async
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void bulkUpdateRaProfile(MultipleRAProfileUpdateDto request) throws NotFoundException {
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        RaProfile raProfile = raProfileRepository.findByUuid(request.getUuid())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getUuid()));
-        if (request.getFilters() == null) {
-            List<Certificate> batchOperationList = new ArrayList<>();
-            for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
-                certificate.setRaProfile(raProfile);
-                batchOperationList.add(certificate);
-            }
-            certificateRepository.saveAll(batchOperationList);
-            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
-        } else {
-            String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + raProfile.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            certificateRepository.bulkUpdateQuery(profileUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
-            bulkUpdateRaProfileComplianceCheck(request.getFilters());
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
+    public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        if (request.getRaProfileUuid() != null) {
+            bulkUpdateRaProfile(request);
         }
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void bulkUpdateCertificateGroup(MultipleGroupUpdateDto request) throws NotFoundException {
-        CertificateGroup certificateGroup = groupRepository.findByUuid(request.getUuid())
-                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getUuid()));
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        if (request.getFilters() == null) {
-            List<Certificate> batchOperationList = new ArrayList<>();
-
-            for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + certificateGroup.getName(), "", certificate));
-                certificate.setGroup(certificateGroup);
-                batchOperationList.add(certificate);
-            }
-            certificateRepository.saveAll(batchOperationList);
-            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
-        } else {
-            String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getId() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            certificateRepository.bulkUpdateQuery(groupUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
+        if (request.getGroupUuid() != null) {
+            bulkUpdateCertificateGroup(request);
         }
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    public void bulkUpdateOwner(CertificateOwnerBulkUpdateDto request) throws NotFoundException {
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        if (request.getFilters() == null) {
-            List<Certificate> batchOperationList = new ArrayList<>();
-            for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(certificateUuid)
-                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
-                certificate.setOwner(request.getOwner());
-                batchOperationList.add(certificate);
-            }
-            certificateRepository.saveAll(batchOperationList);
-            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
-        } else {
-            String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            certificateRepository.bulkUpdateQuery(ownerUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
+        if (request.getOwner() != null) {
+            bulkUpdateOwner(request);
         }
-
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @Async("threadPoolTaskExecutor")
-    public void bulkRemoveCertificate(RemoveCertificateDto request) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
+    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
+    public void bulkDeleteCertificate(RemoveCertificateDto request) throws NotFoundException {
         List<String> failedDeleteCerts = new ArrayList<>();
         Integer totalItems;
         BulkOperationResponse bulkOperationResponse = new BulkOperationResponse();
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null) {
             for (String uuid : request.getUuids()) {
-                Certificate certificate = certificateRepository.findByUuid(uuid)
+                Certificate certificate = certificateRepository.findByUuid(UUID.fromString(uuid))
                         .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
                 if (!adminRepository.findByCertificate(certificate).isEmpty()) {
                     logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
                     batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client ", "", certificate));
-                    failedDeleteCerts.add(certificate.getUuid());
+                    failedDeleteCerts.add(certificate.getUuid().toString());
                     continue;
                 }
 
                 if (!clientRepository.findByCertificate(certificate).isEmpty()) {
                     logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
                     batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin ", "", certificate));
-                    failedDeleteCerts.add(certificate.getUuid());
+                    failedDeleteCerts.add(certificate.getUuid().toString());
                     continue;
                 }
 
@@ -411,6 +334,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+//    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - what is the correct action? It is not necessary to check permissions, internal function that will be later done by scheduler?
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
             if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
@@ -453,7 +378,6 @@ public class CertificateServiceImpl implements CertificateService {
             subjectCertificate.verify(issuerCertificate.getPublicKey());
             return true;
         } catch (Exception e) {
-            logger.warn("Unable to verify certificate for signature.", e);
             return false;
         }
     }
@@ -464,6 +388,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException {
         Certificate entity = new Certificate();
         String fingerprint;
@@ -520,6 +445,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
+    // TODO AUTH - what is the correct action?
+    // TODO AUTH - make private?
     public Certificate createCertificateEntity(X509Certificate certificate) {
         logger.debug("Making a new entry for a certificate");
         Certificate modal = new Certificate();
@@ -536,8 +464,10 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         CertificateUtil.prepareCertificate(modal, certificate);
+        CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
-        modal.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
+        modal.setCertificateContent(certificateContent);
+        modal.setCertificateContentId(certificateContent.getId());
 
         return modal;
     }
@@ -558,6 +488,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public CertificateDto upload(UploadCertificateRequestDto request)
             throws AlreadyExistException, CertificateException {
         X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
@@ -578,6 +509,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
@@ -591,6 +523,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
@@ -605,6 +538,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String serialNumber) {
         try {
             Certificate certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
@@ -616,7 +550,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    // TODO AUTH - obtain locations through location service
+    public List<LocationDto> listLocations(SecuredUUID certificateUuid) throws NotFoundException {
         Certificate certificateEntity = certificateRepository.findByUuid(certificateUuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         return certificateEntity.getLocations().stream()
@@ -627,16 +563,18 @@ public class CertificateServiceImpl implements CertificateService {
 
 
     @Override
+    // TODO AUTH - move to RaProfile service, use RaProfile UUID, secure with @ExternalAuthorization
     public List<Certificate> listCertificatesForRaProfile(RaProfile raProfile) {
         return certificateRepository.findByRaProfile(raProfile);
     }
 
     @Override
     @Async
+    // TODO AUTH - move certificate uuids to method parameters, secure with @ExternalAuthorization
     public void checkCompliance(CertificateComplianceCheckDto request) {
         for (String uuid : request.getCertificateUuids()) {
             try {
-                complianceService.checkComplianceOfCertificate(getCertificateEntity(uuid));
+                complianceService.checkComplianceOfCertificate(getCertificateEntity(SecuredUUID.fromString(uuid)));
             } catch (ConnectorException e) {
                 logger.error("Compliance check failed.", e);
             }
@@ -644,12 +582,13 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    // TODO AUTH - make private
     public void updateCertificateEntity(Certificate certificate) {
         certificateRepository.save(certificate);
     }
 
     @Override
-    public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException {
+    public Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException {
         String validationResult = getCertificateEntity(uuid).getCertificateValidationResult();
         try {
             return MetaDefinitions.deserializeValidation(validationResult);
@@ -730,7 +669,7 @@ public class CertificateServiceImpl implements CertificateService {
             Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
             certificateResponseDto.setTotalPages((int) Math.ceil((double) certificateRepository.count() / request.getItemsPerPage()));
             certificateResponseDto.setTotalItems(certificateRepository.count());
-            certificateResponseDto.setCertificates(certificateRepository.findAllByOrderByIdDesc(p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+            certificateResponseDto.setCertificates(certificateRepository.findAllByOrderByCreatedDesc(p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
         } else {
             DynamicSearchInternalResponse dynamicSearchInternalResponse = searchService.dynamicSearchQueryExecutor(request, "Certificate", getSearchableFieldInformation());
             certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
@@ -746,7 +685,7 @@ public class CertificateServiceImpl implements CertificateService {
         logger.debug("Framing Compliance Result from stored data: {}", storageDto);
         List<CertificateComplianceResultDto> result = new ArrayList<>();
         List<ComplianceProfileRule> rules = complianceService.getComplianceProfileRuleEntityForIds(storageDto.getNok());
-        // List<ComplianceProfileRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
+        // List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
         for (ComplianceProfileRule complianceRule : rules) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
@@ -769,10 +708,11 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Async
+    // TODO AUTH - move to search service
     private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter) {
         List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
         CertificateComplianceCheckDto dto = new CertificateComplianceCheckDto();
-        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).collect(Collectors.toList()));
+        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).map(UUID::toString).collect(Collectors.toList()));
         checkCompliance(dto);
     }
 
@@ -896,5 +836,123 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error(e.getMessage());
         }
         return "";
+    }
+
+    private void updateRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        RaProfile raProfile = raProfileRepository.findByUuid(raProfileUuid)
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+        String originalProfile = "undefined";
+        if (certificate.getRaProfile() != null) {
+            originalProfile = certificate.getRaProfile().getName();
+        }
+        certificate.setRaProfile(raProfile);
+        certificateRepository.save(certificate);
+        try {
+            complianceService.checkComplianceOfCertificate(certificate);
+        } catch (ConnectorException e) {
+            logger.error("Error when checking compliance:", e);
+        }
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "", certificate);
+    }
+
+    private void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+
+        CertificateGroup certificateGroup = groupRepository.findByUuid(groupUuid)
+                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, groupUuid));
+        String originalGroup = "undefined";
+        if (certificate.getGroup() != null) {
+            originalGroup = certificate.getGroup().getName();
+        }
+        certificate.setGroup(certificateGroup);
+        certificateRepository.save(certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
+    }
+
+    private void updateOwner(SecuredUUID uuid, String owner) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        String originalOwner = certificate.getOwner();
+        if (originalOwner == null || originalOwner.isEmpty()) {
+            originalOwner = "undefined";
+        }
+        certificate.setOwner(owner);
+        certificateRepository.save(certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + owner, "", certificate);
+    }
+
+    public void bulkUpdateRaProfile(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
+        RaProfile raProfile = raProfileRepository.findByUuid(SecuredUUID.fromString(request.getRaProfileUuid()))
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
+        if (request.getFilters() == null) {
+            List<Certificate> batchOperationList = new ArrayList<>();
+            for (String certificateUuid : request.getCertificateUuids()) {
+                Certificate certificate = certificateRepository.findByUuid(UUID.fromString(certificateUuid))
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
+                certificate.setRaProfile(raProfile);
+                batchOperationList.add(certificate);
+            }
+            certificateRepository.saveAll(batchOperationList);
+            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
+        } else {
+            String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + raProfile.getUuid() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            certificateRepository.bulkUpdateQuery(profileUpdateQuery);
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + raProfile.getName());
+            bulkUpdateRaProfileComplianceCheck(request.getFilters());
+        }
+    }
+
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
+    public void bulkUpdateCertificateGroup(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        CertificateGroup certificateGroup = groupRepository.findByUuid(SecuredUUID.fromString(request.getGroupUuid()))
+                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getGroupUuid()));
+        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
+        if (request.getFilters() == null) {
+            List<Certificate> batchOperationList = new ArrayList<>();
+
+            for (String certificateUuid : request.getCertificateUuids()) {
+                Certificate certificate = certificateRepository.findByUuid(UUID.fromString(certificateUuid))
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + certificateGroup.getName(), "", certificate));
+                certificate.setGroup(certificateGroup);
+                batchOperationList.add(certificate);
+            }
+            certificateRepository.saveAll(batchOperationList);
+            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
+        } else {
+            String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getUuid() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            certificateRepository.bulkUpdateQuery(groupUpdateQuery);
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
+        }
+    }
+
+
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
+    public void bulkUpdateOwner(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
+        if (request.getFilters() == null) {
+            List<Certificate> batchOperationList = new ArrayList<>();
+            for (String certificateUuid : request.getCertificateUuids()) {
+                Certificate certificate = certificateRepository.findByUuid(UUID.fromString(certificateUuid))
+                        .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
+                certificate.setOwner(request.getOwner());
+                batchOperationList.add(certificate);
+            }
+            certificateRepository.saveAll(batchOperationList);
+            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
+        } else {
+            String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", "", getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            certificateRepository.bulkUpdateQuery(ownerUpdateQuery);
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
+        }
+
     }
 }

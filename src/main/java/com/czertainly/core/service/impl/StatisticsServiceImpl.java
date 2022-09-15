@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -81,19 +82,19 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     private Map<String, Long> getGroupStatByCertificateCount(StatisticsDto dto) {
-        List<Long> keys = new ArrayList<Long>();
+        List<UUID> keys = new ArrayList<>();
         var result = certificateRepository.getCertificatesCountByGroup();
-        for (Object[] item : result) keys.add((long) item[0]);
-        var labels = certificateRepository.getGroupNamesWithIds(keys);
+        for (Object[] item : result) keys.add((UUID) item[0]);
+        var labels = certificateRepository.getGroupNamesWithUuids(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
     }
 
     private Map<String, Long> getRaProfileStatByCertificateCount(StatisticsDto dto) {
-        List<Long> keys = new ArrayList<Long>();
+        List<UUID> keys = new ArrayList<>();
         var result = certificateRepository.getCertificatesCountByRaProfile();
-        for (Object[] item : result) keys.add((long) item[0]);
-        var labels = certificateRepository.getRaProfileNamesWithIds(keys);
+        for (Object[] item : result) keys.add((UUID) item[0]);
+        var labels = certificateRepository.getRaProfileNamesWithUuids(keys);
 
         return getStatsMap(result, labels, dto.getTotalCertificates(), "Unassigned");
     }
@@ -158,11 +159,11 @@ public class StatisticsServiceImpl implements StatisticsService {
                 stats.put(item[0].toString(), (long) item[1]);
             }
         } else {
-            Map<Long, String> labels = new HashMap<>();
-            for (Object[] item : resultLabels) labels.put((long) item[0], item[1].toString());
+            Map<String, String> labels = new HashMap<>();
+            for (Object[] item : resultLabels) labels.put(item[0].toString(), item[1].toString());
             for (Object[] item : resultStats) {
                 totalStatsCount += (long) item[1];
-                stats.put(labels.get((long) item[0]), (long) item[1]);
+                stats.put(labels.get(item[0].toString()), (long) item[1]);
             }
         }
 

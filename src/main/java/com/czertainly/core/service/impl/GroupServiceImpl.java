@@ -12,21 +12,25 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.GroupService;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class GroupServiceImpl implements GroupService {
     private static final Logger logger = LoggerFactory.getLogger(GroupServiceImpl.class);
 
@@ -38,22 +42,25 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.REQUEST)
-    public List<GroupDto> listGroups() {
-        return groupRepository.findAll().stream().map(CertificateGroup::mapToDto).collect(Collectors.toList());
+    @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.LIST)
+    public List<GroupDto> listGroups(SecurityFilter filter) {
+        List<CertificateGroup> groups;
+        return groupRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(CertificateGroup::mapToDto)
+                .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.REQUEST)
-    public GroupDto getCertificateGroup(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.DETAIL)
+    public GroupDto getGroup(SecuredUUID uuid) throws NotFoundException {
         return getGroupEntity(uuid).mapToDto();
-    }
-
-    public CertificateGroup getGroupEntity(String uuid) throws NotFoundException {
-        return groupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.CREATE)
     public GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException {
 
         if (StringUtils.isBlank(request.getName())) {
@@ -74,11 +81,12 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
-    public void removeGroup(String uuid) throws NotFoundException {
-        CertificateGroup certificateGroup = groupRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
+    @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.DELETE)
+    public void deleteGroup(SecuredUUID uuid) throws NotFoundException {
+        CertificateGroup certificateGroup = getGroupEntity(uuid);
         for(Certificate certificate: certificateRepository.findByGroup(certificateGroup)){
             certificate.setGroup(null);
+            certificate.setGroupUuid(null);
             certificateRepository.save(certificate);
         }
         groupRepository.delete(certificateGroup);
@@ -86,10 +94,11 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
-    public void bulkRemoveGroup(List<String> entityUuids) {
-        for(String uuid: entityUuids){
+    @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.DELETE)
+    public void bulkDeleteGroup(List<SecuredUUID> entityUuids) {
+        for(SecuredUUID uuid: entityUuids){
             try{
-                removeGroup(uuid);
+                deleteGroup(uuid);
             }catch(NotFoundException e){
                 logger.warn("Unable to find the group with uuid {}. It may have been deleted", uuid);
             }
@@ -98,12 +107,16 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CHANGE)
-    public GroupDto updateGroup(String uuid, GroupRequestDto request) throws NotFoundException {
-        CertificateGroup certificateGroup = groupRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
+    @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.UPDATE)
+    public GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException {
+        CertificateGroup certificateGroup = getGroupEntity(uuid);
 
         certificateGroup.setDescription(request.getDescription());
         groupRepository.save(certificateGroup);
         return certificateGroup.mapToDto();
+    }
+
+    private CertificateGroup getGroupEntity(SecuredUUID uuid) throws NotFoundException {
+        return groupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CertificateGroup.class, uuid));
     }
 }

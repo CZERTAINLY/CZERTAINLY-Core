@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -34,7 +33,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 @Service
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
 public class CertValidationServiceImpl implements CertValidationService {
     private static final Logger logger = LoggerFactory.getLogger(CertValidationServiceImpl.class);
 
@@ -70,6 +68,7 @@ public class CertValidationServiceImpl implements CertValidationService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.VALIDATE)
+    // TODO AUTH - what are the required permissions?
     public void validate(Certificate certificate) throws NotFoundException, CertificateException, IOException {
         logger.debug("Initiating the certificate validation");
         List<Certificate> chainCerts = getCertificateChain(certificate);

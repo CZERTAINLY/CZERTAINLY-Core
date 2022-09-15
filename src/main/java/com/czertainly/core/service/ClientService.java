@@ -8,38 +8,39 @@ import com.czertainly.api.model.client.client.EditClientRequestDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.client.ClientDto;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
 public interface ClientService {
 
-    List<ClientDto> listClients();
+    List<ClientDto> listClients(SecurityFilter filter);
 
     ClientDto addClient(AddClientRequestDto request)
             throws CertificateException, AlreadyExistException, NotFoundException, ValidationException;
 
-    ClientDto getClient(String uuid) throws NotFoundException;
+    ClientDto getClient(SecuredUUID uuid) throws NotFoundException;
+
+    ClientDto editClient(SecuredUUID uuid, EditClientRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException;
+
+    List<SimplifiedRaProfileDto> listAuthorizations(SecuredUUID uuid) throws NotFoundException;
+    void deleteClient(SecuredUUID uuid) throws NotFoundException;
+
+    void authorizeClient(SecuredUUID uuid, String raProfileUuid) throws NotFoundException;
+
+    void unauthorizeClient(SecuredUUID uuid, String raProfileUuid) throws NotFoundException;
+
+    void enableClient(SecuredUUID uuid) throws NotFoundException, CertificateException;
+
+    void disableClient(SecuredUUID uuid) throws NotFoundException;
+
+    void bulkDisableClient(List<SecuredUUID> clientUuids);
+
+    List<BulkActionMessageDto> bulkDeleteClient(List<SecuredUUID> clientUuids);
+
+    void bulkEnableClient(List<SecuredUUID> clientUuids);
 
     ClientDto getClientBySerialNumber(String serialNumber) throws NotFoundException;
-
-    ClientDto editClient(String uuid, EditClientRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException;
-
-    void removeClient(String uuid) throws NotFoundException;
-
-    List<SimplifiedRaProfileDto> listAuthorizations(String uuid) throws NotFoundException;
-
-    void authorizeClient(String uuid, String raProfileUuid) throws NotFoundException;
-
-    void unauthorizeClient(String uuid, String raProfileUuid) throws NotFoundException;
-
-    void enableClient(String uuid) throws NotFoundException, CertificateException;
-
-    void disableClient(String uuid) throws NotFoundException;
-
-    List<BulkActionMessageDto> bulkRemoveClient(List<String> clientUuids);
-
-    void bulkDisableClient(List<String> clientUuids);
-
-    void bulkEnableClient(List<String> clientUuids);
 }

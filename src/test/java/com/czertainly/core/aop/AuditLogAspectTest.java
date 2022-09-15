@@ -1,19 +1,19 @@
 package com.czertainly.core.aop;
 
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.AdminService;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.service.ClientOperationService;
 import com.czertainly.core.service.ConnectorService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
 
 import java.util.UUID;
 
-@SpringBootTest
-public class AuditLogAspectTest {
+public class AuditLogAspectTest extends BaseSpringBootTest {
 
     @Autowired
     private AdminService adminService;
@@ -23,15 +23,13 @@ public class AuditLogAspectTest {
     private ConnectorService connectorService;
 
     @Test
-    @WithMockUser(roles = "SUPERADMINISTRATOR")
     public void testAuditLogAdmin() {
         Assertions.assertThrows(
                 NullPointerException.class,
-                () -> adminService.editAdmin(UUID.randomUUID().toString(), null));
+                () -> adminService.editAdmin(SecuredUUID.fromUUID(UUID.randomUUID()), null));
     }
 
     @Test
-    @WithMockUser(roles = "SUPERADMINISTRATOR")
     public void testAuditLogNestedCall() {
         Assertions.assertThrows(
                 NullPointerException.class,
@@ -39,10 +37,9 @@ public class AuditLogAspectTest {
     }
 
     @Test
-    @WithMockUser(roles = "CLIENT")
     public void testAuditLogClientOperation() {
         Assertions.assertThrows(
-                ValidationException.class,
+                NotFoundException.class,
                 () -> clientOperationService.addEndEntity("RAname", null));
     }
 }

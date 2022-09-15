@@ -1,8 +1,8 @@
 package com.czertainly.core.repository;
 
-import org.hibernate.dialect.H2Dialect;
+import org.hibernate.dialect.HSQLDialect;
 
-public class H2DialectExtended extends H2Dialect {
+public class HSQLDialectExtended extends HSQLDialect {
 
     @Override
     public String toBooleanValueString(boolean bool) {
