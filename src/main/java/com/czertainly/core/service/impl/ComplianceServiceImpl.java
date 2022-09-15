@@ -246,11 +246,6 @@ public class ComplianceServiceImpl implements ComplianceService {
         return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
-    @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<Long> ids) {
-        return complianceProfileRuleRepository.findByIdIn(ids);
-    }
-
 
     private void complianceCheckForRaProfile(RaProfile raProfile) throws ConnectorException {
         List<Certificate> certificates = certificateRepository.findByRaProfile(raProfile);
