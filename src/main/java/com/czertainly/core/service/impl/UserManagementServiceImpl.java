@@ -51,9 +51,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         if (StringUtils.isBlank(request.getUsername())) {
             throw new ValidationException("username must not be empty");
         }
-        if (StringUtils.isAnyBlank(request.getFirstName(), request.getLastName())) {
-            throw new ValidationException("name and surname must not be empty");
-        }
         if (StringUtils.isBlank(request.getEmail())) {
             throw new ValidationException("email must not be empty");
         }
@@ -74,10 +71,10 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         UserRequestDto requestDto = new UserRequestDto();
         requestDto.setEmail(request.getEmail());
-        requestDto.setEnabled(request.getEnabled());
+        requestDto.setEnabled(true);
         requestDto.setUsername(request.getUsername());
         requestDto.setFirstName(request.getFirstName());
-        requestDto.setLastName(requestDto.getLastName());
+        requestDto.setLastName(request.getLastName());
         requestDto.setCertificateUuid(certificate.getUuid().toString());
         requestDto.setCertificateFingerprint(certificate.getFingerprint());
 

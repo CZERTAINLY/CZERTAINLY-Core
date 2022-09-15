@@ -33,7 +33,7 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
 
 
     public UserDetailDto getUserDetail(String userUuid) {
-        WebClient.RequestBodySpec request = prepareRequest(HttpMethod.GET).uri(USER_DETAIL_CONTEXT.replace("{roleUuid}", userUuid));
+        WebClient.RequestBodySpec request = prepareRequest(HttpMethod.GET).uri(USER_DETAIL_CONTEXT.replace("{userUuid}", userUuid));
 
         return processRequest(r -> r
                         .retrieve()
@@ -55,7 +55,7 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
     }
 
     public UserDto updateUser(String userUuid, UserUpdateRequestDto requestDto) {
-        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.PUT);
 
         return processRequest(r -> r
                         .uri(USER_DETAIL_CONTEXT, userUuid)

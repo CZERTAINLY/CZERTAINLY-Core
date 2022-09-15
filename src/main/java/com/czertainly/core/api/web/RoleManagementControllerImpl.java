@@ -10,11 +10,13 @@ import com.czertainly.api.model.core.auth.RoleRequestDto;
 import com.czertainly.core.service.RoleManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.List;
 
+@RestController
 public class RoleManagementControllerImpl implements RoleManagementController {
 
     @Autowired

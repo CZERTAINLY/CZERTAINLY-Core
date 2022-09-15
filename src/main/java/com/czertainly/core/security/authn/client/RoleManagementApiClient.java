@@ -48,7 +48,7 @@ public class RoleManagementApiClient extends CzertainlyBaseAuthenticationClient 
     }
 
     public RoleDto updateRole(String roleUuid, RoleRequestDto requestDto) {
-        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.PUT);
 
         return processRequest(r -> r
                         .uri(ROLE_DETAIL_CONTEXT, roleUuid)
