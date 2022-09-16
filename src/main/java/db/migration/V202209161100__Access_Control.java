@@ -75,6 +75,12 @@ public class V202209161100__Access_Control extends BaseJavaMigration {
     }
 
     private String getAuthServiceUrl() throws IOException, URISyntaxException {
+
+        String authServiceUrl = System.getenv("AUTH_SERVICE_BASE_URL");
+        if(authServiceUrl != null || !authServiceUrl.isEmpty()){
+            return authServiceUrl;
+        }
+
         ClassLoader classLoader = getClass().getClassLoader();
         URL resource = classLoader.getResource("application.properties");
         File file = new File(resource.toURI());
@@ -82,7 +88,8 @@ public class V202209161100__Access_Control extends BaseJavaMigration {
         InputStream targetStream = new FileInputStream(file);
         Properties properties = new Properties();
         properties.load(targetStream);
-        return (String) properties.get("auth-service.base-url");
+        String[] splitData = ((String) properties.get("auth-service.base-url")).split("AUTH_SERVICE_BASE_URL");
+        return splitData[splitData.length - 1].replace("}", "");
     }
 
 
