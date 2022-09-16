@@ -23,6 +23,13 @@ public class CzertainlyBaseAuthenticationClient {
 
     private WebClient client;
 
+    public CzertainlyBaseAuthenticationClient(String authServiceBaseUrl, WebClient client) {
+        this.authServiceBaseUrl = authServiceBaseUrl;
+        this.client = client;
+    }
+
+    public CzertainlyBaseAuthenticationClient() {
+    }
 
     public static <T, R> R processRequest(Function<T, R> func, T request) {
         try {

@@ -19,6 +19,12 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
     private static final String USER_PERMISSION_CONTEXT = USER_DETAIL_CONTEXT + "/permissions";
     private static final String USER_ROLE_CONTEXT = USER_DETAIL_CONTEXT + "/roles";
 
+    public UserManagementApiClient(String authServiceBaseUrl, WebClient client) {
+        super(authServiceBaseUrl, client);
+    }
+
+    public UserManagementApiClient() {
+    }
 
     public UserWithPaginationDto getUsers() {
 
