@@ -1,17 +1,14 @@
 package db.migration;
 
-import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
@@ -32,11 +29,9 @@ import java.util.Properties;
 public class V202209161100__Access_Control extends BaseJavaMigration {
 
     private static final String CREDENTIAL_TABLE_NAME = "credential";
-
+    private static Properties properties;
     private WebClient client;
     private UserManagementApiClient userManagementApiClient;
-
-    private static Properties properties;
 
     @Override
     public Integer getChecksum() {
@@ -46,11 +41,12 @@ public class V202209161100__Access_Control extends BaseJavaMigration {
     public void migrate(Context context) throws Exception {
         userManagementApiClient = new UserManagementApiClient(getAuthServiceUrl(), client);
         try (Statement select = context.getConnection().createStatement()) {
-            createUsers(context);
+            createAdministratorUsers(context);
+            createClientUsers(context);
         }
     }
 
-    private void createUsers(Context context) throws Exception {
+    private void createAdministratorUsers(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT a.username, a.name, a.surname, a.email, a.certificate_uuid, a.enabled, c.fingerprint FROM admin a JOIN certificate c ON a.certificate_uuid = c.uuid;")) {
                 while (rows.next()) {
@@ -61,14 +57,25 @@ public class V202209161100__Access_Control extends BaseJavaMigration {
                     dto.setFirstName(rows.getString("name"));
                     dto.setUsername(rows.getString("username"));
                     dto.setEmail(rows.getString("email"));
-                    Boolean enabled = rows.getBoolean("enabled");
-                    if (enabled == null) {
-                        enabled = false;
-                    }
-                    dto.setEnabled(enabled);
+                    dto.setEnabled(rows.getBoolean("enabled"));
                     dto.setCertificateFingerprint(rows.getString("fingerprint"));
-                    UserDto user = userManagementApiClient.createUser(dto);
-                    System.out.println(user.toString());
+                    userManagementApiClient.createUser(dto);
+                }
+            }
+        }
+    }
+
+    private void createClientUsers(Context context) throws Exception {
+        try (Statement select = context.getConnection().createStatement()) {
+            try (ResultSet rows = select.executeQuery("SELECT a.uuid, a.name, a.certificate_uuid, a.enabled, c.fingerprint FROM client a JOIN certificate c ON a.certificate_uuid = c.uuid WHERE a.certificate_uuid NOT IN (SELECT b.certificate_uuid FROM admin b);")) {
+                while (rows.next()) {
+                    UserRequestDto dto = new UserRequestDto();
+                    String certificateUuid = rows.getString("certificate_uuid");
+                    dto.setCertificateUuid(certificateUuid);
+                    dto.setUsername(rows.getString("name"));
+                    dto.setEnabled(rows.getBoolean("enabled"));
+                    dto.setCertificateFingerprint(rows.getString("fingerprint"));
+                    userManagementApiClient.createUser(dto);
                 }
             }
         }
@@ -77,7 +84,7 @@ public class V202209161100__Access_Control extends BaseJavaMigration {
     private String getAuthServiceUrl() throws IOException, URISyntaxException {
 
         String authServiceUrl = System.getenv("AUTH_SERVICE_BASE_URL");
-        if(authServiceUrl != null || !authServiceUrl.isEmpty()){
+        if (authServiceUrl != null && !authServiceUrl.isEmpty()) {
             return authServiceUrl;
         }
 
