@@ -1,8 +1,9 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.api.model.core.auth.MergedPermissionsDto;
+import com.czertainly.api.model.core.auth.AuthenticationResponseDto;
+import com.czertainly.api.model.core.auth.RoleDto;
+import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
-import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
 import com.czertainly.api.model.core.auth.UserWithPaginationDto;
@@ -37,6 +38,16 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
                 request);
     }
 
+    public AuthenticationResponseDto getUserProfile() {
+        WebClient.RequestBodySpec request = prepareRequest(HttpMethod.GET).uri(USER_BASE_CONTEXT + "/profile");
+
+        return processRequest(r -> r
+                        .retrieve()
+                        .toEntity(AuthenticationResponseDto.class)
+                        .block().getBody(),
+                request);
+    }
+
 
     public UserDetailDto getUserDetail(String userUuid) {
         WebClient.RequestBodySpec request = prepareRequest(HttpMethod.GET).uri(USER_DETAIL_CONTEXT.replace("{userUuid}", userUuid));
@@ -48,48 +59,59 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
                 request);
     }
 
-    public UserDto createUser(UserRequestDto requestDto) {
+    public UserDetailDto createUser(UserRequestDto requestDto) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
 
         return processRequest(r -> r
                         .uri(USER_BASE_CONTEXT)
                         .body(Mono.just(requestDto), UserRequestDto.class)
                         .retrieve()
-                        .toEntity(UserDto.class)
+                        .toEntity(UserDetailDto.class)
                         .block().getBody(),
                 request);
     }
 
-    public UserDto updateUser(String userUuid, UserUpdateRequestDto requestDto) {
+    public UserDetailDto updateUser(String userUuid, UserUpdateRequestDto requestDto) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.PUT);
 
         return processRequest(r -> r
                         .uri(USER_DETAIL_CONTEXT, userUuid)
                         .body(Mono.just(requestDto), UserRequestDto.class)
                         .retrieve()
-                        .toEntity(UserDto.class)
+                        .toEntity(UserDetailDto.class)
                         .block().getBody(),
                 request);
     }
 
-    public UserDto removeUser(String userUuid) {
+    public void removeUser(String userUuid) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.DELETE);
 
-        return processRequest(r -> r
+        processRequest(r -> r
                         .uri(USER_DETAIL_CONTEXT, userUuid)
                         .retrieve()
-                        .toEntity(UserDto.class)
+                        .toEntity(Void.class)
                         .block().getBody(),
                 request);
     }
 
-    public MergedPermissionsDto getPermissions(String userUuid) {
+    public List<RoleDto> getUserRoles(String userUuid) {
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
+
+        return processRequest(r -> r
+                        .uri(USER_ROLE_CONTEXT, userUuid)
+                        .retrieve()
+                        .toEntityList(RoleDto.class)
+                        .block().getBody(),
+                request);
+    }
+
+    public SubjectPermissionsDto getPermissions(String userUuid) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
 
         return processRequest(r -> r
                         .uri(USER_PERMISSION_CONTEXT, userUuid)
                         .retrieve()
-                        .toEntity(MergedPermissionsDto.class)
+                        .toEntity(SubjectPermissionsDto.class)
                         .block().getBody(),
                 request);
     }
@@ -99,7 +121,7 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
 
         return processRequest(r -> r
                         .uri(USER_ROLE_CONTEXT, userUuid)
-                        .body(Mono.just(roles), UserRequestDto.class)
+                        .body(Mono.just(roles), String.class)
                         .retrieve()
                         .toEntity(UserDetailDto.class)
                         .block().getBody(),
@@ -117,4 +139,36 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
                 request);
     }
 
+    public UserDetailDto removeRole(String userUuid, String roleUuid) {
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.DELETE);
+
+        return processRequest(r -> r
+                        .uri(USER_ROLE_CONTEXT + "/" + roleUuid, userUuid)
+                        .retrieve()
+                        .toEntity(UserDetailDto.class)
+                        .block().getBody(),
+                request);
+    }
+
+    public UserDetailDto enableUser(String userUuid) {
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.PATCH);
+
+        return processRequest(r -> r
+                        .uri(USER_DETAIL_CONTEXT + "/enable", userUuid)
+                        .retrieve()
+                        .toEntity(UserDetailDto.class)
+                        .block().getBody(),
+                request);
+    }
+
+    public UserDetailDto disableUser(String userUuid) {
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.PATCH);
+
+        return processRequest(r -> r
+                        .uri(USER_DETAIL_CONTEXT + "/disable", userUuid)
+                        .retrieve()
+                        .toEntity(UserDetailDto.class)
+                        .block().getBody(),
+                request);
+    }
 }
