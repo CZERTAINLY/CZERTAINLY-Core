@@ -12,6 +12,12 @@ public class RoleManagementApiClient extends CzertainlyBaseAuthenticationClient 
     private static final String ROLE_BASE_CONTEXT = "/auth/roles";
     private static final String ROLE_DETAIL_CONTEXT = ROLE_BASE_CONTEXT + "/{roleUuid}";
 
+    public RoleManagementApiClient(String authServiceBaseUrl, WebClient client) {
+        super(authServiceBaseUrl, client);
+    }
+
+    public RoleManagementApiClient() {
+    }
 
     public RoleWithPaginationDto getRoles() {
 
