@@ -2,8 +2,9 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.UserManagementController;
-import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.auth.AddUserRequestDto;
+import com.czertainly.api.model.core.auth.RoleDto;
+import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
@@ -40,29 +41,42 @@ public class UserManagementControllerImpl implements UserManagementController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.CREATE)
-    public ResponseEntity<UuidDto> createUser(AddUserRequestDto request) throws NotFoundException, CertificateException {
-        UserDto userDto = userManagementService.createUser(request);
+    public ResponseEntity<UserDetailDto> createUser(AddUserRequestDto request) throws NotFoundException, CertificateException {
+        UserDetailDto userDto = userManagementService.createUser(request);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{uuid}")
                 .buildAndExpand(userDto.getUuid())
                 .toUri();
-        UuidDto dto = new UuidDto();
-        dto.setUuid(userDto.getUuid());
-        return ResponseEntity.created(location).body(dto);
+        return ResponseEntity.created(location).body(userDto);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.UPDATE)
-    public UserDto updateUser(String userUuid, UserUpdateRequestDto request) throws NotFoundException {
+    public UserDetailDto updateUser(String userUuid, UserUpdateRequestDto request) throws NotFoundException {
         return userManagementService.updateUser(userUuid, request);
+    }
+
+    @Override
+    public UserDetailDto enableUser(String userUuid) throws NotFoundException {
+        return userManagementService.enableUser(userUuid);
+    }
+
+    @Override
+    public UserDetailDto disableUser(String userUuid) throws NotFoundException {
+        return userManagementService.disableUser(userUuid);
     }
 
     @Override
     @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.DELETE)
     public void deleteUser(String userUuid) throws NotFoundException {
         userManagementService.deleteUser(userUuid);
+    }
+
+    @Override
+    public List<RoleDto> getUserRoles(String userUuid) throws NotFoundException {
+        return userManagementService.getUserRoles(userUuid);
     }
 
     @Override
@@ -75,5 +89,15 @@ public class UserManagementControllerImpl implements UserManagementController {
     @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.UPDATE)
     public UserDetailDto addRole(String userUuid, String roleUuid) throws NotFoundException {
         return userManagementService.updateRole(userUuid, roleUuid);
+    }
+
+    @Override
+    public UserDetailDto removeRole(String userUuid, String roleUuid) throws NotFoundException {
+        return userManagementService.removeRole(userUuid, roleUuid);
+    }
+
+    @Override
+    public SubjectPermissionsDto getPermissions(String userUuid) throws NotFoundException {
+        return userManagementService.getPermissions(userUuid);
     }
 }

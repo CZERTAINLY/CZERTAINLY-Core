@@ -2,10 +2,10 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.auth.AddUserRequestDto;
-import com.czertainly.api.model.core.auth.MergedPermissionsDto;
+import com.czertainly.api.model.core.auth.RoleDto;
+import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
 
 import java.security.cert.CertificateException;
@@ -16,9 +16,9 @@ public interface UserManagementService {
 
     UserDetailDto getUser(String userUuid) throws NotFoundException;
 
-    UserDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException;
+    UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException;
 
-    UserDto updateUser(String userUuid, UserUpdateRequestDto request);
+    UserDetailDto updateUser(String userUuid, UserUpdateRequestDto request);
 
     void deleteUser(String userUuid);
 
@@ -26,5 +26,13 @@ public interface UserManagementService {
 
     UserDetailDto updateRole(String userUuid, String roleUuid);
 
-    MergedPermissionsDto getPermissions(String userUuid);
+    SubjectPermissionsDto getPermissions(String userUuid);
+
+    UserDetailDto enableUser(String userUuid);
+
+    UserDetailDto disableUser(String userUuid);
+
+    List<RoleDto> getUserRoles(String userUuid);
+
+    UserDetailDto removeRole(String userUuid, String roleUuid);
 }
