@@ -589,6 +589,17 @@ public class CertificateServiceImpl implements CertificateService {
         return new HashMap<>();
     }
 
+    @Override
+    public void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        if(userUuid == null) {
+            certificate.setUserUuid(null);
+        } else {
+            certificate.setUserUuid(UUID.fromString(userUuid));
+        }
+        certificateRepository.save(certificate);
+    }
+
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
 

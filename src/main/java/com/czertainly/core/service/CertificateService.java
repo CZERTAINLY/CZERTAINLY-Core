@@ -21,6 +21,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public interface CertificateService {
 
@@ -103,4 +104,12 @@ public interface CertificateService {
      * @throws NotFoundException
      */
     Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException;
+
+    /**
+     * Update the user uuid of the certificate in the core database
+     * @param certificateUuid UUID of the certificate
+     * @param userUuid UUID of the User
+     * @throws NotFoundException
+     */
+    void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException;
 }
