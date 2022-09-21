@@ -2,7 +2,6 @@ package com.czertainly.core.aop;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.AdminService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.service.ClientOperationService;
 import com.czertainly.core.service.ConnectorService;
@@ -16,18 +15,10 @@ import java.util.UUID;
 public class AuditLogAspectTest extends BaseSpringBootTest {
 
     @Autowired
-    private AdminService adminService;
-    @Autowired
     private ClientOperationService clientOperationService;
     @Autowired
     private ConnectorService connectorService;
 
-    @Test
-    public void testAuditLogAdmin() {
-        Assertions.assertThrows(
-                NullPointerException.class,
-                () -> adminService.editAdmin(SecuredUUID.fromUUID(UUID.randomUUID()), null));
-    }
 
     @Test
     public void testAuditLogNestedCall() {

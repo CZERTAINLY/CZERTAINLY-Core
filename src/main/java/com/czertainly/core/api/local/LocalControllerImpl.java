@@ -1,17 +1,15 @@
 package com.czertainly.core.api.local;
 
-import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.local.LocalController;
-import com.czertainly.api.model.client.admin.AddAdminRequestDto;
-import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.admin.AdminDto;
-import com.czertainly.core.service.LocalAdminService;
+import com.czertainly.api.model.core.auth.AddUserRequestDto;
+import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.core.service.UserManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.security.cert.CertificateException;
@@ -19,20 +17,19 @@ import java.security.cert.CertificateException;
 @RestController
 public class LocalControllerImpl implements LocalController {
 
+    private static final String AUTH_SUPER_ADMIN_ROLE_UUID = "d34f960b-75c9-4184-ba97-665d30a9ee8a";
     @Autowired
-    private LocalAdminService localAdminService;
+    private UserManagementService userManagementService;
 
     @Override
-    public ResponseEntity<?> addAdmin(@RequestBody AddAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException {
-        AdminDto adminDTO = localAdminService.addAdmin(request);
-
-        URI location = UriComponentsBuilder
-                .fromPath("/v1/admins")
+    public ResponseEntity<UserDetailDto> addAdmin(@RequestBody AddUserRequestDto request) throws NotFoundException, CertificateException {
+        UserDetailDto userDto = userManagementService.createUser(request);
+        userManagementService.updateRole(userDto.getUuid(), AUTH_SUPER_ADMIN_ROLE_UUID);
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
                 .path("/{uuid}")
-                .buildAndExpand(adminDTO.getUuid())
+                .buildAndExpand(userDto.getUuid())
                 .toUri();
-        UuidDto dto = new UuidDto();
-        dto.setUuid(adminDTO.getUuid());
-        return ResponseEntity.created(location).body(dto);
+        return ResponseEntity.created(location).body(userDto);
     }
 }

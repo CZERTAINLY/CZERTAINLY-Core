@@ -4,7 +4,6 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.client.SimplifiedClientDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -12,13 +11,11 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -51,8 +48,6 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
     @Autowired
-    private ClientRepository clientRepository;
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -60,7 +55,6 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     private RaProfile raProfile;
     private Certificate certificate;
     private CertificateContent certificateContent;
-    private Client client;
     private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
 
@@ -81,12 +75,6 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         certificate.setCertificateContent(certificateContent);
         certificate.setSerialNumber("123456789");
         certificate = certificateRepository.save(certificate);
-
-        client = new Client();
-        client.setName(CLIENT_NAME);
-        client.setCertificateUuid(certificate.getUuid());
-        client.setSerialNumber(certificate.getSerialNumber());
-        client = clientRepository.save(client);
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
@@ -221,28 +209,6 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
-    @Test
-    public void testListClients() throws NotFoundException {
-        raProfile.getClients().add(client);
-        raProfileRepository.save(raProfile);
-
-        List<SimplifiedClientDto> clients = raProfileService.listClients(raProfile.getSecuredUuid());
-        Assertions.assertNotNull(clients);
-        Assertions.assertFalse(clients.isEmpty());
-        Assertions.assertEquals(client.getUuid().toString(), clients.get(0).getUuid());
-    }
-
-    @Test
-    public void testListClients_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.listClients(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
-    }
-
-    @Test
-    public void testListClients_emptyClients() throws NotFoundException {
-        List<SimplifiedClientDto> auths = raProfileService.listClients(raProfile.getSecuredUuid());
-        Assertions.assertNotNull(auths);
-        Assertions.assertTrue(auths.isEmpty());
-    }
 
     @Test
     public void testBulkRemove() {

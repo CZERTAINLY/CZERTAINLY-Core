@@ -4,7 +4,6 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.client.SimplifiedClientDto;
 import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
@@ -14,7 +13,6 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.model.SecuredItem;
 import com.czertainly.core.service.model.SecuredList;
 
 import java.util.List;
@@ -26,17 +24,15 @@ public interface RaProfileService {
 
     SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(String acmeProfileUuid, SecurityFilter filter);
 
-    RaProfileDto addRaProfile(SecuredUUID authorityUuid, AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, NotFoundException, ConnectorException;
+    RaProfileDto addRaProfile(SecuredUUID authorityUuid, AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException;
 
     RaProfileDto getRaProfile(SecuredUUID uuid) throws NotFoundException;
 
     RaProfile getRaProfileEntity(SecuredUUID uuid) throws NotFoundException;
 
-    RaProfileDto editRaProfile(SecuredUUID authorityUuid, SecuredUUID raProfileUuid, EditRaProfileRequestDto dto) throws NotFoundException, ConnectorException;
+    RaProfileDto editRaProfile(SecuredUUID authorityUuid, SecuredUUID raProfileUuid, EditRaProfileRequestDto dto) throws ConnectorException;
 
     void deleteRaProfile(SecuredUUID uuid) throws NotFoundException;
-
-    List<SimplifiedClientDto> listClients(SecuredUUID uuid) throws NotFoundException;
 
     void enableRaProfile(SecuredUUID uuid) throws NotFoundException;
 
@@ -56,12 +52,13 @@ public interface RaProfileService {
 
     void deactivateAcmeForRaProfile(SecuredUUID uuid) throws NotFoundException;
 
-    List<AttributeDefinition> listRevokeCertificateAttributes(SecuredUUID uuid) throws NotFoundException, ConnectorException;
+    List<AttributeDefinition> listRevokeCertificateAttributes(SecuredUUID uuid) throws ConnectorException;
 
-    List<AttributeDefinition> listIssueCertificateAttributes(SecuredUUID uuid) throws NotFoundException, ConnectorException;
+    List<AttributeDefinition> listIssueCertificateAttributes(SecuredUUID uuid) throws ConnectorException;
 
     /**
      * Save the RA Profile entity to the database
+     *
      * @param raProfile RA profile entity
      * @return RA Profile Entity
      */
@@ -69,6 +66,7 @@ public interface RaProfileService {
 
     /**
      * Check the compliance for all the certificates associated with the RA Profile
+     *
      * @param uuids UUIDs for which the request has to be triggered
      */
     void checkCompliance(List<SecuredUUID> uuids);

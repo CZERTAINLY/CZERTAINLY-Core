@@ -135,6 +135,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @OneToMany(mappedBy = "certificate")
     private Set<CertificateEventHistory> eventHistories = new HashSet<>();
 
+    @Column(name = "user_uuid")
+    private UUID userUuid;
+
     @Override
     public CertificateDto mapToDto() {
         CertificateDto dto = new CertificateDto();
@@ -445,5 +448,13 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setCertificateContentId(Long certificateContentId) {
         this.certificateContentId = certificateContentId;
+    }
+
+    public UUID getUserUuid() {
+        return userUuid;
+    }
+
+    public void setUserUuid(UUID userUuid) {
+        this.userUuid = userUuid;
     }
 }

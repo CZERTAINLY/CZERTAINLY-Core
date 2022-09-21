@@ -23,11 +23,16 @@ import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.AdminRepository;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.CertificateEventHistory;
+import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.CertificateLocation;
+import com.czertainly.core.dao.entity.ComplianceProfileRule;
+import com.czertainly.core.dao.entity.Location;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
@@ -60,7 +65,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.*;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringWriter;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -74,7 +83,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -110,12 +118,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private DiscoveryCertificateRepository discoveryCertificateRepository;
-
-    @Autowired
-    private ClientRepository clientRepository;
-
-    @Autowired
-    private AdminRepository adminRepository;
 
     @Autowired
     private ComplianceService complianceService;
@@ -199,14 +201,9 @@ public class CertificateServiceImpl implements CertificateService {
 
         List<ValidationError> errors = new ArrayList<>();
 
-        for (Client client : clientRepository.findByCertificate(certificate)) {
-            errors.add(ValidationError.create("Certificate has Client " + client.getName() + " associated to it"));
-            certificateEventHistoryService.addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client " + client.getName(), "", certificate);
-        }
-
-        for (Admin admin : adminRepository.findByCertificate(certificate)) {
-            errors.add(ValidationError.create("Certificate has Admin " + admin.getName() + " associated to it"));
-            certificateEventHistoryService.addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin  " + admin.getName(), "", certificate);
+        if (certificate.getUserUuid() != null) {
+            errors.add(ValidationError.create("Certificate is used by an User"));
+            certificateEventHistoryService.addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Certificate is used by an User", "", certificate);
         }
 
         if (!errors.isEmpty()) {
@@ -278,15 +275,9 @@ public class CertificateServiceImpl implements CertificateService {
             for (String uuid : request.getUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(UUID.fromString(uuid))
                         .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-                if (!adminRepository.findByCertificate(certificate).isEmpty()) {
-                    logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
-                    batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client ", "", certificate));
-                    failedDeleteCerts.add(certificate.getUuid().toString());
-                    continue;
-                }
 
-                if (!clientRepository.findByCertificate(certificate).isEmpty()) {
-                    logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
+                if (certificate.getUserUuid() != null) {
+                    logger.warn("Certificate is used by an User. Unable to delete certificate with common name {}", certificate.getCommonName());
                     batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin ", "", certificate));
                     failedDeleteCerts.add(certificate.getUuid().toString());
                     continue;
