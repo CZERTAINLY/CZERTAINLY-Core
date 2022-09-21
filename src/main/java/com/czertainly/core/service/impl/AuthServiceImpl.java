@@ -6,11 +6,16 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.AuthenticationResponseDto;
 import com.czertainly.api.model.core.auth.ResourceDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
+import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.AuthService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -28,8 +33,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACCESS, operation = OperationType.REQUEST)
-    public UserDto getAuthProfile() throws NotFoundException {
-        return userManagementApiClient.getUserProfile().getData().getUser();
+    public UserDto getAuthProfile() throws NotFoundException, JsonProcessingException {
+        CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        ObjectMapper objectMapper = new ObjectMapper();
+        UserProfileDto userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
+        return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
     }
 
     @Override

@@ -4,6 +4,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.auth.AddUserRequestDto;
 import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
+import com.czertainly.api.model.core.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
@@ -18,7 +19,7 @@ public interface UserManagementService {
 
     UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException;
 
-    UserDetailDto updateUser(String userUuid, UserUpdateRequestDto request);
+    UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException;
 
     void deleteUser(String userUuid);
 
