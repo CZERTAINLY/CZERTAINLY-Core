@@ -2,31 +2,32 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.AuthController;
-import com.czertainly.api.model.client.auth.EditAuthProfileDto;
-import com.czertainly.api.model.core.auth.AuthProfileDto;
+import com.czertainly.api.model.core.auth.AuthenticationResponseDto;
+import com.czertainly.api.model.core.auth.ResourceDetailDto;
+import com.czertainly.api.model.core.auth.UserDto;
+import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
-public class AuthControllerImpl implements AuthController{
+public class AuthControllerImpl implements AuthController {
 
     @Autowired
     private AuthService authService;
 
     @Override
-    public AuthProfileDto profile() throws NotFoundException {
+    public UserDto profile() throws NotFoundException {
         return authService.getAuthProfile();
     }
 
     @Override
-    public Object getPermission() throws NotFoundException {
-        return null;
+    public List<ResourceDetailDto> getAllResources() throws NotFoundException {
+        return authService.getAllResources();
     }
 
-    public void editProfile(@RequestBody EditAuthProfileDto authProfileDTO) throws NotFoundException {
-        authService.editAuthProfile(authProfileDTO);
-    }
+
 }
 

@@ -1,11 +1,14 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.auth.EditAuthProfileDto;
-import com.czertainly.api.model.core.auth.AuthProfileDto;
+import com.czertainly.api.model.core.auth.AuthenticationResponseDto;
+import com.czertainly.api.model.core.auth.ResourceDetailDto;
+import com.czertainly.api.model.core.auth.UserDto;
+
+import java.util.List;
 
 public interface AuthService {
-    AuthProfileDto getAuthProfile() throws NotFoundException;
+    UserDto getAuthProfile() throws NotFoundException;
 
-    void editAuthProfile(EditAuthProfileDto authProfileDTO) throws NotFoundException;
+    List<ResourceDetailDto> getAllResources();
 }

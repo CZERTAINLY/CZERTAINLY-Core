@@ -3,7 +3,8 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.AddUserRequestDto;
-import com.czertainly.api.model.core.auth.MergedPermissionsDto;
+import com.czertainly.api.model.core.auth.RoleDto;
+import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
@@ -47,7 +48,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    public UserDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException {
+    public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException {
         if (StringUtils.isBlank(request.getUsername())) {
             throw new ValidationException("username must not be empty");
         }
@@ -82,7 +83,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    public UserDto updateUser(String userUuid, UserUpdateRequestDto request) {
+    public UserDetailDto updateUser(String userUuid, UserUpdateRequestDto request) {
         return userManagementApiClient.updateUser(userUuid, request);
     }
 
@@ -102,7 +103,27 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    public MergedPermissionsDto getPermissions(String userUuid) {
+    public SubjectPermissionsDto getPermissions(String userUuid) {
         return userManagementApiClient.getPermissions(userUuid);
+    }
+
+    @Override
+    public UserDetailDto enableUser(String userUuid) {
+        return userManagementApiClient.enableUser(userUuid);
+    }
+
+    @Override
+    public UserDetailDto disableUser(String userUuid) {
+        return userManagementApiClient.disableUser(userUuid);
+    }
+
+    @Override
+    public List<RoleDto> getUserRoles(String userUuid) {
+        return userManagementApiClient.getUserRoles(userUuid);
+    }
+
+    @Override
+    public UserDetailDto removeRole(String userUuid, String roleUuid) {
+        return userManagementApiClient.removeRole(userUuid, roleUuid);
     }
 }
