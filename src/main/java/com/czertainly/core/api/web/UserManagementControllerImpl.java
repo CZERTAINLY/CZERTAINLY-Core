@@ -97,7 +97,7 @@ public class UserManagementControllerImpl implements UserManagementController {
     }
 
     @Override
-    public SubjectPermissionsDto getPermissions(String userUuid, String roleUuid) throws NotFoundException {
+    public SubjectPermissionsDto getPermissions(String userUuid) throws NotFoundException {
         return userManagementService.getPermissions(userUuid);
     }
 }

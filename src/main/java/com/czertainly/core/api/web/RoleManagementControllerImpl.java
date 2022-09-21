@@ -3,6 +3,7 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.RoleManagementController;
 import com.czertainly.api.model.core.auth.ObjectPermissionsDto;
+import com.czertainly.api.model.core.auth.ObjectPermissionsRequestDto;
 import com.czertainly.api.model.core.auth.ResourcePermissionsDto;
 import com.czertainly.api.model.core.auth.RoleDetailDto;
 import com.czertainly.api.model.core.auth.RoleDto;
@@ -56,8 +57,8 @@ public class RoleManagementControllerImpl implements RoleManagementController {
     }
 
     @Override
-    public SubjectPermissionsDto getRolePermissions(String userUuid) throws NotFoundException {
-        return roleManagementService.getRolePermissions(userUuid);
+    public SubjectPermissionsDto getRolePermissions(String roleUuid) throws NotFoundException {
+        return roleManagementService.getRolePermissions(roleUuid);
     }
 
     @Override
@@ -76,12 +77,12 @@ public class RoleManagementControllerImpl implements RoleManagementController {
     }
 
     @Override
-    public void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsDto> request) throws NotFoundException {
+    public void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsRequestDto> request) throws NotFoundException {
         roleManagementService.addResourcePermissionObjects(roleUuid, resourceUuid, request);
     }
 
     @Override
-    public void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, List<ObjectPermissionsDto> request) throws NotFoundException {
+    public void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto request) throws NotFoundException {
         roleManagementService.updateResourcePermissionObjects(roleUuid, resourceUuid, objectUuid, request);
     }
 

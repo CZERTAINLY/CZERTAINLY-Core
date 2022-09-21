@@ -1,6 +1,7 @@
 package com.czertainly.core.security.authn.client;
 
 import com.czertainly.api.model.core.auth.ObjectPermissionsDto;
+import com.czertainly.api.model.core.auth.ObjectPermissionsRequestDto;
 import com.czertainly.api.model.core.auth.ResourcePermissionsDto;
 import com.czertainly.api.model.core.auth.RoleDetailDto;
 import com.czertainly.api.model.core.auth.RolePermissionsRequestDto;
@@ -130,7 +131,7 @@ public class RoleManagementApiClient extends CzertainlyBaseAuthenticationClient 
                 request);
     }
 
-    public void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsDto> dto) {
+    public void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsRequestDto> dto) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
 
         processRequest(r -> r
@@ -142,7 +143,7 @@ public class RoleManagementApiClient extends CzertainlyBaseAuthenticationClient 
                 request);
     }
 
-    public void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, List<ObjectPermissionsDto> dto) {
+    public void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto dto) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.PUT);
 
         processRequest(r -> r

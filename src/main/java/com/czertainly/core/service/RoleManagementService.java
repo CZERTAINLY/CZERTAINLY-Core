@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.model.core.auth.ObjectPermissionsDto;
+import com.czertainly.api.model.core.auth.ObjectPermissionsRequestDto;
 import com.czertainly.api.model.core.auth.ResourcePermissionsDto;
 import com.czertainly.api.model.core.auth.RoleDetailDto;
 import com.czertainly.api.model.core.auth.RoleDto;
@@ -29,9 +30,9 @@ public interface RoleManagementService {
 
     List<ObjectPermissionsDto> getResourcePermissionObjects(String roleUuid, String resourceUuid);
 
-    void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsDto> request);
+    void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsRequestDto> request);
 
-    void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, List<ObjectPermissionsDto> request);
+    void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto request);
 
     void removeResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid);
 }
