@@ -11,9 +11,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AuthEndpoint {
-
     Resource resourceName();
-    ResourceAction actionName();
-    boolean isListingEndPoint() default false;
-
 }

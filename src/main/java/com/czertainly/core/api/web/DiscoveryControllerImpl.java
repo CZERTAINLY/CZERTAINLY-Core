@@ -32,19 +32,16 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	private DiscoveryService discoveryService;
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.DISCOVERY, actionName = ResourceAction.LIST, isListingEndPoint = true)
 	public List<DiscoveryHistoryDto> listDiscoveries() {
 		return discoveryService.listDiscoveries(SecurityFilter.create());
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.DISCOVERY, actionName = ResourceAction.DETAIL)
 	public DiscoveryHistoryDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
 		return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.DISCOVERY, actionName = ResourceAction.CREATE)
 	public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
             throws NotFoundException, ConnectorException, AlreadyExistException {
 		DiscoveryHistory modal = discoveryService.createDiscoveryModal(request);
@@ -60,13 +57,11 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.DISCOVERY, actionName = ResourceAction.DELETE)
 	public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
 		discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	@AuthEndpoint(resourceName = Resource.DISCOVERY, actionName = ResourceAction.DELETE)
 	public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
 		discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
 	}

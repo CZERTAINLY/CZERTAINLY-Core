@@ -32,19 +32,17 @@ public class CredentialControllerImpl implements CredentialController {
     private CredentialService credentialService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.CREDENTIAL)
     public List<CredentialDto> listCredentials() {
         return credentialService.listCredentials(SecurityFilter.create());
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DETAIL)
     public CredentialDto getCredential(@PathVariable String uuid) throws NotFoundException {
         return credentialService.getCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.CREATE)
     public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         CredentialDto credentialDto = credentialService.createCredential(request);
 
@@ -61,31 +59,26 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.UPDATE)
     public CredentialDto editCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
         return credentialService.editCredential(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DELETE)
     public void deleteCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.deleteCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.ENABLE)
     public void enableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.enableCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.ENABLE)
     public void disableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.disableCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CREDENTIAL, actionName = ResourceAction.DELETE)
     public void bulkDeleteCredential(List<String> uuids) throws NotFoundException, ValidationException {
         credentialService.bulkDeleteCredential(SecuredUUID.fromList(uuids));
     }

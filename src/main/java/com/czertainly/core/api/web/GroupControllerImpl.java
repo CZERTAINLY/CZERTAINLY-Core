@@ -29,19 +29,17 @@ public class GroupControllerImpl implements GroupController {
     private GroupServiceImpl groupService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE_GROUP, actionName = ResourceAction.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.CERTIFICATE_GROUP)
     public List<GroupDto> listGroups() {
         return groupService.listGroups(SecurityFilter.create());
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE_GROUP, actionName = ResourceAction.DETAIL)
     public GroupDto getGroup(@PathVariable String uuid) throws NotFoundException {
         return groupService.getGroup(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE_GROUP, actionName = ResourceAction.CREATE)
     public ResponseEntity<?> createGroup(@RequestBody GroupRequestDto request) throws ValidationException, AlreadyExistException {
         GroupDto groupDto = groupService.createGroup(request);
 
@@ -56,19 +54,16 @@ public class GroupControllerImpl implements GroupController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE_GROUP, actionName = ResourceAction.UPDATE)
     public GroupDto editGroup(@PathVariable String uuid, @RequestBody GroupRequestDto request) throws NotFoundException {
         return groupService.editGroup(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE_GROUP, actionName = ResourceAction.DELETE)
     public void deleteGroup(@PathVariable String uuid) throws NotFoundException {
         groupService.deleteGroup(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE_GROUP, actionName = ResourceAction.DELETE)
     public void bulkDeleteGroup(List<String> groupUuids) throws NotFoundException {
         groupService.bulkDeleteGroup(SecuredUUID.fromList(groupUuids));
     }

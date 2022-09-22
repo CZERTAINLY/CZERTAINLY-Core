@@ -37,19 +37,17 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     private ComplianceProfileService complianceProfileService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE)
     public List<ComplianceProfilesListDto> listComplianceProfiles() {
         return complianceProfileService.listComplianceProfiles();
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.DETAIL)
     public ComplianceProfileDto getComplianceProfile(String uuid) throws NotFoundException {
         return complianceProfileService.getComplianceProfile(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.CREATE)
     public ResponseEntity<UuidDto> createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, ConnectorException {
         ComplianceProfileDto complianceProfile = complianceProfileService.createComplianceProfile(request);
         URI location = ServletUriComponentsBuilder
@@ -64,79 +62,66 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
     public void addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
         complianceProfileService.addRule(uuid, request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
     public void removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
         complianceProfileService.removeRule(uuid, request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
     public void addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException {
         complianceProfileService.addGroup(uuid, request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
     public void removeGroup(String uuid, ComplianceGroupRequestDto request) throws NotFoundException {
         complianceProfileService.removeGroup(uuid, request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.DELETE)
     public void deleteComplianceProfile(String uuid) throws NotFoundException {
         complianceProfileService.deleteComplianceProfile(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.ANY)
     public List<SimplifiedRaProfileDto> getAssociatedRAProfiles(String uuid) throws NotFoundException {
         return complianceProfileService.getAssociatedRAProfiles(uuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
         return complianceProfileService.bulkDeleteComplianceProfiles(uuids);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.DELETE)
     public List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
         return complianceProfileService.forceDeleteComplianceProfiles(uuids);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
     public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException {
         return complianceProfileService.getComplianceRules(complianceProviderUuid, kind, certificateType);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
     public List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException {
         return complianceProfileService.getComplianceGroups(complianceProviderUuid, kind);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
     public void associateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws ConnectorException {
         complianceProfileService.associateProfile(uuid, raProfiles);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.UPDATE)
     public void disassociateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws ConnectorException {
         complianceProfileService.disassociateProfile(uuid, raProfiles);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE, actionName = ResourceAction.CHECK_COMPLIANCE)
     public void checkCompliance(List<String> uuids) throws NotFoundException {
         complianceProfileService.checkCompliance(SecuredUUID.fromList(uuids));
     }

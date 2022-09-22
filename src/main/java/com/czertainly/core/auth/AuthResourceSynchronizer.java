@@ -1,7 +1,6 @@
 package com.czertainly.core.auth;
 
-import com.czertainly.core.model.auth.SyncRequestDto;
-import com.czertainly.core.model.auth.SyncResponseDto;
+import com.czertainly.core.model.auth.ResourceSyncRequestDto;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,15 +13,15 @@ import java.util.List;
 
 
 @Component
-public class AuthEndpointSynchronizer {
+public class AuthResourceSynchronizer {
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthEndpointSynchronizer.class);
-    private EndpointsListener endpointsListener;
+    private static final Logger logger = LoggerFactory.getLogger(AuthResourceSynchronizer.class);
+    private ResourceListener resourceListener;
     private ResourceApiClient resourceApiClient;
 
     @Autowired
-    public void setEndpointsListener(EndpointsListener endpointsListener) {
-        this.endpointsListener = endpointsListener;
+    public void setEndpointsListener(ResourceListener resourceListener) {
+        this.resourceListener = resourceListener;
     }
 
     @Autowired
@@ -33,8 +32,8 @@ public class AuthEndpointSynchronizer {
     @EventListener({ApplicationReadyEvent.class})
     public void register() {
         logger.info("Initiating Endpoints sync");
-        List<SyncRequestDto> endpoints = endpointsListener.getEndpoints();
-        logger.debug("Endpoints: {}", endpoints);
+        List<ResourceSyncRequestDto> endpoints = resourceListener.getResources();
+        logger.debug("Resources: {}", endpoints);
         //Sync API Operation here
 //        SyncResponseDto response = resourceApiClient.syncEndPoints(endpoints);
 //        logger.info("Sync operation completed, Response is {}", response);

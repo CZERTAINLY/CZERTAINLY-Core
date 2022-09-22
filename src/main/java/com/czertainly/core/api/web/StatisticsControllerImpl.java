@@ -16,7 +16,6 @@ public class StatisticsControllerImpl implements StatisticsController{
 	private StatisticsService statisticsService;
 	
 	@Override
-	@AuthEndpoint(resourceName = Resource.DASHBOARD, actionName = ResourceAction.DETAIL)
 	public StatisticsDto getStatistics() {
 		return statisticsService.getStatistics();
 	}

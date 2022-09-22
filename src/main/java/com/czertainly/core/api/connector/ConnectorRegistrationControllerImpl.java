@@ -20,7 +20,6 @@ public class ConnectorRegistrationControllerImpl implements ConnectorRegistratio
     private ConnectorRegistrationService connectorRegistrationService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
     public UuidDto register(@RequestBody ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
         return connectorRegistrationService.registerConnector(request);
     }

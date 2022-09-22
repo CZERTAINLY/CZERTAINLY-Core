@@ -34,19 +34,17 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     private EntityInstanceService entityInstanceService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.ENTITY)
     public List<EntityInstanceDto> listEntityInstances() {
         return entityInstanceService.listEntityInstances(SecurityFilter.create());
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.DETAIL)
     public EntityInstanceDto getEntityInstance(String entityUuid) throws ConnectorException {
         return entityInstanceService.getEntityInstance(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.CREATE)
     public ResponseEntity<?> createEntityInstance(EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException {
         EntityInstanceDto entityInstance = entityInstanceService.createEntityInstance(request);
 
@@ -61,25 +59,21 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.UPDATE)
     public EntityInstanceDto editEntityInstance(String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
         return entityInstanceService.editEntityInstance(SecuredUUID.fromString(entityUuid), request);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ENTITY, actionName = ResourceAction.DELETE)
     public void deleteEntityInstance(String entityUuid) throws ConnectorException {
         entityInstanceService.deleteEntityInstance(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listLocationAttributes(String entityUuid) throws ConnectorException {
         return entityInstanceService.listLocationAttributes(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.LOCATION, actionName = ResourceAction.ANY)
     public void validateLocationAttributes(String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         entityInstanceService.validateLocationAttributes(SecuredUUID.fromString(entityUuid), attributes);
     }

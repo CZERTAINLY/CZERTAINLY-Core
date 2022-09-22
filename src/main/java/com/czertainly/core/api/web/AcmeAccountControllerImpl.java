@@ -22,49 +22,42 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
     private AcmeAccountService acmeAccountService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.REVOKE)
     public void revokeAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
         acmeAccountService.revokeAccount(SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
     public void bulkEnableAcmeAccount(List<String> uuids) throws NotFoundException {
         acmeAccountService.bulkEnableAccount(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
     public void bulkDisableAcmeAccount(List<String> uuids) throws NotFoundException {
         acmeAccountService.bulkDisableAccount(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.REVOKE)
     public void bulkRevokeAcmeAccount(List<String> uuids) throws NotFoundException {
         acmeAccountService.bulkRevokeAccount(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT)
     public List<AcmeAccountListResponseDto> listAcmeAccounts() {
         return acmeAccountService.listAcmeAccounts(SecurityFilter.create());
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.DETAIL)
     public AcmeAccountResponseDto getAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
         return acmeAccountService.getAcmeAccount(SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
     public void enableAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
         acmeAccountService.enableAccount(SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ACME_ACCOUNT, actionName = ResourceAction.ENABLE)
     public void disableAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
         acmeAccountService.disableAccount(SecuredUUID.fromString(acmeAccountUuid));
     }

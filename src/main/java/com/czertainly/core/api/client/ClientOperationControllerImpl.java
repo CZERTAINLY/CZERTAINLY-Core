@@ -29,7 +29,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     private ClientOperationService clientOperationService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.CREATE)
     public ClientCertificateSignResponseDto issueCertificate(
             @PathVariable String raProfileName,
             @RequestBody ClientCertificateSignRequestDto request)
@@ -38,7 +37,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.REVOKE)
     public void revokeCertificate(@PathVariable String raProfileName, @RequestBody ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
         clientOperationService.revokeCertificate(raProfileName, request);
     }

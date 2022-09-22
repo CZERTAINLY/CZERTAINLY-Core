@@ -30,13 +30,11 @@ public class AuditLogControllerImpl implements AuditLogController {
     private AuditLogService auditLogService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.AUDIT_LOG, actionName = ResourceAction.LIST, isListingEndPoint = true)
     public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
         return auditLogService.listAuditLogs(filter, pageable);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.AUDIT_LOG, actionName = ResourceAction.EXPORT)
     public ResponseEntity<org.springframework.core.io.Resource> exportAuditLogs(AuditLogFilter filter, Pageable pageable) {
         ExportResultDto export = auditLogService.exportAuditLogs(filter, pageable.getSort());
 
