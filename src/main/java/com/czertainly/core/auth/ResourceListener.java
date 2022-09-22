@@ -32,6 +32,7 @@ public class ResourceListener {
         ApplicationContext applicationContext = event.getApplicationContext();
         Map<Resource, String> listingEndpoints = new HashMap<>();
         Map<Resource, Set<String>> resourceToAction = new HashMap<>();
+        //Get all the routes annotated with the listing end point
         applicationContext.getBean(RequestMappingHandlerMapping.class)
                 .getHandlerMethods()
                 .entrySet().stream()
@@ -44,7 +45,7 @@ public class ResourceListener {
                     }
                     listingEndpoints.put(annotatedValues.resourceName(), e.getKey().getPatternValues().iterator().next());
                 });
-
+        //Iterate and get all the methods that are annotated with ExternalAuthentication
         for(String beanName: applicationContext.getBeanDefinitionNames()){
             Method[] methods = AopUtils.getTargetClass(applicationContext.getBean(beanName)).getDeclaredMethods();
 
@@ -56,7 +57,7 @@ public class ResourceListener {
                 }
             }
         }
-
+        //Merge listing end point and external annotation end point to get the resource request sync operation
         for(Map.Entry<Resource, Set<String>> entry: resourceToAction.entrySet()) {
             ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
             requestDto.setActions(new ArrayList<>(entry.getValue()));
