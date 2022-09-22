@@ -57,7 +57,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         Certificate certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
         UserRequestDto requestDto = new UserRequestDto();
         requestDto.setEmail(request.getEmail());
-        requestDto.setEnabled(true);
+        requestDto.setEnabled(request.getEnabled());
         requestDto.setUsername(request.getUsername());
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
@@ -72,7 +72,6 @@ public class UserManagementServiceImpl implements UserManagementService {
         Certificate certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
         UserUpdateRequestDto requestDto = new UserUpdateRequestDto();
         requestDto.setEmail(request.getEmail());
-        requestDto.setEnabled(true);
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
         requestDto.setCertificateUuid(certificate.getUuid().toString());
