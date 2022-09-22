@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.auth.ResourceDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.service.AuthService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,7 +20,7 @@ public class AuthControllerImpl implements AuthController {
     private AuthService authService;
 
     @Override
-    public UserDto profile() throws NotFoundException {
+    public UserDto profile() throws NotFoundException, JsonProcessingException {
         return authService.getAuthProfile();
     }
 

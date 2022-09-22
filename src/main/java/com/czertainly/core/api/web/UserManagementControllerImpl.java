@@ -5,6 +5,7 @@ import com.czertainly.api.interfaces.core.web.UserManagementController;
 import com.czertainly.api.model.core.auth.AddUserRequestDto;
 import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
+import com.czertainly.api.model.core.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
@@ -54,7 +55,7 @@ public class UserManagementControllerImpl implements UserManagementController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.UPDATE)
-    public UserDetailDto updateUser(String userUuid, UserUpdateRequestDto request) throws NotFoundException {
+    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
         return userManagementService.updateUser(userUuid, request);
     }
 

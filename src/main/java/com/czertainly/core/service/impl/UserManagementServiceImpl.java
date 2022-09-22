@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.AddUserRequestDto;
 import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
+import com.czertainly.api.model.core.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
@@ -49,30 +50,14 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Override
     public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException {
+
         if (StringUtils.isBlank(request.getUsername())) {
             throw new ValidationException("username must not be empty");
         }
-        if (StringUtils.isBlank(request.getEmail())) {
-            throw new ValidationException("email must not be empty");
-        }
-
-        Certificate certificate;
-        if (StringUtils.isNotBlank(request.getCertificateUuid())) {
-            certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getCertificateUuid()));
-        } else {
-            X509Certificate x509Cert = CertificateUtil.parseCertificate(request.getCertificateData());
-            try {
-                certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
-            } catch (NotFoundException e) {
-                logger.debug("New Certificate uploaded for admin");
-                certificate = certificateService.createCertificateEntity(x509Cert);
-                certificateService.updateCertificateEntity(certificate);
-            }
-        }
-
+        Certificate certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
         UserRequestDto requestDto = new UserRequestDto();
         requestDto.setEmail(request.getEmail());
-        requestDto.setEnabled(true);
+        requestDto.setEnabled(request.getEnabled());
         requestDto.setUsername(request.getUsername());
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
@@ -86,8 +71,15 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    public UserDetailDto updateUser(String userUuid, UserUpdateRequestDto request) {
-        return userManagementApiClient.updateUser(userUuid, request);
+    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
+        Certificate certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
+        UserUpdateRequestDto requestDto = new UserUpdateRequestDto();
+        requestDto.setEmail(request.getEmail());
+        requestDto.setFirstName(request.getFirstName());
+        requestDto.setLastName(request.getLastName());
+        requestDto.setCertificateUuid(certificate.getUuid().toString());
+        requestDto.setCertificateFingerprint(certificate.getFingerprint());
+        return userManagementApiClient.updateUser(userUuid, requestDto);
     }
 
     @Override
@@ -128,5 +120,23 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     public UserDetailDto removeRole(String userUuid, String roleUuid) {
         return userManagementApiClient.removeRole(userUuid, roleUuid);
+    }
+
+    private Certificate addUserCertificate(String certificateUuid, String certificateData) throws CertificateException, NotFoundException {
+
+        Certificate certificate;
+        if (StringUtils.isNotBlank(certificateUuid)) {
+            certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        } else {
+            X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
+            try {
+                certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
+            } catch (NotFoundException e) {
+                logger.debug("New Certificate uploaded for the user");
+                certificate = certificateService.createCertificateEntity(x509Cert);
+                certificateService.updateCertificateEntity(certificate);
+            }
+        }
+        return certificate;
     }
 }
