@@ -1,6 +1,8 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.AuthenticationResponseDto;
@@ -33,11 +35,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACCESS, operation = OperationType.REQUEST)
-    public UserDto getAuthProfile() throws NotFoundException, JsonProcessingException {
-        CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        ObjectMapper objectMapper = new ObjectMapper();
-        UserProfileDto userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
-        return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
+    public UserDto getAuthProfile() throws NotFoundException {
+        try {
+            CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            ObjectMapper objectMapper = new ObjectMapper();
+            UserProfileDto userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
+            return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
+        } catch (JsonProcessingException e) {
+            throw new ValidationException(ValidationError.create("Unknown/Anonymous user"));
+        }
     }
 
     @Override
