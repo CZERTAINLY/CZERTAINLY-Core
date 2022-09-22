@@ -129,7 +129,7 @@ public class UserManagementServiceImpl implements UserManagementService {
             try {
                 certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
             } catch (NotFoundException e) {
-                logger.debug("New Certificate uploaded for admin");
+                logger.debug("New Certificate uploaded for the user");
                 certificate = certificateService.createCertificateEntity(x509Cert);
                 certificateService.updateCertificateEntity(certificate);
             }
