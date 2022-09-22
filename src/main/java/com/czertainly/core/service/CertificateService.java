@@ -112,4 +112,10 @@ public interface CertificateService {
      * @throws NotFoundException
      */
     void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException;
+
+    /**
+     * Remove the user uuid of the certificate in the core database
+     * @param userUuid UUID of the User
+     */
+    void removeCertificateUser(String userUuid);
 }

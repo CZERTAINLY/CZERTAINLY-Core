@@ -87,6 +87,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     public void deleteUser(String userUuid) {
         userManagementApiClient.removeUser(userUuid);
+        certificateService.removeCertificateUser(userUuid);
     }
 
     @Override

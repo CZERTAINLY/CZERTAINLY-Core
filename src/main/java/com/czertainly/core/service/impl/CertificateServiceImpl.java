@@ -600,6 +600,17 @@ public class CertificateServiceImpl implements CertificateService {
         certificateRepository.save(certificate);
     }
 
+    @Override
+    public void removeCertificateUser(String userUuid) {
+        try {
+            Certificate certificate = certificateRepository.findByUserUuid(userUuid).orElseThrow(() -> new NotFoundException(Certificate.class, userUuid));
+            certificate.setUserUuid(null);
+            certificateRepository.save(certificate);
+        } catch (NotFoundException e){
+            logger.warn("No Certificate found for the user with UUID {}", userUuid);
+        }
+    }
+
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
 
