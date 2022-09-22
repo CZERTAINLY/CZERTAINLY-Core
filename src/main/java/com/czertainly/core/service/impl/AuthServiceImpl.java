@@ -42,7 +42,7 @@ public class AuthServiceImpl implements AuthService {
             ObjectMapper objectMapper = new ObjectMapper();
             userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
         } catch (Exception e) {
-            throw new ValidationException(ValidationError.create("Unknown/Anonymous user"));
+            throw new ValidationException(ValidationError.create("Cannot retrieve profile information for Unknown/Anonymous user"));
         }
         return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
     }
