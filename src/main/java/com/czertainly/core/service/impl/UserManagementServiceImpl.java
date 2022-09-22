@@ -79,7 +79,9 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setLastName(request.getLastName());
         requestDto.setCertificateUuid(certificate.getUuid().toString());
         requestDto.setCertificateFingerprint(certificate.getFingerprint());
-        return userManagementApiClient.updateUser(userUuid, requestDto);
+        UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);
+        certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
+        return response;
     }
 
     @Override
