@@ -36,14 +36,15 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACCESS, operation = OperationType.REQUEST)
     public UserDto getAuthProfile() throws NotFoundException {
+        UserProfileDto userProfileDto;
         try {
             CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             ObjectMapper objectMapper = new ObjectMapper();
-            UserProfileDto userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
-            return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
-        } catch (JsonProcessingException e) {
+            userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
+        } catch (Exception e) {
             throw new ValidationException(ValidationError.create("Unknown/Anonymous user"));
         }
+        return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
     }
 
     @Override
