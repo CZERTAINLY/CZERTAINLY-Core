@@ -34,7 +34,10 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.*;
+import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
+import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.LocationService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -53,7 +56,6 @@ import java.security.cert.CertificateException;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
 
 @Service("clientOperationServiceImplV2")
 @Transactional

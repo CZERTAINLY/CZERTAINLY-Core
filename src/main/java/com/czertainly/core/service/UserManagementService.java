@@ -7,7 +7,6 @@ import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
 
 import java.security.cert.CertificateException;
 import java.util.List;

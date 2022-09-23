@@ -1,12 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.compliance.ComplianceConnectorAndGroupsDto;
-import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
-import com.czertainly.api.model.core.compliance.ComplianceGroupsDto;
-import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
-import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
-import com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto;
-import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
+import com.czertainly.api.model.core.compliance.*;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;

@@ -3,7 +3,6 @@ package com.czertainly.core.api.v2.client;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.client.v2.ClientOperationController;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
@@ -12,16 +11,11 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.Resource;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.security.cert.CertificateException;
@@ -35,7 +29,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     private ClientOperationService clientOperationService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listIssueCertificateAttributes(
             String authorityUuid,
             String raProfileUuid) throws ConnectorException {
@@ -43,7 +36,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public void validateIssueCertificateAttributes(
             String authorityUuid,
             String raProfileUuid,
@@ -52,7 +44,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.CREATE)
     public ClientCertificateDataResponseDto issueCertificate(
             String authorityUuid,
             String raProfileUuid,
@@ -61,7 +52,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.RENEW)
     public ClientCertificateDataResponseDto renewCertificate(
             String authorityUuid,
             String raProfileUuid,
@@ -71,7 +61,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> listRevokeCertificateAttributes(
             String authorityUuid,
             String raProfileUuid) throws ConnectorException {
@@ -79,7 +68,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.ANY)
     public void validateRevokeCertificateAttributes(
             String authorityUuid,
             String raProfileUuid,
@@ -88,7 +76,6 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE, actionName = ResourceAction.REVOKE)
     public void revokeCertificate(
             String authorityUuid,
             String raProfileUuid,

@@ -1,7 +1,6 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.core.security.authz.SecuredUUID;
-import org.hibernate.annotations.Type;
 
 import javax.persistence.Column;
 import javax.persistence.Id;

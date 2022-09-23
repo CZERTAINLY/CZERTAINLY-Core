@@ -2,7 +2,6 @@ package com.czertainly.core.dao.entity.acme;
 
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
-import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -12,7 +11,11 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.UUID;
 

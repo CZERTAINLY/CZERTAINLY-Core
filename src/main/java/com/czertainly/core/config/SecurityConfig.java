@@ -1,9 +1,9 @@
 package com.czertainly.core.config;
 
-import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
+import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDecisionManager;

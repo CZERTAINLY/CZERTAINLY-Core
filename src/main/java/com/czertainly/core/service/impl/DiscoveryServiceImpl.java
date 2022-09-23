@@ -20,7 +20,11 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.DiscoveryCertificate;
+import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
@@ -30,7 +34,12 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.*;
+import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
+import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.service.CredentialService;
+import com.czertainly.core.service.DiscoveryService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -42,7 +51,11 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.security.cert.X509Certificate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -235,7 +248,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
-    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());

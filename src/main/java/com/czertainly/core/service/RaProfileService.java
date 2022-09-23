@@ -14,7 +14,6 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.model.SecuredItem;
 import com.czertainly.core.service.model.SecuredList;
 
 import java.util.List;
