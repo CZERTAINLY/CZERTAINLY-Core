@@ -9,7 +9,7 @@ import java.util.List;
 public class ResourceSyncRequestDto {
 
     @Schema(description = "Name of the resource", required = true, example = "client")
-    private Resource resourceName;
+    private Resource name;
 
     @Schema(description = "Action Names", required = true, example = "list")
     private List<String> actions;
@@ -17,12 +17,12 @@ public class ResourceSyncRequestDto {
     @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No", required = true)
     private String listObjectsEndpoint;
 
-    public Resource getResourceName() {
-        return resourceName;
+    public Resource getName() {
+        return name;
     }
 
-    public void setResourceName(Resource resourceName) {
-        this.resourceName = resourceName;
+    public void setName(Resource name) {
+        this.name = name;
     }
 
     public List<String> getActions() {
@@ -44,7 +44,7 @@ public class ResourceSyncRequestDto {
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("resourceName", resourceName)
+                .append("resourceName", name)
                 .append("actions", actions)
                 .append("listObjectsEndpoint", listObjectsEndpoint)
                 .toString();

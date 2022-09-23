@@ -54,6 +54,10 @@ public class ResourceListener {
                     ExternalAuthorization annotatedValue = m.getAnnotation(ExternalAuthorization.class);
                     resourceToAction.computeIfAbsent(annotatedValue.resource(),
                             k -> new HashSet()).add(annotatedValue.action().getCode());
+                    if(annotatedValue.parentResource() != null && annotatedValue.parentResource() != Resource.NONE){
+                        resourceToAction.computeIfAbsent(annotatedValue.parentResource(),
+                                k -> new HashSet()).add(annotatedValue.parentAction().getCode());
+                    }
                 }
             }
         }
@@ -61,7 +65,7 @@ public class ResourceListener {
         for(Map.Entry<Resource, Set<String>> entry: resourceToAction.entrySet()) {
             ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
             requestDto.setActions(new ArrayList<>(entry.getValue()));
-            requestDto.setResourceName(entry.getKey());
+            requestDto.setName(entry.getKey());
             requestDto.setListObjectsEndpoint(listingEndpoints.get(entry.getKey()));
             resources.add(requestDto);
         }

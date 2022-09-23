@@ -2,8 +2,11 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.certificate.*;
-import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
+import com.czertainly.api.model.client.certificate.CertificateResponseDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
+import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;

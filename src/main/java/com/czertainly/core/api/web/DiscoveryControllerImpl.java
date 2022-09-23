@@ -7,12 +7,9 @@ import com.czertainly.api.interfaces.core.web.DiscoveryController;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
-import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.model.auth.Resource;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.DiscoveryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +20,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 public class DiscoveryControllerImpl implements DiscoveryController {

@@ -1,13 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.model.core.auth.ObjectPermissionsDto;
-import com.czertainly.api.model.core.auth.ObjectPermissionsRequestDto;
-import com.czertainly.api.model.core.auth.ResourcePermissionsDto;
-import com.czertainly.api.model.core.auth.RoleDetailDto;
-import com.czertainly.api.model.core.auth.RoleDto;
-import com.czertainly.api.model.core.auth.RolePermissionsRequestDto;
-import com.czertainly.api.model.core.auth.RoleRequestDto;
-import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
+import com.czertainly.api.model.core.auth.*;
 
 import java.util.List;
 

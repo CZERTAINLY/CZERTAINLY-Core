@@ -1,6 +1,7 @@
 package com.czertainly.core.auth;
 
 import com.czertainly.core.model.auth.ResourceSyncRequestDto;
+import com.czertainly.core.model.auth.SyncResponseDto;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,10 +33,10 @@ public class AuthResourceSynchronizer {
     @EventListener({ApplicationReadyEvent.class})
     public void register() {
         logger.info("Initiating Endpoints sync");
-        List<ResourceSyncRequestDto> endpoints = resourceListener.getResources();
-        logger.debug("Resources: {}", endpoints);
+        List<ResourceSyncRequestDto> resources = resourceListener.getResources();
+        logger.debug("Resources: {}", resources);
         //Sync API Operation here
-//        SyncResponseDto response = resourceApiClient.syncEndPoints(endpoints);
-//        logger.info("Sync operation completed, Response is {}", response);
+        SyncResponseDto response = resourceApiClient.syncResources(resources);
+        logger.info("Sync operation completed, Response is {}", response);
     }
 }

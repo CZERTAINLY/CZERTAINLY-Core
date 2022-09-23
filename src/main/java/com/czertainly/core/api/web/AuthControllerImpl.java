@@ -2,10 +2,8 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.AuthController;
-import com.czertainly.api.model.core.auth.AuthenticationResponseDto;
 import com.czertainly.api.model.core.auth.ResourceDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.service.AuthService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -3,7 +3,6 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.ComplianceGroup;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceRule;
 import com.czertainly.core.dao.entity.Connector;

@@ -1,7 +1,5 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,13 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.model.core.auth.ObjectPermissionsDto;
-import com.czertainly.api.model.core.auth.ObjectPermissionsRequestDto;
-import com.czertainly.api.model.core.auth.ResourcePermissionsDto;
-import com.czertainly.api.model.core.auth.RoleDetailDto;
-import com.czertainly.api.model.core.auth.RoleDto;
-import com.czertainly.api.model.core.auth.RolePermissionsRequestDto;
-import com.czertainly.api.model.core.auth.RoleRequestDto;
-import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
+import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.service.RoleManagementService;
 import org.slf4j.Logger;
