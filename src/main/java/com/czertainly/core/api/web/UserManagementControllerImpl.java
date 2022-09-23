@@ -8,10 +8,8 @@ import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.UserManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -29,19 +27,17 @@ public class UserManagementControllerImpl implements UserManagementController {
     private UserManagementService userManagementService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.USER)
     public List<UserDto> listUsers() {
         return userManagementService.listUsers();
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.DETAIL)
     public UserDetailDto getUser(String userUuid) throws NotFoundException {
         return userManagementService.getUser(userUuid);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.CREATE)
     public ResponseEntity<UserDetailDto> createUser(AddUserRequestDto request) throws NotFoundException, CertificateException {
         UserDetailDto userDto = userManagementService.createUser(request);
 
@@ -70,7 +66,6 @@ public class UserManagementControllerImpl implements UserManagementController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.DELETE)
     public void deleteUser(String userUuid) throws NotFoundException {
         userManagementService.deleteUser(userUuid);
     }
@@ -81,13 +76,11 @@ public class UserManagementControllerImpl implements UserManagementController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.UPDATE)
     public UserDetailDto updateRoles(String userUuid, List<String> roleUuids) throws NotFoundException {
         return userManagementService.updateRoles(userUuid, roleUuids);
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.UPDATE)
     public UserDetailDto addRole(String userUuid, String roleUuid) throws NotFoundException {
         return userManagementService.updateRole(userUuid, roleUuid);
     }

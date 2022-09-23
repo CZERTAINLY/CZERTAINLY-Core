@@ -2,7 +2,11 @@ package com.czertainly.core.config;
 
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.security.authz.*;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.ExternalAuthorizationConfigAttribute;
+import com.czertainly.core.security.authz.GroupParentUUIDGetter;
+import com.czertainly.core.security.authz.NoOpParentUUIDGetter;
+import com.czertainly.core.security.authz.ParentUUIDGetter;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 

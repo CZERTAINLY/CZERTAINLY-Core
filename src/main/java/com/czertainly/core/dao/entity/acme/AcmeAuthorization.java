@@ -2,7 +2,6 @@ package com.czertainly.core.dao.entity.acme;
 
 import com.czertainly.api.model.core.acme.Authorization;
 import com.czertainly.api.model.core.acme.AuthorizationStatus;
-import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;

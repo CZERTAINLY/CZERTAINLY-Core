@@ -1,13 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.api.model.core.auth.ObjectPermissionsDto;
-import com.czertainly.api.model.core.auth.ObjectPermissionsRequestDto;
-import com.czertainly.api.model.core.auth.ResourcePermissionsDto;
-import com.czertainly.api.model.core.auth.RoleDetailDto;
-import com.czertainly.api.model.core.auth.RolePermissionsRequestDto;
-import com.czertainly.api.model.core.auth.RoleRequestDto;
-import com.czertainly.api.model.core.auth.RoleWithPaginationDto;
-import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
+import com.czertainly.api.model.core.auth.*;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;

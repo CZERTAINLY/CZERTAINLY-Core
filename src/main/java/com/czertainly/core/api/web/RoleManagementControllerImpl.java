@@ -2,14 +2,9 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.RoleManagementController;
-import com.czertainly.api.model.core.auth.ObjectPermissionsDto;
-import com.czertainly.api.model.core.auth.ObjectPermissionsRequestDto;
-import com.czertainly.api.model.core.auth.ResourcePermissionsDto;
-import com.czertainly.api.model.core.auth.RoleDetailDto;
-import com.czertainly.api.model.core.auth.RoleDto;
-import com.czertainly.api.model.core.auth.RolePermissionsRequestDto;
-import com.czertainly.api.model.core.auth.RoleRequestDto;
-import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
+import com.czertainly.api.model.core.auth.*;
+import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.service.RoleManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +21,7 @@ public class RoleManagementControllerImpl implements RoleManagementController {
     private RoleManagementService roleManagementService;
 
     @Override
+    @AuthEndpoint(resourceName = Resource.ROLE)
     public List<RoleDto> listRoles() {
         return roleManagementService.listRoles();
     }
