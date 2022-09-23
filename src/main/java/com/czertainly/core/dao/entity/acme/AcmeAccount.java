@@ -5,7 +5,6 @@ import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.api.model.core.acme.Account;
 import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.OrderStatus;
-import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.DtoMapper;
@@ -16,7 +15,6 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;

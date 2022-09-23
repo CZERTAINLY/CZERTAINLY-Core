@@ -11,8 +11,18 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.entity.AuthorityInstanceReference;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.Client;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ClientRepository;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -34,7 +44,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 public class ClientOperationServiceV2Test extends BaseSpringBootTest {

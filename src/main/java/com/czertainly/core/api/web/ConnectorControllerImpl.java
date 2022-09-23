@@ -17,11 +17,10 @@ import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
-import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -43,7 +42,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     private ConnectorService connectorService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.LIST, isListingEndPoint = true)
+    @AuthEndpoint(resourceName = Resource.CONNECTOR)
     public List<ConnectorDto> listConnectors(
             @RequestParam Optional<FunctionGroupCode> functionGroup,
             @RequestParam Optional<String> kind,
@@ -52,25 +51,21 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.APPROVE)
     public void bulkApprove(List<String> uuids) throws NotFoundException, ValidationException {
         connectorService.approve(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.CONNECT)
     public void bulkReconnect(List<String> uuids) throws ValidationException, NotFoundException, ConnectorException {
         connectorService.reconnect(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.DETAIL)
     public ConnectorDto getConnector(@PathVariable String uuid) throws NotFoundException, ConnectorException {
         return connectorService.getConnector(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.CREATE)
     public ResponseEntity<?> createConnector(@RequestBody ConnectorRequestDto request)
             throws AlreadyExistException, ConnectorException {
         ConnectorDto connectorDto = connectorService.createConnector(request);
@@ -83,7 +78,6 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.UPDATE)
     public ConnectorDto editConnector(@PathVariable String uuid, @RequestBody ConnectorUpdateRequestDto request)
             throws ConnectorException {
         return connectorService.editConnector(SecuredUUID.fromString(uuid), request);
@@ -100,25 +94,21 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.CONNECT)
     public List<ConnectDto> reconnect(@PathVariable String uuid) throws ValidationException, NotFoundException, ConnectorException {
         return connectorService.reconnect(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.APPROVE)
     public void approve(@PathVariable String uuid) throws NotFoundException, ValidationException {
         connectorService.approve(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
     public HealthDto checkHealth(@PathVariable String uuid) throws NotFoundException, ValidationException, ConnectorException {
         return connectorService.checkHealth(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
     public List<AttributeDefinition> getAttributes(@PathVariable String uuid,
                                                    @PathVariable String functionGroup,
                                                    @PathVariable String kind) throws NotFoundException, ConnectorException {
@@ -126,7 +116,6 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
     public void validateAttributes(@PathVariable String uuid,
                                       @PathVariable String functionGroup,
                                       @PathVariable String kind,
@@ -137,7 +126,6 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
 	@Override
-    @AuthEndpoint(resourceName = Resource.CONNECTOR, actionName = ResourceAction.ANY)
 	public Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAttributesAll(String uuid) throws NotFoundException, ConnectorException {
 		return connectorService.getAllAttributesOfConnector(SecuredUUID.fromString(uuid));
 	}

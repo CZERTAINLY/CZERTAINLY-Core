@@ -17,20 +17,8 @@ import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.ComplianceGroup;
-import com.czertainly.core.dao.entity.ComplianceProfile;
-import com.czertainly.core.dao.entity.ComplianceProfileRule;
-import com.czertainly.core.dao.entity.ComplianceRule;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ComplianceGroupRepository;
-import com.czertainly.core.dao.repository.ComplianceProfileRepository;
-import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
-import com.czertainly.core.dao.repository.ComplianceRuleRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -43,13 +31,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service

@@ -2,7 +2,8 @@ package com.czertainly.core.service.model;
 
 import com.czertainly.core.security.authz.SecurityFilter;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class SecuredList<T extends Securable> {

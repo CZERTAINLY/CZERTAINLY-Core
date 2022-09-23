@@ -6,22 +6,11 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 public class SyncResponseDto {
 
-    @Schema(description = "List of end points")
-    private SyncEndpointsDto endpoints;
-
-    @Schema(description = "List ofo resources")
+    @Schema(description = "List of resources")
     private SyncResourcesDto resources;
 
     @Schema(description = "List of Actions")
     private SyncActionsDto actions;
-
-    public SyncEndpointsDto getEndpoints() {
-        return endpoints;
-    }
-
-    public void setEndpoints(SyncEndpointsDto endpoints) {
-        this.endpoints = endpoints;
-    }
 
     public SyncResourcesDto getResources() {
         return resources;
@@ -42,7 +31,6 @@ public class SyncResponseDto {
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("endpoints", endpoints)
                 .append("resources", resources)
                 .append("actions", actions)
                 .toString();

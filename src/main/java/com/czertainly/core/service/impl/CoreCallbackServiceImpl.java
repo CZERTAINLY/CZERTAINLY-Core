@@ -6,8 +6,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
-import com.czertainly.core.dao.entity.Credential;
-import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CoreCallbackService;
 import com.czertainly.core.service.CredentialService;
@@ -17,7 +15,6 @@ import org.springframework.stereotype.Service;
 import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional

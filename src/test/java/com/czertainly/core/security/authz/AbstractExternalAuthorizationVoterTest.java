@@ -14,7 +14,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.springframework.security.access.AccessDecisionVoter.*;
+import static org.springframework.security.access.AccessDecisionVoter.ACCESS_ABSTAIN;
+import static org.springframework.security.access.AccessDecisionVoter.ACCESS_DENIED;
 
 class AbstractExternalAuthorizationVoterTest {
 
