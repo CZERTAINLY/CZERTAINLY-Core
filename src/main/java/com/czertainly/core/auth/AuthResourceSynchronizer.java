@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 
 import java.util.List;
 
@@ -36,7 +37,11 @@ public class AuthResourceSynchronizer {
         List<ResourceSyncRequestDto> resources = resourceListener.getResources();
         logger.debug("Resources: {}", resources);
         //Sync API Operation here
-        SyncResponseDto response = resourceApiClient.syncResources(resources);
-        logger.info("Sync operation completed, Response is {}", response);
+        try {
+            SyncResponseDto response = resourceApiClient.syncResources(resources);
+            logger.info("Sync operation completed, Response is {}", response);
+        } catch (WebClientRequestException e) {
+            logger.error("Unable to communicate with Auth Service: {}", e.getMessage());
+        }
     }
 }
