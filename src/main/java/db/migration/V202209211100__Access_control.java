@@ -1,14 +1,10 @@
 package db.migration;
 
-import com.czertainly.api.model.core.auth.ObjectPermissionsRequestDto;
-import com.czertainly.api.model.core.auth.ResourcePermissionsRequestDto;
-import com.czertainly.api.model.core.auth.RoleDto;
-import com.czertainly.api.model.core.auth.RolePermissionsRequestDto;
-import com.czertainly.api.model.core.auth.RoleRequestDto;
-import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.api.model.core.auth.UserRequestDto;
+import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.auth.ResourceSyncRequestDto;
+import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
@@ -25,13 +21,7 @@ import java.net.URL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Migration script for the Access control changes.
@@ -45,24 +35,41 @@ public class V202209211100__Access_control extends BaseJavaMigration {
     private static final String AUTH_SERVICE_BASE_URL_PROPERTY = "AUTH_SERVICE_BASE_URL";
     private static final String AUTH_ADMIN_ROLE_UUID = "da5668e2-9d94-4375-98c4-d665083edceb";
     private static final String AUTH_SUPER_ADMIN_ROLE_UUID = "d34f960b-75c9-4184-ba97-665d30a9ee8a";
+    private static final String ACME_ROLE_UUID = "ea5668e2-9d94-4375-98c4-d665083edcec";
 
 
     private static Properties properties;
     private WebClient client;
     private UserManagementApiClient userManagementApiClient;
     private RoleManagementApiClient roleManagementApiClient;
+    private ResourceApiClient resourceApiClient;
+    private final List<String> certificateUserUpdateCommands = new ArrayList<>();
+    private final List<String> detailPermissionObjects = List.of(Resource.ACME_PROFILE.getCode(),
+            Resource.ACME_ACCOUNT.getCode(),
+            Resource.RA_PROFILE.getCode(),
+            Resource.RA_PROFILE.getCode(),
+            Resource.AUTHORITY.getCode());
+    private final List<String> certificatePermissions = List.of(ResourceAction.CREATE.getCode(),
+            ResourceAction.DETAIL.getCode(),
+            ResourceAction.RENEW.getCode(),
+            ResourceAction.REVOKE.getCode(),
+            ResourceAction.LIST.getCode(),
+            ResourceAction.DETAIL.getCode());
 
     @Override
     public Integer getChecksum() {
         return 123456;
     }
 
-    private List<String> certificateUserUpdateCommands = new ArrayList<>();
-
     public void migrate(Context context) throws Exception {
-        userManagementApiClient = new UserManagementApiClient(getAuthServiceUrl(), client);
-        roleManagementApiClient = new RoleManagementApiClient(getAuthServiceUrl(), client);
+        String authUrl = getAuthServiceUrl();
+        userManagementApiClient = new UserManagementApiClient(authUrl, client);
+        roleManagementApiClient = new RoleManagementApiClient(authUrl, client);
+        resourceApiClient = new ResourceApiClient(authUrl, client);
         try (Statement select = context.getConnection().createStatement()) {
+            //Permissions will be seeded to the auth service for initial ACME Role registration
+            seedPermissions();
+            assignACMEPermission(getPermissionPayload());
             createCertificateUserReference(select);
             List<String> adminNames = createAdministratorUsers(context);
             Map<String, String> clientRoleMap = createClientUsers(context, adminNames);
@@ -247,4 +254,56 @@ public class V202209211100__Access_control extends BaseJavaMigration {
             select.execute(command);
         }
     }
+
+    private void seedPermissions() {
+        List<ResourceSyncRequestDto> resources = new ArrayList<>();
+
+        for (String permissionObject : detailPermissionObjects) {
+            ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
+            requestDto.setName(Resource.findByCode(permissionObject));
+            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode()));
+            resources.add(requestDto);
+        }
+
+        //Certificate Operations
+        ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
+        requestDto.setName(Resource.CERTIFICATE);
+        requestDto.setActions(certificatePermissions);
+        resources.add(requestDto);
+
+        resourceApiClient.syncResources(resources);
+    }
+
+    private void assignACMEPermission(RolePermissionsRequestDto request) {
+        roleManagementApiClient.savePermissions(ACME_ROLE_UUID, request);
+    }
+
+    private RolePermissionsRequestDto getPermissionPayload() {
+        RolePermissionsRequestDto request = new RolePermissionsRequestDto();
+        request.setAllowAllResources(false);
+
+        List<ResourcePermissionsRequestDto> resourcePermissionsRequestDtos = new ArrayList<>();
+
+        for (String permissionObject : detailPermissionObjects) {
+            ResourcePermissionsRequestDto requestDto = new ResourcePermissionsRequestDto();
+            requestDto.setName(permissionObject);
+            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode()));
+            requestDto.setAllowAllActions(false);
+            requestDto.setObjects(List.of());
+            resourcePermissionsRequestDtos.add(requestDto);
+        }
+
+        //Add Certificate Permissions
+        ResourcePermissionsRequestDto clientOperationsRequestDto = new ResourcePermissionsRequestDto();
+        clientOperationsRequestDto.setName(Resource.CERTIFICATE.getCode());
+        clientOperationsRequestDto.setActions(certificatePermissions);
+        clientOperationsRequestDto.setAllowAllActions(false);
+        clientOperationsRequestDto.setObjects(List.of());
+        resourcePermissionsRequestDtos.add(clientOperationsRequestDto);
+
+        request.setResources(resourcePermissionsRequestDtos);
+        return request;
+
+    }
+
 }

@@ -50,7 +50,6 @@ public class UserManagementControllerImpl implements UserManagementController {
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.USER, actionName = ResourceAction.UPDATE)
     public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
         return userManagementService.updateUser(userUuid, request);
     }
