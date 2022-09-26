@@ -32,16 +32,6 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
                 request);
     }
 
-    public AuthenticationResponseDto getUserProfile() {
-        WebClient.RequestBodySpec request = prepareRequest(HttpMethod.GET).uri(USER_BASE_CONTEXT + "/profile");
-
-        return processRequest(r -> r
-                        .retrieve()
-                        .toEntity(AuthenticationResponseDto.class)
-                        .block().getBody(),
-                request);
-    }
-
 
     public UserDetailDto getUserDetail(String userUuid) {
         WebClient.RequestBodySpec request = prepareRequest(HttpMethod.GET).uri(USER_DETAIL_CONTEXT.replace("{userUuid}", userUuid));
