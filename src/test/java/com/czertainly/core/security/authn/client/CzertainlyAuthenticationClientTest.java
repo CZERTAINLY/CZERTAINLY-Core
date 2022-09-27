@@ -3,7 +3,6 @@ package com.czertainly.core.security.authn.client;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import junit.framework.AssertionFailedError;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -27,6 +26,20 @@ class CzertainlyAuthenticationClientTest {
     private static MockWebServer authServiceMock;
 
     private static CzertainlyAuthenticationClient czertainlyAuthenticationClient;
+    // @formatter:off
+    String RAW_DATA = "{" +
+            "\"authenticated\": true," +
+            "\"data\": {" +
+            "\"user\": {" +
+            "\"username\": \"FrantisekJednicka\"," +
+            "\"enabled\": true" +
+            "}," +
+            "\"roles\": [" +
+            "\"ROLE_ADMINISTRATOR\"," +
+            "\"ROLE_USER\"" +
+            "]" +
+            "}" +
+            "}";
 
     @BeforeAll
     static void setup() throws IOException {
@@ -67,15 +80,15 @@ class CzertainlyAuthenticationClientTest {
         assertEquals("FrantisekJednicka", info.getUsername());
         // @formatter:off
         assertEquals("{" +
-                    "\"user\":{" +
+                        "\"user\":{" +
                         "\"username\":\"FrantisekJednicka\"," +
                         "\"enabled\":true" +
-                    "}," +
-                    "\"roles\":[" +
+                        "}," +
+                        "\"roles\":[" +
                         "\"ROLE_ADMINISTRATOR\"," +
                         "\"ROLE_USER\"" +
-                    "]" +
-                "}",
+                        "]" +
+                        "}",
                 info.getRawData()
         );
         // @formatter:on
@@ -86,43 +99,6 @@ class CzertainlyAuthenticationClientTest {
                         .collect(Collectors.toList())
         );
 
-    }
-
-    @Test
-    void insertsHeadersIntoRequest() throws InterruptedException {
-        // setup
-        setUpSuccessfulAuthenticationResponse();
-
-        // given
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("x-app-certificate", "certificate-value");
-
-        // when
-        czertainlyAuthenticationClient.authenticate(headers);
-
-        // then
-        RecordedRequest recordedRequest = getLastRequest();
-        assertHeaderSent("x-app-certificate", "certificate-value", recordedRequest);
-    }
-
-    @Test
-    void excludedHeadersAreNotInsertedIntoRequest() throws InterruptedException {
-        // setup
-        setUpSuccessfulAuthenticationResponse();
-
-        // given
-        czertainlyAuthenticationClient.setExcludedHeaders(List.of("my-excluded-header"));
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("my-excluded-header", "header-value");
-        headers.add("x-app-certificate", "certificate-value");
-
-        // when
-        czertainlyAuthenticationClient.authenticate(headers);
-
-        // then
-        RecordedRequest recordedRequest = getLastRequest();
-        assertHeaderNotSent("my-excluded-header", recordedRequest);
-        assertHeaderSent("x-app-certificate", "certificate-value", recordedRequest);
     }
 
     @Test
@@ -149,37 +125,9 @@ class CzertainlyAuthenticationClientTest {
         assertThrows(CzertainlyAuthenticationException.class, willThrow);
     }
 
-    @SuppressWarnings("SameParameterValue")
-    void assertHeaderSent(String headerName, String expectedHeaderValue, RecordedRequest recordedRequest) {
-        String actualHeaderValue = recordedRequest.getHeader(headerName);
-        assertEquals(expectedHeaderValue, actualHeaderValue);
-    }
-
-    @SuppressWarnings("SameParameterValue")
-    void assertHeaderNotSent(String headerName, RecordedRequest recordedRequest) {
-        if (recordedRequest.getHeaders().names().contains(headerName)) {
-            throw new AssertionFailedError(String.format("Header '%s' was found between received headers.", headerName));
-        }
-    }
-
     RecordedRequest getLastRequest() throws InterruptedException {
         return authServiceMock.takeRequest(500, TimeUnit.MILLISECONDS);
     }
-
-    // @formatter:off
-    String RAW_DATA = "{" +
-            "\"authenticated\": true," +
-                "\"data\": {" +
-                    "\"user\": {" +
-                        "\"username\": \"FrantisekJednicka\"," +
-                        "\"enabled\": true" +
-                    "}," +
-                    "\"roles\": [" +
-                        "\"ROLE_ADMINISTRATOR\"," +
-                        "\"ROLE_USER\"" +
-                    "]" +
-                "}" +
-            "}";
     // @formatter:on
 
     void setUpSuccessfulAuthenticationResponse() {

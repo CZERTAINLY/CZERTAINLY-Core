@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
+import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
 import com.czertainly.core.security.authn.client.dto.UserDetailsDto;
@@ -16,8 +17,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 
-import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
@@ -25,10 +26,14 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
     protected final Log logger = LogFactory.getLog(this.getClass());
 
-    private static List<String> excludedHeaders = List.of("host", "content-length", "content-type", "accept", "accept-encoding", "connection");
-
     private final ObjectMapper objectMapper;
     private final String customAuthServiceBaseUrl;
+
+    @Value("${server.ssl.certificate-header-name}")
+    private String certificateHeaderName;
+
+    @Value("${server.ssl.auth-token-header-name}")
+    private String authTokenHeaderName;
 
     public CzertainlyAuthenticationClient(@Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
 
@@ -47,11 +52,10 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
                     )
             );
             WebClient.RequestHeadersSpec<?> request = getClient(customAuthServiceBaseUrl)
-                    .get()
-                    .uri("/auth/users/profile")
+                    .post()
+                    .uri("/auth")
+                    .body(Mono.just(getAuthPayload(headers)), AuthenticationRequestDto.class)
                     .accept(MediaType.APPLICATION_JSON);
-
-            insertHeaders(headers, request);
 
             AuthenticationResponseDto response = request
                     .retrieve()
@@ -65,6 +69,17 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         } catch (WebClientResponseException.InternalServerError e) {
             throw new CzertainlyAuthenticationException("An error occurred when calling authentication service.", e);
         }
+    }
+
+    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers) {
+        AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
+        if( headers.get(certificateHeaderName) != null) {
+            requestDto.setCertificateContent(headers.get(certificateHeaderName).get(0));
+        }
+        if(headers.get(authTokenHeaderName) != null) {
+            requestDto.setAuthenticationToken(headers.get(authTokenHeaderName).get(0));
+        }
+        return requestDto;
     }
 
     private AuthenticationInfo createAuthenticationInfo(AuthenticationResponseDto response) {
@@ -82,17 +97,5 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         } catch (JsonProcessingException e) {
             throw new CzertainlyAuthenticationException("The response from the authentication service could not be parsed.", e);
         }
-    }
-
-    private void insertHeaders(HttpHeaders headers, WebClient.RequestHeadersSpec<?> request) {
-        headers.forEach((name, value) -> {
-            if (!excludedHeaders.contains(name)) {
-                request.header(name, String.join(",", value));
-            }
-        });
-    }
-
-    public void setExcludedHeaders(List<String> excludedHeaders) {
-        CzertainlyAuthenticationClient.excludedHeaders = excludedHeaders;
     }
 }
