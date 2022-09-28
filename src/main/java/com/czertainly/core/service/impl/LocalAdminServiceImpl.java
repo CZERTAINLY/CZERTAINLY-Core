@@ -6,6 +6,10 @@ import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
+import com.czertainly.core.security.authn.CzertainlyUserDetails;
+import com.czertainly.core.security.authn.client.AuthenticationInfo;
+import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
@@ -14,9 +18,15 @@ import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
@@ -29,8 +39,12 @@ public class LocalAdminServiceImpl implements LocalAdminService {
     private UserManagementApiClient userManagementApiClient;
     private UserManagementService userManagementService;
     private CertificateService certificateService;
+    private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
 
     private static final String AUTH_SUPER_ADMIN_ROLE_UUID = "d34f960b-75c9-4184-ba97-665d30a9ee8a";
+
+    @Value("${server.ssl.certificate-header-name}")
+    private String certificateHeaderName;
 
     @Autowired
     private void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
@@ -47,6 +61,10 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         this.certificateService = certificateService;
     }
 
+    @Autowired
+    public void setCzertainlyAuthenticationClient(CzertainlyAuthenticationClient czertainlyAuthenticationClient) {
+        this.czertainlyAuthenticationClient = czertainlyAuthenticationClient;
+    }
 
     @Override
     public UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException {
@@ -60,15 +78,22 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         String fingerPrint = getCertificateFingerprint(x509Cert);
 
         UserDetailDto response = createUser(request, fingerPrint);
+        userManagementService.updateRole(response.getUuid(), AUTH_SUPER_ADMIN_ROLE_UUID);
 
-        //TODO Add Auth header to the request - self assignment
-        //TODO logger
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(getHeaders(request.getCertificateData()));
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
 
         Certificate certificate = uploadCertificate(request.getCertificateUuid(), request.getCertificateData());
         certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
-        userManagementService.updateRole(response.getUuid(), AUTH_SUPER_ADMIN_ROLE_UUID);
 
         return updateUser(request, fingerPrint, certificate.getUuid().toString(), response.getUuid());
+    }
+
+    private HttpHeaders getHeaders(String certificateData) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(certificateHeaderName, URLEncoder.encode(certificateData, StandardCharsets.UTF_8));
+        return headers;
     }
 
     private UserDetailDto createUser(AddUserRequestDto request, String fingerprint) {
