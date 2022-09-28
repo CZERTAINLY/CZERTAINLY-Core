@@ -167,6 +167,15 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public Boolean checkCertificateExistsByFingerprint(String fingerprint) {
+        try {
+            return certificateRepository.findByFingerprint(fingerprint).isPresent();
+        } catch (Exception e){
+            return false;
+        }
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

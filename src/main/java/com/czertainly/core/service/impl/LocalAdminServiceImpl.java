@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.auth.AddUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
@@ -67,7 +68,8 @@ public class LocalAdminServiceImpl implements LocalAdminService {
     }
 
     @Override
-    public UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException {
+    public UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+
         if(request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) {
             UserDetailDto userResponse = userManagementService.createUser(request);
             userManagementService.updateRole(userResponse.getUuid(), AUTH_SUPER_ADMIN_ROLE_UUID);
@@ -77,6 +79,9 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(request.getCertificateData());
         String fingerPrint = getCertificateFingerprint(x509Cert);
 
+        if(certificateService.checkCertificateExistsByFingerprint(fingerPrint)){
+            throw new AlreadyExistException("User already exist for the provided certificate");
+        }
         UserDetailDto response = createUser(request, fingerPrint);
         userManagementService.updateRole(response.getUuid(), AUTH_SUPER_ADMIN_ROLE_UUID);
 
