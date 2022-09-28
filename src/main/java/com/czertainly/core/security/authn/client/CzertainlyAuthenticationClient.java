@@ -32,7 +32,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
     @Value("${server.ssl.certificate-header-name}")
     private String certificateHeaderName;
 
-    @Value("${server.ssl.auth-token-header-name}")
+    @Value("${auth.token.header-name}")
     private String authTokenHeaderName;
 
     public CzertainlyAuthenticationClient(@Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
