@@ -306,13 +306,13 @@ public class V202209211100__Access_control extends BaseJavaMigration {
 
     }
 
-    private void createSuperadminRole() {
+    private void createSuperAdminRole() {
         RoleRequestDto requestDto = new RoleRequestDto();
         requestDto.setName("superadmin");
         requestDto.setDescription("Internal Czertianly system role with all permissions");
         RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
-        String superadminUuid = createSuperadminUser();
-        assignRoles(superadminUuid, response.getUuid());
+        String superAdminUuid = createSuperadminUser();
+        assignRoles(superAdminUuid, response.getUuid());
     }
 
     private String createSuperadminUser() {
