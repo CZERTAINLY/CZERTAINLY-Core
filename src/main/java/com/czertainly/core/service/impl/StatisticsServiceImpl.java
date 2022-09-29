@@ -25,7 +25,6 @@ import java.util.UUID;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class StatisticsServiceImpl implements StatisticsService {
 
     private static final Logger logger = LoggerFactory.getLogger(StatisticsServiceImpl.class);

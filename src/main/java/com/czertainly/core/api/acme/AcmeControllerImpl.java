@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@Secured({"ROLE_ACME"})
 public class AcmeControllerImpl implements AcmeController {
 
     @ModelAttribute

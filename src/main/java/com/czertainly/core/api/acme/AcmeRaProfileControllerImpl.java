@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@Secured({"ROLE_ACME"})
 public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
 
     @ModelAttribute

@@ -3,7 +3,7 @@ package com.czertainly.core.api.local;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.local.LocalController;
-import com.czertainly.api.model.core.auth.AddUserRequestDto;
+import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.core.service.LocalAdminService;
 import org.springframework.beans.factory.annotation.Autowired;

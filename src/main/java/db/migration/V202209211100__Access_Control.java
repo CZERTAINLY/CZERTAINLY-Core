@@ -7,6 +7,7 @@ import com.czertainly.core.model.auth.ResourceSyncRequestDto;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
+import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 import org.springframework.context.annotation.PropertySource;
@@ -30,19 +31,11 @@ import java.util.*;
  * then the data in the core will be cleaned up.
  */
 @PropertySource("classpath:application.properties")
-public class V202209211100__Access_control extends BaseJavaMigration {
+public class V202209211100__Access_Control extends BaseJavaMigration {
 
     private static final String AUTH_SERVICE_BASE_URL_PROPERTY = "AUTH_SERVICE_BASE_URL";
-    private static final String AUTH_ADMIN_ROLE_UUID = "da5668e2-9d94-4375-98c4-d665083edceb";
-    private static final String AUTH_SUPER_ADMIN_ROLE_UUID = "d34f960b-75c9-4184-ba97-665d30a9ee8a";
-    private static final String ACME_ROLE_UUID = "ea5668e2-9d94-4375-98c4-d665083edcec";
-
 
     private static Properties properties;
-    private WebClient client;
-    private UserManagementApiClient userManagementApiClient;
-    private RoleManagementApiClient roleManagementApiClient;
-    private ResourceApiClient resourceApiClient;
     private final List<String> certificateUserUpdateCommands = new ArrayList<>();
     private final List<String> detailPermissionObjects = List.of(Resource.ACME_PROFILE.getCode(),
             Resource.ACME_ACCOUNT.getCode(),
@@ -55,10 +48,24 @@ public class V202209211100__Access_control extends BaseJavaMigration {
             ResourceAction.REVOKE.getCode(),
             ResourceAction.LIST.getCode(),
             ResourceAction.DETAIL.getCode());
+    private WebClient client;
+    private UserManagementApiClient userManagementApiClient;
+    private RoleManagementApiClient roleManagementApiClient;
+    private ResourceApiClient resourceApiClient;
+    private String superAdministratorRoleUuid;
+    private String administratorRoleUuid;
+
+    public void setSuperAdministratorRoleUuid(String superAdministratorRoleUuid) {
+        this.superAdministratorRoleUuid = superAdministratorRoleUuid;
+    }
+
+    public void setAdministratorRoleUuid(String administratorRoleUuid) {
+        this.administratorRoleUuid = administratorRoleUuid;
+    }
 
     @Override
     public Integer getChecksum() {
-        return 123456;
+        return DatabaseMigration.JavaMigrationChecksums.V202209211100__Access_Control.getChecksum();
     }
 
     public void migrate(Context context) throws Exception {
@@ -68,8 +75,10 @@ public class V202209211100__Access_control extends BaseJavaMigration {
         resourceApiClient = new ResourceApiClient(authUrl, client);
         try (Statement select = context.getConnection().createStatement()) {
             //Permissions will be seeded to the auth service for initial ACME Role registration
-            seedPermissions();
-            assignACMEPermission(getPermissionPayload());
+            seedResources();
+            createSuperAdminRole();
+            createAdminRole(select);
+            createAcmeRole();
             createCertificateUserReference(select);
             List<String> adminNames = createAdministratorUsers(context);
             Map<String, String> clientRoleMap = createClientUsers(context, adminNames);
@@ -99,7 +108,7 @@ public class V202209211100__Access_control extends BaseJavaMigration {
                     dto.setEnabled(rows.getBoolean("enabled"));
                     dto.setCertificateFingerprint(rows.getString("fingerprint"));
                     UserDto response = userManagementApiClient.createUser(dto);
-                    assignRoles(response.getUuid(), rows.getString("role").equals("SUPERADMINISTRATOR") ? AUTH_SUPER_ADMIN_ROLE_UUID : AUTH_ADMIN_ROLE_UUID);
+                    assignRoles(response.getUuid(), rows.getString("role").equals("SUPERADMINISTRATOR") ? superAdministratorRoleUuid : administratorRoleUuid);
                     adminNames.add(dto.getUsername());
                     certificateUserUpdateCommands.add("update certificate SET user_uuid = '" + response.getUuid() + "' WHERE uuid = '" + certificateUuid + "'");
                 }
@@ -156,6 +165,7 @@ public class V202209211100__Access_control extends BaseJavaMigration {
         RoleRequestDto dto = new RoleRequestDto();
         dto.setName("Client_Role_" + clientName);
         dto.setDescription("Role created during migration for the client " + clientName);
+        dto.setSystemRole(false);
         RoleDto response = roleManagementApiClient.createRole(dto);
         assignRoles(clientUuid, response.getUuid());
         return response.getUuid();
@@ -255,7 +265,7 @@ public class V202209211100__Access_control extends BaseJavaMigration {
         }
     }
 
-    private void seedPermissions() {
+    private void seedResources() {
         List<ResourceSyncRequestDto> resources = new ArrayList<>();
 
         for (String permissionObject : detailPermissionObjects) {
@@ -272,10 +282,6 @@ public class V202209211100__Access_control extends BaseJavaMigration {
         resources.add(requestDto);
 
         resourceApiClient.syncResources(resources);
-    }
-
-    private void assignACMEPermission(RolePermissionsRequestDto request) {
-        roleManagementApiClient.savePermissions(ACME_ROLE_UUID, request);
     }
 
     private RolePermissionsRequestDto getPermissionPayload() {
@@ -303,47 +309,39 @@ public class V202209211100__Access_control extends BaseJavaMigration {
 
         request.setResources(resourcePermissionsRequestDtos);
         return request;
-
     }
 
     private void createSuperAdminRole() {
         RoleRequestDto requestDto = new RoleRequestDto();
         requestDto.setName("superadmin");
-        requestDto.setDescription("Internal Czertianly system role with all permissions");
+        requestDto.setDescription("Internal CZERTAINLY system role with all permissions");
+        requestDto.setSystemRole(true);
+        requestDto.setPermissions(getAdminPermissions());
         RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
-        String superAdminUuid = createSuperadminUser();
-        assignRoles(superAdminUuid, response.getUuid());
+        setSuperAdministratorRoleUuid(response.getUuid());
     }
 
-    private String createSuperadminUser() {
-        UserRequestDto requestDto = new UserRequestDto();
-        requestDto.setUsername("superadmin");
-        requestDto.setEnabled(true);
-        requestDto.setCertificateFingerprint("e1481e7eb80a265189da1c42c21066b006ed46afc1b55dd610a31bb8ec5da8b8");
-        return userManagementApiClient.createUser(requestDto).getUuid();
-    }
-
-    private void createAdminRole() {
-        RoleRequestDto requestDto = new RoleRequestDto();
-        requestDto.setName("admin");
-        requestDto.setDescription("Internal Czertianly system role with all administrating permissions");
-        RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
-        String adminUuid = createAdminUser();
-        assignRoles(adminUuid, response.getUuid());
-    }
-
-    private String createAdminUser() {
-        UserRequestDto requestDto = new UserRequestDto();
-        requestDto.setUsername("admin");
-        requestDto.setEnabled(true);
-        requestDto.setCertificateFingerprint("e1481e7eb80a265189da1c42c21066b006ed46afc1b55dd610a31bb8ec5da8b9");
-        return userManagementApiClient.createUser(requestDto).getUuid();
+    private void createAdminRole(Statement select) throws SQLException {
+        try (ResultSet rows = select.executeQuery("SELECT COUNT(*) FROM admin WHERE ROLE='ADMINISTRATOR'")) {
+            rows.next();
+            if (rows.getInt("count") > 0) {
+                RoleRequestDto requestDto = new RoleRequestDto();
+                requestDto.setName("admin");
+                requestDto.setDescription("Internal CZERTAINLY system role with all administrating permissions");
+                requestDto.setSystemRole(false);
+                requestDto.setPermissions(getAdminPermissions());
+                RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
+                setAdministratorRoleUuid(response.getUuid());
+            }
+        }
     }
 
     private void createAcmeRole() {
         RoleRequestDto requestDto = new RoleRequestDto();
-        requestDto.setName("ACME");
-        requestDto.setDescription("Internal Czertianly system role with all ACME permissions");
+        requestDto.setName("acme");
+        requestDto.setDescription("Internal CZERTAINLY system role with all ACME permissions");
+        requestDto.setSystemRole(true);
+        requestDto.setPermissions(getPermissionPayload());
         RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
         String acmeUser = createAcmeUser();
         assignRoles(acmeUser, response.getUuid());
@@ -353,8 +351,15 @@ public class V202209211100__Access_control extends BaseJavaMigration {
         UserRequestDto requestDto = new UserRequestDto();
         requestDto.setUsername("acme");
         requestDto.setEnabled(true);
+        requestDto.setSystemUser(true);
         requestDto.setCertificateFingerprint("");
         return userManagementApiClient.createUser(requestDto).getUuid();
+    }
+
+    private RolePermissionsRequestDto getAdminPermissions() {
+        RolePermissionsRequestDto requestDto = new RolePermissionsRequestDto();
+        requestDto.setAllowAllResources(true);
+        return requestDto;
     }
 
 }

@@ -2,7 +2,9 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.core.auth.AddUserRequestDto;
+import com.czertainly.api.model.client.auth.AddUserRequestDto;
+import com.czertainly.api.model.core.auth.RoleDetailDto;
+import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
@@ -11,6 +13,7 @@ import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
@@ -32,17 +35,17 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class LocalAdminServiceImpl implements LocalAdminService {
 
     private UserManagementApiClient userManagementApiClient;
+    private RoleManagementApiClient roleManagementApiClient;
     private UserManagementService userManagementService;
     private CertificateService certificateService;
     private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
-
-    private static final String AUTH_SUPER_ADMIN_ROLE_UUID = "d34f960b-75c9-4184-ba97-665d30a9ee8a";
 
     @Value("${server.ssl.certificate-header-name}")
     private String certificateHeaderName;
@@ -67,12 +70,18 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         this.czertainlyAuthenticationClient = czertainlyAuthenticationClient;
     }
 
+    @Autowired
+    public void setRoleManagementApiClient(RoleManagementApiClient roleManagementApiClient) {
+        this.roleManagementApiClient = roleManagementApiClient;
+    }
+
     @Override
     public UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
 
+        String superAdminUuid = getSuperAdminRoleUuid();
         if(request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) {
             UserDetailDto userResponse = userManagementService.createUser(request);
-            userManagementService.updateRole(userResponse.getUuid(), AUTH_SUPER_ADMIN_ROLE_UUID);
+            userManagementService.updateRole(userResponse.getUuid(), superAdminUuid);
             return userResponse;
         }
 
@@ -83,7 +92,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
             throw new AlreadyExistException("User already exist for the provided certificate");
         }
         UserDetailDto response = createUser(request, fingerPrint);
-        userManagementService.updateRole(response.getUuid(), AUTH_SUPER_ADMIN_ROLE_UUID);
+        userManagementService.updateRole(response.getUuid(), superAdminUuid);
 
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(getHeaders(request.getCertificateData()));
         SecurityContext securityContext = SecurityContextHolder.getContext();
@@ -136,7 +145,6 @@ public class LocalAdminServiceImpl implements LocalAdminService {
             try {
                 certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
             } catch (NotFoundException e) {
-//                logger.debug("New Certificate uploaded for the user");
                 certificate = certificateService.createCertificateEntity(x509Cert);
                 certificateService.updateCertificateEntity(certificate);
             }
@@ -144,5 +152,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         return certificate;
     }
 
-
+    private String getSuperAdminRoleUuid(){
+        return roleManagementApiClient.getRoles().getData().stream().filter(e -> e.getSystemRole().equals(true) && e.getName().equals("superadmin")).collect(Collectors.toList()).get(0).getUuid();
+    }
 }
