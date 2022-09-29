@@ -306,4 +306,55 @@ public class V202209211100__Access_control extends BaseJavaMigration {
 
     }
 
+    private void createSuperadminRole() {
+        RoleRequestDto requestDto = new RoleRequestDto();
+        requestDto.setName("superadmin");
+        requestDto.setDescription("Internal Czertianly system role with all permissions");
+        RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
+        String superadminUuid = createSuperadminUser();
+        assignRoles(superadminUuid, response.getUuid());
+    }
+
+    private String createSuperadminUser() {
+        UserRequestDto requestDto = new UserRequestDto();
+        requestDto.setUsername("superadmin");
+        requestDto.setEnabled(true);
+        requestDto.setCertificateFingerprint("e1481e7eb80a265189da1c42c21066b006ed46afc1b55dd610a31bb8ec5da8b8");
+        return userManagementApiClient.createUser(requestDto).getUuid();
+    }
+
+    private void createAdminRole() {
+        RoleRequestDto requestDto = new RoleRequestDto();
+        requestDto.setName("admin");
+        requestDto.setDescription("Internal Czertianly system role with all administrating permissions");
+        RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
+        String adminUuid = createAdminUser();
+        assignRoles(adminUuid, response.getUuid());
+    }
+
+    private String createAdminUser() {
+        UserRequestDto requestDto = new UserRequestDto();
+        requestDto.setUsername("admin");
+        requestDto.setEnabled(true);
+        requestDto.setCertificateFingerprint("e1481e7eb80a265189da1c42c21066b006ed46afc1b55dd610a31bb8ec5da8b9");
+        return userManagementApiClient.createUser(requestDto).getUuid();
+    }
+
+    private void createAcmeRole() {
+        RoleRequestDto requestDto = new RoleRequestDto();
+        requestDto.setName("ACME");
+        requestDto.setDescription("Internal Czertianly system role with all ACME permissions");
+        RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
+        String acmeUser = createAcmeUser();
+        assignRoles(acmeUser, response.getUuid());
+    }
+
+    private String createAcmeUser() {
+        UserRequestDto requestDto = new UserRequestDto();
+        requestDto.setUsername("acme");
+        requestDto.setEnabled(true);
+        requestDto.setCertificateFingerprint("");
+        return userManagementApiClient.createUser(requestDto).getUuid();
+    }
+
 }
