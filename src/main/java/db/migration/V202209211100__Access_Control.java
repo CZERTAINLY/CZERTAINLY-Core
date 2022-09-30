@@ -10,7 +10,6 @@ import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.File;
@@ -30,7 +29,6 @@ import java.util.*;
  * Auth Service for creating, users, roles, RA Profile Authorizations. Once the migrations are completed,
  * then the data in the core will be cleaned up.
  */
-@PropertySource("classpath:application.properties")
 public class V202209211100__Access_Control extends BaseJavaMigration {
 
     private static final String AUTH_SERVICE_BASE_URL_PROPERTY = "AUTH_SERVICE_BASE_URL";
