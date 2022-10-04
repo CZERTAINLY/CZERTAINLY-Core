@@ -36,16 +36,13 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
     private static Properties properties;
     private final List<String> certificateUserUpdateCommands = new ArrayList<>();
     private final List<String> detailPermissionObjects = List.of(Resource.ACME_PROFILE.getCode(),
-            Resource.ACME_ACCOUNT.getCode(),
-            Resource.RA_PROFILE.getCode(),
             Resource.RA_PROFILE.getCode(),
             Resource.AUTHORITY.getCode());
     private final List<String> certificatePermissions = List.of(ResourceAction.CREATE.getCode(),
             ResourceAction.DETAIL.getCode(),
             ResourceAction.RENEW.getCode(),
             ResourceAction.REVOKE.getCode(),
-            ResourceAction.LIST.getCode(),
-            ResourceAction.DETAIL.getCode());
+            ResourceAction.LIST.getCode());
     private WebClient client;
     private UserManagementApiClient userManagementApiClient;
     private RoleManagementApiClient roleManagementApiClient;
@@ -269,7 +266,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         for (String permissionObject : detailPermissionObjects) {
             ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
             requestDto.setName(Resource.findByCode(permissionObject));
-            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode()));
+            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode()));
             resources.add(requestDto);
         }
 
@@ -291,7 +288,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         for (String permissionObject : detailPermissionObjects) {
             ResourcePermissionsRequestDto requestDto = new ResourcePermissionsRequestDto();
             requestDto.setName(permissionObject);
-            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode()));
+            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode()));
             requestDto.setAllowAllActions(false);
             requestDto.setObjects(List.of());
             resourcePermissionsRequestDtos.add(requestDto);
@@ -304,6 +301,15 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         clientOperationsRequestDto.setAllowAllActions(false);
         clientOperationsRequestDto.setObjects(List.of());
         resourcePermissionsRequestDtos.add(clientOperationsRequestDto);
+
+        //Add Acme Account Permissions
+        ResourcePermissionsRequestDto acmeAccountRequestDto = new ResourcePermissionsRequestDto();
+        acmeAccountRequestDto.setName(Resource.ACME_ACCOUNT.getCode());
+        acmeAccountRequestDto.setActions(List.of());
+        acmeAccountRequestDto.setAllowAllActions(true);
+        acmeAccountRequestDto.setObjects(List.of());
+        resourcePermissionsRequestDtos.add(acmeAccountRequestDto);
+
 
         request.setResources(resourcePermissionsRequestDtos);
         return request;
