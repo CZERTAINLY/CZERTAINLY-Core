@@ -3,6 +3,8 @@ package com.czertainly.core.api;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
+import com.czertainly.core.security.exception.AuthenticationServiceException;
+import com.czertainly.core.security.exception.AuthenticationServiceExceptionDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -250,6 +252,19 @@ public class ExceptionHandlingAdvice {
     public ErrorMessageDto handleCertificateOperationException(CertificateOperationException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+
+    /**
+     * Handler for {@link AuthenticationServiceException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(AuthenticationServiceException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<AuthenticationServiceExceptionDto> handleCertificateOperationException(AuthenticationServiceException ex) {
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getException().getStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
+        return response.body(ex.getException());
     }
 
 
