@@ -2,6 +2,7 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.RoleManagementController;
+import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
@@ -32,7 +33,7 @@ public class RoleManagementControllerImpl implements RoleManagementController {
     }
 
     @Override
-    public ResponseEntity<RoleDetailDto> createRole(RoleRequestDto request) throws NotFoundException {
+    public ResponseEntity<RoleDetailDto> createRole(com.czertainly.api.model.client.auth.RoleRequestDto request) throws NotFoundException {
         RoleDetailDto dto =  roleManagementService.createRole(request);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()

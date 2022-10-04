@@ -8,7 +8,6 @@ import com.czertainly.api.model.core.acme.*;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
@@ -16,7 +15,12 @@ import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
 import com.czertainly.core.dao.entity.acme.AcmeChallenge;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.AcmeProfileRepository;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
@@ -49,8 +53,6 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
     @Autowired
-    private ClientRepository clientRepository;
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -58,7 +60,6 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
     private RaProfile raProfile;
     private Certificate certificate;
     private CertificateContent certificateContent;
-    private Client client;
     private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
 
@@ -100,12 +101,6 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
         certificate.setCertificateContent(certificateContent);
         certificate.setSerialNumber("123456789");
         certificate = certificateRepository.save(certificate);
-
-        client = new Client();
-        client.setName(CLIENT_NAME);
-        client.setCertificateUuid(certificate.getUuid());
-        client.setSerialNumber(certificate.getSerialNumber());
-        client = clientRepository.save(client);
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
@@ -179,7 +174,7 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetNonce(){
+    public void testGetNonce() {
         ResponseEntity<?> response = acmeService.getNonce(true);
         Assertions.assertNotNull(response.getHeaders().get("Replay-Nonce"));
     }
@@ -191,7 +186,7 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
                 "  \"signature\": \"qR4sGW8IpGEeszEEoecE0l-cYZw-g1vWOTnEDVXgafotTN0cJosM55L_MB416Gixm2KPPPWSa96FzZ53Z0tEUJiqfrmczdW14fsHEpXuEuBfQ9jptlqZyoS3flYz98VDAUpr4jnHVvzyeMY5zTo2pSOt9Vrs2TJgjwbjqybsF7W4R_DWULyHnHF6mb-6eBx5u3KWUSgRd4sd83NZkI-XJp3X3fMenCDyMHKp0sT4hffI0_LaurD-Zxt4c6UgPEX1LCZSUthPEcZvdYfW1gxvNjWs4QR4SGKe2CqWurxlfShi8BRHiCk2oT2qKP5Y8Nyqq_OXQPLm9B24a9izieqPwA\",\n" +
                 "  \"payload\": \"ewogICJjb250YWN0IjogWwogICAgIm1haWx0bzp0ZXN0LnRlc3RAdGVzdCIKICBdLAogICJ0ZXJtc09mU2VydmljZUFncmVlZCI6IHRydWUKfQ\"\n" +
                 "}";
-            Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount(RA_PROFILE_NAME, requestJson));
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount(RA_PROFILE_NAME, requestJson));
     }
 
     @Test
@@ -216,8 +211,8 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
             Assertions.assertNotNull(order.getBody());
             Assertions.assertEquals(OrderStatus.PENDING, order.getBody().getStatus());
             Assertions.assertEquals(1, order.getBody().getAuthorizations().size());
-        }catch (Exception e){
-                System.out.println(e.getMessage());
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
         }
 
     }

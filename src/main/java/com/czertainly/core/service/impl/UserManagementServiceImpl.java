@@ -47,34 +47,53 @@ public class UserManagementServiceImpl implements UserManagementService {
         if (StringUtils.isBlank(request.getUsername())) {
             throw new ValidationException("username must not be empty");
         }
-        Certificate certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
         UserRequestDto requestDto = new UserRequestDto();
+        Certificate certificate = null;
+        if (request.getCertificateUuid() != null && request.getCertificateData().isEmpty() && request.getCertificateData() != null && !request.getCertificateData().isEmpty()) {
+            certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
+            requestDto.setCertificateUuid(certificate.getUuid().toString());
+            requestDto.setCertificateFingerprint(certificate.getFingerprint());
+        }
         requestDto.setEmail(request.getEmail());
         requestDto.setEnabled(request.getEnabled());
         requestDto.setUsername(request.getUsername());
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
-        requestDto.setCertificateUuid(certificate.getUuid().toString());
-        requestDto.setCertificateFingerprint(certificate.getFingerprint());
 
-        return userManagementApiClient.createUser(requestDto);
+        UserDetailDto response = userManagementApiClient.createUser(requestDto);
+        if (certificate != null) {
+            certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
+        }
+
+        return response;
     }
 
     @Override
     public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
-        Certificate certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
+
+        Certificate certificate = null;
         UserUpdateRequestDto requestDto = new UserUpdateRequestDto();
+
+        if (request.getCertificateUuid() != null && request.getCertificateData().isEmpty() && request.getCertificateData() != null && !request.getCertificateData().isEmpty()) {
+            certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
+            requestDto.setCertificateUuid(certificate.getUuid().toString());
+            requestDto.setCertificateFingerprint(certificate.getFingerprint());
+        }
+
         requestDto.setEmail(request.getEmail());
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
-        requestDto.setCertificateUuid(certificate.getUuid().toString());
-        requestDto.setCertificateFingerprint(certificate.getFingerprint());
-        return userManagementApiClient.updateUser(userUuid, requestDto);
+        UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);
+        if (certificate != null) {
+            certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
+        }
+        return response;
     }
 
     @Override
     public void deleteUser(String userUuid) {
         userManagementApiClient.removeUser(userUuid);
+        certificateService.removeCertificateUser(userUuid);
     }
 
     @Override

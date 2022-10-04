@@ -2,207 +2,155 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.admin.AddAdminRequestDto;
-import com.czertainly.api.model.core.admin.AdminDto;
-import com.czertainly.api.model.core.admin.AdminRole;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Admin;
+import com.czertainly.api.model.client.auth.AddUserRequestDto;
+import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.api.model.core.auth.UserRequestDto;
+import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.repository.AdminRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.model.auth.Resource;
-import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
+import com.czertainly.core.security.authn.CzertainlyUserDetails;
+import com.czertainly.core.security.authn.client.AuthenticationInfo;
+import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.security.authn.client.RoleManagementApiClient;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.LocalAdminService;
+import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.X509ObjectToString;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.InsufficientAuthenticationException;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.transaction.Transactional;
-import java.net.InetAddress;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class LocalAdminServiceImpl implements LocalAdminService {
-    private static final Logger logger = LoggerFactory.getLogger(LocalAdminServiceImpl.class);
+
+    private UserManagementApiClient userManagementApiClient;
+    private RoleManagementApiClient roleManagementApiClient;
+    private UserManagementService userManagementService;
+    private CertificateService certificateService;
+    private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
+
+    @Value("${server.ssl.certificate-header-name}")
+    private String certificateHeaderName;
 
     @Autowired
-    private AdminRepository adminRepository;
+    private void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
+    }
+
     @Autowired
-    private CertificateRepository certificateRepository;
+    private void setUserManagementService(UserManagementService userManagementService) {
+        this.userManagementService = userManagementService;
+    }
+
     @Autowired
-    private CertificateContentRepository certificateContentRepository;
+    private void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+
+    @Autowired
+    public void setCzertainlyAuthenticationClient(CzertainlyAuthenticationClient czertainlyAuthenticationClient) {
+        this.czertainlyAuthenticationClient = czertainlyAuthenticationClient;
+    }
+
+    @Autowired
+    public void setRoleManagementApiClient(RoleManagementApiClient roleManagementApiClient) {
+        this.roleManagementApiClient = roleManagementApiClient;
+    }
 
     @Override
-    @AuditLogged(originator = ObjectType.LOCALHOST, affected = ObjectType.ADMINISTRATOR, operation = OperationType.CREATE)
-    @ExternalAuthorization(resource = Resource.ADMIN, action = ResourceAction.CREATE)
-    public AdminDto addAdmin(AddAdminRequestDto request) throws CertificateException, AlreadyExistException, ValidationException, NotFoundException {
-        checkHost();
+    public UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
 
-        String localhostPrefix = "[LOCALHOST]";
-
-        logger.info("{} Going process request from localhost to create administrator. Request: {}", localhostPrefix, request);
-
-        if (StringUtils.isBlank(request.getUsername())) {
-            throw new ValidationException("username must not be empty");
-        }
-        if (StringUtils.isAnyBlank(request.getName(), request.getSurname())) {
-            throw new ValidationException("name and surname must not be empty");
-        }
-        if (StringUtils.isBlank(request.getEmail())) {
-            throw new ValidationException("email must not be empty");
+        String superAdminUuid = getSuperAdminRoleUuid();
+        if(request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) {
+            UserDetailDto userResponse = userManagementService.createUser(request);
+            userManagementService.updateRole(userResponse.getUuid(), superAdminUuid);
+            return userResponse;
         }
 
-        logger.info("{} Request for creating administrator {} validated.", localhostPrefix, request.getUsername());
+        X509Certificate x509Cert = CertificateUtil.parseCertificate(request.getCertificateData());
+        String fingerPrint = getCertificateFingerprint(x509Cert);
 
-        if (request.getRole() == null) {
-            request.setRole(AdminRole.SUPERADMINISTRATOR);
+        if(certificateService.checkCertificateExistsByFingerprint(fingerPrint)){
+            throw new AlreadyExistException("User already exist for the provided certificate");
         }
+        UserDetailDto response = createUser(request, fingerPrint);
+        userManagementService.updateRole(response.getUuid(), superAdminUuid);
 
-        if (adminRepository.existsByUsername(request.getUsername())) {
-            throw new AlreadyExistException(Admin.class, request.getUsername());
-        }
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(getHeaders(request.getCertificateData()));
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
 
-        logger.info("{} Checked that administrator {} doesn't exist.", localhostPrefix, request.getUsername());
+        Certificate certificate = uploadCertificate(request.getCertificateUuid(), request.getCertificateData());
+        certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
 
-        String serialNumber;
-
-        if (StringUtils.isNotBlank(request.getAdminCertificate())) {
-            X509Certificate certificate = CertificateUtil.getX509Certificate(request.getAdminCertificate());
-            serialNumber = CertificateUtil.getSerialNumberFromX509Certificate(certificate);
-        } else {
-            Certificate certificate = certificateRepository
-                    .findByUuid(UUID.fromString(request.getCertificateUuid()))
-                    .orElseThrow(() -> new NotFoundException(Certificate.class, request.getCertificateUuid()));
-            serialNumber = certificate.getSerialNumber();
-        }
-
-        logger.info("{} Certificate serial number for administrator {} determined - {}.", localhostPrefix, request.getUsername(), serialNumber);
-
-        if (adminRepository.findBySerialNumber(serialNumber).isPresent()) {
-            throw new AlreadyExistException(Admin.class, serialNumber);
-        }
-
-        Admin admin = createAdmin(request);
-        adminRepository.save(admin);
-        logger.info("{} Administrator {} successfully created.", localhostPrefix, request.getUsername());
-
-        return admin.mapToDto();
+        return updateUser(request, fingerPrint, certificate.getUuid().toString(), response.getUuid());
     }
 
-    private Admin createAdmin(AddAdminRequestDto requestDTO) throws CertificateException, AlreadyExistException, NotFoundException {
-        Admin model = new Admin();
+    private HttpHeaders getHeaders(String certificateData) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(certificateHeaderName, URLEncoder.encode(certificateData, StandardCharsets.UTF_8));
+        return headers;
+    }
+
+    private UserDetailDto createUser(AddUserRequestDto request, String fingerprint) {
+        UserRequestDto requestDto = new UserRequestDto();
+        requestDto.setEmail(request.getEmail());
+        requestDto.setEnabled(request.getEnabled());
+        requestDto.setUsername(request.getUsername());
+        requestDto.setFirstName(request.getFirstName());
+        requestDto.setLastName(request.getLastName());
+        requestDto.setCertificateFingerprint(fingerprint);
+        return userManagementApiClient.createUser(requestDto);
+    }
+
+    private UserDetailDto updateUser(AddUserRequestDto request, String fingerprint, String certificateUuid, String userUuid) {
+        UserUpdateRequestDto updateRequestDto = new UserUpdateRequestDto();
+        updateRequestDto.setEmail(request.getEmail());
+        updateRequestDto.setFirstName(request.getFirstName());
+        updateRequestDto.setLastName(request.getLastName());
+        updateRequestDto.setCertificateFingerprint(fingerprint);
+        updateRequestDto.setCertificateUuid(certificateUuid);
+        return userManagementApiClient.updateUser(userUuid, updateRequestDto);
+    }
+
+    private String getCertificateFingerprint(X509Certificate certificate) throws CertificateEncodingException, NoSuchAlgorithmException {
+        return CertificateUtil.getThumbprint(certificate.getEncoded());
+    }
+
+    private Certificate uploadCertificate(String certificateUuid, String certificateData) throws CertificateException, NotFoundException {
 
         Certificate certificate;
-        if (StringUtils.isNotBlank(requestDTO.getCertificateUuid())) {
-            certificate = certificateRepository
-                    .findByUuid(UUID.fromString(requestDTO.getCertificateUuid()))
-                    .orElseThrow(() -> new NotFoundException(Certificate.class, requestDTO.getCertificateUuid()));
-            model.setCertificate(certificate);
+        if (StringUtils.isNotBlank(certificateUuid)) {
+            certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         } else {
-            X509Certificate x509Cert = CertificateUtil.parseCertificate(requestDTO.getAdminCertificate());
-            if (certificateRepository.findBySerialNumberIgnoreCase(x509Cert.getSerialNumber().toString(16)).isPresent()) {
-                throw new AlreadyExistException(Certificate.class, x509Cert.getSerialNumber().toString(16));
+            X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
+            try {
+                certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
+            } catch (NotFoundException e) {
+                certificate = certificateService.createCertificateEntity(x509Cert);
+                certificateService.updateCertificateEntity(certificate);
             }
-            certificate = checkAddCertificate(x509Cert);
-            certificateRepository.save(certificate);
-            model.setCertificate(certificate);
         }
-        model.setUsername(requestDTO.getUsername());
-        model.setName(requestDTO.getName());
-        model.setDescription(requestDTO.getDescription());
-        model.setEnabled(requestDTO.getEnabled() != null && requestDTO.getEnabled());
-        model.setRole(requestDTO.getRole());
-        model.setEmail(requestDTO.getEmail());
-        model.setSurname(requestDTO.getSurname());
-        model.setSerialNumber(certificate.getSerialNumber());
-        return model;
-    }
-
-    private Certificate checkAddCertificate(X509Certificate x509Cert) {
-        logger.debug("Making a new entry for a certificate");
-        Certificate certificate = new Certificate();
-        String fingerprint = null;
-        try {
-            fingerprint = CertificateUtil.getThumbprint(x509Cert.getEncoded());
-            Optional<Certificate> existingCertificate = certificateRepository.findByFingerprint(fingerprint);
-
-            if (existingCertificate.isPresent()) {
-                return existingCertificate.get();
-            }
-        } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
-            logger.error("Unable to calculate sha 256 thumbprint");
-        }
-
-        CertificateUtil.prepareCertificate(certificate, x509Cert);
-        certificate.setFingerprint(fingerprint);
-        certificate.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert)));
-
         return certificate;
     }
 
-    private CertificateContent checkAddCertificateContent(String fingerprint, String content) {
-        CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
-        if (certificateContent != null) {
-            return certificateContent;
-        }
-
-        certificateContent = new CertificateContent();
-        certificateContent.setContent(CertificateUtil.normalizeCertificateContent(content));
-        certificateContent.setFingerprint(fingerprint);
-
-        certificateContentRepository.save(certificateContent);
-        return certificateContent;
-    }
-
-    /**
-     * This method checks if current request comes from same host.
-     *
-     * @throws InsufficientAuthenticationException
-     */
-    private void checkHost() {
-        try {
-            RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
-            if (!(attrs instanceof ServletRequestAttributes)) {
-                logger.warn("Could not get current servlet request.");
-                return;
-            }
-
-            HttpServletRequest request = ((ServletRequestAttributes) attrs).getRequest();
-            if ("localhost".equals(request.getRemoteHost()) ||
-                    "127.0.0.1".equals(request.getRemoteHost()) ||
-                    "0:0:0:0:0:0:0:1".equals(request.getRemoteHost())
-            ) {
-                logger.info("Request comes from localhost");
-            } else if (InetAddress.getLocalHost().getHostName().equals(request.getRemoteHost())) {
-                logger.info("Request comes from same host");
-            } else {
-                throw new InsufficientAuthenticationException("Request not comes from allowed host");
-            }
-        } catch (InsufficientAuthenticationException e) {
-            throw e;
-        } catch (Exception e) {
-            logger.error("Could not check client host.", e);
-        }
+    private String getSuperAdminRoleUuid(){
+        return roleManagementApiClient.getRoles().getData().stream().filter(e -> e.getSystemRole().equals(true) && e.getName().equals("superadmin")).collect(Collectors.toList()).get(0).getUuid();
     }
 }

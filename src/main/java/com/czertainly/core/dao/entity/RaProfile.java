@@ -7,7 +7,6 @@ import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -15,7 +14,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -56,14 +54,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             joinColumns = @JoinColumn(name = "ra_profile_uuid"),
             inverseJoinColumns = @JoinColumn(name = "compliance_profile_uuid"))
     private Set<ComplianceProfile> complianceProfiles;
-
-    @ManyToMany
-    @JoinTable(
-            name = "client_authorization",
-            joinColumns = @JoinColumn(name = "ra_profile_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "client_uuid"))
-    @JsonIgnore
-    private Set<Client> clients = new HashSet<>();
 
     /**
      * Acme related objects for RA Profile
@@ -177,14 +167,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setEnabled(Boolean enabled) {
         this.enabled = enabled;
-    }
-
-    public Set<Client> getClients() {
-        return clients;
-    }
-
-    public void setClients(Set<Client> clients) {
-        this.clients = clients;
     }
 
     public String getAuthorityInstanceName() {

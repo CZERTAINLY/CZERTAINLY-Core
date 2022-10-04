@@ -22,7 +22,6 @@ import java.security.cert.CertificateException;
 import java.util.List;
 
 @RestController("clientOperationControllerV2")
-@Secured({"ROLE_CLIENT"})
 public class ClientOperationControllerImpl implements ClientOperationController {
 
     @Autowired
