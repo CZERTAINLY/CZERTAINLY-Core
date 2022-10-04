@@ -1,5 +1,6 @@
 package com.czertainly.core.security.exception;
 
+import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;

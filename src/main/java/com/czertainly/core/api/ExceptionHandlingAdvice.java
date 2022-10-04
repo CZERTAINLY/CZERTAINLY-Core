@@ -4,7 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
-import com.czertainly.core.security.exception.AuthenticationServiceExceptionDto;
+import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

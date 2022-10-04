@@ -1,13 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.api.clients.BaseApiClient;
-import com.czertainly.api.exception.ConnectorClientException;
-import com.czertainly.api.exception.ConnectorServerException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
-import com.czertainly.core.security.exception.AuthenticationServiceExceptionDto;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +14,6 @@ import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
 
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Component
 public class CzertainlyBaseAuthenticationClient {
