@@ -276,6 +276,12 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         requestDto.setActions(certificatePermissions);
         resources.add(requestDto);
 
+        //Acme Account Operations
+        ResourceSyncRequestDto acmeAccountRequestDto = new ResourceSyncRequestDto();
+        acmeAccountRequestDto.setName(Resource.ACME_ACCOUNT);
+        acmeAccountRequestDto.setActions(List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode()));
+        resources.add(acmeAccountRequestDto);
+
         resourceApiClient.syncResources(resources);
     }
 
