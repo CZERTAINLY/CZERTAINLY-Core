@@ -113,18 +113,6 @@ class CzertainlyAuthenticationClientTest {
         assertThrows(CzertainlyAuthenticationException.class, willThrow);
     }
 
-    @Test
-    void throwsAuthenticationExceptionWhenRequestFails() {
-        // given
-        setUpFaultyResponse();
-
-        // when
-        Executable willThrow = () -> czertainlyAuthenticationClient.authenticate(new HttpHeaders());
-
-        // then
-        assertThrows(CzertainlyAuthenticationException.class, willThrow);
-    }
-
     RecordedRequest getLastRequest() throws InterruptedException {
         return authServiceMock.takeRequest(500, TimeUnit.MILLISECONDS);
     }
