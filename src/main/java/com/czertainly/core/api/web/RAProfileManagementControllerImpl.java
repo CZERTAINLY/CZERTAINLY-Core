@@ -5,7 +5,6 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.RAProfileManagementController;
-import com.czertainly.api.model.client.client.SimplifiedClientDto;
 import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
@@ -84,11 +83,6 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     public void enableRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
         raProfileService.enableRaProfile(SecuredUUID.fromString(raProfileUuid));
-    }
-
-    @Override
-    public List<SimplifiedClientDto> listUsers(String authorityUuid, String raProfileUuid) throws NotFoundException {
-        return raProfileService.listClients(SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override

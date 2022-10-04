@@ -19,6 +19,13 @@ public class ResourceApiClient extends CzertainlyBaseAuthenticationClient {
     private static final String RESOURCE_CONTEXT = "/auth/resources";
     private static final String RESOURCE_SYNC_CONTEXT = "/auth/resources/sync";
 
+    public ResourceApiClient(String authServiceBaseUrl, WebClient client) {
+        super(authServiceBaseUrl, client);
+    }
+
+    public ResourceApiClient() {
+    }
+
     public SyncResponseDto syncResources(List<ResourceSyncRequestDto> requestDto) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
 

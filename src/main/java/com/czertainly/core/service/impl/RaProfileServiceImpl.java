@@ -5,7 +5,6 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.client.SimplifiedClientDto;
 import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
@@ -18,7 +17,6 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
@@ -43,7 +41,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -176,23 +173,6 @@ public class RaProfileServiceImpl implements RaProfileService {
         }
 
         raProfileRepository.delete(raProfile);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CLIENT, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
-    public List<SimplifiedClientDto> listClients(SecuredUUID uuid) throws NotFoundException {
-        RaProfile raProfile = raProfileRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
-        List<SimplifiedClientDto> clients = new ArrayList<>();
-        for (Client client : raProfile.getClients()) {
-            SimplifiedClientDto dto = new SimplifiedClientDto();
-            dto.setUuid(client.getUuid().toString());
-            dto.setName(client.getName());
-            dto.setEnabled(client.getEnabled());
-            clients.add(dto);
-        }
-        return clients;
     }
 
     @Override

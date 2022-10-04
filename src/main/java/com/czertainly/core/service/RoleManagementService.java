@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.core.auth.*;
 
 import java.util.List;

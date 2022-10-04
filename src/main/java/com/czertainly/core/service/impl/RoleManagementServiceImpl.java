@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.service.RoleManagementService;
@@ -32,12 +33,20 @@ public class RoleManagementServiceImpl implements RoleManagementService {
 
     @Override
     public RoleDetailDto createRole(RoleRequestDto request) {
-        return roleManagementApiClient.createRole(request);
+        com.czertainly.api.model.core.auth.RoleRequestDto requestDto = new com.czertainly.api.model.core.auth.RoleRequestDto();
+        requestDto.setName(request.getName());
+        requestDto.setDescription(request.getDescription());
+        requestDto.setSystemRole(false);
+        return roleManagementApiClient.createRole(requestDto);
     }
 
     @Override
     public RoleDetailDto updateRole(String roleUuid, RoleRequestDto request) {
-        return roleManagementApiClient.updateRole(roleUuid, request);
+        com.czertainly.api.model.core.auth.RoleRequestDto requestDto = new com.czertainly.api.model.core.auth.RoleRequestDto();
+        requestDto.setName(request.getName());
+        requestDto.setDescription(request.getDescription());
+        requestDto.setSystemRole(false);
+        return roleManagementApiClient.updateRole(roleUuid, requestDto);
     }
 
     @Override

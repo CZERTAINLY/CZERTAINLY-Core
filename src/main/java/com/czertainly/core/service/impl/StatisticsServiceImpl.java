@@ -12,7 +12,6 @@ import com.czertainly.core.service.StatisticsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
@@ -25,7 +24,6 @@ import java.util.UUID;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class StatisticsServiceImpl implements StatisticsService {
 
     private static final Logger logger = LoggerFactory.getLogger(StatisticsServiceImpl.class);
