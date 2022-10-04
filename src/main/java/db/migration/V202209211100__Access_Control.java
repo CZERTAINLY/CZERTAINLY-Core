@@ -40,6 +40,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
             Resource.AUTHORITY.getCode());
     private final List<String> certificatePermissions = List.of(ResourceAction.CREATE.getCode(),
             ResourceAction.DETAIL.getCode(),
+            ResourceAction.UPDATE.getCode(),
             ResourceAction.RENEW.getCode(),
             ResourceAction.REVOKE.getCode(),
             ResourceAction.LIST.getCode());
