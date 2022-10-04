@@ -20,6 +20,7 @@ import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
+import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.util.AcmeJsonProcessor;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
@@ -31,11 +32,14 @@ import com.nimbusds.jose.jwk.KeyType;
 import com.nimbusds.jose.util.Base64URL;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -47,6 +51,8 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
@@ -60,6 +66,9 @@ import java.util.stream.Collectors;
 
 @Component
 public class AcmeValidationFilter extends OncePerRequestFilter {
+
+    public static final String SYSTEM_USER_HEADER_NAME = "systemUsername";
+    private static final String SYSTEM_USER_HEADER_VALUE = "acme";
 
     @Autowired
     private AcmeAccountRepository acmeAccountRepository;
@@ -78,6 +87,8 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
     @Autowired
     @Qualifier("handlerExceptionResolver")
     private HandlerExceptionResolver resolver;
+    @Autowired
+    private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
@@ -387,11 +398,14 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
     }
 
     private void elevatePermission() {
-        List<GrantedAuthority> authorities = new ArrayList<>();
-        authorities.add(new SimpleGrantedAuthority("ROLE_ACME"));
-        AuthenticationInfo authInfo = new AuthenticationInfo("ACME_USER", authorities);
-        Authentication reAuth = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
-        SecurityContextHolder.getContext().setAuthentication(reAuth);
-        SecurityContextHolder.getContext().getAuthentication();
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(getHeaders());
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
+    }
+
+    private HttpHeaders getHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(SYSTEM_USER_HEADER_NAME, SYSTEM_USER_HEADER_VALUE);
+        return headers;
     }
 }

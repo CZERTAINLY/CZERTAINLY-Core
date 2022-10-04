@@ -12,6 +12,9 @@ public class AuthenticationRequestDto {
     @Schema(description = "Authentication Token")
     private String authenticationToken;
 
+    @Schema(description = "System Username")
+    private String systemUsername;
+
     public String getCertificateContent() {
         return certificateContent;
     }
@@ -28,11 +31,20 @@ public class AuthenticationRequestDto {
         this.authenticationToken = authenticationToken;
     }
 
+    public String getSystemUsername() {
+        return systemUsername;
+    }
+
+    public void setSystemUsername(String systemUsername) {
+        this.systemUsername = systemUsername;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("certificateContent", certificateContent)
                 .append("authenticationToken", authenticationToken)
+                .append("systemUsername", systemUsername)
                 .toString();
     }
 }
