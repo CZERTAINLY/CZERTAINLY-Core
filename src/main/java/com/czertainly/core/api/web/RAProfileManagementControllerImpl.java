@@ -86,11 +86,6 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    public List<SimplifiedClientDto> listUsers(String authorityUuid, String raProfileUuid) throws NotFoundException {
-        return raProfileService.listClients(SecuredUUID.fromString(raProfileUuid));
-    }
-
-    @Override
     public void bulkDeleteRaProfile(List<String> uuids) throws NotFoundException, ValidationException {
         raProfileService.bulkDeleteRaProfile(SecuredUUID.fromList(uuids));
     }

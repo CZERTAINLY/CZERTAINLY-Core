@@ -2,6 +2,8 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.auth.AddUserRequestDto;
+import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
