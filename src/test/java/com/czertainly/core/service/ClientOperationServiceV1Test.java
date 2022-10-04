@@ -12,13 +12,11 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -58,15 +56,12 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     private CertificateRepository certificateRepository;
     @Autowired
     private CertificateContentRepository certificateContentRepository;
-    @Autowired
-    private ClientRepository clientRepository;
 
     private RaProfile raProfile;
     private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
     private Certificate certificate;
     private CertificateContent certificateContent;
-    private Client client;
 
     private WireMockServer mockServer;
 
@@ -118,14 +113,6 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         certificate.setCertificateContentId(certificateContent.getId());
         certificate = certificateRepository.save(certificate);
 
-        client = new Client();
-        client.setName("user");
-        client.setCertificateUuid(certificate.getUuid());
-        client.setSerialNumber(certificate.getSerialNumber());
-        client.getRaProfiles().add(raProfile);
-        client = clientRepository.save(client);
-
-        raProfile.getClients().add(client);
         raProfile = raProfileRepository.save(raProfile);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");

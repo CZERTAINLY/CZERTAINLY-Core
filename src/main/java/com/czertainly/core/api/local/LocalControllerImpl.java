@@ -3,36 +3,35 @@ package com.czertainly.core.api.local;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.local.LocalController;
-import com.czertainly.api.model.client.admin.AddAdminRequestDto;
-import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.admin.AdminDto;
+import com.czertainly.api.model.client.auth.AddUserRequestDto;
+import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.core.service.LocalAdminService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 
 @RestController
 public class LocalControllerImpl implements LocalController {
 
+
     @Autowired
     private LocalAdminService localAdminService;
 
     @Override
-    public ResponseEntity<?> addAdmin(@RequestBody AddAdminRequestDto request) throws CertificateException, NotFoundException, AlreadyExistException {
-        AdminDto adminDTO = localAdminService.addAdmin(request);
+    public ResponseEntity<UserDetailDto> addAdmin(@RequestBody AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+        UserDetailDto userDto = localAdminService.createUser(request);
 
-        URI location = UriComponentsBuilder
-                .fromPath("/v1/admins")
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
                 .path("/{uuid}")
-                .buildAndExpand(adminDTO.getUuid())
+                .buildAndExpand(userDto.getUuid())
                 .toUri();
-        UuidDto dto = new UuidDto();
-        dto.setUuid(adminDTO.getUuid());
-        return ResponseEntity.created(location).body(dto);
+        return ResponseEntity.created(location).body(userDto);
     }
 }

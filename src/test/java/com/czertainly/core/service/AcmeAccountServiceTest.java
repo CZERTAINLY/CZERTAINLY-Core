@@ -7,12 +7,16 @@ import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.AcmeProfileRepository;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -42,8 +46,6 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
     @Autowired
-    private ClientRepository clientRepository;
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -51,7 +53,6 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
     private RaProfile raProfile;
     private Certificate certificate;
     private CertificateContent certificateContent;
-    private Client client;
     private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
 
@@ -81,12 +82,6 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
         certificate.setCertificateContent(certificateContent);
         certificate.setSerialNumber("123456789");
         certificate = certificateRepository.save(certificate);
-
-        client = new Client();
-        client.setName(CLIENT_NAME);
-        client.setCertificateUuid(certificate.getUuid());
-        client.setSerialNumber(certificate.getSerialNumber());
-        client = clientRepository.save(client);
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
@@ -156,7 +151,7 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
     @Test
     public void testRemoveAccount_notFound() {
         Assertions.assertThrows(
-                NotFoundException.class, 
+                NotFoundException.class,
                 () -> acmeAccountService.getAcmeAccount(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
         );
     }
@@ -186,7 +181,7 @@ public class AcmeAccountServiceTest extends BaseSpringBootTest {
     @Test
     public void testBulkRemove() throws NotFoundException {
         acmeAccountService.bulkRevokeAccount(List.of(acmeAccount.getSecuredUuid()));
-        Assertions.assertEquals(AccountStatus.REVOKED ,acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).getStatus());
+        Assertions.assertEquals(AccountStatus.REVOKED, acmeAccountService.getAcmeAccount(acmeAccount.getSecuredUuid()).getStatus());
     }
 
     @Test

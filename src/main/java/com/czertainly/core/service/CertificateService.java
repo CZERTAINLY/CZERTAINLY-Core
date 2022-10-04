@@ -19,6 +19,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public interface CertificateService {
 
@@ -31,6 +32,8 @@ public interface CertificateService {
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException;
+
+    Boolean checkCertificateExistsByFingerprint(String fingerprint);
 
     void deleteCertificate(SecuredUUID uuid) throws NotFoundException;
 	void updateIssuer();
@@ -101,4 +104,18 @@ public interface CertificateService {
      * @throws NotFoundException
      */
     Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException;
+
+    /**
+     * Update the user uuid of the certificate in the core database
+     * @param certificateUuid UUID of the certificate
+     * @param userUuid UUID of the User
+     * @throws NotFoundException
+     */
+    void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException;
+
+    /**
+     * Remove the user uuid of the certificate in the core database
+     * @param userUuid UUID of the User
+     */
+    void removeCertificateUser(String userUuid);
 }

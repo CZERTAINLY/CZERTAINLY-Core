@@ -95,12 +95,6 @@ public class CertificateServiceImpl implements CertificateService {
     private DiscoveryCertificateRepository discoveryCertificateRepository;
 
     @Autowired
-    private ClientRepository clientRepository;
-
-    @Autowired
-    private AdminRepository adminRepository;
-
-    @Autowired
     private ComplianceService complianceService;
 
     @Autowired
@@ -173,6 +167,15 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public Boolean checkCertificateExistsByFingerprint(String fingerprint) {
+        try {
+            return certificateRepository.findByFingerprint(fingerprint).isPresent();
+        } catch (Exception e){
+            return false;
+        }
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -182,14 +185,9 @@ public class CertificateServiceImpl implements CertificateService {
 
         List<ValidationError> errors = new ArrayList<>();
 
-        for (Client client : clientRepository.findByCertificate(certificate)) {
-            errors.add(ValidationError.create("Certificate has Client " + client.getName() + " associated to it"));
-            certificateEventHistoryService.addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client " + client.getName(), "", certificate);
-        }
-
-        for (Admin admin : adminRepository.findByCertificate(certificate)) {
-            errors.add(ValidationError.create("Certificate has Admin " + admin.getName() + " associated to it"));
-            certificateEventHistoryService.addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin  " + admin.getName(), "", certificate);
+        if (certificate.getUserUuid() != null) {
+            errors.add(ValidationError.create("Certificate is used by an User"));
+            certificateEventHistoryService.addEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Certificate is used by an User", "", certificate);
         }
 
         if (!errors.isEmpty()) {
@@ -261,15 +259,9 @@ public class CertificateServiceImpl implements CertificateService {
             for (String uuid : request.getUuids()) {
                 Certificate certificate = certificateRepository.findByUuid(UUID.fromString(uuid))
                         .orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-                if (!adminRepository.findByCertificate(certificate).isEmpty()) {
-                    logger.warn("Certificate tagged as admin. Unable to delete certificate with common name {}", certificate.getCommonName());
-                    batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Client ", "", certificate));
-                    failedDeleteCerts.add(certificate.getUuid().toString());
-                    continue;
-                }
 
-                if (!clientRepository.findByCertificate(certificate).isEmpty()) {
-                    logger.warn("Certificate tagged as client. Unable to delete certificate with common name {}", certificate.getCommonName());
+                if (certificate.getUserUuid() != null) {
+                    logger.warn("Certificate is used by an User. Unable to delete certificate with common name {}", certificate.getCommonName());
                     batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin ", "", certificate));
                     failedDeleteCerts.add(certificate.getUuid().toString());
                     continue;
@@ -579,6 +571,28 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error(e.getMessage());
         }
         return new HashMap<>();
+    }
+
+    @Override
+    public void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        if(userUuid == null) {
+            certificate.setUserUuid(null);
+        } else {
+            certificate.setUserUuid(UUID.fromString(userUuid));
+        }
+        certificateRepository.save(certificate);
+    }
+
+    @Override
+    public void removeCertificateUser(String userUuid) {
+        try {
+            Certificate certificate = certificateRepository.findByUserUuid(userUuid).orElseThrow(() -> new NotFoundException(Certificate.class, userUuid));
+            certificate.setUserUuid(null);
+            certificateRepository.save(certificate);
+        } catch (NotFoundException e){
+            logger.warn("No Certificate found for the user with UUID {}", userUuid);
+        }
     }
 
 
