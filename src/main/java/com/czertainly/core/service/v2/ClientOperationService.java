@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
 
@@ -30,7 +31,7 @@ public interface ClientOperationService {
     ClientCertificateDataResponseDto issueCertificate(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
-            ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException;
+            ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     ClientCertificateDataResponseDto renewCertificate(
             SecuredParentUUID authorityUuid,
