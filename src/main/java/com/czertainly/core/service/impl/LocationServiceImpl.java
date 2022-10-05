@@ -522,9 +522,6 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Certificate is not associated with any RA Profile. Cannot renew the certificate in the location");
         }
 
-        // remove the current certificate from location
-        removeCertificateFromLocation(locationUuid, certificateUuid);
-
         // generate new CSR
         GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(certificateLocation.getLocation(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
         logger.info("Received certificate signing request from Location {}", certificateLocation.getLocation().getName());
@@ -532,6 +529,9 @@ public class LocationServiceImpl implements LocationService {
         // renew existing Certificate
         ClientCertificateDataResponseDto clientCertificateDataResponseDto = renewCertificate(certificateLocation, generateCsrResponseDto.getCsr());
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(clientCertificateDataResponseDto.getUuid()));
+
+        // remove the current certificate from location
+        removeCertificateFromLocation(locationUuid, certificateUuid);
 
         // push renewed Certificate to Location
         pushCertificateToLocation(

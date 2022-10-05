@@ -129,12 +129,7 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
         // TODO AUTH - moved logic from controller
-        updateIssuer();
         Certificate entity = getCertificateEntity(uuid);
-        if (entity.getStatus() != CertificateStatus.EXPIRED || entity.getStatus() != CertificateStatus.REVOKED) {
-            certValidationService.validate(entity);
-        }
-
         CertificateDto dto = entity.mapToDto();
         if (entity.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(entity.getComplianceResult()));
@@ -530,6 +525,7 @@ public class CertificateServiceImpl implements CertificateService {
                 .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         return certificateEntity.getLocations().stream()
                 .map(CertificateLocation::getLocation)
+                .sorted(Comparator.comparing(Location::getCreated).reversed())
                 .map(Location::mapToDtoSimple)
                 .collect(Collectors.toList());
     }
