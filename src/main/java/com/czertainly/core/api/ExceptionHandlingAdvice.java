@@ -1,10 +1,11 @@
 package com.czertainly.core.api;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
-import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
+import com.czertainly.core.util.BeautificationUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -15,6 +16,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.net.ConnectException;
 import java.util.List;
@@ -178,7 +181,6 @@ public class ExceptionHandlingAdvice {
     }
 
 
-
     /**
      * Handler for {@link HttpMessageNotReadableException}.
      *
@@ -205,12 +207,29 @@ public class ExceptionHandlingAdvice {
 
     /**
      * Handler for {@link AccessDeniedException}.
+     *
+     * @return
      */
     @ExceptionHandler(AccessDeniedException.class)
-    public void handleAccessDeniedException(AccessDeniedException ex) {
+    public ResponseEntity<AuthenticationServiceExceptionDto> handleAccessDeniedException(AccessDeniedException ex) {
         LOG.warn("Access denied: {}", ex.getMessage());
-        // re-throw to let the Spring Security handle it
-        throw ex;
+        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.FORBIDDEN).contentType(MediaType.valueOf("application/problem+json"));
+        Object resourceName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", 121);
+        Object resourceActionName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", 121);
+        AuthenticationServiceExceptionDto responseDto = new AuthenticationServiceExceptionDto();
+        responseDto.setCode("ACCESS_DENIED");
+        responseDto.setStatusCode(HttpStatus.FORBIDDEN.value());
+        if (resourceName != null && !((String) resourceName).isEmpty() && resourceActionName != null && !((String) resourceActionName).isEmpty()) {
+            responseDto.setMessage("Access Forbidden. Required '"
+                    + BeautificationUtil.camelToHumanForm((String) resourceActionName)
+                    + "' permission for '"
+                    + BeautificationUtil.camelToHumanForm((String) resourceName)
+                    + "'");
+        } else {
+            responseDto.setMessage("Access denied for the specified operation");
+        }
+        return response.body(responseDto);
     }
 
     /**
@@ -219,10 +238,10 @@ public class ExceptionHandlingAdvice {
      * @return
      */
     @ExceptionHandler(AcmeProblemDocumentException.class)
-    public ResponseEntity<ProblemDocument>  handleAcmeProblemDocumentException(AcmeProblemDocumentException ex){
+    public ResponseEntity<ProblemDocument> handleAcmeProblemDocumentException(AcmeProblemDocumentException ex) {
         LOG.warn("ACME Error: {}", ex.getProblemDocument().toString());
         ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
-        if(ex.getAdditionalHeaders() != null) {
+        if (ex.getAdditionalHeaders() != null) {
             for (String entry : ex.getAdditionalHeaders().keySet()) {
                 response.header(entry, ex.getAdditionalHeaders().get(entry));
             }
@@ -266,7 +285,6 @@ public class ExceptionHandlingAdvice {
         ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getException().getStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
         return response.body(ex.getException());
     }
-
 
 
     /**

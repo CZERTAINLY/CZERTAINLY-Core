@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -69,7 +70,11 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
             Optional<ParentUUIDGetter> parentUUIDGetter = getParentUUIDGetter(attributes);
             if(properties.get("parentName") != Resource.NONE.getCode()) {
                 int result = voteResource(principal, methodInvocation, properties, parentUUIDGetter, true);
-                if(result == ACCESS_DENIED) return result;
+                if(result == ACCESS_DENIED){
+                    setDeniedResource(properties.get("parentName"));
+                    setDeniedResourceAction(properties.get("parentAction"));
+                    return result;
+                }
             }
 
             return voteResource(principal, methodInvocation, properties, parentUUIDGetter, false);
@@ -101,6 +106,8 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
             if (parentUUIDGetter.isPresent()) {
                 if (objectUUIDs.isEmpty()) {
                     logger.error("ParentUUIDGetter specified but no object uuids were found. Access will be denied.");
+                    setDeniedResource(voteProperties.get("name"));
+                    setDeniedResourceAction(properties.get("action"));
                     return ACCESS_DENIED;
                 } else {
                     List<String> parentsUUIDs = parentUUIDGetter.get().getParentsUUID(
@@ -132,6 +139,8 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
             return ACCESS_GRANTED;
         } else {
             logger.trace(String.format("Access to the method '%s' has been denied.", methodInvocation.getMethod().getName()));
+            setDeniedResource(voteProperties.get("name"));
+            setDeniedResourceAction(properties.get("action"));
             return ACCESS_DENIED;
         }
     }
@@ -212,5 +221,17 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                 value instanceof Boolean ||
                 value instanceof Float ||
                 value instanceof Double;
+    }
+
+    private void setDeniedResource(String resourceName) {
+        RequestContextHolder.getRequestAttributes().setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME",
+                resourceName,
+                121);
+    }
+
+    private void setDeniedResourceAction(String resourceActionName) {
+        RequestContextHolder.getRequestAttributes().setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME",
+                resourceActionName,
+                121);
     }
 }
