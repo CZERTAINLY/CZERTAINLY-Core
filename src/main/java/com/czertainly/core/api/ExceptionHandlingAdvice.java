@@ -207,23 +207,29 @@ public class ExceptionHandlingAdvice {
 
     /**
      * Handler for {@link AccessDeniedException}.
+     *
      * @return
      */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<String> handleAccessDeniedException(AccessDeniedException ex) {
+    public ResponseEntity<AuthenticationServiceExceptionDto> handleAccessDeniedException(AccessDeniedException ex) {
         LOG.warn("Access denied: {}", ex.getMessage());
         RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
         ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.FORBIDDEN).contentType(MediaType.valueOf("application/problem+json"));
         Object resourceName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", 121);
         Object resourceActionName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", 121);
+        AuthenticationServiceExceptionDto responseDto = new AuthenticationServiceExceptionDto();
+        responseDto.setCode("ACCESS_DENIED");
+        responseDto.setStatusCode(HttpStatus.FORBIDDEN.value());
         if (resourceName != null && !((String) resourceName).isEmpty() && resourceActionName != null && !((String) resourceActionName).isEmpty()) {
-            return response.body("Access Forbidden. Required '"
+            responseDto.setMessage("Access Forbidden. Required '"
                     + BeautificationUtil.camelToHumanForm((String) resourceActionName)
                     + "' permission for '"
-                    + BeautificationUtil.camelToHumanForm((String) resourceName) + "'");
+                    + BeautificationUtil.camelToHumanForm((String) resourceName)
+                    + "'");
+        } else {
+            responseDto.setMessage("Access denied for the specified operation");
         }
-        // re-throw to let the Spring Security handle it
-        return response.body("Access Denied for the specified operation");
+        return response.body(responseDto);
     }
 
     /**
