@@ -579,7 +579,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public void removeCertificateUser(String userUuid) {
+    public void removeCertificateUser(UUID userUuid) {
         try {
             Certificate certificate = certificateRepository.findByUserUuid(userUuid).orElseThrow(() -> new NotFoundException(Certificate.class, userUuid));
             certificate.setUserUuid(null);

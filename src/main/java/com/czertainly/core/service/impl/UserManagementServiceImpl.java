@@ -27,6 +27,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -57,7 +58,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         }
         UserRequestDto requestDto = new UserRequestDto();
         Certificate certificate = null;
-        if (request.getCertificateUuid() != null && request.getCertificateData().isEmpty() && request.getCertificateData() != null && !request.getCertificateData().isEmpty()) {
+        if ((request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) || (request.getCertificateData() != null && !request.getCertificateData().isEmpty())) {
             certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
@@ -82,7 +83,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         Certificate certificate = null;
         UserUpdateRequestDto requestDto = new UserUpdateRequestDto();
 
-        if (request.getCertificateUuid() != null && request.getCertificateData().isEmpty() && request.getCertificateData() != null && !request.getCertificateData().isEmpty()) {
+        if ((request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) || (request.getCertificateData() != null && !request.getCertificateData().isEmpty())) {
             certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
@@ -92,8 +93,13 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
         UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);
+
+        try {
+            certificateService.removeCertificateUser(UUID.fromString(response.getUuid()));
+        } catch (Exception e) {
+            logger.info("Unable to remove user uuid. It may not exists {}", e.getMessage());
+        }
         if (certificate != null) {
-            certificateService.removeCertificateUser(response.getUuid());
             certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
         }
         return response;
@@ -102,7 +108,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     public void deleteUser(String userUuid) {
         userManagementApiClient.removeUser(userUuid);
-        certificateService.removeCertificateUser(userUuid);
+        certificateService.removeCertificateUser(UUID.fromString(userUuid));
     }
 
     @Override

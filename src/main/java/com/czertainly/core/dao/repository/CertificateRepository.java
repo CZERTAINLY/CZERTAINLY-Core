@@ -93,5 +93,5 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT COUNT(c.id) FROM Certificate AS c WHERE c.notAfter > ?1 AND c.notAfter <= ?2")
     List<Object[]> getCertificatesCountByExpiryDate(Date notAfterFrom, Date notAfterTo);
 
-    Optional<Certificate> findByUserUuid(String userUuid);
+    Optional<Certificate> findByUserUuid(UUID userUuid);
 }

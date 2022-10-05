@@ -118,5 +118,5 @@ public interface CertificateService {
      * Remove the user uuid of the certificate in the core database
      * @param userUuid UUID of the User
      */
-    void removeCertificateUser(String userUuid);
+    void removeCertificateUser(UUID userUuid);
 }
