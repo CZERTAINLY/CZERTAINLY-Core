@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
 
@@ -29,7 +30,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateSignResponseDto issueCertificate(
             @PathVariable String raProfileName,
             @RequestBody ClientCertificateSignRequestDto request)
-            throws NotFoundException, CertificateException, AlreadyExistException, ConnectorException {
+            throws NotFoundException, CertificateException, AlreadyExistException, ConnectorException, NoSuchAlgorithmException {
         return clientOperationService.issueCertificate(raProfileName, request);
     }
 

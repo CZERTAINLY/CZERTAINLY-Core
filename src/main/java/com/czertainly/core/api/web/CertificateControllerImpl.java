@@ -28,6 +28,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +81,7 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
-			throws AlreadyExistException, CertificateException {
+			throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
 		CertificateDto dto = certificateService.upload(request);
 		URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
