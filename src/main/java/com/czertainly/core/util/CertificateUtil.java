@@ -168,7 +168,7 @@ public class CertificateUtil {
 
 	public static String getThumbprint(String certificate)
 			throws NoSuchAlgorithmException, CertificateException {
-		X509Certificate x509Certificate = getX509Certificate(certificate);
+		X509Certificate x509Certificate = getX509Certificate(normalizeCertificateContent(certificate));
 		return getThumbprint(x509Certificate.getEncoded());
 	}
 
