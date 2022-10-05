@@ -141,8 +141,8 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
             try {
-                certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
-            } catch (NotFoundException e) {
+                certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
+            } catch (NotFoundException | NoSuchAlgorithmException e) {
                 certificate = certificateService.createCertificateEntity(x509Cert);
                 certificateService.updateCertificateEntity(certificate);
             }

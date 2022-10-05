@@ -15,6 +15,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -31,7 +32,7 @@ public interface CertificateService {
     Certificate getCertificateEntityByContent(String content);
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
-    Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException;
+    Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException;
 
     Boolean checkCertificateExistsByFingerprint(String fingerprint);
 
@@ -48,9 +49,9 @@ public interface CertificateService {
      */
     Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException;
 
-	Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException;
-    Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException;
-	CertificateDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException;
+	Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+    Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+	CertificateDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     void revokeCertificate(String serialNumber);

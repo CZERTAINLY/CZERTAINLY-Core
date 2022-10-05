@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
@@ -116,7 +117,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCheckCreateCertificate() throws CertificateException, AlreadyExistException {
+    public void testCheckCreateCertificate() throws CertificateException, AlreadyExistException, NoSuchAlgorithmException {
         Certificate cert = certificateService.checkCreateCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
 
         Assertions.assertNotNull(cert);
@@ -153,7 +154,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testUploadCertificate() throws CertificateException, AlreadyExistException {
+    public void testUploadCertificate() throws CertificateException, AlreadyExistException, NoSuchAlgorithmException {
         UploadCertificateRequestDto request = new UploadCertificateRequestDto();
         request.setCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
 

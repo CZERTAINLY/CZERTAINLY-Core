@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -92,6 +93,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setLastName(request.getLastName());
         UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);
         if (certificate != null) {
+            certificateService.removeCertificateUser(response.getUuid());
             certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
         }
         return response;
@@ -146,8 +148,8 @@ public class UserManagementServiceImpl implements UserManagementService {
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
             try {
-                certificate = certificateService.getCertificateEntityBySerial(x509Cert.getSerialNumber().toString(16));
-            } catch (NotFoundException e) {
+                certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
+            } catch (NotFoundException | NoSuchAlgorithmException e) {
                 logger.debug("New Certificate uploaded for the user");
                 certificate = certificateService.createCertificateEntity(x509Cert);
                 certificateService.updateCertificateEntity(certificate);

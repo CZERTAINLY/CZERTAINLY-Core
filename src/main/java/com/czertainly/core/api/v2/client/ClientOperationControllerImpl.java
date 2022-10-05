@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
 
@@ -46,7 +47,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateDataResponseDto issueCertificate(
             String authorityUuid,
             String raProfileUuid,
-            ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException {
+            ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         return clientOperationService.issueCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 

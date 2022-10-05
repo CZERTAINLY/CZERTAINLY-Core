@@ -184,7 +184,7 @@ public class CertValidationServiceImpl implements CertValidationService {
                 && toCheckCertificate.getIssuerSerialNumber().length() > 5) {
             try {
                 chainCertificates.add(
-                        certificateRepository.findBySerialNumberIgnoreCase(toCheckCertificate.getIssuerSerialNumber())
+                        certificateRepository.findByFingerprint(toCheckCertificate.getFingerprint())
                                 .orElseThrow(() -> new NotFoundException(Certificate.class,
                                         toCheckCertificate.getIssuerSerialNumber())));
             } catch (NotFoundException e) {

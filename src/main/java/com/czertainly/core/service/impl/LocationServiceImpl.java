@@ -49,6 +49,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -583,7 +584,7 @@ public class LocationServiceImpl implements LocationService {
                 throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". RA profile is not existing or does not have set authority");
             }
             clientCertificateDataResponseDto = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.get().getAuthorityInstanceReferenceUuid()), raProfile.get().getSecuredUuid(), clientCertificateSignRequestDto);
-        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException e) {
+        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException | NoSuchAlgorithmException e) {
             logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
                     ": " + e.getMessage());
             throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". Reason: " + e.getMessage());

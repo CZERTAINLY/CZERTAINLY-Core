@@ -165,9 +165,9 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     // TODO AUTH - same as above
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public Certificate getCertificateEntityBySerial(String serialNumber) throws NotFoundException {
-        return certificateRepository.findBySerialNumberIgnoreCase(serialNumber)
-                .orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
+    public Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException {
+        return certificateRepository.findByFingerprint(fingerprint)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
     }
 
     @Override
@@ -282,20 +282,14 @@ public class CertificateServiceImpl implements CertificateService {
             List<Certificate> certList = (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation());
             totalItems = certList.size();
 
-            String joins = " LEFT JOIN Admin t1 ON c.id = t1.id  LEFT JOIN Client t2 ON c.id = t2.id WHERE t1.id IS NULL and t2.id is NULL";
-            String clientJoins = " LEFT JOIN Client t1 ON c.id = t1.id LEFT JOIN Admin t2 ON c.id = t2.id WHERE t2.id IS NOT NULL AND t1.id IS NOT NULL ";
+            String joins = "WHERE c.user_uuid IS NULL";
 
             String customQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), joins, false, false);
-            String clientCustomQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), clientJoins, false, false);
 
-            List<Certificate> clientUsedCertificates = (List<Certificate>) searchService.customQueryExecutor(clientCustomQuery);
             List<Certificate> certListDyn = (List<Certificate>) searchService.customQueryExecutor(customQuery);
 
             bulkOperationResponse.setFailedItem(Long.valueOf(totalItems - certListDyn.size()));
 
-            for (Certificate certificate : clientUsedCertificates) {
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin / Client ", "", certificate));
-            }
             for (List<Certificate> certificates : Lists.partition(certListDyn, DELETE_BATCH_SIZE)) {
                 certificateRepository.deleteAll(certificates);
             }
@@ -469,11 +463,11 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public CertificateDto upload(UploadCertificateRequestDto request)
-            throws AlreadyExistException, CertificateException {
+            throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
-        String certificateSerialNumber = certificate.getSerialNumber().toString(16);
-        if (certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isPresent()) {
-            throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
+        String fingerprint = CertificateUtil.getThumbprint(certificate);
+        if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
+            throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
@@ -489,11 +483,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException {
+    public Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
-        String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
-        if (certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isPresent()) {
-            throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
+        String fingerprint = CertificateUtil.getThumbprint(certificate);
+        if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
+            throw new AlreadyExistException("Certificate already exists with serial number " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
         certificateRepository.save(entity);
@@ -503,11 +497,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException {
+    public Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
-        String certificateSerialNumber = x509Cert.getSerialNumber().toString(16);
-        if (certificateRepository.findBySerialNumberIgnoreCase(certificateSerialNumber).isPresent()) {
-            throw new AlreadyExistException("Certificate already exists with serial number " + certificateSerialNumber);
+        String fingerprint = CertificateUtil.getThumbprint(certificate);
+        if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
+            throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
         entity.setMeta(meta);
