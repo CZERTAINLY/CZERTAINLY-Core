@@ -13,12 +13,8 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "location")
@@ -173,7 +169,9 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setMetadata(MetaDefinitions.deserialize(metadata));
 
         List<CertificateInLocationDto> cilDtoList = new ArrayList<>();
-        for (CertificateLocation certificateLocation : this.certificates) {
+
+        List<CertificateLocation> orderedList = certificates.stream().sorted(Comparator.comparing(CertificateLocation::getCreated).reversed()).collect(Collectors.toList());
+        for (CertificateLocation certificateLocation : orderedList) {
             CertificateInLocationDto cilDto = new CertificateInLocationDto();
             cilDto.setMetadata(certificateLocation.getMetadata());
             cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
