@@ -13,6 +13,7 @@ import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.LocationService;
@@ -43,7 +44,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     public ResponseEntity<?> addLocation(String entityUuid, AddLocationRequestDto request) throws NotFoundException, AlreadyExistException, LocationException {
-        LocationDto locationDto = locationService.addLocation(SecuredUUID.fromString(entityUuid), request);
+        LocationDto locationDto = locationService.addLocation(SecuredParentUUID.fromString(entityUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{locationUuid}")
                 .buildAndExpand(locationDto.getUuid()).toUri();
         UuidDto dto = new UuidDto();
@@ -53,42 +54,43 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     public LocationDto getLocation(String entityUuid, String locationUuid) throws NotFoundException {
-        return locationService.getLocation(SecuredUUID.fromString(locationUuid));
+        return locationService.getLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public LocationDto editLocation(String entityUuid, String locationUuid, EditLocationRequestDto request) throws NotFoundException, LocationException {
-        return locationService.editLocation(SecuredUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid), request);
+        return locationService.editLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid), request);
     }
 
     @Override
     public void deleteLocation(String entityUuid, String locationUuid) throws NotFoundException {
-        locationService.deleteLocation(SecuredUUID.fromString(locationUuid));
+        locationService.deleteLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public void disableLocation(String entityUuid, String locationUuid) throws NotFoundException {
-        locationService.disableLocation(SecuredUUID.fromString(locationUuid));
+        locationService.disableLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public void enableLocation(String entityUuid, String locationUuid) throws NotFoundException {
-        locationService.enableLocation(SecuredUUID.fromString(locationUuid));
+        locationService.enableLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public List<AttributeDefinition> listPushAttributes(String entityUuid, String locationUuid) throws NotFoundException, LocationException {
-        return locationService.listPushAttributes(SecuredUUID.fromString(locationUuid));
+        return locationService.listPushAttributes(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public List<AttributeDefinition> listCsrAttributes(String entityUuid, String locationUuid) throws NotFoundException, LocationException {
-        return locationService.listCsrAttributes(SecuredUUID.fromString(locationUuid));
+        return locationService.listCsrAttributes(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public LocationDto pushCertificate(String entityUuid, String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
         return locationService.pushCertificateToLocation(
+                SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),
                 certificateUuid,
                 request
@@ -98,6 +100,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     @Override
     public LocationDto removeCertificate(String entityUuid, String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
         return locationService.removeCertificateFromLocation(
+                SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),
                 SecuredUUID.fromString(certificateUuid)
         );
@@ -106,6 +109,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     @Override
     public LocationDto issueCertificate(String entityUuid, String locationUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException {
         return locationService.issueCertificateToLocation(
+                SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),
                 request.getRaProfileUuid(),
                 request
@@ -114,15 +118,15 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     public LocationDto updateLocationContent(String entityUuid, String locationUuid) throws NotFoundException, LocationException {
-        return locationService.updateLocationContent(SecuredUUID.fromString(locationUuid));
+        return locationService.updateLocationContent(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     public LocationDto renewCertificateInLocation(String entityUuid, String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
         return locationService.renewCertificateInLocation(
+                SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),
-                SecuredUUID.fromString(certificateUuid)
-        );
+                SecuredUUID.fromString(certificateUuid));
     }
 
 }

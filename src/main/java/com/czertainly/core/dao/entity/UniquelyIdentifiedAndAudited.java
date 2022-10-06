@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 
 import javax.persistence.Column;
@@ -29,6 +30,10 @@ public abstract class UniquelyIdentifiedAndAudited extends Audited {
 
     public SecuredUUID getSecuredUuid() {
         return SecuredUUID.fromUUID(uuid);
+    }
+
+    public SecuredParentUUID getSecuredParentUuid() {
+        return SecuredParentUUID.fromUUID(uuid);
     }
 
     @PrePersist
