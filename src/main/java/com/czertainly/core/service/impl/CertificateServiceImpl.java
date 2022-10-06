@@ -117,7 +117,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
         // TODO AUTH - use SecurityFilter
         return getCertificatesWithFilter(request);
@@ -128,7 +128,6 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
-        // TODO AUTH - moved logic from controller
         Certificate entity = getCertificateEntity(uuid);
         CertificateDto dto = entity.mapToDto();
         if (entity.getComplianceResult() != null) {
@@ -148,9 +147,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    // TODO AUTH - how to secure when no uuid is provided? Maybe this one does not have to be secured as it is used only internaly.
-    // Alternatively SecurityFilter can be used and permision checkes programaticaly after the entity is obtained and uuid is know.
+    // This method does not need security as it is not exposed by the controllers. This method also does not uses uuid
     public Certificate getCertificateEntityByContent(String content) {
         CertificateContent certificateContent = certificateContentRepository.findByContent(content);
         return certificateRepository.findByCertificateContent(certificateContent);
@@ -158,8 +155,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    // TODO AUTH - same as above
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    //This method does not need security as it is used only by the internal services for certificate related operations
     public Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException {
         return certificateRepository.findByFingerprint(fingerprint)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
@@ -231,7 +227,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    // TODO AUTH - Move certificate uuids to method parameters and secured them using List<SecuredUUID>
     public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
         if (request.getRaProfileUuid() != null) {
             bulkUpdateRaProfile(request);

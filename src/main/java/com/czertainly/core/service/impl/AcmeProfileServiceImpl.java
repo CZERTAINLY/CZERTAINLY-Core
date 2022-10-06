@@ -189,6 +189,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
     public void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         deleteAcmeProfile(acmeProfile);
@@ -256,6 +257,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkDeleteAcmeProfile(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
@@ -281,6 +283,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {
@@ -288,7 +292,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             try {
                 acmeProfile = getAcmeProfileEntity(uuid);
                 SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithAcmeProfile(acmeProfile.getUuid().toString(), SecurityFilter.create());
-                // TODO AUTH - if there is forbidden ra profile in the ra profile list, the operation will be denied. Other possibility is to unassign, ADD back filtering based on allowed and forbidden
                 // acme profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent acme profile.
                 raProfileService.bulkRemoveAssociatedAcmeProfile(raProfiles.getAll().stream().map(UniquelyIdentifiedAndAudited::getSecuredUuid).collect(Collectors.toList()));
                 deleteAcmeProfile(acmeProfile);

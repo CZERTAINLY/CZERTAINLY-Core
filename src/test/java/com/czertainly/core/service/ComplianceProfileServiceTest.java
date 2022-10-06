@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -170,7 +171,7 @@ public class ComplianceProfileServiceTest {
 
     @Test
     public void testListComplianceProfiles(){
-        List<ComplianceProfilesListDto> dtos = complianceProfileService.listComplianceProfiles();
+        List<ComplianceProfilesListDto> dtos = complianceProfileService.listComplianceProfiles(SecurityFilter.create());
         Assertions.assertNotNull(dtos);
         Assertions.assertEquals(1, dtos.size());
         Assertions.assertEquals("TestProfile", dtos.get(0).getName());

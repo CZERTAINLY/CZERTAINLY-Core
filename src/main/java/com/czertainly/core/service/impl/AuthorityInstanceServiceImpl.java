@@ -245,6 +245,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID uuid : uuids) {

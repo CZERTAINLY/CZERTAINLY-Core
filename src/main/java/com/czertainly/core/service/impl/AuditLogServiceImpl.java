@@ -156,6 +156,7 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
     public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
         Predicate predicate = createPredicate(filter);
         List<AuditLog> entities = auditLogRepository.findAll(predicate, sort);

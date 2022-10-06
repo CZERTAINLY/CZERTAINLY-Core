@@ -68,7 +68,6 @@ public class CertValidationServiceImpl implements CertValidationService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.VALIDATE)
-    // TODO AUTH - what are the required permissions?
     public void validate(Certificate certificate) throws NotFoundException, CertificateException, IOException {
         logger.debug("Initiating the certificate validation");
         List<Certificate> chainCerts = getCertificateChain(certificate);
