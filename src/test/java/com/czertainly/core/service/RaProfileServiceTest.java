@@ -132,7 +132,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         request.setName("testRaProfile2");
         request.setAttributes(List.of());
 
-        RaProfileDto dto = raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request);
+        RaProfileDto dto = raProfileService.addRaProfile(authorityInstanceReference.getSecuredParentUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }
@@ -140,7 +140,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     @Test
     public void testAddRaProfile_validationFail() {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
-        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request));
+        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredParentUuid(), request));
     }
 
     @Test
@@ -148,7 +148,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName(RA_PROFILE_NAME); // raProfile with same username exist
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredUuid(), request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredParentUuid(), request));
     }
 
     @Test
@@ -164,7 +164,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         request.setDescription("some description");
         request.setAttributes(List.of());
 
-        RaProfileDto dto = raProfileService.editRaProfile(authorityInstanceReference.getSecuredUuid(), raProfile.getSecuredUuid(), request);
+        RaProfileDto dto = raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -173,7 +173,7 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     public void testEditRaProfile_notFound() {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
@@ -189,24 +189,24 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEnableRaProfile() throws NotFoundException, CertificateException {
-        raProfileService.enableRaProfile(raProfile.getSecuredUuid());
+        raProfileService.enableRaProfile(raProfile.getSecuredParentUuid(), raProfile.getSecuredUuid());
         Assertions.assertEquals(true, raProfile.getEnabled());
     }
 
     @Test
     public void testEnableRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.enableRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.enableRaProfile(raProfile.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testDisableRaProfile() throws NotFoundException {
-        raProfileService.disableRaProfile(raProfile.getSecuredUuid());
+        raProfileService.disableRaProfile(raProfile.getSecuredParentUuid(), raProfile.getSecuredUuid());
         Assertions.assertEquals(false, raProfile.getEnabled());
     }
 
     @Test
     public void testDisableRaProfile_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
+        Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile(raProfile.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
 
