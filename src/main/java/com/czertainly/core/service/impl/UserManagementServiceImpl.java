@@ -4,14 +4,19 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.UserManagementService;
@@ -46,11 +51,13 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public UserDetailDto getUser(String userUuid) throws NotFoundException {
         return userManagementApiClient.getUserDetail(userUuid);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException {
 
         if (StringUtils.isBlank(request.getUsername())) {
@@ -78,6 +85,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
 
         Certificate certificate = null;
@@ -106,42 +114,50 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DELETE)
     public void deleteUser(String userUuid) {
         userManagementApiClient.removeUser(userUuid);
         certificateService.removeCertificateUser(UUID.fromString(userUuid));
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateRoles(String userUuid, List<String> roleUuids) {
         return userManagementApiClient.updateRoles(userUuid, roleUuids);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateRole(String userUuid, String roleUuid) {
         return userManagementApiClient.updateRole(userUuid, roleUuid);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public SubjectPermissionsDto getPermissions(String userUuid) {
         return userManagementApiClient.getPermissions(userUuid);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto enableUser(String userUuid) {
         return userManagementApiClient.enableUser(userUuid);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto disableUser(String userUuid) {
         return userManagementApiClient.disableUser(userUuid);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public List<RoleDto> getUserRoles(String userUuid) {
         return userManagementApiClient.getUserRoles(userUuid);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto removeRole(String userUuid, String roleUuid) {
         return userManagementApiClient.removeRole(userUuid, roleUuid);
     }

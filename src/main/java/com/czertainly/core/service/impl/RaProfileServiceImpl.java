@@ -263,7 +263,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     // TODO AUTH - use ra profile service to obtain RA profile
     public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
         RaProfile raProfile = getRaProfileEntity(uuid);

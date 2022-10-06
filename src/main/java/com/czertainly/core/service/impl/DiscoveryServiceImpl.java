@@ -149,6 +149,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
     public void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException {
         for (SecuredUUID uuid : discoveryUuids) {
             deleteDiscovery(uuid);
