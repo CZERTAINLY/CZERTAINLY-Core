@@ -297,8 +297,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-//    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    // TODO AUTH - what is the correct action? It is not necessary to check permissions, internal function that will be later done by scheduler?
+    //Auth is not required for this methods. It is only internally used by other services to update the issuers of the certificate
     public void updateIssuer() {
         for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
             if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
@@ -409,8 +408,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    // TODO AUTH - what is the correct action?
-    // TODO AUTH - make private?
     public Certificate createCertificateEntity(X509Certificate certificate) {
         logger.debug("Making a new entry for a certificate");
         Certificate modal = new Certificate();
@@ -534,7 +531,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @Async
-    // TODO AUTH - move certificate uuids to method parameters, secure with @ExternalAuthorization
     public void checkCompliance(CertificateComplianceCheckDto request) {
         for (String uuid : request.getCertificateUuids()) {
             try {
@@ -546,12 +542,13 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    // TODO AUTH - make private
+    // Internal Use only
     public void updateCertificateEntity(Certificate certificate) {
         certificateRepository.save(certificate);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException {
         String validationResult = getCertificateEntity(uuid).getCertificateValidationResult();
         try {
@@ -563,6 +560,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    // Internal Use Only
     public void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         if(userUuid == null) {
@@ -574,6 +572,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    // Internal Use Only
     public void removeCertificateUser(UUID userUuid) {
         try {
             Certificate certificate = certificateRepository.findByUserUuid(userUuid).orElseThrow(() -> new NotFoundException(Certificate.class, userUuid));
