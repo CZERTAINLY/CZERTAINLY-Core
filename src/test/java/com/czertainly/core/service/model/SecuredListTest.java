@@ -1,6 +1,7 @@
 package com.czertainly.core.service.model;
 
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.security.authz.SecurityResourceFilter;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -21,8 +22,9 @@ class SecuredListTest {
         List<SecurableTestItem> items = List.of(A, B, C, D, E);
 
         SecurityFilter filter = SecurityFilter.create();
-        filter.setAreOnlySpecificObjectsAllowed(true);
-        filter.addAllowedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
+        filter.setResourceFilter(SecurityResourceFilter.create());
+        filter.getResourceFilter().setAreOnlySpecificObjectsAllowed(true);
+        filter.getResourceFilter().addAllowedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
 
         // when
         SecuredList<SecurableTestItem> list = SecuredList.fromFilter(filter, items);
@@ -42,8 +44,9 @@ class SecuredListTest {
         List<SecurableTestItem> items = List.of(A, B, C, D, E);
 
         SecurityFilter filter = SecurityFilter.create();
-        filter.setAreOnlySpecificObjectsAllowed(false);
-        filter.addDeniedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
+        filter.setResourceFilter(SecurityResourceFilter.create());
+        filter.getResourceFilter().setAreOnlySpecificObjectsAllowed(false);
+        filter.getResourceFilter().addDeniedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
 
         // when
         SecuredList<SecurableTestItem> list = SecuredList.fromFilter(filter, items);
