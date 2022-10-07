@@ -107,7 +107,7 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                 if (objectUUIDs.isEmpty()) {
                     logger.error("ParentUUIDGetter specified but no object uuids were found. Access will be denied.");
                     setDeniedResource(voteProperties.get("name"));
-                    setDeniedResourceAction(properties.get("action"));
+                    setDeniedResourceAction(voteProperties.get("action"));
                     return ACCESS_DENIED;
                 } else {
                     List<String> parentsUUIDs = parentUUIDGetter.get().getParentsUUID(
@@ -140,7 +140,7 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
         } else {
             logger.trace(String.format("Access to the method '%s' has been denied.", methodInvocation.getMethod().getName()));
             setDeniedResource(voteProperties.get("name"));
-            setDeniedResourceAction(properties.get("action"));
+            setDeniedResourceAction(voteProperties.get("action"));
             return ACCESS_DENIED;
         }
     }

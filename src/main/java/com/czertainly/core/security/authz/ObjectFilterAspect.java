@@ -1,6 +1,7 @@
 package com.czertainly.core.security.authz;
 
 import com.czertainly.core.config.OpaSecuredAnnotationMetadataExtractor;
+import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
@@ -53,15 +54,44 @@ public class ObjectFilterAspect {
 
             Collection<ExternalAuthorizationConfigAttribute> attributes = createAttributesFromAnnotation(joinPoint);
 
-            OpaObjectAccessResult result = obtainObjectAccess((CzertainlyAuthenticationToken) auth, attributes);
+            Map<String, String> properties = attributes
+                .stream()
+                .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
 
-            logger.trace(String.format("User has the following object access rights. %s", result.toString()));
+            if(properties.get("parentName") != Resource.NONE.getCode()) {
+                SecurityResourceFilter parentResourceFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, true);
+                secFilter.setParentResourceFilter(parentResourceFilter);
+            }
 
-            secFilter.addAllowedObjects(result.getAllowedObjects());
-            secFilter.addDeniedObjects(result.getForbiddenObjects());
-            secFilter.setAreOnlySpecificObjectsAllowed(!result.isActionAllowedForGroupOfObjects());
+            SecurityResourceFilter resourceFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, false);
+            secFilter.setResourceFilter(resourceFilter);
+
             return joinPoint.proceed(arguments);
         }
+    }
+
+    private SecurityResourceFilter getResourceFilter(CzertainlyAuthenticationToken auth, Map<String, String> properties, boolean parentResource) {
+        Map<String, String> voteProperties = properties;
+        if(parentResource) {
+            Map<String, String> parentProperties = properties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            parentProperties.put("name", properties.get("parentName"));
+            parentProperties.put("action", properties.get("parentAction"));
+            voteProperties = parentProperties;
+        }
+        voteProperties.remove("parentName");
+        voteProperties.remove("parentAction");
+
+        OpaObjectAccessResult result = obtainObjectAccess(auth, voteProperties);
+
+        logger.trace(String.format("User has the following object access rights. %s", result.toString()));
+
+        SecurityResourceFilter resourceFilter = SecurityResourceFilter.create();
+        resourceFilter.setResource(voteProperties.get("name"));
+        resourceFilter.addAllowedObjects(result.getAllowedObjects());
+        resourceFilter.addDeniedObjects(result.getForbiddenObjects());
+        resourceFilter.setAreOnlySpecificObjectsAllowed(!result.isActionAllowedForGroupOfObjects());
+
+        return resourceFilter;
     }
 
     private Collection<ExternalAuthorizationConfigAttribute> createAttributesFromAnnotation(ProceedingJoinPoint joinPoint) {
@@ -84,12 +114,7 @@ public class ObjectFilterAspect {
         return filter;
     }
 
-    private OpaObjectAccessResult obtainObjectAccess(CzertainlyAuthenticationToken authentication, Collection<ExternalAuthorizationConfigAttribute> attributes) {
-
-        Map<String, String> properties = attributes
-                .stream()
-                .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
-
+    private OpaObjectAccessResult obtainObjectAccess(CzertainlyAuthenticationToken authentication, Map<String, String> properties) {
         OpaRequestedResource resource = new OpaRequestedResource(properties);
 
         return this.opaClient.checkObjectAccess(OpaPolicy.OBJECTS.policyName, resource, authentication.getPrincipal().getRawData(), new OpaRequestDetails(null));

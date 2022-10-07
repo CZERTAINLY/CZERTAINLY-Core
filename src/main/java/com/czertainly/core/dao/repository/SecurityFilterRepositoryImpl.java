@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
@@ -72,13 +73,26 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             cr.where(additionalWhereClause.apply(root, cb));
         }
 
-        if (filter.areOnlySpecificObjectsAllowed()) {
-            cr.where(root.get("uuid").in(filter.getAllowedObjects()));
+        if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
+            cr.where(root.get("uuid").in(filter.getResourceFilter().getAllowedObjects()));
         } else {
-            if (!filter.getForbiddenObjects().isEmpty()) {
-                cr.where(root.get("uuid").in(filter.getForbiddenObjects()).not());
+            if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
+                cr.where(root.get("uuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
             }
         }
+
+        if(filter.getParentResourceFilter() != null) {
+            if(filter.getParentRefProperty() == null) throw new ValidationException("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource());
+
+            if (filter.getParentResourceFilter().areOnlySpecificObjectsAllowed()) {
+                cr.where(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getAllowedObjects()));
+            } else {
+                if (!filter.getParentResourceFilter().getForbiddenObjects().isEmpty()) {
+                    cr.where(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getForbiddenObjects()).not());
+                }
+            }
+        }
+
         return entityManager.createQuery(cr).getResultList();
     }
 }
