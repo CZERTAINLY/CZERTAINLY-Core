@@ -27,7 +27,6 @@ public class UserManagementControllerImpl implements UserManagementController {
     private UserManagementService userManagementService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.USER)
     public List<UserDto> listUsers() {
         return userManagementService.listUsers();
     }

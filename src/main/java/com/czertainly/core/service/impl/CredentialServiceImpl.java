@@ -105,7 +105,6 @@ public class CredentialServiceImpl implements CredentialService {
             throw new AlreadyExistException(Credential.class, request.getName());
         }
 
-        // TODO AUTH do we need to retrieve connector and check permissions?
         SecuredUUID connectorUuid = SecuredUUID.fromString(request.getConnectorUuid());
         ConnectorDto connector = connectorService.getConnectorEntity(connectorUuid).mapToDto();
 
@@ -133,7 +132,6 @@ public class CredentialServiceImpl implements CredentialService {
         Credential credential = getCredentialEntity(uuid);
         SecuredUUID connectorUuid = SecuredUUID.fromUUID(credential.getConnectorUuid());
 
-        // TODO AUTH do we need to check permissions of connector?
         List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
                 connectorUuid,
                 FunctionGroupCode.CREDENTIAL_PROVIDER,

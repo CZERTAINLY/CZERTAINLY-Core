@@ -198,7 +198,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
     public List<AttributeDefinition> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException {
         EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
@@ -210,7 +210,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
     public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));

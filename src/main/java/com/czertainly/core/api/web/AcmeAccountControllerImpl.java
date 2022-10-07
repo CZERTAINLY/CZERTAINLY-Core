@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeAccountService;
@@ -22,7 +23,7 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
 
     @Override
     public void revokeAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
-        acmeAccountService.revokeAccount(SecuredUUID.fromString(acmeAccountUuid));
+        acmeAccountService.revokeAccount(SecuredParentUUID.fromString(acmeProfileUuid), SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
@@ -48,16 +49,16 @@ public class AcmeAccountControllerImpl implements AcmeAccountController {
 
     @Override
     public AcmeAccountResponseDto getAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
-        return acmeAccountService.getAcmeAccount(SecuredUUID.fromString(acmeAccountUuid));
+        return acmeAccountService.getAcmeAccount(SecuredParentUUID.fromString(acmeProfileUuid), SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
     public void enableAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
-        acmeAccountService.enableAccount(SecuredUUID.fromString(acmeAccountUuid));
+        acmeAccountService.enableAccount(SecuredParentUUID.fromString(acmeProfileUuid), SecuredUUID.fromString(acmeAccountUuid));
     }
 
     @Override
     public void disableAcmeAccount(String acmeProfileUuid, String acmeAccountUuid) throws NotFoundException {
-        acmeAccountService.disableAccount(SecuredUUID.fromString(acmeAccountUuid));
+        acmeAccountService.disableAccount(SecuredParentUUID.fromString(acmeProfileUuid), SecuredUUID.fromString(acmeAccountUuid));
     }
 }

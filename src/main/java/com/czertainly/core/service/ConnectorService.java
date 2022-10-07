@@ -53,10 +53,6 @@ public interface ConnectorService {
 
     List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, NotFoundException, ConnectorException;
 
-    List<ConnectDto> validateConnector(ConnectorDto request) throws ConnectorException;
-
-    List<ConnectDto> validateConnector(List<? extends BaseFunctionGroupDto> functions, SecuredUUID uuid);
-
     void reconnect(List<SecuredUUID> uuids) throws ValidationException, NotFoundException, ConnectorException;
 
     void approve(SecuredUUID uuid) throws NotFoundException, ValidationException;

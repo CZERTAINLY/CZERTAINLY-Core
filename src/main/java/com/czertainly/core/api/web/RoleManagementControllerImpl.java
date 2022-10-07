@@ -22,7 +22,6 @@ public class RoleManagementControllerImpl implements RoleManagementController {
     private RoleManagementService roleManagementService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.ROLE)
     public List<RoleDto> listRoles() {
         return roleManagementService.listRoles();
     }

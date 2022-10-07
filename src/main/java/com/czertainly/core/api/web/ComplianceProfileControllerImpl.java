@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ComplianceProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -32,7 +33,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     @Override
     @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE)
     public List<ComplianceProfilesListDto> listComplianceProfiles() {
-        return complianceProfileService.listComplianceProfiles();
+        return complianceProfileService.listComplianceProfiles(SecurityFilter.create());
     }
 
     @Override
