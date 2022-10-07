@@ -148,23 +148,6 @@ public class RaProfileServiceImpl implements RaProfileService {
         return raProfile.mapToDto();
     }
 
-    private List<AttributeDefinition> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
-        List<AttributeDefinition> definitions = authorityInstanceApiClient.listRAProfileAttributes(
-                authorityInstanceRef.getConnector().mapToDto(),
-                authorityInstanceRef.getAuthorityInstanceUuid());
-        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
-
-        if (Boolean.FALSE.equals(authorityInstanceApiClient.validateRAProfileAttributes(
-                authorityInstanceRef.getConnector().mapToDto(),
-                authorityInstanceRef.getAuthorityInstanceUuid(),
-                attributes))) {
-
-            throw new ValidationException("RA profile attributes validation failed.");
-        }
-
-        return merged;
-    }
-
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
@@ -262,14 +245,13 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    // TODO AUTH - use acme service to obtain ACME profile
+    // TODO - use acme service to obtain ACME profile
     public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         return getRaProfileEntity(uuid).mapToAcmeDto();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    // TODO AUTH - use ra profile service to obtain RA profile
     public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(acmeProfileUuid)
@@ -312,7 +294,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
-    // TODO AUTH - remove, service should not allow modifying RaProfile entity outside of it.
+    // TODO - remove, service should not allow modifying RaProfile entity outside of it.
     public RaProfile updateRaProfileEntity(RaProfile raProfile) {
         raProfileRepository.save(raProfile);
         return raProfile;
@@ -332,10 +314,28 @@ public class RaProfileServiceImpl implements RaProfileService {
         }
     }
 
-    // TODO AUTH - make private, service should not allow modifying RaProfile entity outside of it.
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    // TODO - make private, service should not allow modifying RaProfile entity outside of it.
     public RaProfile getRaProfileEntity(SecuredUUID uuid) throws NotFoundException {
         return raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
+    }
+
+    private List<AttributeDefinition> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
+        List<AttributeDefinition> definitions = authorityInstanceApiClient.listRAProfileAttributes(
+                authorityInstanceRef.getConnector().mapToDto(),
+                authorityInstanceRef.getAuthorityInstanceUuid());
+        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+
+        if (Boolean.FALSE.equals(authorityInstanceApiClient.validateRAProfileAttributes(
+                authorityInstanceRef.getConnector().mapToDto(),
+                authorityInstanceRef.getAuthorityInstanceUuid(),
+                attributes))) {
+
+            throw new ValidationException("RA profile attributes validation failed.");
+        }
+
+        return merged;
     }
 
     private RaProfile createRaProfile(AddRaProfileRequestDto dto, List<AttributeDefinition> attributes, AuthorityInstanceReference authorityInstanceRef) {

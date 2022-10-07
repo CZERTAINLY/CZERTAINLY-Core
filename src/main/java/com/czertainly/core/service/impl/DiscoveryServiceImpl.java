@@ -118,7 +118,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             try {
                 discoveryCertificateRepository.delete(cert);
             } catch (Exception e) {
-                //todo
                 logger.error(e.getMessage(), e);
             }
             if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null) {

@@ -46,6 +46,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     private CertificateService certificateService;
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.LIST)
     public List<UserDto> listUsers() {
         return userManagementApiClient.getUsers().getData();
     }
@@ -57,7 +58,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.CREATE)
     public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException {
 
         if (StringUtils.isBlank(request.getUsername())) {

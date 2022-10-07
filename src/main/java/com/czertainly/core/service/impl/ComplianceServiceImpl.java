@@ -65,7 +65,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     private ComplianceProfileRuleRepository complianceProfileRuleRepository;
 
     @Override
-    // TODO AUTH - Secure with @ExternalAuthorization. Move to another service?
+    //Connector Communication only
     public void addFetchGroupsAndRules(Connector connector) throws ConnectorException {
         logger.info("Fetching rules and groups for the Compliance Provider: {}", connector);
         FunctionGroupDto functionGroupDto = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().orElse(null);
@@ -80,7 +80,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    // TODO AUTH - Secure with @ExternalAuthorization. Move to another service?
+    //Connector Communication only
     public void updateGroupsAndRules(Connector connector) throws ConnectorException {
         logger.info("Fetching the rules and groups of the Compliance Provider: {}", connector);
         FunctionGroupDto functionGroupDto = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst().orElse(null);
@@ -105,7 +105,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    // TODO AUTH - make private or pass certificate UUID as method parameter instead of database entity, secure with @ExternalAuthorization
+    // Internal purpose only
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException {
         logger.debug("Checking the Compliance of the Certificate: {}", certificate);
         RaProfile raProfile = certificate.getRaProfile();
@@ -197,12 +197,12 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    // TODO AUTH - do not return DB Entity, return Dto instead, use UUIDS instead of IDs
-    public List<ComplianceRule> getComplianceRuleEntityForIds(List<String> ids) {
-        return complianceRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
+    //Internal Use only
+    public List<ComplianceRule> getComplianceRuleEntityForIds(List<String> uuids) {
+        return complianceRuleRepository.findByUuidIn(uuids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
-    // TODO AUTH - create separate service for ComplianceRule?
+
     public void saveComplianceRule(ComplianceRule complianceRule) {
         complianceRuleRepository.save(complianceRule);
     }

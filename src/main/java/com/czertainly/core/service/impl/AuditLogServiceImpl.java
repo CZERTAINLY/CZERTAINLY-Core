@@ -61,8 +61,6 @@ public class AuditLogServiceImpl implements AuditLogService {
     private ExportProcessor exportProcessor;
 
     @Override
-    // TODO AUTH - should be authorized? Probably no, as the action is done by system and not requested by user.
-    // @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.CREATE)
     public void log(ObjectType origination,
                     ObjectType affected,
                     String objectIdentifier,
@@ -118,7 +116,6 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.REQUEST)
-    // TODO AUTH - should be authorized? Probably yes.
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.LIST)
     public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
 
@@ -144,7 +141,6 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.REQUEST)
-    // TODO AUTH - should be authorized? Probably yes.
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.EXPORT)
     public ExportResultDto exportAuditLogs(AuditLogFilter filter, Sort sort) {
         Predicate predicate = createPredicate(filter);

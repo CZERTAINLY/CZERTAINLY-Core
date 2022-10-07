@@ -149,7 +149,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         return createNewConnector(request, ConnectorStatus.CONNECTED);
     }
 
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
+    //Internal and anonymous user only - Not exposed through service
     public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
         return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
     }
@@ -192,7 +192,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         return connector.mapToDto();
     }
 
-    // TODO AUTH: this is used only in test, can we remove it and in test replace it with different method?
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
@@ -412,18 +412,14 @@ public class ConnectorServiceImpl implements ConnectorService {
         return result;
     }
 
-    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public List<ConnectDto> validateConnector(ConnectorDto request) throws ConnectorException {
+    private List<ConnectDto> validateConnector(ConnectorDto request) throws ConnectorException {
         List<InfoResponse> functions = connectorApiClient.listSupportedFunctions(request);
         return validateConnector(functions, SecuredUUID.fromString(request.getUuid()));
     }
 
-    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public List<ConnectDto> validateConnector(List<? extends BaseFunctionGroupDto> functions, SecuredUUID uuid) {
+    private List<ConnectDto> validateConnector(List<? extends BaseFunctionGroupDto> functions, SecuredUUID uuid) {
         List<ValidationError> errors = new ArrayList<>();
         List<ConnectDto> responses = new ArrayList<>();
 
@@ -506,7 +502,6 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.HEALTH, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
     public HealthDto checkHealth(SecuredUUID uuid) throws ConnectorException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
@@ -604,7 +599,6 @@ public class ConnectorServiceImpl implements ConnectorService {
                 connector = connectorRepository.findByUuid(uuid)
                         .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-                // TODO AUTH: if we set credentials connector uuid to null, is this credentials usable or assignable to other connector?
                 if (!connector.getCredentials().isEmpty()) {
                     for (Credential credential : connector.getCredentials()) {
                         credential.setConnectorUuid(null);
@@ -650,7 +644,6 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private void deleteConnector(Connector connector) {
         List<String> errors = new ArrayList<>();
-        // TODO AUTH: should we check permissions for all dependent resources? Otherwise we are revealing names of resources that user maybe does not have permissions to see. Solution could be just return number of conflicting items
         if (!connector.getCredentials().isEmpty()) {
             errors.add("Dependent credentials: " + String.join(", ", connector.getCredentials().stream().map(Credential::getName).collect(Collectors.toSet())));
         }

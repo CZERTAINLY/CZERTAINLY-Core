@@ -222,7 +222,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.ANY)
     public List<AttributeDefinition> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
@@ -233,7 +233,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.ANY)
     public Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));

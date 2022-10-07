@@ -231,7 +231,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.ENABLE)
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public void enableLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
@@ -244,7 +244,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public void disableLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
@@ -341,8 +341,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
-    // TODO AUTH - the uuid is not location uuid, but certificate UUID. Needs refactor to get location UUID into parameters
-    // List locations using LocationService in CertificateService and then call removeCertificateFromLocations(SecuredUUID locationUUIDs, String certificateUUID) on location service
+    // TODO List locations using LocationService in CertificateService and then call removeCertificateFromLocations(SecuredUUID locationUUIDs, String certificateUUID) on location service
     public void removeCertificateFromLocations(SecuredUUID certificateUuid) throws NotFoundException {
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
 
@@ -576,7 +575,7 @@ public class LocationServiceImpl implements LocationService {
 
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
-            // TODO AUTH: introduces raProfileRepository, services probably need to be reorganized
+            // TODO : introduces raProfileRepository, services probably need to be reorganized
             Optional<RaProfile> raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid));
             if(raProfile.isEmpty() || raProfile.get().getAuthorityInstanceReferenceUuid() == null) {
                 logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
@@ -855,31 +854,5 @@ public class LocationServiceImpl implements LocationService {
             }
         }
         return locationDto;
-    }
-
-    private List<AttributeDefinition> listPushAttributes(ConnectorDto connectorDto, String entityInstanceUuid) throws LocationException {
-
-        try {
-            return locationApiClient.listPushCertificateAttributes(
-                    connectorDto,
-                    entityInstanceUuid);
-        } catch (ConnectorException e) {
-            logger.debug("Failed to list push Attributes for Entity Instance {}: {}",
-                    entityInstanceUuid, e.getMessage());
-            throw new LocationException("Failed to list push Attributes for the Entity " + entityInstanceUuid + ". Reason: " + e.getMessage());
-        }
-    }
-
-    private List<AttributeDefinition> listCsrAttributes(ConnectorDto connectorDto, String entityInstanceUuid) throws LocationException {
-
-        try {
-            return locationApiClient.listGenerateCsrAttributes(
-                    connectorDto,
-                    entityInstanceUuid);
-        } catch (ConnectorException e) {
-            logger.debug("Failed to list CSR Attributes for Entity Instance {}: {}",
-                    entityInstanceUuid, e.getMessage());
-            throw new LocationException("Failed to list CSR Attributes for the Entity " + entityInstanceUuid + ". Reason: " + e.getMessage());
-        }
     }
 }
