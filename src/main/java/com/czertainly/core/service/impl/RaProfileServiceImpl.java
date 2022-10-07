@@ -315,6 +315,13 @@ public class RaProfileServiceImpl implements RaProfileService {
         }
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
+    public Long statisticsRaProfilesCount(SecurityFilter filter) {
+        filter.setParentRefProperty("authorityInstanceReferenceUuid");
+        return raProfileRepository.countUsingSecurityFilter(filter);
+    }
+
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
     // TODO - make private, service should not allow modifying RaProfile entity outside of it.
     public RaProfile getRaProfileEntity(SecuredUUID uuid) throws NotFoundException {

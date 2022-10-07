@@ -21,4 +21,10 @@ public interface DiscoveryService {
 
     void deleteDiscovery(SecuredUUID uuid) throws NotFoundException;
     void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException;
+
+    /**
+     * Get the number of discoveries per user for dashboard
+     * @return Number of discoveries
+     */
+    Long statisticsDiscoveryCount(SecurityFilter filter);
 }
