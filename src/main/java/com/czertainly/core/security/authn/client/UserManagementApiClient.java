@@ -10,6 +10,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient {
@@ -18,6 +19,8 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
     private static final String USER_DETAIL_CONTEXT = USER_BASE_CONTEXT + "/{userUuid}";
     private static final String USER_PERMISSION_CONTEXT = USER_DETAIL_CONTEXT + "/permissions";
     private static final String USER_ROLE_CONTEXT = USER_DETAIL_CONTEXT + "/roles";
+
+    private static final List<String> listTypeRef = new ArrayList<>();
 
     public UserManagementApiClient(String authServiceBaseUrl, WebClient client) {
         super(authServiceBaseUrl, client);
@@ -110,7 +113,7 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
 
         return processRequest(r -> r
                         .uri(USER_ROLE_CONTEXT, userUuid)
-                        .body(Mono.just(roles), String.class)
+                        .body(Mono.just(roles), listTypeRef.getClass())
                         .retrieve()
                         .toEntity(UserDetailDto.class)
                         .block().getBody(),

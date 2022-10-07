@@ -221,7 +221,7 @@ public class ExceptionHandlingAdvice {
         responseDto.setCode("ACCESS_DENIED");
         responseDto.setStatusCode(HttpStatus.FORBIDDEN.value());
         if (resourceName != null && !((String) resourceName).isEmpty() && resourceActionName != null && !((String) resourceActionName).isEmpty()) {
-            responseDto.setMessage("Access Forbidden. Required '"
+            responseDto.setMessage("Access Denied. Required '"
                     + BeautificationUtil.camelToHumanForm((String) resourceActionName)
                     + "' permission for '"
                     + BeautificationUtil.camelToHumanForm((String) resourceName)
