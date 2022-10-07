@@ -57,7 +57,7 @@ public interface CertificateService {
     void revokeCertificate(String serialNumber);
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
-    void bulkDeleteCertificate(RemoveCertificateDto request) throws NotFoundException;
+    void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException;
 
     /**
      * List all locations associated with the certificate
@@ -97,7 +97,7 @@ public interface CertificateService {
      * Method to update the Objects of multiple certificates
      * @param request Request to update multiple objects
      */
-    void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException;
+    void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException;
 
     /** Function to get the validation result of the certificate
      * @param uuid UUID of the certificate

@@ -125,8 +125,9 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.LIST, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.LIST)
     public List<AcmeAccountListResponseDto> listAcmeAccounts(SecurityFilter filter) {
+        filter.setParentRefProperty("acmeProfileUuid");
         return acmeAccountRepository.findUsingSecurityFilter(filter)
                 .stream()
                 .map(AcmeAccount::mapToDtoForUiSimple)
