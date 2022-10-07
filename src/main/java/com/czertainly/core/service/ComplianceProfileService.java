@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 import java.util.Set;
@@ -23,7 +24,7 @@ public interface ComplianceProfileService {
      *
      * @return List of compliance profiles
      */
-    List<ComplianceProfilesListDto> listComplianceProfiles();
+    List<ComplianceProfilesListDto> listComplianceProfiles(SecurityFilter filter);
 
     /**
      * Get the details of a compliance profile

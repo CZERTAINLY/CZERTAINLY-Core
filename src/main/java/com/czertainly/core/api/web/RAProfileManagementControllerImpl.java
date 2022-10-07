@@ -14,6 +14,7 @@ import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.RaProfileService;
@@ -41,7 +42,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     public ResponseEntity<?> createRaProfile(String authorityUuid, AddRaProfileRequestDto request)
             throws AlreadyExistException, ValidationException, ConnectorException {
-        RaProfileDto raProfile = raProfileService.addRaProfile(SecuredUUID.fromString(authorityUuid), request);
+        RaProfileDto raProfile = raProfileService.addRaProfile(SecuredParentUUID.fromString(authorityUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(raProfile.getUuid()).toUri();
         UuidDto dto = new UuidDto();
@@ -51,7 +52,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     public RaProfileDto getRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
-        return raProfileService.getRaProfile(SecuredUUID.fromString(raProfileUuid));
+        return raProfileService.getRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
@@ -62,12 +63,12 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     public RaProfileDto editRaProfile(String authorityUuid, String raProfileUuid, EditRaProfileRequestDto request)
             throws ConnectorException {
-        return raProfileService.editRaProfile(SecuredUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
+        return raProfileService.editRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 
     @Override
     public void deleteRaProfile(String authorityUuid, String uuid) throws NotFoundException {
-        raProfileService.deleteRaProfile(SecuredUUID.fromString(uuid));
+        raProfileService.deleteRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -77,12 +78,12 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     public void disableRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
-        raProfileService.disableRaProfile(SecuredUUID.fromString(raProfileUuid));
+        raProfileService.disableRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     public void enableRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
-        raProfileService.enableRaProfile(SecuredUUID.fromString(raProfileUuid));
+        raProfileService.enableRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
@@ -102,27 +103,27 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
-        return raProfileService.getAcmeForRaProfile(SecuredUUID.fromString(raProfileUuid));
+        return raProfileService.getAcmeForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String authorityUuid, String raProfileUuid, String acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException {
-        return raProfileService.activateAcmeForRaProfile(SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(acmeProfileUuid), request);
+        return raProfileService.activateAcmeForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(acmeProfileUuid), request);
     }
 
     @Override
     public void deactivateAcmeForRaProfile(String authorityUuid, String uuid) throws NotFoundException {
-        raProfileService.deactivateAcmeForRaProfile(SecuredUUID.fromString(uuid));
+        raProfileService.deactivateAcmeForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
     public List<AttributeDefinition> listRevokeCertificateAttributes(String authorityUuid, String raProfileUuid) throws ConnectorException {
-        return raProfileService.listRevokeCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
+        return raProfileService.listRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     public List<AttributeDefinition> listIssueCertificateAttributes(String authorityUuid, String raProfileUuid) throws ConnectorException {
-        return raProfileService.listIssueCertificateAttributes(SecuredUUID.fromString(raProfileUuid));
+        return raProfileService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override

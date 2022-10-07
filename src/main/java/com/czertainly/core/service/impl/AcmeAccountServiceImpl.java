@@ -14,6 +14,7 @@ import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeAccountService;
@@ -41,21 +42,15 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REVOKE)
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE)
-    public void revokeAccount(SecuredUUID uuid) throws NotFoundException {
-        AcmeAccount account = getAcmeAccountEntity(uuid);
-        if (account.getStatus().equals(AccountStatus.REVOKED)) {
-            throw new ValidationException(ValidationError.create("Cannot revoke a revoked account"));
-        }
-        account.setStatus(AccountStatus.REVOKED);
-        account.setEnabled(false);
-        acmeAccountRepository.save(account);
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
+    public void revokeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
+        revokeAccount(uuid);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.ENABLE)
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE)
-    public void enableAccount(SecuredUUID uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
+    public void enableAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
         if (!account.getStatus().equals(AccountStatus.VALID)) {
             throw new ValidationException(ValidationError.create("Cannot enable a revoked account"));
@@ -66,8 +61,8 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE)
-    public void disableAccount(SecuredUUID uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
+    public void disableAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
         if (!account.getStatus().equals(AccountStatus.VALID)) {
             throw new ValidationException(ValidationError.create("Cannot disable a revoked account"));
@@ -140,8 +135,8 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL)
-    public AcmeAccountResponseDto getAcmeAccount(SecuredUUID uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
+    public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
         extendedAcmeHelperService.updateOrderStatusForAccount(acmeAccount);
         return getAcmeAccountEntity(uuid).mapToDtoForUi();
@@ -150,5 +145,15 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     private AcmeAccount getAcmeAccountEntity(SecuredUUID uuid) throws NotFoundException {
         return acmeAccountRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AcmeAccount.class, uuid));
+    }
+
+    public void revokeAccount(SecuredUUID uuid) throws NotFoundException {
+        AcmeAccount account = getAcmeAccountEntity(uuid);
+        if (account.getStatus().equals(AccountStatus.REVOKED)) {
+            throw new ValidationException(ValidationError.create("Cannot revoke a revoked account"));
+        }
+        account.setStatus(AccountStatus.REVOKED);
+        account.setEnabled(false);
+        acmeAccountRepository.save(account);
     }
 }

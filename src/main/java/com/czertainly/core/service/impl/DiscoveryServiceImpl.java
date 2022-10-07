@@ -118,7 +118,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             try {
                 discoveryCertificateRepository.delete(cert);
             } catch (Exception e) {
-                //todo
                 logger.error(e.getMessage(), e);
             }
             if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null) {
@@ -149,6 +148,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
     public void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException {
         for (SecuredUUID uuid : discoveryUuids) {
             deleteDiscovery(uuid);

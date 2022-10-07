@@ -48,7 +48,6 @@ public class CallbackServiceImpl implements CallbackService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
-    // TODO AUTH - what are the required permissions? Use services instead of repositories
     public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
         List<AttributeDefinition> definitions;
@@ -68,7 +67,6 @@ public class CallbackServiceImpl implements CallbackService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
-    // TODO AUTH - what are the required permissions? Use services instead of repositories
     public Object raProfileCallback(String authorityUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
         List<AttributeDefinition> definitions;
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
