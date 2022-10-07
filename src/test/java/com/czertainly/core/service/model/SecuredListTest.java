@@ -21,8 +21,8 @@ class SecuredListTest {
         List<SecurableTestItem> items = List.of(A, B, C, D, E);
 
         SecurityFilter filter = SecurityFilter.create();
-        filter.setAreOnlySpecificObjectsAllowed(true);
-        filter.addAllowedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
+        filter.getResourceFilter().setAreOnlySpecificObjectsAllowed(true);
+        filter.getResourceFilter().addAllowedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
 
         // when
         SecuredList<SecurableTestItem> list = SecuredList.fromFilter(filter, items);
@@ -42,8 +42,8 @@ class SecuredListTest {
         List<SecurableTestItem> items = List.of(A, B, C, D, E);
 
         SecurityFilter filter = SecurityFilter.create();
-        filter.setAreOnlySpecificObjectsAllowed(false);
-        filter.addDeniedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
+        filter.getResourceFilter().setAreOnlySpecificObjectsAllowed(false);
+        filter.getResourceFilter().addDeniedObjects(List.of("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120004"));
 
         // when
         SecuredList<SecurableTestItem> list = SecuredList.fromFilter(filter, items);
