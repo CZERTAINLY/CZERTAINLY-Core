@@ -247,7 +247,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         RemoveCertificateDto request = new RemoveCertificateDto();
         request.setUuids(List.of(certificate.getUuid().toString()));
 
-        certificateService.bulkDeleteCertificate(request);
+        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
 
         Assertions.assertAll(() -> certificateService.getCertificate(certificate.getSecuredUuid()));
     }

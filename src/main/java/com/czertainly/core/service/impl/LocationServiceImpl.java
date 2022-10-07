@@ -16,7 +16,6 @@ import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;

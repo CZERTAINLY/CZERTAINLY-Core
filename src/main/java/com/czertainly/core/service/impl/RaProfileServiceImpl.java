@@ -73,7 +73,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
     public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled) {
         filter.setParentRefProperty("authorityInstanceReferenceUuid");
-        if (!enabled.isPresent()) {
+        if (enabled == null || !enabled.isPresent()) {
             return raProfileRepository.findUsingSecurityFilter(filter).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
         } else {
             return raProfileRepository.findUsingSecurityFilter(filter, enabled.get()).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());

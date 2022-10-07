@@ -76,7 +76,7 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
-		certificateService.bulkUpdateCertificateObjects(request);
+		certificateService.bulkUpdateCertificateObjects(SecurityFilter.create(), request);
 	}
 
 	@Override
@@ -95,7 +95,7 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
-		certificateService.bulkDeleteCertificate(request);
+		certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
 		BulkOperationResponse response = new BulkOperationResponse();
 		response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
 		response.setStatus(BulkOperationStatus.SUCCESS);

@@ -35,11 +35,7 @@ public enum Resource {
 
     // ENTITIES
     ENTITY("entities"),
-    LOCATION("locations"),
-
-    // TODO Check and remove client and admin after new authorization
-    CLIENT("client"),
-    ADMIN("admin");
+    LOCATION("locations");
 
     @Schema(description = "Resource Name",
             example = "client",

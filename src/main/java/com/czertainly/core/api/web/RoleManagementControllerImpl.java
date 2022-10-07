@@ -4,8 +4,6 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.RoleManagementController;
 import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.core.auth.*;
-import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.service.RoleManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;

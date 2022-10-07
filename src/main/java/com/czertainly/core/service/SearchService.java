@@ -8,6 +8,7 @@ import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchableFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;  
 
@@ -15,7 +16,7 @@ public interface SearchService {
     SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values,
                                       SearchableFieldType fieldType, List<SearchCondition> conditions);
     Object completeSearchQueryExecutor(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson);
-    DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson);
+    DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson, String additionalWhereClause);
 
     Object customQueryExecutor(String sqlQuery);
 
@@ -25,5 +26,7 @@ public interface SearchService {
 
     String getCompleteSearchQuery(List<SearchFilterRequestDto> filters, String entity, String joinQuery, List<SearchFieldDataDto> originalJson, Boolean conditionOnly, Boolean nativeCode);
 
-    String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode) throws ValidationException;
+    String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode, String additionalWhereClause) throws ValidationException;
+
+    String createCriteriaBuilderString(SecurityFilter filter, Boolean addFinisher);
 }

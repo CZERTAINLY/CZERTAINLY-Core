@@ -8,7 +8,6 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.ConnectorRegistrationService;
 import com.czertainly.core.service.ConnectorService;
 import org.slf4j.Logger;
