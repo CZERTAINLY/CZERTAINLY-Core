@@ -117,8 +117,9 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST, parentResource = Resource.ENTITY, parentAction = ResourceAction.LIST)
     public List<LocationDto> listLocation(SecurityFilter filter) {
+        filter.setParentRefProperty("entityInstanceReferenceUuid");
         List<Location> locations = locationRepository.findUsingSecurityFilter(filter);
         return locations.stream().map(Location::mapToDtoSimple).collect(Collectors.toList());
     }
