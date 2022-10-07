@@ -13,6 +13,7 @@ import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SearchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -65,7 +67,7 @@ public class SearchServiceImpl implements SearchService {
         String sqlQuery = "select c from " + entity + " c";
         logger.debug("Executing query: {}", sqlQuery);
         if (!filters.isEmpty()) {
-            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, "", false, false);
+            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, "", false, false, "");
         }
         return customQueryExecutor(sqlQuery);
     }
@@ -76,7 +78,7 @@ public class SearchServiceImpl implements SearchService {
         String sqlQuery = !conditionOnly ? "select c from " + entity + " c" : "";
         logger.debug("Executing query: {}", sqlQuery);
         if (!filters.isEmpty()) {
-            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, joinQuery, conditionOnly, nativeCode);
+            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, joinQuery, conditionOnly, nativeCode, "");
         }
         return sqlQuery;
     }
@@ -125,7 +127,7 @@ public class SearchServiceImpl implements SearchService {
 
 
     @Override
-    public DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson) {
+    public DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson, String additionalWhereClause) {
         logger.debug("Search request: {}", searchRequestDto.toString());
         Map<String, Integer> page = getPageable(searchRequestDto);
         DynamicSearchInternalResponse dynamicSearchInternalResponse = new DynamicSearchInternalResponse();
@@ -135,7 +137,7 @@ public class SearchServiceImpl implements SearchService {
         if (searchRequestDto.getPageNumber() == null) {
             searchRequestDto.setPageNumber(1);
         }
-        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false);
+        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false, additionalWhereClause);
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         query.setFirstResult(page.get("start"));
@@ -165,10 +167,10 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode) throws ValidationException {
+    public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode, String additionalWhereClause) throws ValidationException {
         String query;
         if (joinQuery.isEmpty()) {
-            query = (!conditionOnly ? "select c from " + entity + " c " : "") + " WHERE";
+            query = (!conditionOnly ? "select c from " + entity + " c " : "") + " WHERE " + additionalWhereClause;
         } else {
             query = (!conditionOnly ? "select c from " + entity + " c " : " ") + joinQuery;
             if (!conditions.isEmpty()) {
@@ -314,5 +316,36 @@ public class SearchServiceImpl implements SearchService {
         return Map.ofEntries(Map.entry("start", pageStart), Map.entry("end", pageEnd));
     }
 
+    @Override
+    public String createCriteriaBuilderString(SecurityFilter filter, Boolean addFinisher) {
+        String whereCondition = "";
+        if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
+            String data = filter.getResourceFilter().getAllowedObjects().stream().map(UUID::toString).collect(Collectors.joining("','", "'", "'"));
+            whereCondition += "c.uuid" + " IN ( " + data + " )";
+        } else {
+            if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
+                String data = filter.getResourceFilter().getForbiddenObjects().stream().map(UUID::toString).collect(Collectors.joining("','", "'", "'"));
+                whereCondition += "c.uuid" + " NOT IN ( " + data + " )";
+            }
+        }
 
+        if(filter.getParentResourceFilter() != null) {
+            if(filter.getParentRefProperty() == null) throw new ValidationException("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource());
+
+            if (filter.getParentResourceFilter().areOnlySpecificObjectsAllowed()) {
+                String data = filter.getParentResourceFilter().getAllowedObjects().stream().map(UUID::toString).collect(Collectors.joining("','", "'", "'"));
+                whereCondition += "c." + filter.getParentRefProperty() + " IN ( " + data + " )";
+            } else {
+                if (!filter.getParentResourceFilter().getForbiddenObjects().isEmpty()) {
+                    String data = filter.getParentResourceFilter().getForbiddenObjects().stream().map(UUID::toString).collect(Collectors.joining("','", "'", "'"));
+                    whereCondition += "c." + filter.getParentRefProperty() + "NOT IN ( " + data + " )";
+                }
+            }
+        }
+        if(whereCondition != "" && addFinisher){
+            whereCondition = whereCondition + " AND";
+        }
+        return whereCondition;
+
+    }
 }
