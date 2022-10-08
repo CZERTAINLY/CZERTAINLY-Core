@@ -44,6 +44,10 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
             ResourceAction.RENEW.getCode(),
             ResourceAction.REVOKE.getCode(),
             ResourceAction.LIST.getCode());
+    private final Map<String, String> detailPermissionObjectsListingEndpoints = Map.of(
+            Resource.ACME_PROFILE.getCode(),"/v1/acmeProfiles",
+            Resource.RA_PROFILE.getCode(), "/v1/raProfiles",
+            Resource.AUTHORITY.getCode(), "/v1/authorities");
     private WebClient client;
     private UserManagementApiClient userManagementApiClient;
     private RoleManagementApiClient roleManagementApiClient;
@@ -268,6 +272,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
             ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
             requestDto.setName(Resource.findByCode(permissionObject));
             requestDto.setActions(List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode()));
+            requestDto.setListObjectsEndpoint(detailPermissionObjectsListingEndpoints.get(permissionObject));
             resources.add(requestDto);
         }
 
@@ -275,6 +280,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
         requestDto.setName(Resource.CERTIFICATE);
         requestDto.setActions(certificatePermissions);
+
         resources.add(requestDto);
 
         //Acme Account Operations
