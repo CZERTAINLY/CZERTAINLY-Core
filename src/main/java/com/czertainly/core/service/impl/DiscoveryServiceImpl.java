@@ -156,6 +156,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.LIST)
+    public Long statisticsDiscoveryCount(SecurityFilter filter) {
+        return discoveryRepository.countUsingSecurityFilter(filter);
+    }
+
+    @Override
     @Async("threadPoolTaskExecutor")
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)

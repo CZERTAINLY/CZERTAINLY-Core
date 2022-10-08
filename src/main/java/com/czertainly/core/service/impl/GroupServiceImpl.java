@@ -105,6 +105,12 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.LIST)
+    public Long statisticsGroupCount(SecurityFilter filter) {
+        return groupRepository.countUsingSecurityFilter(filter);
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.UPDATE)
     public GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException {

@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.*;
@@ -64,6 +65,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -601,6 +603,73 @@ public class CertificateServiceImpl implements CertificateService {
         } catch (NotFoundException e){
             logger.warn("No Certificate found for the user with UUID {}", userUuid);
         }
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    public Long statisticsCertificateCount(SecurityFilter filter) {
+        filter.setParentRefProperty("raProfileUuid");
+        return certificateRepository.countUsingSecurityFilter(filter);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
+        filter.setParentRefProperty("raProfileUuid");
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter);
+        //Compliance Mapping
+        Map<String, String> complianceMap = new HashMap<>();
+        complianceMap.put("NA", "Not Checked");
+        complianceMap.put("OK", "Compliant");
+        complianceMap.put("NOK", "Non Compliant");
+        //
+        Map<String, Long> groupStat = new HashMap<>();
+        Map<String, Long> raProfileStat = new HashMap<>();
+        Map<String, Long> typeStat = new HashMap<>();
+        Map<String, Long> keySizeStat = new HashMap<>();
+        Map<String, Long> bcStat = new HashMap<>();
+        Map<String, Long> expiryStat = new HashMap<>();
+        Map<String, Long> statusStat = new HashMap<>();
+        Map<String, Long> complianceStat = new HashMap<>();
+        Date currentTime = new Date();
+        for(Certificate certificate: certificates){
+            groupStat.merge(certificate.getGroup() != null ? certificate.getGroup().getName() : "Unknown", 1L, Long::sum);
+            raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unknown", 1L, Long::sum);
+            typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+            keySizeStat.merge(certificate.getKeySize().toString(), 1L, Long::sum);
+            bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
+            expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
+            statusStat.merge(certificate.getStatus().getCode(), 1L, Long::sum);
+            complianceStat.merge(certificate.getComplianceStatus() != null ? complianceMap.get(certificate.getComplianceStatus().getCode().toUpperCase()) : "Not Checked", 1L, Long::sum);
+        }
+        dto.setGroupStatByCertificateCount(groupStat);
+        dto.setRaProfileStatByCertificateCount(raProfileStat);
+        dto.setCertificateStatByType(typeStat);
+        dto.setCertificateStatByKeySize(keySizeStat);
+        dto.setCertificateStatByBasicConstraints(bcStat);
+        dto.setCertificateStatByExpiry(expiryStat);
+        dto.setCertificateStatByStatus(statusStat);
+        dto.setCertificateStatByComplianceStatus(complianceStat);
+        return dto;
+    }
+
+    private String getExpiryTime(Date now, Date expiry) {
+        long diffInMillies = now.getTime() - expiry.getTime();
+        long difference = TimeUnit.DAYS.convert(diffInMillies,TimeUnit.MILLISECONDS);
+        if(difference <= 0){
+            return "expired";
+        } else if(difference < 10) {
+            return "10";
+        }else if(difference < 20) {
+            return "20";
+        }else if(difference < 30 ) {
+            return "30";
+        } else if(difference < 60) {
+            return "60";
+        } else if(difference < 90) {
+            return "90";
+        }
+        return "More";
     }
 
 

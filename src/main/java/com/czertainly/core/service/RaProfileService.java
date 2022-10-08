@@ -75,4 +75,10 @@ public interface RaProfileService {
      * @param uuids UUIDs for which the request has to be triggered
      */
     void checkCompliance(List<SecuredUUID> uuids);
+
+    /**
+     * Get the number of ra profiles per user for dashboard
+     * @return Number of raprofiles
+     */
+    Long statisticsRaProfilesCount(SecurityFilter filter);
 }
