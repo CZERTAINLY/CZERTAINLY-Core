@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.certificate.CertificateValidationDto;
@@ -119,4 +120,18 @@ public interface CertificateService {
      * @param userUuid UUID of the User
      */
     void removeCertificateUser(UUID userUuid);
+
+    /**
+     * Get the number of certificates per user for dashboard
+     * @return Number of certificates
+     */
+    Long statisticsCertificateCount(SecurityFilter filter);
+
+    /**
+     * Add statistics information based on the permission with the logged in user
+     * @param dto Statistics DTO with predefined records
+     * @return Statistics DTO
+     */
+    StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto);
+
 }

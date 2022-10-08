@@ -7,11 +7,11 @@ import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.content.FileAttributeContent;
 import com.czertainly.api.model.core.connector.AuthType;
+import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,8 +32,7 @@ import static com.czertainly.core.util.AttributeDefinitionUtils.createAttributes
 @SpringBootTest
 @Transactional
 @Rollback
-@WithMockUser(roles = "SUPERADMINISTRATOR")
-public class ConnectorAuthServiceTest {
+public class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private ConnectorAuthService connectorAuthService;

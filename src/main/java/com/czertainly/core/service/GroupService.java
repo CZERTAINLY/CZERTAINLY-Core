@@ -20,4 +20,10 @@ public interface GroupService {
 
     void deleteGroup(SecuredUUID uuid) throws NotFoundException;
     void bulkDeleteGroup(List<SecuredUUID> groupUuids);
+
+    /**
+     * Get the number of groups per user for dashboard
+     * @return Number of groups
+     */
+    Long statisticsGroupCount(SecurityFilter filter);
 }
