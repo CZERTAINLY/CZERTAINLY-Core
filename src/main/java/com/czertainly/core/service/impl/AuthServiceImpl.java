@@ -13,7 +13,10 @@ import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.AuthService;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,8 @@ import java.util.List;
 @Service
 @Transactional
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     @Autowired
     private UserManagementApiClient userManagementApiClient;
@@ -38,8 +43,10 @@ public class AuthServiceImpl implements AuthService {
         try {
             CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
         } catch (Exception e) {
+            logger.error(e.getMessage());
             throw new ValidationException(ValidationError.create("Cannot retrieve profile information for Unknown/Anonymous user"));
         }
         return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
