@@ -13,6 +13,7 @@ import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -39,12 +40,13 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             CriteriaBuilder cb = entityManager.getCriteriaBuilder();
             CriteriaQuery<T> cr = cb.createQuery(entity);
             Root<T> root = cr.from(entity);
-            cr.select(root).where(cb.equal(root.get("uuid"), uuid.getValue()));
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("uuid"), uuid.getValue()));
 
             if (additionalWhereClause != null) {
-                cr.where(additionalWhereClause.apply(root, cb));
+                predicates.add(additionalWhereClause.apply(root, cb));
             }
-
+            cr.select(root).where(predicates.toArray(new Predicate[]{}));
             T result = entityManager.createQuery(cr).getSingleResult();
             return Optional.of(result);
         } catch (NoResultException e) {
@@ -88,31 +90,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         CriteriaQuery<T> cr = cb.createQuery(entity);
         Root<T> root = cr.from(entity);
         cr.select(root);
-
-        if (additionalWhereClause != null) {
-            cr.where(additionalWhereClause.apply(root, cb));
-        }
-
-        if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
-            cr.where(root.get("uuid").in(filter.getResourceFilter().getAllowedObjects()));
-        } else {
-            if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
-                cr.where(root.get("uuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
-            }
-        }
-
-        if(filter.getParentResourceFilter() != null) {
-            if(filter.getParentRefProperty() == null) throw new ValidationException("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource());
-
-            if (filter.getParentResourceFilter().areOnlySpecificObjectsAllowed()) {
-                cr.where(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getAllowedObjects()));
-            } else {
-                if (!filter.getParentResourceFilter().getForbiddenObjects().isEmpty()) {
-                    cr.where(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getForbiddenObjects()).not());
-                }
-            }
-        }
-        return cr;
+        return cr.where(getPredicates(filter, additionalWhereClause, root, cb).toArray(new Predicate[]{}));
     }
 
     private CriteriaQuery<Long> createCountCriteriaBuilder(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
@@ -121,30 +99,35 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         CriteriaQuery<Long> cr = cb.createQuery(Long.class);
         Root<T> root = cr.from(entity);
         cr.select(cb.count(root));
+        return cr.where(getPredicates(filter, additionalWhereClause, root, cb).toArray(new Predicate[]{}));
+    }
 
+    private List<Predicate> getPredicates(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb) {
+        List<Predicate> predicates = new ArrayList<>();
         if (additionalWhereClause != null) {
-            cr.where(additionalWhereClause.apply(root, cb));
+            predicates.add(additionalWhereClause.apply(root, cb));
         }
 
         if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
-            cr.where(root.get("uuid").in(filter.getResourceFilter().getAllowedObjects()));
+            predicates.add(root.get("uuid").in(filter.getResourceFilter().getAllowedObjects()));
         } else {
             if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
-                cr.where(root.get("uuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
+                predicates.add(root.get("uuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
             }
         }
 
-        if(filter.getParentResourceFilter() != null) {
-            if(filter.getParentRefProperty() == null) throw new ValidationException("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource());
+        if (filter.getParentResourceFilter() != null) {
+            if (filter.getParentRefProperty() == null)
+                throw new ValidationException("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource());
 
             if (filter.getParentResourceFilter().areOnlySpecificObjectsAllowed()) {
-                cr.where(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getAllowedObjects()));
+                predicates.add(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getAllowedObjects()));
             } else {
                 if (!filter.getParentResourceFilter().getForbiddenObjects().isEmpty()) {
-                    cr.where(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getForbiddenObjects()).not());
+                    predicates.add(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getForbiddenObjects()).not());
                 }
             }
         }
-        return cr;
+        return predicates;
     }
 }

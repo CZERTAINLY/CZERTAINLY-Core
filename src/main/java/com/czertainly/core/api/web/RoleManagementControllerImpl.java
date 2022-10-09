@@ -51,6 +51,16 @@ public class RoleManagementControllerImpl implements RoleManagementController {
     }
 
     @Override
+    public List<UserDto> getRoleUsers(String roleUuid) throws NotFoundException {
+        return roleManagementService.getRoleUsers(roleUuid);
+    }
+
+    @Override
+    public RoleDetailDto updateUsers(String roleUuid, List<String> userUuids) throws NotFoundException {
+        return roleManagementService.updateUsers(roleUuid, userUuids);
+    }
+
+    @Override
     public SubjectPermissionsDto getRolePermissions(String roleUuid) throws NotFoundException {
         return roleManagementService.getRolePermissions(roleUuid);
     }

@@ -103,4 +103,14 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     public void removeResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid) {
         roleManagementApiClient.removeResourcePermissionObjects(roleUuid, resourceUuid, objectUuid);
     }
+
+    @Override
+    public List<UserDto> getRoleUsers(String roleUuid) {
+        return roleManagementApiClient.getRoleUsers(roleUuid);
+    }
+
+    @Override
+    public RoleDetailDto updateUsers(String roleUuid, List<String> userUuids) {
+        return roleManagementApiClient.updateUsers(roleUuid, userUuids);
+    }
 }
