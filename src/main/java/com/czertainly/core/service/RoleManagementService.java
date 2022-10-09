@@ -29,4 +29,8 @@ public interface RoleManagementService {
     void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto request);
 
     void removeResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid);
+
+    List<UserDto> getRoleUsers(String roleUuid);
+
+    RoleDetailDto updateUsers(String roleUuid, List<String> userUuids);
 }

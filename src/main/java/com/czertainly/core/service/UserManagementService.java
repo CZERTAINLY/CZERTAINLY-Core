@@ -20,6 +20,8 @@ public interface UserManagementService {
 
     UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException;
 
+    UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerPrint) throws NotFoundException, CertificateException;
+
     void deleteUser(String userUuid);
 
     UserDetailDto updateRoles(String userUuid, List<String> roleUuids);
