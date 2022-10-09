@@ -5,14 +5,18 @@ import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class RoleManagementApiClient extends CzertainlyBaseAuthenticationClient {
 
     private static final String ROLE_BASE_CONTEXT = "/auth/roles";
     private static final String ROLE_DETAIL_CONTEXT = ROLE_BASE_CONTEXT + "/{roleUuid}";
+    private static final String ROLE_USER_CONTEXT = ROLE_BASE_CONTEXT + "/{roleUuid}/users";
     private static final String ROLE_PERMISSION_CONTEXT = ROLE_BASE_CONTEXT + "/{roleUuid}/permissions";
     private static final String ROLE_PERMISSION_RESOURCE_CONTEXT = ROLE_BASE_CONTEXT + "/{roleUuid}/permissions/{resourceUuid}";
+
+    private final List<String> listReference = new ArrayList<>();
 
     public RoleManagementApiClient(String authServiceBaseUrl, WebClient client) {
         super(authServiceBaseUrl, client);
@@ -155,6 +159,29 @@ public class RoleManagementApiClient extends CzertainlyBaseAuthenticationClient 
                         .uri(ROLE_PERMISSION_RESOURCE_CONTEXT + "/objects/" + objectUuid, roleUuid, resourceUuid)
                         .retrieve()
                         .toEntity(Void.class)
+                        .block().getBody(),
+                request);
+    }
+
+    public List<UserDto> getRoleUsers(String roleUuid) {
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
+
+        return processRequest(r -> r
+                        .uri(ROLE_USER_CONTEXT, roleUuid)
+                        .retrieve()
+                        .toEntityList(UserDto.class)
+                        .block().getBody(),
+                request);
+    }
+
+    public RoleDetailDto updateUsers(String roleUuid, List<String> userUuids) {
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.PATCH);
+
+        return processRequest(r -> r
+                        .uri(ROLE_USER_CONTEXT, roleUuid)
+                        .body(Mono.just(userUuids), listReference.getClass())
+                        .retrieve()
+                        .toEntity(RoleDetailDto.class)
                         .block().getBody(),
                 request);
     }
