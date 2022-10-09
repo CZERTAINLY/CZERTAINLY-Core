@@ -86,30 +86,13 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
+        return getUserUpdateRequestPayload(userUuid, request, "", "");
+    }
 
-        Certificate certificate = null;
-        UserUpdateRequestDto requestDto = new UserUpdateRequestDto();
-
-        if ((request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) || (request.getCertificateData() != null && !request.getCertificateData().isEmpty())) {
-            certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
-            requestDto.setCertificateUuid(certificate.getUuid().toString());
-            requestDto.setCertificateFingerprint(certificate.getFingerprint());
-        }
-
-        requestDto.setEmail(request.getEmail());
-        requestDto.setFirstName(request.getFirstName());
-        requestDto.setLastName(request.getLastName());
-        UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);
-
-        try {
-            certificateService.removeCertificateUser(UUID.fromString(response.getUuid()));
-        } catch (Exception e) {
-            logger.info("Unable to remove user uuid. It may not exists {}", e.getMessage());
-        }
-        if (certificate != null) {
-            certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
-        }
-        return response;
+    @Override
+    //Internal Use Only -- For Auth Profile Update API
+    public UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerprint) throws NotFoundException, CertificateException {
+        return getUserUpdateRequestPayload(userUuid, request, certificateUuid, certificateFingerprint);
     }
 
     @Override
@@ -177,5 +160,34 @@ public class UserManagementServiceImpl implements UserManagementService {
             }
         }
         return certificate;
+    }
+
+    private UserDetailDto getUserUpdateRequestPayload(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerPrint) throws NotFoundException, CertificateException {
+        Certificate certificate = null;
+        UserUpdateRequestDto requestDto = new UserUpdateRequestDto();
+
+        if ((request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) || (request.getCertificateData() != null && !request.getCertificateData().isEmpty())) {
+            certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
+            requestDto.setCertificateUuid(certificate.getUuid().toString());
+            requestDto.setCertificateFingerprint(certificate.getFingerprint());
+        }else {
+            if(!certificateUuid.isEmpty()) requestDto.setCertificateUuid(certificateUuid);
+            if(!certificateFingerPrint.isEmpty()) requestDto.setCertificateFingerprint(certificateFingerPrint);
+        }
+
+        requestDto.setEmail(request.getEmail());
+        requestDto.setFirstName(request.getFirstName());
+        requestDto.setLastName(request.getLastName());
+        UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);
+
+        try {
+            certificateService.removeCertificateUser(UUID.fromString(response.getUuid()));
+        } catch (Exception e) {
+            logger.info("Unable to remove user uuid. It may not exists {}", e.getMessage());
+        }
+        if (certificate != null) {
+            certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
+        }
+        return response;
     }
 }
