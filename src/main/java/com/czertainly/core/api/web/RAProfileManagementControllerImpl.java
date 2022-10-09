@@ -67,8 +67,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    public void deleteRaProfile(String authorityUuid, String uuid) throws NotFoundException {
-        raProfileService.deleteRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(uuid));
+    public void deleteRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        raProfileService.deleteRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
