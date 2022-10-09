@@ -127,12 +127,19 @@ public class LocationServiceImpl implements LocationService {
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
     public List<LocationDto> listLocations(SecurityFilter filter, Optional<Boolean> enabled) {
-        return enabled.map(aBoolean -> locationRepository
-                        .findUsingSecurityFilter(filter, aBoolean)
-                        .stream()
-                        .map(Location::mapToDtoSimple)
-                        .collect(Collectors.toList()))
-                .orElseGet(() -> this.listLocation(filter));
+        if (enabled == null || !enabled.isPresent()) {
+            return locationRepository
+                    .findUsingSecurityFilter(filter)
+                    .stream()
+                    .map(Location::mapToDtoSimple)
+                    .collect(Collectors.toList());
+        } else {
+            return locationRepository
+                    .findUsingSecurityFilter(filter, enabled.get())
+                    .stream()
+                    .map(Location::mapToDtoSimple)
+                    .collect(Collectors.toList());
+        }
     }
 
     @Override
