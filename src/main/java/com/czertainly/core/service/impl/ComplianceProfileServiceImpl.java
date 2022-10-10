@@ -146,8 +146,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         ComplianceRule complianceRule = getComplianceRuleEntity(request.getRuleUuid(), connector, request.getKind());
         ComplianceProfileRule complianceProfileRule = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule).orElseThrow(() -> new NotFoundException(ComplianceProfileRule.class, request.getRuleUuid()));
         complianceProfile.getComplianceRules().remove(complianceProfileRule);
-        complianceProfileRuleRepository.delete(complianceProfileRule);
         complianceProfileRepository.save(complianceProfile);
+        complianceProfileRuleRepository.delete(complianceProfileRule);
         logger.debug("Rule: {} removed", request);
         return complianceProfile.mapToDto();
     }
@@ -524,6 +524,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         }
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
         complianceProfileRule.setComplianceProfileUuid(complianceProfile.getUuid());
+        complianceProfileRule.setComplianceProfile(complianceProfile);
         complianceProfileRule.setComplianceRule(complianceRule);
         complianceProfileRule.setAttributes(attributes);
         logger.debug("Compliance Profile Rule: {}", complianceProfileRule);
