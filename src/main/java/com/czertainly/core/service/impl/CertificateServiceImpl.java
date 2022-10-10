@@ -760,8 +760,12 @@ public class CertificateServiceImpl implements CertificateService {
         logger.debug("Framing Compliance Result from stored data: {}", storageDto);
         List<CertificateComplianceResultDto> result = new ArrayList<>();
         List<ComplianceProfileRule> rules = complianceService.getComplianceProfileRuleEntityForIds(storageDto.getNok());
+        List<ComplianceRule> rulesWithoutAttributes = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
         // List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
         for (ComplianceProfileRule complianceRule : rules) {
+            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
+        }
+        for (ComplianceRule complianceRule : rulesWithoutAttributes) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
         // NA Rules are not required to be displayed in the UI
@@ -777,6 +781,16 @@ public class CertificateServiceImpl implements CertificateService {
         dto.setConnectorName(rule.getComplianceRule().getConnector().getName());
         dto.setRuleName(rule.getComplianceRule().getName());
         dto.setRuleDescription(rule.getComplianceRule().getDescription());
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(rule.getAttributes()));
+        dto.setStatus(status);
+        return dto;
+    }
+
+    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceRule rule, ComplianceRuleStatus status) {
+        CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
+        dto.setConnectorName(rule.getConnector().getName());
+        dto.setRuleName(rule.getName());
+        dto.setRuleDescription(rule.getDescription());
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(rule.getAttributes()));
         dto.setStatus(status);
         return dto;

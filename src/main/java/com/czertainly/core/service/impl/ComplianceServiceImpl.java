@@ -151,17 +151,22 @@ public class ComplianceServiceImpl implements ComplianceService {
                 for (ComplianceResponseRulesDto rule : responseDto.getRules()) {
                     ComplianceRule complianceRule = getComplianceRuleEntity(SecuredUUID.fromString(rule.getUuid()),
                             getConnectorEntity(connector.getConnectorUuid()), connector.getKind());
-                    ComplianceProfileRule complianceProfileRule = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule)
-                            .orElseThrow(() -> new NotFoundException("Unable to find compliance profile rule for the result"));
+                    String complianceProfileRuleUuid = null;
+                    try {
+                        complianceProfileRuleUuid = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule)
+                                .orElseThrow(() -> new NotFoundException("Unable to find compliance profile rule for the result")).getUuid().toString();
+                    } catch (NotFoundException e){
+                        complianceProfileRuleUuid = complianceRule.getUuid().toString();
+                    }
                     switch (rule.getStatus()) {
                         case OK:
-                            complianceResults.getOk().add(complianceProfileRule.getUuid().toString());
+                            complianceResults.getOk().add(complianceProfileRuleUuid);
                             break;
                         case NOK:
-                            complianceResults.getNok().add(complianceProfileRule.getUuid().toString());
+                            complianceResults.getNok().add(complianceProfileRuleUuid);
                             break;
                         case NA:
-                            complianceResults.getNa().add(complianceProfileRule.getUuid().toString());
+                            complianceResults.getNa().add(complianceProfileRuleUuid);
                     }
                 }
                 logger.debug("Status from the Connector: {}", responseDto.getStatus());
