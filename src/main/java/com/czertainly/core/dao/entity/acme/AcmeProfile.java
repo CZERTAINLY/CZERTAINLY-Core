@@ -190,6 +190,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
         if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
+        else this.raProfileUuid = null;
     }
 
     public String getIssueCertificateAttributes() {

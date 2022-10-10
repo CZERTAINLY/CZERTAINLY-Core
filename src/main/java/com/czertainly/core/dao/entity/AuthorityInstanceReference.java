@@ -81,6 +81,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     public void setConnector(Connector connector) {
         this.connector = connector;
         if(connector != null) this.connectorUuid = connector.getUuid();
+        else this.connectorUuid = null;
     }
 
     public Set<RaProfile> getRaProfiles() {

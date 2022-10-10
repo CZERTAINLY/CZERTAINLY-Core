@@ -283,6 +283,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public void setCertificateContent(CertificateContent certificateContent) {
         this.certificateContent = certificateContent;
         if(certificateContent != null) this.certificateContentId = certificateContent.getId();
+        else this.certificateContentId = null;
     }
 
     public String getFingerprint() {
@@ -372,6 +373,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
         if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
+        else this.raProfileUuid = null;
     }
 
     public CertificateGroup getGroup() {
@@ -381,6 +383,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public void setGroup(CertificateGroup group) {
         this.group = group;
         if(group != null) this.groupUuid = group.getUuid();
+        else this.groupUuid = null;
     }
 
     public String getCertificateValidationResult() {
