@@ -65,7 +65,7 @@ public interface ComplianceProfileService {
      * @throws NotFoundException     Thrown when unable to find the rule with the provided details
      * @throws ValidationException   Thrown when the attribute validation fails for the given rule
      */
-    ComplianceProfileDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException;
+    ComplianceProfileRuleDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException;
 
     /**
      * Remove a rule from a compliance profile
@@ -75,7 +75,7 @@ public interface ComplianceProfileService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the rule is not found with the profile
      */
-    ComplianceProfileDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException;
+    ComplianceProfileRuleDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException;
 
     /**
      * Add a group to a compliance profile

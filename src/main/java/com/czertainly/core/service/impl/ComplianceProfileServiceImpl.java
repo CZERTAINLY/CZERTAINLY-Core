@@ -120,7 +120,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_RULE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
-    public ComplianceProfileDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
+    public ComplianceProfileRuleDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
         logger.info("Adding new rule : {} to the profile: {}", request, uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Identified profile to add rule: {}", complianceProfile);
@@ -133,23 +133,24 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.debug("Rule Entity: {}", complianceRule);
         ComplianceProfileRule complianceProfileRule = generateComplianceProfileRule(complianceProfile, complianceRule, request.getAttributes());
         complianceProfileRuleRepository.save(complianceProfileRule);
-        return complianceProfile.mapToDto();
+        return complianceProfileRule.mapToDto();
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_RULE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
-    public ComplianceProfileDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
+    public ComplianceProfileRuleDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
         logger.info("Removing rule : {} from the profile: {}", request, uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         Connector connector = getConnectorEntity(request.getConnectorUuid());
         ComplianceRule complianceRule = getComplianceRuleEntity(request.getRuleUuid(), connector, request.getKind());
         ComplianceProfileRule complianceProfileRule = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule).orElseThrow(() -> new NotFoundException(ComplianceProfileRule.class, request.getRuleUuid()));
+        ComplianceProfileRuleDto response = complianceProfileRule.mapToDto();
+        complianceProfileRuleRepository.delete(complianceProfileRule);
         complianceProfile.getComplianceRules().remove(complianceProfileRule);
         complianceProfileRepository.save(complianceProfile);
-        complianceProfileRuleRepository.delete(complianceProfileRule);
         logger.debug("Rule: {} removed", request);
-        return complianceProfile.mapToDto();
+        return response;
     }
 
     @Override
