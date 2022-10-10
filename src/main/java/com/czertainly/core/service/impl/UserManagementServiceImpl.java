@@ -74,6 +74,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setUsername(request.getUsername());
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
+        requestDto.setDescription(request.getDescription());
 
         UserDetailDto response = userManagementApiClient.createUser(requestDto);
         if (certificate != null) {
@@ -175,6 +176,7 @@ public class UserManagementServiceImpl implements UserManagementService {
             if(!certificateFingerPrint.isEmpty()) requestDto.setCertificateFingerprint(certificateFingerPrint);
         }
 
+        requestDto.setDescription(request.getDescription());
         requestDto.setEmail(request.getEmail());
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());

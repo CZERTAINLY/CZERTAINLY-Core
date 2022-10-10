@@ -80,6 +80,7 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
     public void setConnector(Connector connector) {
         this.connector = connector;
         if(connector != null) this.connectorUuid = connector.getUuid();
+        else this.connectorUuid = null;
     }
 
     public Set<Location> getLocations() {

@@ -157,6 +157,7 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     public void setGroup(ComplianceGroup group) {
         this.group = group;
         if(group != null) this.groupUuid = group.getUuid();
+        else this.groupUuid = null;
     }
 
     public Set<ComplianceProfileRule> getRules() {

@@ -184,6 +184,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     public void setAuthorityInstanceReference(AuthorityInstanceReference authorityInstanceReference) {
         this.authorityInstanceReference = authorityInstanceReference;
         if(authorityInstanceReference != null) this.authorityInstanceReferenceUuid = authorityInstanceReference.getUuid();
+        else this.authorityInstanceReferenceUuid = null;
     }
 
     public UUID getAuthorityInstanceReferenceUuid() { return authorityInstanceReferenceUuid; }
@@ -199,6 +200,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     public void setAcmeProfile(AcmeProfile acmeProfile) {
         this.acmeProfile = acmeProfile;
         if(acmeProfile != null) this.acmeProfileUuid = acmeProfile.getUuid();
+        else this.acmeProfileUuid = null;
     }
 
     public String getIssueCertificateAttributes() {

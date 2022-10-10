@@ -99,6 +99,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
     public void setEntityInstanceReference(EntityInstanceReference entityInstanceReference) {
         this.entityInstanceReference = entityInstanceReference;
         if(entityInstanceReference != null) this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
+        else this.entityInstanceReferenceUuid = null;
     }
 
     public Boolean getEnabled() {
