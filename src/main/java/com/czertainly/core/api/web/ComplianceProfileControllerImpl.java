@@ -61,8 +61,8 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    public ComplianceProfileRuleDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
-        return complianceProfileService.removeRule(uuid, request);
+    public void removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
+        complianceProfileService.removeRule(uuid, request);
     }
 
     @Override
