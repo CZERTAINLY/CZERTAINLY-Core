@@ -57,7 +57,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         for(ComplianceProfileRule complianceRule: complianceRules){
             ComplianceRule rul = complianceRule.getComplianceRule();
             String ruleKey = rul.getConnector().getUuid() + ":" + rul.getConnector().getName() + ":" + rul.getKind();
-            rules.computeIfAbsent(ruleKey, k -> new ArrayList<>()).add(complianceRule.mapToDto());
+            rules.computeIfAbsent(ruleKey, k -> new ArrayList<>()).add(complianceRule.mapToDtoForProfile());
         }
 
         List<ComplianceConnectorAndRulesDto> rulesDtos = new ArrayList<>();

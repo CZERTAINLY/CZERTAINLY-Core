@@ -56,13 +56,13 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    public void addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
-        complianceProfileService.addRule(uuid, request);
+    public ComplianceProfileRuleDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
+        return complianceProfileService.addRule(uuid, request);
     }
 
     @Override
-    public void removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
-        complianceProfileService.removeRule(uuid, request);
+    public ComplianceProfileRuleDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
+        return complianceProfileService.removeRule(uuid, request);
     }
 
     @Override
