@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.compliance.ComplianceGroupRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceProfileRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceProfileRuleDto;
 import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
 import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
@@ -222,7 +223,7 @@ public class ComplianceProfileServiceTest extends BaseSpringBootTest {
         dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind("default");
 
-        ComplianceProfileDto complianceProfileDto = complianceProfileService.addRule(complianceProfile.getUuid().toString(), dto);
+        ComplianceProfileRuleDto complianceProfileDto = complianceProfileService.addRule(complianceProfile.getUuid().toString(), dto);
         Assertions.assertNotNull(complianceProfileDto);
     }
 
@@ -253,7 +254,7 @@ public class ComplianceProfileServiceTest extends BaseSpringBootTest {
         dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind("default");
 
-        ComplianceProfileDto complianceProfileDto = complianceProfileService.removeRule(complianceProfile.getUuid().toString(), dto);
+        ComplianceProfileRuleDto complianceProfileDto = complianceProfileService.removeRule(complianceProfile.getUuid().toString(), dto);
         Assertions.assertNotNull(complianceProfileDto);
     }
 

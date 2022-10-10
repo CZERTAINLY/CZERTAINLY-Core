@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.compliance.ComplianceProfileRuleDto;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -25,9 +26,9 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "compliance_profile_rule")
-public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceRulesDto> {
+public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceProfileRuleDto> {
 
-    @OneToOne(cascade=CascadeType.ALL)
+    @OneToOne(cascade=CascadeType.PERSIST)
     @JoinColumn(name = "rule_uuid")
     private ComplianceRule complianceRule;
 
@@ -45,7 +46,22 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
     private UUID complianceProfileUuid;
 
     @Override
-    public ComplianceRulesDto mapToDto(){
+    public ComplianceProfileRuleDto mapToDto(){
+        ComplianceProfileRuleDto dto = new ComplianceProfileRuleDto();
+        dto.setName(complianceRule.getName());
+        dto.setUuid(complianceRule.getUuid().toString());
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(getAttributes()));
+        dto.setDescription(complianceRule.getDescription());
+        dto.setComplianceProfileName(complianceProfile.getName());
+        dto.setComplianceProfileUuid(complianceProfile.getUuid().toString());
+        dto.setCertificateType(complianceRule.getCertificateType());
+        dto.setConnectorUuid(complianceRule.getConnectorUuid().toString());
+        dto.setConnectorName(complianceRule.getConnector().getName());
+        dto.setGroupUuid(complianceRule.getGroupUuid() != null ? complianceRule.getGroupUuid().toString() : null);
+        return dto;
+    }
+
+    public ComplianceRulesDto mapToDtoForProfile(){
         ComplianceRulesDto dto = new ComplianceRulesDto();
         dto.setName(complianceRule.getName());
         dto.setUuid(complianceRule.getUuid().toString());
