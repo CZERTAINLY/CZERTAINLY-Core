@@ -282,7 +282,11 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(AuthenticationServiceException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<AuthenticationServiceExceptionDto> handleCertificateOperationException(AuthenticationServiceException ex) {
-        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getException().getStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
+        Integer statusCode = HttpStatus.BAD_REQUEST.value();
+        if(ex.getException() != null){
+            statusCode = ex.getException().getStatusCode();
+        }
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(statusCode).contentType(MediaType.valueOf("application/problem+json"));
         return response.body(ex.getException());
     }
 

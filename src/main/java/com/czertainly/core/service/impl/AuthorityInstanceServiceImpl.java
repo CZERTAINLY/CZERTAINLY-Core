@@ -292,15 +292,15 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     }
 
     private void removeAuthorityInstance(AuthorityInstanceReference authorityInstanceRef) throws ValidationException {
-        if (authorityInstanceRef.getConnector() != null) {
-            ValidationError error = null;
-            if (authorityInstanceRef.getRaProfiles() != null && !authorityInstanceRef.getRaProfiles().isEmpty()) {
-                error = ValidationError.create("Dependent RA profiles: {}", String.join(" ,", authorityInstanceRef.getRaProfiles().stream().map(RaProfile::getName).collect(Collectors.toSet())));
-            }
+        ValidationError error = null;
+        if (authorityInstanceRef.getRaProfiles() != null && !authorityInstanceRef.getRaProfiles().isEmpty()) {
+            error = ValidationError.create("Dependent RA profiles: {}", String.join(" ,", authorityInstanceRef.getRaProfiles().stream().map(RaProfile::getName).collect(Collectors.toSet())));
+        }
 
-            if (error != null) {
-                throw new ValidationException(error);
-            }
+        if (error != null) {
+            throw new ValidationException(error);
+        }
+        if (authorityInstanceRef.getConnector() != null) {
             try {
                 authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
             } catch (Exception e) {

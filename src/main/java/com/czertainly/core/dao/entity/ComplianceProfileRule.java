@@ -71,6 +71,7 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
     public void setComplianceRule(ComplianceRule complianceRule) {
         this.complianceRule = complianceRule;
         if(complianceRule != null) this.complianceRuleUuid = complianceRule.getUuid();
+        else this.complianceRuleUuid = null;
     }
 
     public UUID getComplianceRuleUuid() {
