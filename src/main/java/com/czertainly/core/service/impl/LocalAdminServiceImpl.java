@@ -110,6 +110,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
 
     private UserDetailDto createUser(AddUserRequestDto request, String fingerprint) {
         UserRequestDto requestDto = new UserRequestDto();
+        requestDto.setDescription(request.getDescription());
         requestDto.setEmail(request.getEmail());
         requestDto.setEnabled(request.getEnabled());
         requestDto.setUsername(request.getUsername());
@@ -121,6 +122,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
 
     private UserDetailDto updateUser(AddUserRequestDto request, String fingerprint, String certificateUuid, String userUuid) {
         UserUpdateRequestDto updateRequestDto = new UserUpdateRequestDto();
+        updateRequestDto.setDescription(request.getDescription());
         updateRequestDto.setEmail(request.getEmail());
         updateRequestDto.setFirstName(request.getFirstName());
         updateRequestDto.setLastName(request.getLastName());
