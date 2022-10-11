@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.LocationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -149,7 +150,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be issued to the Location.
      */
-    LocationDto issueCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String raProfileUuid, IssueToLocationRequestDto issueToLocationRequestDto) throws NotFoundException, LocationException;
+    LocationDto issueCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String raProfileUuid, IssueToLocationRequestDto issueToLocationRequestDto) throws NotFoundException, LocationException, ConnectorException;
 
     /**
      * Synchronize and update content for the given Location.
@@ -172,6 +173,6 @@ public interface LocationService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be renewed in the Location.
      */
-    LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException;
+    LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException, ConnectorException;
 
 }

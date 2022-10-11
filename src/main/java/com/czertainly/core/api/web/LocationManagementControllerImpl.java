@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.LocationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.LocationManagementController;
@@ -107,7 +108,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public LocationDto issueCertificate(String entityUuid, String locationUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException {
+    public LocationDto issueCertificate(String entityUuid, String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, LocationException {
         return locationService.issueCertificateToLocation(
                 SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),
@@ -122,7 +123,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public LocationDto renewCertificateInLocation(String entityUuid, String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
+    public LocationDto renewCertificateInLocation(String entityUuid, String locationUuid, String certificateUuid) throws ConnectorException, LocationException {
         return locationService.renewCertificateInLocation(
                 SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),
