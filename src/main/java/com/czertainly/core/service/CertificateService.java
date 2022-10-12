@@ -29,6 +29,7 @@ public interface CertificateService {
     
     CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
+
     // TODO AUTH - unable to check access based on certificate content. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByContent(String content);
 

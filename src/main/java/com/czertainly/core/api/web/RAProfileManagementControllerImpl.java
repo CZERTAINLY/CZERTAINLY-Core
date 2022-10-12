@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.RAProfileManagementController;
+import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
@@ -129,5 +130,10 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     public void checkCompliance(List<String> uuids) throws NotFoundException {
         raProfileService.checkCompliance(SecuredUUID.fromList(uuids));
+    }
+
+    @Override
+    public List<SimplifiedComplianceProfileDto> getAssociatedComplianceProfiles(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        return raProfileService.getComplianceProfiles(authorityUuid, raProfileUuid, SecurityFilter.create());
     }
 }
