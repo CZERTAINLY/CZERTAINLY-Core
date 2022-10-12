@@ -336,6 +336,12 @@ public class RaProfileServiceImpl implements RaProfileService {
         return getComplianceProfilesForRaProfile(raProfileUuid, filter);
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public Boolean evaluateNullableRaPermissions(SecurityFilter filter) {
+        return !filter.getResourceFilter().areOnlySpecificObjectsAllowed();
+    }
+
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
     // TODO - make private, service should not allow modifying RaProfile entity outside of it.
     public RaProfile getRaProfileEntity(SecuredUUID uuid) throws NotFoundException {

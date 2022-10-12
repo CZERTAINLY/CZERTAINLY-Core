@@ -90,4 +90,11 @@ public interface RaProfileService {
      * @return
      */
     List<SimplifiedComplianceProfileDto> getComplianceProfiles(String authorityUuid, String raProfileUuid, SecurityFilter filter) throws NotFoundException;
+
+    /**
+     * Function to check if an user has All RA profile Access
+     * @param filter Security Filter
+     * @return Boolean of permission
+     */
+    Boolean evaluateNullableRaPermissions(SecurityFilter filter);
 }
