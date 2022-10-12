@@ -38,7 +38,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     public ComplianceProfileDto getComplianceProfile(String uuid) throws NotFoundException {
-        return complianceProfileService.getComplianceProfile(uuid);
+        return complianceProfileService.getComplianceProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -57,42 +57,42 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     public ComplianceProfileRuleDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
-        return complianceProfileService.addRule(uuid, request);
+        return complianceProfileService.addRule(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
-        complianceProfileService.removeRule(uuid, request);
+        complianceProfileService.removeRule(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException {
-        complianceProfileService.addGroup(uuid, request);
+        complianceProfileService.addGroup(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void removeGroup(String uuid, ComplianceGroupRequestDto request) throws NotFoundException {
-        complianceProfileService.removeGroup(uuid, request);
+        complianceProfileService.removeGroup(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void deleteComplianceProfile(String uuid) throws NotFoundException {
-        complianceProfileService.deleteComplianceProfile(uuid);
+        complianceProfileService.deleteComplianceProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public List<SimplifiedRaProfileDto> getAssociatedRAProfiles(String uuid) throws NotFoundException {
-        return complianceProfileService.getAssociatedRAProfiles(uuid);
+        return complianceProfileService.getAssociatedRAProfiles(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
-        return complianceProfileService.bulkDeleteComplianceProfiles(uuids);
+        return complianceProfileService.bulkDeleteComplianceProfiles(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException {
-        return complianceProfileService.forceDeleteComplianceProfiles(uuids);
+        return complianceProfileService.forceDeleteComplianceProfiles(SecuredUUID.fromList(uuids));
     }
 
     @Override
@@ -107,12 +107,12 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     public void associateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws ConnectorException {
-        complianceProfileService.associateProfile(uuid, raProfiles);
+        complianceProfileService.associateProfile(SecuredUUID.fromString(uuid), raProfiles);
     }
 
     @Override
     public void disassociateProfiles(String uuid, RaProfileAssociationRequestDto raProfiles) throws ConnectorException {
-        complianceProfileService.disassociateProfile(uuid, raProfiles);
+        complianceProfileService.disassociateProfile(SecuredUUID.fromString(uuid), raProfiles);
     }
 
     @Override

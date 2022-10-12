@@ -14,6 +14,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 @Component
 @Aspect
+@EnableAspectJAutoProxy(exposeProxy=true)
 public class ObjectFilterAspect {
 
     protected final Log logger = LogFactory.getLog(this.getClass());

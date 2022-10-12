@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
@@ -81,4 +82,12 @@ public interface RaProfileService {
      * @return Number of raprofiles
      */
     Long statisticsRaProfilesCount(SecurityFilter filter);
+
+    /**
+     *Function to get the list of RA Compliance Profiles from RA Profiles
+     * @param authorityUuid UUID of the authority
+     * @param raProfileUuid UUID of the RA Profile
+     * @return
+     */
+    List<SimplifiedComplianceProfileDto> getComplianceProfiles(String authorityUuid, String raProfileUuid, SecurityFilter filter) throws NotFoundException;
 }

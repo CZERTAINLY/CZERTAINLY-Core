@@ -33,7 +33,7 @@ public interface ComplianceProfileService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
      */
-    ComplianceProfileDto getComplianceProfile(String uuid) throws NotFoundException;
+    ComplianceProfileDto getComplianceProfile(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Get the details of a compliance profile
@@ -42,7 +42,7 @@ public interface ComplianceProfileService {
      * @return Compliance Profile Entity
      * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
      */
-    ComplianceProfile getComplianceProfileEntity(String uuid) throws NotFoundException;
+    ComplianceProfile getComplianceProfileEntity(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Create a new compliance profile
@@ -65,7 +65,7 @@ public interface ComplianceProfileService {
      * @throws NotFoundException     Thrown when unable to find the rule with the provided details
      * @throws ValidationException   Thrown when the attribute validation fails for the given rule
      */
-    ComplianceProfileRuleDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException;
+    ComplianceProfileRuleDto addRule(SecuredUUID uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException;
 
     /**
      * Remove a rule from a compliance profile
@@ -75,7 +75,7 @@ public interface ComplianceProfileService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the rule is not found with the profile
      */
-    ComplianceProfileRuleDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException;
+    ComplianceProfileRuleDto removeRule(SecuredUUID uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException;
 
     /**
      * Add a group to a compliance profile
@@ -85,7 +85,7 @@ public interface ComplianceProfileService {
      * @return
      * @throws AlreadyExistException Thrown when the selected group is already associated
      */
-    ComplianceProfileDto addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException;
+    ComplianceProfileDto addGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException;
 
     /**
      * Delete a group from a compliance profile
@@ -95,7 +95,7 @@ public interface ComplianceProfileService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the selected group is not found associated with the compliance profile
      */
-    ComplianceProfileDto removeGroup(String uuid, ComplianceGroupRequestDto request) throws NotFoundException;
+    ComplianceProfileDto removeGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws NotFoundException;
 
     /**
      * Get the list of associated RA Profile to the compliance profile
@@ -104,7 +104,7 @@ public interface ComplianceProfileService {
      * @return List of RA Profiles associated with the compliance profile. {@link SimplifiedRaProfileDto}
      * @throws NotFoundException * @throws NotFoundException Thrown when a Rule or Group is not found
      */
-    List<SimplifiedRaProfileDto> getAssociatedRAProfiles(String uuid) throws NotFoundException;
+    List<SimplifiedRaProfileDto> getAssociatedRAProfiles(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Delete a compliance profile
@@ -113,7 +113,7 @@ public interface ComplianceProfileService {
      * @throws NotFoundException   Thrown when the system is not able to find the compliance profile for the given UUID
      * @throws ValidationException Thrown when there are any RA Profile association for the selected compliance profile
      */
-    void deleteComplianceProfile(String uuid) throws NotFoundException, ValidationException;
+    void deleteComplianceProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
     /**
      * Remove multiple compliance profiles
@@ -123,7 +123,7 @@ public interface ComplianceProfileService {
      * @throws ValidationException Thrown when the profiles are dependencies for other objects
      * @throws NotFoundException   Thrown when a Rule or Group is not found
      */
-    List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<String> uuids) throws NotFoundException, ValidationException;
+    List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
 
     /**
      * Remove compliance profiles forcefully. This methods makes removes the object dependencies and set them null.
@@ -131,7 +131,7 @@ public interface ComplianceProfileService {
      * @param uuids Uuids of the compliance profiles to be deleted forcefully.
      * @return
      */
-    List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<String> uuids);
+    List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<SecuredUUID> uuids);
 
     /**
      * List of all compliance rules for User Interface
@@ -161,7 +161,7 @@ public interface ComplianceProfileService {
      * @param raProfiles Uuid of the RA Profile. See {{@link RaProfileAssociationRequestDto}}
      * @throws NotFoundException Thrown when either of the profiles are not found
      */
-    void associateProfile(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
+    void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
 
     /**
      * Check the compliance for all the certificates associated with the compliance profiles
@@ -176,7 +176,7 @@ public interface ComplianceProfileService {
      * @param uuid       Compliance Profile UUID
      * @param raProfiles List of RA Profile UUIDs
      */
-    void disassociateProfile(String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
+    void disassociateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
 
     /**
      * Check if the compliance provider is associated with any compliance profiles

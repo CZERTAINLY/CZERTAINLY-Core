@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.*;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -97,8 +98,8 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
     }
 
 
-    public ComplianceProfileDto raProfileMapToDto(){
-        ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
+    public SimplifiedComplianceProfileDto raProfileMapToDto(){
+        SimplifiedComplianceProfileDto complianceProfileDto = new SimplifiedComplianceProfileDto();
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
         complianceProfileDto.setUuid(uuid.toString());
@@ -160,6 +161,8 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         complianceProfileDto.setRules(complianceProviderSummaryDtoList);
         return complianceProfileDto;
     }
+
+
 
     @Override
     public String toString() {

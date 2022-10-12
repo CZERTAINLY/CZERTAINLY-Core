@@ -13,11 +13,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 
 @Entity
@@ -48,7 +46,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "enabled")
     private Boolean enabled;
 
-    @ManyToMany
+    @ManyToMany(cascade = CascadeType.ALL)
     @JoinTable(
             name = "ra_profile_2_compliance_profile",
             joinColumns = @JoinColumn(name = "ra_profile_uuid"),
@@ -129,11 +127,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setAuthorityInstanceUuid(authorityInstanceReference != null ? authorityInstanceReference.getUuid().toString() : null);
         dto.setAuthorityInstanceName(this.authorityInstanceName);
         dto.setEnabled(enabled);
-        if (complianceProfiles != null) {
-            dto.setComplianceProfiles(complianceProfiles.stream().map(ComplianceProfile::raProfileMapToDto).collect(Collectors.toList()));
-        } else {
-            dto.setComplianceProfiles(new ArrayList<>());
-        }
         return dto;
     }
 

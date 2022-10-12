@@ -207,7 +207,6 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
     public void loadFullCredentialData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback) throws NotFoundException {
         if (callback == null) {
             logger.warn("Given Callback is null");
