@@ -8,7 +8,6 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.ResourceDetailDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
-import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;

@@ -5,6 +5,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
@@ -17,11 +18,13 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -37,6 +40,7 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -67,6 +71,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ExtendedAttributeService extendedAttributeService;
     @Autowired
     private ComplianceService complianceService;
+    @Autowired
+    private ComplianceProfileRepository complianceProfileRepository;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -322,6 +328,20 @@ public class RaProfileServiceImpl implements RaProfileService {
         return raProfileRepository.countUsingSecurityFilter(filter);
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
+    public List<SimplifiedComplianceProfileDto> getComplianceProfiles(String authorityUuid, String raProfileUuid, SecurityFilter filter) throws NotFoundException {
+        //Evaluate RA profile permissions
+        ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
+        return getComplianceProfilesForRaProfile(raProfileUuid, filter);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
+    public Boolean evaluateNullableRaPermissions(SecurityFilter filter) {
+        return !filter.getResourceFilter().areOnlySpecificObjectsAllowed();
+    }
+
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
     // TODO - make private, service should not allow modifying RaProfile entity outside of it.
     public RaProfile getRaProfileEntity(SecuredUUID uuid) throws NotFoundException {
@@ -384,5 +404,13 @@ public class RaProfileServiceImpl implements RaProfileService {
         }
 
         raProfileRepository.delete(raProfile);
+    }
+
+    private List<SimplifiedComplianceProfileDto> getComplianceProfilesForRaProfile(String raProfileUuid, SecurityFilter filter) {
+        return complianceProfileRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .filter(e -> e.getRaProfiles().stream().map(RaProfile::getUuid).map(UUID::toString).collect(Collectors.toList()).contains(raProfileUuid))
+                .map(ComplianceProfile::raProfileMapToDto)
+                .collect(Collectors.toList());
     }
 }
