@@ -137,7 +137,7 @@ public class SearchServiceImpl implements SearchService {
         if (searchRequestDto.getPageNumber() == null) {
             searchRequestDto.setPageNumber(1);
         }
-        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false, additionalWhereClause);
+        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false, additionalWhereClause) + " GROUP BY created, uuid ORDER BY created DESC";
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         query.setFirstResult(page.get("start"));

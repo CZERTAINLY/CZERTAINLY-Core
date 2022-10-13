@@ -11,6 +11,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Order;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import java.util.ArrayList;
@@ -67,13 +68,13 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
 
-        CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause);
+        CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, null);
         return entityManager.createQuery(cr).getResultList();
     }
 
     @Override
-    public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Pageable p) {
-        CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause);
+    public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Pageable p, BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+        CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, order);
         return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
     }
 
@@ -84,12 +85,15 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
 
-    private CriteriaQuery<T> createCriteriaBuilder(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+    private CriteriaQuery<T> createCriteriaBuilder(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         Class<T> entity = this.entityInformation.getJavaType();
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<T> cr = cb.createQuery(entity);
         Root<T> root = cr.from(entity);
         cr.select(root);
+        if(order != null){
+            cr.orderBy(order.apply(root, cb));
+        }
         return cr.where(getPredicates(filter, additionalWhereClause, root, cb).toArray(new Predicate[]{}));
     }
 

@@ -751,7 +751,14 @@ public class CertificateServiceImpl implements CertificateService {
             Long maxSize = certificateRepository.countUsingSecurityFilter(filter);
             certificateResponseDto.setTotalPages((int) Math.ceil((double) maxSize / request.getItemsPerPage()));
             certificateResponseDto.setTotalItems(maxSize);
-            certificateResponseDto.setCertificates(certificateRepository.findUsingSecurityFilter(filter, null, p).stream().map(Certificate::mapToDto).collect(Collectors.toList()));
+            certificateResponseDto.setCertificates(certificateRepository.findUsingSecurityFilter(
+                    filter, null,
+                    p, (root, cb) -> cb.desc(root.get("created")))
+                    .stream()
+                    .map(Certificate::mapToDto)
+                    .collect(Collectors.toList()
+                    )
+            );
         } else {
             DynamicSearchInternalResponse dynamicSearchInternalResponse = searchService.dynamicSearchQueryExecutor(request, "Certificate", getSearchableFieldInformation(), searchService.createCriteriaBuilderString(filter, true));
             certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
