@@ -45,7 +45,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
             ResourceAction.REVOKE.getCode(),
             ResourceAction.LIST.getCode());
     private final Map<String, String> detailPermissionObjectsListingEndpoints = Map.of(
-            Resource.ACME_PROFILE.getCode(),"/v1/acmeProfiles",
+            Resource.ACME_PROFILE.getCode(), "/v1/acmeProfiles",
             Resource.RA_PROFILE.getCode(), "/v1/raProfiles",
             Resource.AUTHORITY.getCode(), "/v1/authorities");
     private WebClient client;
@@ -77,7 +77,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
             //Permissions will be seeded to the auth service for initial ACME Role registration
             seedResources();
             createSuperAdminRole();
-            createAdminRole(select);
+            createAdminRole();
             createAcmeRole();
             createCertificateUserReference(select);
             List<String> adminNames = createAdministratorUsers(context);
@@ -95,7 +95,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
 
     private List<String> createAdministratorUsers(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
-            try (ResultSet rows = select.executeQuery("SELECT a.username, a.name, a.surname, a.email, a.certificate_uuid, a.enabled, a.role, c.fingerprint FROM admin a JOIN certificate c ON a.certificate_uuid = c.uuid;")) {
+            try (ResultSet rows = select.executeQuery("SELECT a.username, a.name, a.surname, a.email, a.certificate_uuid, a.enabled, a.role, a.description, c.fingerprint FROM admin a JOIN certificate c ON a.certificate_uuid = c.uuid;")) {
                 List<String> adminNames = new ArrayList<>();
                 while (rows.next()) {
                     UserRequestDto dto = new UserRequestDto();
@@ -106,6 +106,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
                     dto.setUsername(rows.getString("username"));
                     dto.setEmail(rows.getString("email"));
                     dto.setEnabled(rows.getBoolean("enabled"));
+                    dto.setDescription(rows.getString("description"));
                     dto.setCertificateFingerprint(rows.getString("fingerprint"));
                     UserDto response = userManagementApiClient.createUser(dto);
                     assignRoles(response.getUuid(), rows.getString("role").equals("SUPERADMINISTRATOR") ? superAdministratorRoleUuid : administratorRoleUuid);
@@ -119,7 +120,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
 
     private Map<String, String> createClientUsers(Context context, List<String> adminNames) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
-            try (ResultSet rows = select.executeQuery("SELECT a.uuid, a.name, a.certificate_uuid, a.enabled, c.fingerprint FROM client a JOIN certificate c ON a.certificate_uuid = c.uuid WHERE a.certificate_uuid NOT IN (SELECT b.certificate_uuid FROM admin b);")) {
+            try (ResultSet rows = select.executeQuery("SELECT a.uuid, a.name, a.certificate_uuid, a.enabled, a.description, c.fingerprint FROM client a JOIN certificate c ON a.certificate_uuid = c.uuid WHERE a.certificate_uuid NOT IN (SELECT b.certificate_uuid FROM admin b);")) {
                 Map<String, String> clientRoleMap = new HashMap<>();
                 while (rows.next()) {
                     UserRequestDto dto = new UserRequestDto();
@@ -133,6 +134,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
                     }
                     dto.setEnabled(rows.getBoolean("enabled"));
                     dto.setCertificateFingerprint(rows.getString("fingerprint"));
+                    dto.setDescription(rows.getString("description"));
                     UserDto response = userManagementApiClient.createUser(dto);
                     String roleUuid = createClientRoles(response.getUuid(), clientName);
                     clientRoleMap.put(rows.getString("uuid"), roleUuid);
@@ -187,7 +189,9 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         List<ObjectPermissionsRequestDto> objects = new ArrayList<>();
         for (String raProfileUuid : raProfileUuids) {
             ObjectPermissionsRequestDto dto = new ObjectPermissionsRequestDto();
-            dto.setUuid(raProfileUuid);
+            String[] raProfileUuidSplit = raProfileUuid.split(":#");
+            dto.setName(raProfileUuidSplit[1]);
+            dto.setUuid(raProfileUuidSplit[0]);
             dto.setAllow(List.of(ResourceAction.LIST.getCode(), ResourceAction.DETAIL.getCode()));
             dto.setDeny(List.of());
             objects.add(dto);
@@ -203,7 +207,9 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         List<ObjectPermissionsRequestDto> authorityObjects = new ArrayList<>();
         for (String authorityUuid : authorityUuids) {
             ObjectPermissionsRequestDto dto = new ObjectPermissionsRequestDto();
-            dto.setUuid(authorityUuid);
+            String[] authorityUuidSplit = authorityUuid.split(":#");
+            dto.setUuid(authorityUuidSplit[0]);
+            dto.setName(authorityUuidSplit[1]);
             dto.setAllow(List.of(ResourceAction.DETAIL.getCode()));
             dto.setDeny(List.of());
             authorityObjects.add(dto);
@@ -232,16 +238,18 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
 
     private void updateRolePermissions(Context context, Map<String, String> clientRoleMap) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
-            try (ResultSet rows = select.executeQuery("SELECT a.ra_profile_uuid, a.client_uuid, r.authority_instance_ref_uuid FROM client_authorization a JOIN ra_profile r ON a.ra_profile_uuid = r.uuid;")) {
+            try (ResultSet rows = select.executeQuery("SELECT a.ra_profile_uuid, a.client_uuid, r.authority_instance_ref_uuid, r.name, r.authority_instance_name FROM client_authorization a JOIN ra_profile r ON a.ra_profile_uuid = r.uuid;")) {
                 Map<String, Set<String>> raProfileMap = new HashMap<>();
                 Map<String, Set<String>> authorityMap = new HashMap<>();
                 while (rows.next()) {
                     String clientUuid = rows.getString("client_uuid");
                     String raProfileUuid = rows.getString("ra_profile_uuid");
+                    String raProfileName = rows.getString("name");
                     String authorityUuid = rows.getString("authority_instance_ref_uuid");
-                    raProfileMap.computeIfAbsent(clientUuid, k -> new HashSet<>()).add(raProfileUuid);
+                    String authorityName = rows.getString("authority_instance_name");
+                    raProfileMap.computeIfAbsent(clientUuid, k -> new HashSet<>()).add(raProfileUuid + ":#" + raProfileName);
                     if (authorityUuid != null) {
-                        authorityMap.computeIfAbsent(clientUuid, k -> new HashSet<>()).add(authorityUuid);
+                        authorityMap.computeIfAbsent(clientUuid, k -> new HashSet<>()).add(authorityUuid + ":#" + authorityName);
                     }
                 }
                 for (Map.Entry<String, String> entry : clientRoleMap.entrySet()) {
@@ -331,32 +339,27 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
     private void createSuperAdminRole() {
         RoleRequestDto requestDto = new RoleRequestDto();
         requestDto.setName("superadmin");
-        requestDto.setDescription("Internal CZERTAINLY system role with all permissions");
+        requestDto.setDescription("System role with all permissions");
         requestDto.setSystemRole(true);
         requestDto.setPermissions(getAdminPermissions());
         RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
         setSuperAdministratorRoleUuid(response.getUuid());
     }
 
-    private void createAdminRole(Statement select) throws SQLException {
-        try (ResultSet rows = select.executeQuery("SELECT COUNT(*) FROM admin WHERE ROLE='ADMINISTRATOR'")) {
-            rows.next();
-            if (rows.getInt("count") > 0) {
-                RoleRequestDto requestDto = new RoleRequestDto();
-                requestDto.setName("admin");
-                requestDto.setDescription("Internal CZERTAINLY system role with all administrating permissions");
-                requestDto.setSystemRole(false);
-                requestDto.setPermissions(getAdminPermissions());
-                RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
-                setAdministratorRoleUuid(response.getUuid());
-            }
-        }
+    private void createAdminRole() {
+        RoleRequestDto requestDto = new RoleRequestDto();
+        requestDto.setName("admin");
+        requestDto.setDescription("System role with all administration permissions");
+        requestDto.setSystemRole(true);
+        requestDto.setPermissions(getAdminPermissions());
+        RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
+        setAdministratorRoleUuid(response.getUuid());
     }
 
     private void createAcmeRole() {
         RoleRequestDto requestDto = new RoleRequestDto();
         requestDto.setName("acme");
-        requestDto.setDescription("Internal CZERTAINLY system role with all ACME permissions");
+        requestDto.setDescription("System role with all ACME permissions");
         requestDto.setSystemRole(true);
         requestDto.setPermissions(getPermissionPayload());
         RoleDetailDto response = roleManagementApiClient.createRole(requestDto);
@@ -367,6 +370,7 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
     private String createAcmeUser() {
         UserRequestDto requestDto = new UserRequestDto();
         requestDto.setUsername("acme");
+        requestDto.setDescription("System User for ACME Operations");
         requestDto.setEnabled(true);
         requestDto.setSystemUser(true);
         requestDto.setCertificateFingerprint("");
@@ -378,5 +382,4 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         requestDto.setAllowAllResources(true);
         return requestDto;
     }
-
 }
