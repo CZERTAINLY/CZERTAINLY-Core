@@ -40,7 +40,7 @@ public class ResourceListener {
                 .filter(e -> e.getValue().getMethod().getAnnotation(AuthEndpoint.class) != null)
                 .forEach(e -> {
                     AuthEndpoint annotatedValues = e.getValue().getMethod().getAnnotation(AuthEndpoint.class);
-                    if(listingEndpoints.get(annotatedValues.resourceName().getCode()) != null) {
+                    if(listingEndpoints.get(annotatedValues.resourceName()) != null) {
                         throw new RuntimeException("Duplicate listing end point on " + annotatedValues.resourceName().getCode());
                     }
                     listingEndpoints.put(annotatedValues.resourceName(), e.getKey().getPatternValues().iterator().next());

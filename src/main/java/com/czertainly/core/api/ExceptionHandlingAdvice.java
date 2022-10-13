@@ -215,19 +215,23 @@ public class ExceptionHandlingAdvice {
         LOG.warn("Access denied: {}", ex.getMessage());
         RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
         ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.FORBIDDEN).contentType(MediaType.valueOf("application/problem+json"));
-        Object resourceName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", 121);
-        Object resourceActionName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", 121);
         AuthenticationServiceExceptionDto responseDto = new AuthenticationServiceExceptionDto();
         responseDto.setCode("ACCESS_DENIED");
         responseDto.setStatusCode(HttpStatus.FORBIDDEN.value());
-        if (resourceName != null && !((String) resourceName).isEmpty() && resourceActionName != null && !((String) resourceActionName).isEmpty()) {
-            responseDto.setMessage("Access Denied. Required '"
-                    + BeautificationUtil.camelToHumanForm((String) resourceActionName)
-                    + "' permission for '"
-                    + BeautificationUtil.camelToHumanForm((String) resourceName)
-                    + "'");
-        } else {
+        if(response == null){
             responseDto.setMessage("Access denied for the specified operation");
+        } else {
+            Object resourceName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", 121);
+            Object resourceActionName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", 121);
+            if (resourceName != null && !((String) resourceName).isEmpty() && resourceActionName != null && !((String) resourceActionName).isEmpty()) {
+                responseDto.setMessage("Access Denied. Required '"
+                        + BeautificationUtil.camelToHumanForm((String) resourceActionName)
+                        + "' permission for '"
+                        + BeautificationUtil.camelToHumanForm((String) resourceName)
+                        + "'");
+            } else {
+                responseDto.setMessage("Access denied for the specified operation");
+            }
         }
         return response.body(responseDto);
     }

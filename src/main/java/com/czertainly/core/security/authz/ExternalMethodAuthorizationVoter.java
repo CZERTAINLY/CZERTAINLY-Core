@@ -224,14 +224,18 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
     }
 
     private void setDeniedResource(String resourceName) {
-        RequestContextHolder.getRequestAttributes().setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME",
-                resourceName,
-                121);
+        if(RequestContextHolder.getRequestAttributes() != null) {
+            RequestContextHolder.getRequestAttributes().setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME",
+                    resourceName,
+                    121);
+        }
     }
 
     private void setDeniedResourceAction(String resourceActionName) {
-        RequestContextHolder.getRequestAttributes().setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME",
-                resourceActionName,
-                121);
+        if (RequestContextHolder.getRequestAttributes() != null) {
+            RequestContextHolder.getRequestAttributes().setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME",
+                    resourceActionName,
+                    121);
+        }
     }
 }

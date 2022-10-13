@@ -432,7 +432,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         List<String> alreadyExistingConnector = new ArrayList<>();
 
         for (Connector connector : connectorRepository.findAll()) {
-            if (uuid != null && connector.getUuid().equals(uuid.toString())) {
+            if (uuid != null && connector.getUuid().toString().equals(uuid.toString())) {
                 continue;
             }
             List<FunctionGroupCode> connectorFunctionGroups = connector.getFunctionGroups().stream().map(Connector2FunctionGroup::getFunctionGroup).collect(Collectors.toList()).stream().map(FunctionGroup::getCode).collect(Collectors.toList());
