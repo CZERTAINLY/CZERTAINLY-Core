@@ -342,7 +342,7 @@ public class SearchServiceImpl implements SearchService {
                 }
             }
         }
-        if(whereCondition != "" && addFinisher){
+        if(!whereCondition.equals("") && addFinisher){
             whereCondition = whereCondition + " AND";
         }
         return whereCondition;

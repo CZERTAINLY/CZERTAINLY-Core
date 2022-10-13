@@ -60,7 +60,7 @@ public class ObjectFilterAspect {
                 .stream()
                 .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
 
-            if(properties.get("parentName") != Resource.NONE.getCode()) {
+            if(!properties.get("parentName").equals(Resource.NONE.getCode())) {
                 SecurityResourceFilter parentResourceFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, true);
                 secFilter.setParentResourceFilter(parentResourceFilter);
             }

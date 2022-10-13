@@ -292,7 +292,7 @@ public class CertificateServiceImpl implements CertificateService {
 
             String joins = "WHERE c.user_uuid IS NULL";
             String data = searchService.createCriteriaBuilderString(filter, true);
-            if (data != "") {
+            if (!data.equals("")) {
                 joins = joins + " AND " + data;
             }
 
@@ -1000,7 +1000,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
             String data = searchService.createCriteriaBuilderString(filter, false);
-            if (data != "") {
+            if (!data.equals("")) {
                 data = "WHERE " + data;
             }
             String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + raProfile.getUuid() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
@@ -1027,7 +1027,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
             String data = searchService.createCriteriaBuilderString(filter, false);
-            if (data != "") {
+            if (!data.equals("")) {
                 data = "WHERE " + data;
             }
             String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getUuid() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
@@ -1050,7 +1050,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
             String data = searchService.createCriteriaBuilderString(filter, false);
-            if (data != "") {
+            if (!data.equals("")) {
                 data = "WHERE " + data;
             }
             String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
