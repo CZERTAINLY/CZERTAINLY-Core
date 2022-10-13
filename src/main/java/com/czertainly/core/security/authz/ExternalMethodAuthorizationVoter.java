@@ -68,7 +68,7 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                     .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
 
             Optional<ParentUUIDGetter> parentUUIDGetter = getParentUUIDGetter(attributes);
-            if(!properties.get("parentName").equals(Resource.NONE.getCode())) {
+            if(properties.get("parentName") != Resource.NONE.getCode()) {
                 int result = voteResource(principal, methodInvocation, properties, parentUUIDGetter, true);
                 if(result == ACCESS_DENIED){
                     setDeniedResource(properties.get("parentName"));
