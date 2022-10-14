@@ -173,6 +173,6 @@ public interface LocationService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be renewed in the Location.
      */
-    LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException, ConnectorException;
+    LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException, ConnectorException;
 
 }

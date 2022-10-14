@@ -127,7 +127,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
         return locationService.renewCertificateInLocation(
                 SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),
-                SecuredUUID.fromString(certificateUuid));
+                certificateUuid);
     }
 
 }
