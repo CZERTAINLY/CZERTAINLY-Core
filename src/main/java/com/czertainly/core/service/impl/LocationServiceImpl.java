@@ -512,11 +512,11 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
-    public LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, SecuredUUID certificateUuid) throws ConnectorException, LocationException {
+    public LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws ConnectorException, LocationException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        CertificateLocation certificateLocation = getCertificateLocation(locationUuid.toString(), certificateUuid.toString());
+        CertificateLocation certificateLocation = getCertificateLocation(locationUuid.toString(), certificateUuid);
 
         // Check if everything is available to do the renewal
         if (certificateLocation.getPushAttributes() == null || certificateLocation.getPushAttributes().isEmpty()) {
@@ -536,7 +536,7 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + certificateLocation.getLocation().getName() + " does not support key management");
         }
 
-        Certificate certificateInScope = certificateService.getCertificateEntity(certificateUuid);
+        Certificate certificateInScope = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         if (certificateInScope.getRaProfile() == null) {
             logger.debug("Certificate {} is not associated with any RA Profile. Cannot renew the certificate", certificateInScope.getCommonName());
             throw new LocationException("Certificate is not associated with any RA Profile. Cannot renew the certificate in the location");
@@ -567,6 +567,18 @@ public class LocationServiceImpl implements LocationService {
             pushCertificateToLocation(
                     certificateLocation.getLocation(), certificate,
                     generateCsrResponseDto.getPushAttributes(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
+
+            //Delete current certificate in location table
+            CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificateInScope.getUuid());
+            CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
+                    .orElse(null);
+
+            if (certificateInLocation != null) {
+
+                certificateLocationRepository.delete(certificateInLocation);
+                location.getCertificates().remove(certificateLocation);
+                locationRepository.save(location);
+            }
         } catch (Exception e) {
             logger.error("Failed to Push new Certificate", e.getMessage());
             throw new LocationException("Failed to push the new certificate to the location. Reason: " + e.getMessage());
@@ -648,7 +660,7 @@ public class LocationServiceImpl implements LocationService {
 
     private void pushCertificateToLocation(Location location, Certificate certificate,
                                            List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes
-                                           ) throws LocationException {
+    ) throws LocationException {
         PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
         pushCertificateRequestDto.setCertificate(certificate.getCertificateContent().getContent());
         // TODO: support for different types of certificate
@@ -697,20 +709,20 @@ public class LocationServiceImpl implements LocationService {
         List<AttributeDefinition> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
         List<AttributeDefinition> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
 
-            CertificateLocation certificateLocation = new CertificateLocation();
-            certificateLocation.setLocation(location);
-            certificateLocation.setCertificate(certificate);
-            certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
-            certificateLocation.setWithKey(pushCertificateResponseDto.isWithKey());
-            certificateLocation.setPushAttributes(mergedPushAttributes);
-            certificateLocation.setCsrAttributes(mergedCsrAttributes);
+        CertificateLocation certificateLocation = new CertificateLocation();
+        certificateLocation.setLocation(location);
+        certificateLocation.setCertificate(certificate);
+        certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
+        certificateLocation.setWithKey(pushCertificateResponseDto.isWithKey());
+        certificateLocation.setPushAttributes(mergedPushAttributes);
+        certificateLocation.setCsrAttributes(mergedCsrAttributes);
 
-            // TODO: response with the indication if the key is available for pushed certificate
+        // TODO: response with the indication if the key is available for pushed certificate
 
-            certificateLocationRepository.save(certificateLocation);
-            location.getCertificates().add(certificateLocation);
+        certificateLocationRepository.save(certificateLocation);
+        location.getCertificates().add(certificateLocation);
 
-            locationRepository.save(location);
+        locationRepository.save(location);
 
         // save record into the certificate history
         String message = "Pushed to Location " + location.getName();
@@ -878,7 +890,7 @@ public class LocationServiceImpl implements LocationService {
                 iterator.remove();
             } else {
                 CertificateLocation lc = cls.stream().filter(e -> e.getCertificate().getUuid().equals(cl.getCertificate().getUuid())).findFirst().orElse(null);
-                if(lc != null) {
+                if (lc != null) {
                     cl.setMetadata(lc.getMetadata());
                     cl.setCsrAttributes(lc.getCsrAttributes());
                     cl.setPushAttributes(lc.getPushAttributes());
