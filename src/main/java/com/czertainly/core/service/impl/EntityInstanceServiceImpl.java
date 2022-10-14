@@ -162,6 +162,8 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         EntityInstanceRequestDto entityInstanceDto = new EntityInstanceRequestDto();
         entityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
+        entityInstanceDto.setKind(entityInstanceRef.getKind());
+        entityInstanceDto.setName(entityInstanceRef.getName());
         entityInstanceApiClient.updateEntityInstance(connector.mapToDto(),
                 entityInstanceRef.getEntityInstanceUuid(), entityInstanceDto);
         entityInstanceReferenceRepository.save(entityInstanceRef);
