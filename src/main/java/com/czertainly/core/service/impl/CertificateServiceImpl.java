@@ -646,6 +646,18 @@ public class CertificateServiceImpl implements CertificateService {
         return dto;
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
+    public void checkIssuePermissions() {}
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.RENEW)
+    public void checkRenewPermissions() {}
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
+    public void checkRevokePermissions() {}
+
     private String getExpiryTime(Date now, Date expiry) {
         long diffInMillies = now.getTime() - expiry.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);

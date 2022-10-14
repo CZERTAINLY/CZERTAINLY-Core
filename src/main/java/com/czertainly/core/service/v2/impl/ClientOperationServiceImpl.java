@@ -135,7 +135,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
-        ((ClientOperationService) AopContext.currentProxy()).checkIssuePermissions();
+        certificateService.checkIssuePermissions();
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
@@ -187,7 +187,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
-        ((ClientOperationService) AopContext.currentProxy()).checkRenewPermissions();
+        certificateService.checkRenewPermissions();
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
@@ -285,7 +285,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void revokeCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRevocationDto request) throws ConnectorException {
-        ((ClientOperationService) AopContext.currentProxy()).checkRevokePermissions();
+        certificateService.checkRevokePermissions();
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
@@ -328,16 +328,4 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
         return csr;
     }
-
-    @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public void checkIssuePermissions() {}
-
-    @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.RENEW)
-    public void checkRenewPermissions() {}
-
-    @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
-    public void checkRevokePermissions() {}
 }
