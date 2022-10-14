@@ -267,21 +267,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getFilters() == null) {
             for (String uuid : request.getUuids()) {
                 try {
-                    Certificate certificate = getCertificateEntity(SecuredUUID.fromString(uuid));
-
-                    if (certificate.getUserUuid() != null) {
-                        logger.warn("Certificate is used by an User. Unable to delete certificate with common name {}", certificate.getCommonName());
-                        batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Associated to Admin ", "", certificate));
-                        failedDeleteCerts.add(certificate.getUuid().toString());
-                        continue;
-                    }
-
-                    if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
-                        certificateContentRepository
-                                .findById(certificate.getCertificateContent().getId()).ifPresent(content -> certificateContentRepository.delete(content));
-                    }
-
-                    certificateRepository.delete(certificate);
+                    deleteCertificate(SecuredUUID.fromString(uuid));
                 } catch (Exception e) {
                     logger.error("Unable to delete the certificate.", e.getMessage());
                 }

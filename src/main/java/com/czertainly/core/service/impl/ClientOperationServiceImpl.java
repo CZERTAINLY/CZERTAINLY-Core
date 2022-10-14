@@ -39,6 +39,7 @@ import com.czertainly.core.service.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -251,13 +252,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = raProfileRepository.findByNameAndEnabledIsTrue(raProfileName)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileName));
 
-        checkAccessPermissions(raProfile.getSecuredUuid(), SecuredParentUUID.fromString(raProfile.getAuthorityInstanceReferenceUuid().toString()));
+        ((ClientOperationService) AopContext.currentProxy()).checkAccessPermissions(raProfile.getSecuredUuid(), SecuredParentUUID.fromString(raProfile.getAuthorityInstanceReferenceUuid().toString()));
 
         return raProfile;
     }
 
+    @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    private void checkAccessPermissions(SecuredUUID raProfileUuid, SecuredParentUUID authorityUuid) {
+    public void checkAccessPermissions(SecuredUUID raProfileUuid, SecuredParentUUID authorityUuid) {
 
     }
 }

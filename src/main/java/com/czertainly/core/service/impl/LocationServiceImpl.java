@@ -299,11 +299,11 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
-    public LocationDto removeCertificateFromLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException {
+    public LocationDto removeCertificateFromLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
+        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
         CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getUuid());
         CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
@@ -459,7 +459,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (Exception e) {
             logger.error("Failed to issue Certificate", e.getMessage());
             removeStash(location, generateCsrResponseDto.getMetadata());
-            throw new LocationException("Failed to issue certificate to the location. Error Issuing certificate from Authority");
+            throw new LocationException("Failed to issue certificate to the location. Error Issuing certificate from Authority. " + e.getMessage());
         }
 
         // push new Certificate to Location
@@ -470,7 +470,7 @@ public class LocationServiceImpl implements LocationService {
         } catch (Exception e) {
             logger.error("Failed to push new certificate to location", e.getMessage());
             removeStash(location, generateCsrResponseDto.getMetadata());
-            throw new LocationException("Failed to push new certificate to the location");
+            throw new LocationException("Failed to push new certificate to the location. Reason: " + e.getMessage());
         }
 
         logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), location.getName());
@@ -559,7 +559,7 @@ public class LocationServiceImpl implements LocationService {
             certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(clientCertificateDataResponseDto.getUuid()));
         } catch (Exception e) {
             logger.error("Failed to renew Certificate", e.getMessage());
-            throw new LocationException("Failed to renew certificate to the location. Error Issuing certificate from Authority");
+            throw new LocationException("Failed to renew certificate to the location. Error Issuing certificate from Authority. " + e.getMessage());
         }
 
         // push renewed Certificate to Location
@@ -569,7 +569,7 @@ public class LocationServiceImpl implements LocationService {
                     generateCsrResponseDto.getPushAttributes(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
         } catch (Exception e) {
             logger.error("Failed to Push new Certificate", e.getMessage());
-            throw new LocationException("Failed to push the new certificate to the location.");
+            throw new LocationException("Failed to push the new certificate to the location. Reason: " + e.getMessage());
         }
 
         logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), certificateLocation.getLocation().getName());
@@ -871,9 +871,19 @@ public class LocationServiceImpl implements LocationService {
         Iterator<CertificateLocation> iterator = entity.getCertificates().iterator();
         while (iterator.hasNext()) {
             CertificateLocation cl = iterator.next();
+
             if (!cls.contains(cl)) {
                 certificateLocationRepository.delete(cl);
                 iterator.remove();
+            } else {
+                CertificateLocation lc = cls.stream().filter(e -> e.getCertificate().getUuid().equals(cl.getCertificate().getUuid())).findFirst().orElse(null);
+                if(lc != null) {
+                    cl.setMetadata(lc.getMetadata());
+                    cl.setCsrAttributes(lc.getCsrAttributes());
+                    cl.setPushAttributes(lc.getPushAttributes());
+                    cl.setWithKey(lc.isWithKey());
+                    certificateLocationRepository.save(cl);
+                }
             }
         }
 

@@ -53,4 +53,10 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request) throws ConnectorException;
+
+    void checkIssuePermissions();
+
+    void checkRenewPermissions();
+
+    void checkRevokePermissions();
 }

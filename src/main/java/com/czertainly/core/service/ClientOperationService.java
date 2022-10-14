@@ -9,6 +9,8 @@ import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto
 import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -32,4 +34,6 @@ public interface ClientOperationService {
     void revokeAndDeleteEndEntity(String raProfileName, String username) throws NotFoundException, ConnectorException;
 
     void resetPassword(String raProfileName, String username) throws NotFoundException, ConnectorException;
+
+    void checkAccessPermissions(SecuredUUID raProfileUuid, SecuredParentUUID authorityUuid);
 }
