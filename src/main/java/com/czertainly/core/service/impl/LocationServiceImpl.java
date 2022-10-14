@@ -701,6 +701,7 @@ public class LocationServiceImpl implements LocationService {
             certificateLocation.setLocation(location);
             certificateLocation.setCertificate(certificate);
             certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
+            certificateLocation.setWithKey(pushCertificateResponseDto.isWithKey());
             certificateLocation.setPushAttributes(mergedPushAttributes);
             certificateLocation.setCsrAttributes(mergedCsrAttributes);
 
