@@ -117,7 +117,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be removed from the Location.
      */
-    LocationDto removeCertificateFromLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, SecuredUUID certificateUuid) throws NotFoundException, LocationException;
+    LocationDto removeCertificateFromLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException;
 
     /**
      * Remove existing Certificate from all associated Locations.

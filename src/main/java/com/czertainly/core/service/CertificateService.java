@@ -135,4 +135,18 @@ public interface CertificateService {
      */
     StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto);
 
+    /**
+     * Method to check if the permission is available for the user to issue certificate
+     */
+    void checkIssuePermissions();
+
+    /**
+     * Method to check if the permission is available for the user to renew certificate
+     */
+    void checkRenewPermissions();
+
+    /**
+     * Method to check if the permission is available for the user to revoke certificate
+     */
+    void checkRevokePermissions();
 }
