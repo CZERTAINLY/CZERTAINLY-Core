@@ -1,16 +1,13 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.model.core.audit.AuditLogDto;
-import com.czertainly.api.model.core.audit.AuditLogFilter;
-import com.czertainly.api.model.core.audit.AuditLogResponseDto;
-import com.czertainly.api.model.core.audit.ExportResultDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationStatusEnum;
-import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.audit.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.entity.QAuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.AuditLogService;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -24,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -70,7 +66,8 @@ public class AuditLogServiceImpl implements AuditLogService {
                     String objectIdentifier,
                     OperationType operation,
                     OperationStatusEnum operationStatus,
-                    Map<Object, Object> additionalData) {
+                    Map<Object, Object> additionalData
+    ) {
         String additionalDataJson = null;
         try {
         	MAPPER.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
@@ -119,6 +116,7 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.LIST)
     public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
 
         AuditLogResponseDto response = new AuditLogResponseDto();;
@@ -143,6 +141,7 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.EXPORT)
     public ExportResultDto exportAuditLogs(AuditLogFilter filter, Sort sort) {
         Predicate predicate = createPredicate(filter);
         List<AuditLog> entities = auditLogRepository.findAll(predicate, sort);
@@ -153,6 +152,7 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
     public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
         Predicate predicate = createPredicate(filter);
         List<AuditLog> entities = auditLogRepository.findAll(predicate, sort);

@@ -20,20 +20,15 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "certificate")
-public class Certificate extends Audited implements Serializable, DtoMapper<CertificateDto> {
+public class Certificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateDto> {
 
     private static final long serialVersionUID = -3048734620156664554L;
 
     private static final Logger logger = LoggerFactory.getLogger(Certificate.class);
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_seq")
-    @SequenceGenerator(name = "certificate_seq", sequenceName = "certificate_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "common_name")
     private String commonName;
@@ -45,8 +40,11 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     private String issuerCommonName;
 
     @OneToOne
-    @JoinColumn(name = "certificate_content_id")
+    @JoinColumn(name = "certificate_content_id", insertable = false, updatable = false)
     private CertificateContent certificateContent;
+
+    @Column(name = "certificate_content_id")
+    private Long certificateContentId;
 
     @Column(name = "issuer_dn")
     private String issuerDn;
@@ -89,18 +87,18 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     private String subjectAlternativeNames;
 
     @ManyToOne()
-    @JoinColumn(name = "ra_profile_id")
+    @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
 
-    @Column(name = "ra_profile_id", insertable = false, updatable = false)
-    private Long raProfileId;
+    @Column(name = "ra_profile_uuid")
+    private UUID raProfileUuid;
 
     @ManyToOne
-    @JoinColumn(name = "group_id")
+    @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private CertificateGroup group;
 
-    @Column(name = "group_id", insertable = false, updatable = false)
-    private Long groupId;
+    @Column(name = "group_uuid")
+    private UUID groupUuid;
 
     @OneToMany(
             mappedBy = "certificate",
@@ -137,6 +135,9 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
     @OneToMany(mappedBy = "certificate")
     private Set<CertificateEventHistory> eventHistories = new HashSet<>();
 
+    @Column(name = "user_uuid")
+    private UUID userUuid;
+
     @Override
     public CertificateDto mapToDto() {
         CertificateDto dto = new CertificateDto();
@@ -154,7 +155,7 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         dto.setBasicConstraints(basicConstraints);
         dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
         dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage));
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setStatus(status);
         dto.setFingerprint(fingerprint);
         dto.setMeta(MetaDefinitions.deserialize(meta));
@@ -173,8 +174,11 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
             raDto.setName(raProfile.getName());
-            raDto.setUuid(raProfile.getUuid());
+            raDto.setUuid(raProfile.getUuid().toString());
             raDto.setEnabled(raProfile.getEnabled());
+            if(raProfile.getAuthorityInstanceReference() != null) {
+                raDto.setAuthorityInstanceUuid(raProfile.getAuthorityInstanceReference().getUuid().toString());
+            }
             dto.setRaProfile(raDto);
         }
         if (group != null) {
@@ -188,16 +192,8 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id)
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid)
                 .append("commonName", commonName).append("serialNumber", serialNumber).toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getCommonName() {
@@ -286,6 +282,8 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     public void setCertificateContent(CertificateContent certificateContent) {
         this.certificateContent = certificateContent;
+        if(certificateContent != null) this.certificateContentId = certificateContent.getId();
+        else this.certificateContentId = null;
     }
 
     public String getFingerprint() {
@@ -374,6 +372,8 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
+        if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
+        else this.raProfileUuid = null;
     }
 
     public CertificateGroup getGroup() {
@@ -382,6 +382,8 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     public void setGroup(CertificateGroup group) {
         this.group = group;
+        if(group != null) this.groupUuid = group.getUuid();
+        else this.groupUuid = null;
     }
 
     public String getCertificateValidationResult() {
@@ -408,20 +410,20 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
         this.locations = locations;
     }
 
-    public Long getRaProfileId() {
-        return raProfileId;
+    public UUID getRaProfileUuid() {
+        return raProfileUuid;
     }
 
-    public void setRaProfileId(Long raProfileId) {
-        this.raProfileId = raProfileId;
+    public void setRaProfileUuid(UUID raProfileUuid) {
+        this.raProfileUuid = raProfileUuid;
     }
 
-    public Long getGroupId() {
-        return groupId;
+    public UUID getGroupUuid() {
+        return groupUuid;
     }
 
-    public void setGroupId(Long groupId) {
-        this.groupId = groupId;
+    public void setGroupUuid(UUID groupId) {
+        this.groupUuid = groupId;
     }
 
     public CertificateComplianceStorageDto getComplianceResult() {
@@ -441,5 +443,21 @@ public class Certificate extends Audited implements Serializable, DtoMapper<Cert
 
     public void setComplianceStatus(ComplianceStatus complianceStatus) {
         this.complianceStatus = complianceStatus;
+    }
+
+    public Long getCertificateContentId() {
+        return certificateContentId;
+    }
+
+    public void setCertificateContentId(Long certificateContentId) {
+        this.certificateContentId = certificateContentId;
+    }
+
+    public UUID getUserUuid() {
+        return userUuid;
+    }
+
+    public void setUserUuid(UUID userUuid) {
+        this.userUuid = userUuid;
     }
 }

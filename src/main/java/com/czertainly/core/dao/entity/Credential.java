@@ -8,18 +8,17 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
+import javax.persistence.Basic;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.Table;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "credential")
-public class Credential extends Audited implements Serializable, DtoMapper<CredentialDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "credential_seq")
-    @SequenceGenerator(name = "credential_seq", sequenceName = "credential_id_seq", allocationSize = 1)
-    private Long id;
+public class Credential extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CredentialDto> {
 
     @Column(name = "name")
     private String name;
@@ -35,20 +34,11 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
     @Column(name = "enabled")
     private Boolean enabled;
 
+    @Column(name = "connector_uuid")
+    private UUID connectorUuid;
+
     @Column(name="connector_name")
     private String connectorName;
-
-    @ManyToOne
-    @JoinColumn(name = "connector_id")
-    private Connector connector;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getName() {
         return name;
@@ -82,12 +72,12 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
         this.enabled = enabled;
     }
 
-    public Connector getConnector() {
-        return connector;
+    public UUID getConnectorUuid() {
+        return connectorUuid;
     }
 
-    public void setConnector(Connector connector) {
-        this.connector = connector;
+    public void setConnectorUuid(UUID connectorUuid) {
+        this.connectorUuid = connectorUuid;
     }
 
     public String getConnectorName() { return connectorName; }
@@ -96,38 +86,40 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
 
     public CredentialDto mapToDtoSimple() {
         CredentialDto dto = new CredentialDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setKind(this.kind);
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
-        if (this.connector != null) {
-            dto.setConnectorUuid(this.connector.getUuid());
+        if(this.connectorUuid != null) {
+            dto.setConnectorUuid(this.connectorUuid.toString());
         }
+
         return dto;
     }
 
     @Override
     public CredentialDto mapToDto() {
         CredentialDto dto = new CredentialDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setKind(this.kind);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
-        if (this.connector != null) {
-            dto.setConnectorUuid(this.connector.getUuid());
+        if(this.connectorUuid != null) {
+            dto.setConnectorUuid(this.connectorUuid.toString());
         }
+
         return dto;
     }
 
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("name", name)
                 .append("type", kind)
+                .append("uuid", uuid)
                 .toString();
     }
 
@@ -136,11 +128,11 @@ public class Credential extends Audited implements Serializable, DtoMapper<Crede
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Credential that = (Credential) o;
-        return new EqualsBuilder().append(id, that.id).isEquals();
+        return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(id).toHashCode();
+        return new HashCodeBuilder(17, 37).append(uuid).toHashCode();
     }
 }

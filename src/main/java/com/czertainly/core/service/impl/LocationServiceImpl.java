@@ -2,14 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.clients.LocationApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.CertificateException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.LocationException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
@@ -19,18 +12,11 @@ import com.czertainly.api.model.common.attribute.AttributeType;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
-import com.czertainly.api.model.connector.entity.CertificateLocationDto;
-import com.czertainly.api.model.connector.entity.GenerateCsrRequestDto;
-import com.czertainly.api.model.connector.entity.GenerateCsrResponseDto;
-import com.czertainly.api.model.connector.entity.LocationDetailRequestDto;
-import com.czertainly.api.model.connector.entity.LocationDetailResponseDto;
-import com.czertainly.api.model.connector.entity.PushCertificateRequestDto;
-import com.czertainly.api.model.connector.entity.PushCertificateResponseDto;
-import com.czertainly.api.model.connector.entity.RemoveCertificateRequestDto;
+import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
@@ -40,9 +26,17 @@ import com.czertainly.core.dao.entity.CertificateLocation;
 import com.czertainly.core.dao.entity.CertificateLocationId;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.entity.Location;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateLocationRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.LocationService;
@@ -55,14 +49,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -75,6 +63,7 @@ public class LocationServiceImpl implements LocationService {
     private LocationRepository locationRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private CertificateLocationRepository certificateLocationRepository;
+    private RaProfileRepository raProfileRepository;
     private EntityInstanceApiClient entityInstanceApiClient;
     private LocationApiClient locationApiClient;
     private CertificateService certificateService;
@@ -94,6 +83,11 @@ public class LocationServiceImpl implements LocationService {
     @Autowired
     public void setCertificateLocationRepository(CertificateLocationRepository certificateLocationRepository) {
         this.certificateLocationRepository = certificateLocationRepository;
+    }
+
+    @Autowired
+    public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
+        this.raProfileRepository = raProfileRepository;
     }
 
     @Autowired
@@ -123,20 +117,36 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    public List<LocationDto> listLocation() {
-        List<Location> locations = locationRepository.findAll();
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST, parentResource = Resource.ENTITY, parentAction = ResourceAction.LIST)
+    public List<LocationDto> listLocation(SecurityFilter filter) {
+        filter.setParentRefProperty("entityInstanceReferenceUuid");
+        List<Location> locations = locationRepository.findUsingSecurityFilter(filter);
         return locations.stream().map(Location::mapToDtoSimple).collect(Collectors.toList());
     }
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    public List<LocationDto> listLocations(Optional<Boolean> enabled) {
-        return enabled.map(aBoolean -> locationRepository.findByEnabled(aBoolean).stream().map(Location::mapToDtoSimple).collect(Collectors.toList())).orElseGet(this::listLocation);
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
+    public List<LocationDto> listLocations(SecurityFilter filter, Optional<Boolean> enabled) {
+        if (enabled == null || !enabled.isPresent()) {
+            return locationRepository
+                    .findUsingSecurityFilter(filter)
+                    .stream()
+                    .map(Location::mapToDtoSimple)
+                    .collect(Collectors.toList());
+        } else {
+            return locationRepository
+                    .findUsingSecurityFilter(filter, enabled.get())
+                    .stream()
+                    .map(Location::mapToDtoSimple)
+                    .collect(Collectors.toList());
+        }
     }
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CREATE)
-    public LocationDto addLocation(AddLocationRequestDto dto) throws AlreadyExistException, LocationException, NotFoundException {
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.CREATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto dto) throws AlreadyExistException, LocationException, NotFoundException {
         if (StringUtils.isBlank(dto.getName())) {
             throw new ValidationException("Location name must not be empty");
         }
@@ -146,8 +156,8 @@ public class LocationServiceImpl implements LocationService {
             throw new AlreadyExistException(Location.class, dto.getName());
         }
 
-        EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(dto.getEntityInstanceUuid())
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, dto.getEntityInstanceUuid()));
+        EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
+                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
         List<AttributeDefinition> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), dto.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), dto.getName());
@@ -167,7 +177,8 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    public LocationDto getLocation(String locationUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DETAIL, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public LocationDto getLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -176,13 +187,14 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CHANGE)
-    public LocationDto editLocation(String locationUuid, EditLocationRequestDto dto) throws NotFoundException, LocationException {
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto dto) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         EntityInstanceReference entityInstanceRef;
-        entityInstanceRef = entityInstanceReferenceRepository.findByUuid(dto.getEntityInstanceUuid())
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, dto.getEntityInstanceUuid()));
+        entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
+                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
         List<AttributeDefinition> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), location.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), location.getName());
@@ -203,7 +215,8 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
-    public void removeLocation(String locationUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DELETE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public void deleteLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -211,7 +224,7 @@ public class LocationServiceImpl implements LocationService {
         if (!location.getCertificates().isEmpty()) {
             errors.add(ValidationError.create("Location {} contains {} Certificate", location.getName(),
                     location.getCertificates().size()));
-            location.getCertificates().forEach(c -> errors.add(ValidationError.create(c.getCertificate().getUuid())));
+            location.getCertificates().forEach(c -> errors.add(ValidationError.create(c.getCertificate().getUuid().toString())));
         }
 
         if (!errors.isEmpty()) {
@@ -226,7 +239,8 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.ENABLE)
-    public void enableLocation(String locationUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public void enableLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -238,7 +252,8 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DISABLE)
-    public void disableLocation(String locationUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public void disableLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -249,8 +264,9 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public List<AttributeDefinition> listPushAttributes(String locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY, parentAction = ResourceAction.ANY)
+    public List<AttributeDefinition> listPushAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         try {
@@ -265,8 +281,9 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public List<AttributeDefinition> listCsrAttributes(String locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY, parentAction = ResourceAction.ANY)
+    public List<AttributeDefinition> listCsrAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         try {
@@ -281,13 +298,14 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public LocationDto removeCertificateFromLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public LocationDto removeCertificateFromLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException {
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
+        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
-        CertificateLocationId clId = new CertificateLocationId(location.getId(), certificate.getId());
+        CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getUuid());
         CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
                 .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
 
@@ -330,7 +348,9 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public void removeCertificateFromLocations(String certificateUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
+    // TODO List locations using LocationService in CertificateService and then call removeCertificateFromLocations(SecuredUUID locationUUIDs, String certificateUUID) on location service
+    public void removeCertificateFromLocations(SecuredUUID certificateUuid) throws NotFoundException {
         Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
 
         Set<CertificateLocation> certificateLocations = certificate.getLocations();
@@ -376,11 +396,12 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public LocationDto pushCertificateToLocation(String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public LocationDto pushCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
+        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
         if (!location.isSupportMultipleEntries() && location.getCertificates().size() >= 1) {
             // record event in the certificate history
@@ -401,8 +422,7 @@ public class LocationServiceImpl implements LocationService {
 
         pushCertificateToLocation(
                 location, certificate,
-                request.getAttributes(), List.of()
-        );
+                request.getAttributes(), List.of());
 
         logger.info("Certificate {} successfully pushed to Location {}", certificateUuid, location.getName());
 
@@ -410,8 +430,9 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public LocationDto issueCertificateToLocation(String locationUuid, IssueToLocationRequestDto request) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public LocationDto issueCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String raProfileUuid, IssueToLocationRequestDto request) throws ConnectorException, LocationException {
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         if (!location.isSupportKeyManagement()) {
@@ -422,21 +443,35 @@ public class LocationServiceImpl implements LocationService {
             logger.debug("Location {}, {} does not support multiple entries", location.getName(), location.getUuid());
             throw new LocationException("Location " + location.getName() + " does not support multiple entries");
         }
-
+        RaProfile raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid)).orElseThrow(() -> new NotFoundException(raProfileUuid, RaProfile.class));
+        authorityPreChecks(raProfile);
         // generate new CSR
-        GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(location, request.getCsrAttributes());
+        GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(location, request.getCsrAttributes(), false);
         logger.info("Received certificate signing request from Location {}", location.getName());
 
         // issue new Certificate
-        ClientCertificateDataResponseDto clientCertificateDataResponseDto = issueCertificateForLocation(
-                location, generateCsrResponseDto.getCsr(), request.getIssueAttributes(), request.getRaProfileUuid());
-        Certificate certificate = certificateService.getCertificateEntity(clientCertificateDataResponseDto.getUuid());
+        Certificate certificate = null;
+        ClientCertificateDataResponseDto clientCertificateDataResponseDto = null;
+        try {
+            clientCertificateDataResponseDto = issueCertificateForLocation(
+                    location, generateCsrResponseDto.getCsr(), request.getIssueAttributes(), raProfileUuid);
+            certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(clientCertificateDataResponseDto.getUuid()));
+        } catch (Exception e) {
+            logger.error("Failed to issue Certificate", e.getMessage());
+            removeStash(location, generateCsrResponseDto.getMetadata());
+            throw new LocationException("Failed to issue certificate to the location. Error Issuing certificate from Authority. " + e.getMessage());
+        }
 
         // push new Certificate to Location
-        pushCertificateToLocation(
-                location, certificate,
-                generateCsrResponseDto.getPushAttributes(), request.getCsrAttributes()
-        );
+        try {
+            pushCertificateToLocation(
+                    location, certificate,
+                    generateCsrResponseDto.getPushAttributes(), request.getCsrAttributes());
+        } catch (Exception e) {
+            logger.error("Failed to push new certificate to location", e.getMessage());
+            removeStash(location, generateCsrResponseDto.getMetadata());
+            throw new LocationException("Failed to push new certificate to the location. Reason: " + e.getMessage());
+        }
 
         logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), location.getName());
 
@@ -444,8 +479,9 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public LocationDto updateLocationContent(String locationUuid) throws NotFoundException, LocationException {
-        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public LocationDto updateLocationContent(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
         EntityInstanceReference entityInstanceRef = location.getEntityInstanceReference();
@@ -475,11 +511,12 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public LocationDto renewCertificateInLocation(String locationUuid, String certificateUuid) throws NotFoundException, LocationException {
-        locationRepository.findByUuidAndEnabledIsTrue(locationUuid)
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
+    public LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws ConnectorException, LocationException {
+        Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        CertificateLocation certificateLocation = getCertificateLocation(locationUuid, certificateUuid);
+        CertificateLocation certificateLocation = getCertificateLocation(locationUuid.toString(), certificateUuid);
 
         // Check if everything is available to do the renewal
         if (certificateLocation.getPushAttributes() == null || certificateLocation.getPushAttributes().isEmpty()) {
@@ -499,42 +536,66 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + certificateLocation.getLocation().getName() + " does not support key management");
         }
 
-        Certificate certificateInScope = certificateService.getCertificateEntity(certificateUuid);
-        if(certificateInScope.getRaProfile() == null) {
+        Certificate certificateInScope = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        if (certificateInScope.getRaProfile() == null) {
             logger.debug("Certificate {} is not associated with any RA Profile. Cannot renew the certificate", certificateInScope.getCommonName());
             throw new LocationException("Certificate is not associated with any RA Profile. Cannot renew the certificate in the location");
         }
-
-        // remove the current certificate from location
-        removeCertificateFromLocation(certificateLocation.getLocation().getUuid(), certificateLocation.getCertificate().getUuid());
+        //Prechecks for certificate renewal
+        String raProfileUuid = certificateInScope.getRaProfile().getUuid().toString();
+        RaProfile raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid)).orElseThrow(() -> new NotFoundException(raProfileUuid, RaProfile.class));
+        authorityPreChecks(raProfile);
 
         // generate new CSR
-        GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(certificateLocation.getLocation(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
+        GenerateCsrResponseDto generateCsrResponseDto = generateCsrLocation(certificateLocation.getLocation(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()), true);
         logger.info("Received certificate signing request from Location {}", certificateLocation.getLocation().getName());
 
         // renew existing Certificate
-        ClientCertificateDataResponseDto clientCertificateDataResponseDto = renewCertificate(certificateLocation, generateCsrResponseDto.getCsr());
-        Certificate certificate = certificateService.getCertificateEntity(clientCertificateDataResponseDto.getUuid());
+        ClientCertificateDataResponseDto clientCertificateDataResponseDto = null;
+        Certificate certificate = null;
+
+        try {
+            clientCertificateDataResponseDto = renewCertificate(certificateLocation, generateCsrResponseDto.getCsr());
+            certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(clientCertificateDataResponseDto.getUuid()));
+        } catch (Exception e) {
+            logger.error("Failed to renew Certificate", e.getMessage());
+            throw new LocationException("Failed to renew certificate to the location. Error Issuing certificate from Authority. " + e.getMessage());
+        }
 
         // push renewed Certificate to Location
-        pushCertificateToLocation(
-                certificateLocation.getLocation(), certificate,
-                generateCsrResponseDto.getPushAttributes(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes())
-        );
+        try {
+            pushCertificateToLocation(
+                    certificateLocation.getLocation(), certificate,
+                    generateCsrResponseDto.getPushAttributes(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
+
+            //Delete current certificate in location table
+            CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificateInScope.getUuid());
+            CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
+                    .orElse(null);
+
+            if (certificateInLocation != null) {
+
+                certificateLocationRepository.delete(certificateInLocation);
+                location.getCertificates().remove(certificateLocation);
+                locationRepository.save(location);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to Push new Certificate", e.getMessage());
+            throw new LocationException("Failed to push the new certificate to the location. Reason: " + e.getMessage());
+        }
 
         logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), certificateLocation.getLocation().getName());
-
-        Location location = certificateLocation.getLocation();
 
         return maskSecret(location.mapToDto());
     }
 
     // PRIVATE METHODS
 
-    private GenerateCsrResponseDto generateCsrLocation(Location location, List<RequestAttributeDto> csrAttributes) throws LocationException {
+    private GenerateCsrResponseDto generateCsrLocation(Location location, List<RequestAttributeDto> csrAttributes, Boolean isRenewalRequest) throws LocationException {
         GenerateCsrRequestDto generateCsrRequestDto = new GenerateCsrRequestDto();
         generateCsrRequestDto.setLocationAttributes(location.getRequestAttributes());
         generateCsrRequestDto.setCsrAttributes(csrAttributes);
+        generateCsrRequestDto.setRenewal(isRenewalRequest);
 
         GenerateCsrResponseDto generateCsrResponseDto;
         try {
@@ -559,9 +620,15 @@ public class LocationServiceImpl implements LocationService {
 
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
-            clientCertificateDataResponseDto = clientOperationService.issueCertificate(
-                    raProfileUuid, clientCertificateSignRequestDto, true);
-        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException e) {
+            // TODO : introduces raProfileRepository, services probably need to be reorganized
+            Optional<RaProfile> raProfile = raProfileRepository.findByUuid(UUID.fromString(raProfileUuid));
+            if (raProfile.isEmpty() || raProfile.get().getAuthorityInstanceReferenceUuid() == null) {
+                logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
+                        ". RA profile is not existing or does not have set authority");
+                throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". RA profile is not existing or does not have set authority");
+            }
+            clientCertificateDataResponseDto = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.get().getAuthorityInstanceReferenceUuid()), raProfile.get().getSecuredUuid(), clientCertificateSignRequestDto);
+        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException | NoSuchAlgorithmException e) {
             logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
                     ": " + e.getMessage());
             throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". Reason: " + e.getMessage());
@@ -577,11 +644,13 @@ public class LocationServiceImpl implements LocationService {
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
             clientCertificateDataResponseDto = clientOperationService.renewCertificate(
-                    certificateLocation.getCertificate().getRaProfile().getUuid(),
-                    certificateLocation.getCertificate().getUuid(),
-                    clientCertificateRenewRequestDto, true
+                    SecuredParentUUID.fromUUID(certificateLocation.getCertificate().getRaProfile().getAuthorityInstanceReferenceUuid()),
+                    certificateLocation.getCertificate().getRaProfile().getSecuredUuid(),
+                    certificateLocation.getCertificate().getSecuredUuid().toString(),
+                    clientCertificateRenewRequestDto
             );
-        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException | CertificateOperationException e) {
+        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException |
+                CertificateOperationException e) {
             logger.debug("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() +
                     ", " + certificateLocation.getLocation().getUuid() + ": " + e.getMessage());
             throw new LocationException("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() + ". Reason: " + e.getMessage());
@@ -590,7 +659,8 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private void pushCertificateToLocation(Location location, Certificate certificate,
-                                           List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes) throws LocationException {
+                                           List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes
+    ) throws LocationException {
         PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
         pushCertificateRequestDto.setCertificate(certificate.getCertificateContent().getContent());
         // TODO: support for different types of certificate
@@ -629,8 +699,8 @@ public class LocationServiceImpl implements LocationService {
         List<AttributeDefinition> fullPushAttributes;
         List<AttributeDefinition> fullCsrAttributes;
         try {
-            fullPushAttributes = listPushAttributes(location.getUuid());
-            fullCsrAttributes = listCsrAttributes(location.getUuid());
+            fullPushAttributes = listPushAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
+            fullCsrAttributes = listCsrAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
         } catch (NotFoundException e) {
             logger.error("Unable to find the location with uuid: {}", location.getUuid());
             throw new LocationException("Failed to get Attributes for Location: " + location.getName() + ". Location not found");
@@ -643,6 +713,7 @@ public class LocationServiceImpl implements LocationService {
         certificateLocation.setLocation(location);
         certificateLocation.setCertificate(certificate);
         certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
+        certificateLocation.setWithKey(pushCertificateResponseDto.isWithKey());
         certificateLocation.setPushAttributes(mergedPushAttributes);
         certificateLocation.setCsrAttributes(mergedCsrAttributes);
 
@@ -693,12 +764,12 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private CertificateLocation getCertificateLocation(String locationUuid, String certificateUuid) throws NotFoundException {
-        Location location = locationRepository.findByUuid(locationUuid)
+        Location location = locationRepository.findByUuid(UUID.fromString(locationUuid))
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        Certificate certificate = certificateService.getCertificateEntity(certificateUuid);
+        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
-        CertificateLocationId clId = new CertificateLocationId(location.getId(), certificate.getId());
+        CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getUuid());
         return certificateLocationRepository.findById(clId)
                 .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
     }
@@ -813,9 +884,19 @@ public class LocationServiceImpl implements LocationService {
         Iterator<CertificateLocation> iterator = entity.getCertificates().iterator();
         while (iterator.hasNext()) {
             CertificateLocation cl = iterator.next();
+
             if (!cls.contains(cl)) {
                 certificateLocationRepository.delete(cl);
                 iterator.remove();
+            } else {
+                CertificateLocation lc = cls.stream().filter(e -> e.getCertificate().getUuid().equals(cl.getCertificate().getUuid())).findFirst().orElse(null);
+                if (lc != null) {
+                    cl.setMetadata(lc.getMetadata());
+                    cl.setCsrAttributes(lc.getCsrAttributes());
+                    cl.setPushAttributes(lc.getPushAttributes());
+                    cl.setWithKey(lc.isWithKey());
+                    certificateLocationRepository.save(cl);
+                }
             }
         }
 
@@ -823,38 +904,47 @@ public class LocationServiceImpl implements LocationService {
         locationRepository.save(entity);
     }
 
-    private LocationDto maskSecret(LocationDto locationDto){
-        for(ResponseAttributeDto responseAttributeDto: locationDto.getAttributes()){
-            if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
+    private LocationDto maskSecret(LocationDto locationDto) {
+        for (ResponseAttributeDto responseAttributeDto : locationDto.getAttributes()) {
+            if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
                 responseAttributeDto.setContent(new BaseAttributeContent<String>(null));
             }
         }
         return locationDto;
     }
 
-    private List<AttributeDefinition> listPushAttributes(ConnectorDto connectorDto, String entityInstanceUuid) throws LocationException {
-
-        try {
-            return locationApiClient.listPushCertificateAttributes(
-                    connectorDto,
-                    entityInstanceUuid);
-        } catch (ConnectorException e) {
-            logger.debug("Failed to list push Attributes for Entity Instance {}: {}",
-                    entityInstanceUuid, e.getMessage());
-            throw new LocationException("Failed to list push Attributes for the Entity " + entityInstanceUuid + ". Reason: " + e.getMessage());
+    private void authorityPreChecks(RaProfile raProfile) throws ValidationException {
+        //Check if RA Profile is enabled
+        if (!raProfile.getEnabled()) {
+            throw new ValidationException(ValidationError.create("RA Profile is disabled"));
         }
+
+        //Check if RA Profile has Authority
+        if (raProfile.getAuthorityInstanceReference() == null) {
+            throw new ValidationException(ValidationError.create("RA Profile does not have proper authority associated"));
+        }
+        //Check if Authority is Enabled
+        if (!raProfile.getAuthorityInstanceReference().getStatus().equals("connected")) {
+            throw new ValidationException(ValidationError.create("Associated Authority is not connected"));
+        }
+
+        //Check if Authority has Connector
+        if (raProfile.getAuthorityInstanceReference().getConnector() == null) {
+            throw new ValidationException(ValidationError.create("Associated authority does not have Connector associated"));
+        }
+
+        if (!raProfile.getAuthorityInstanceReference().getConnector().getStatus().equals(ConnectorStatus.CONNECTED)) {
+            throw new ValidationException(ValidationError.create("Authority Provider has Invalid State"));
+        }
+
     }
 
-    private List<AttributeDefinition> listCsrAttributes(ConnectorDto connectorDto, String entityInstanceUuid) throws LocationException {
-
-        try {
-            return locationApiClient.listGenerateCsrAttributes(
-                    connectorDto,
-                    entityInstanceUuid);
-        } catch (ConnectorException e) {
-            logger.debug("Failed to list CSR Attributes for Entity Instance {}: {}",
-                    entityInstanceUuid, e.getMessage());
-            throw new LocationException("Failed to list CSR Attributes for the Entity " + entityInstanceUuid + ". Reason: " + e.getMessage());
-        }
+    private void removeStash(Location location, Map<String, Object> metadata) throws ConnectorException, LocationException {
+        RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
+        removeCertificateRequestDto.setLocationAttributes(location.getRequestAttributes());
+        removeCertificateRequestDto.setCertificateMetadata(metadata);
+        locationApiClient.removeCertificateFromLocation(location.getEntityInstanceReference().getConnector().mapToDto(),
+                location.getEntityInstanceReference().getEntityInstanceUuid(),
+                removeCertificateRequestDto);
     }
 }

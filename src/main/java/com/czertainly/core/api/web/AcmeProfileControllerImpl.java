@@ -11,6 +11,10 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
+import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -27,13 +31,14 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     private AcmeProfileService acmeProfileService;
 
     @Override
-    public List<AcmeProfileListDto> listAcmeProfile() {
-        return acmeProfileService.listAcmeProfile();
+    @AuthEndpoint(resourceName = Resource.ACME_PROFILE)
+    public List<AcmeProfileListDto> listAcmeProfiles() {
+        return acmeProfileService.listAcmeProfile(SecurityFilter.create());
     }
 
     @Override
     public AcmeProfileDto getAcmeProfile(String uuid) throws NotFoundException {
-        return acmeProfileService.getAcmeProfile(uuid);
+        return acmeProfileService.getAcmeProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
@@ -48,47 +53,47 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    public AcmeProfileDto updateAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
-        return acmeProfileService.updateAcmeProfile(uuid, request);
+    public AcmeProfileDto editAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
+        return acmeProfileService.editAcmeProfile(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void deleteAcmeProfile(String uuid) throws NotFoundException, ValidationException {
-        acmeProfileService.deleteAcmeProfile(uuid);
+        acmeProfileService.deleteAcmeProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void enableAcmeProfile(String uuid) throws NotFoundException {
-        acmeProfileService.enableAcmeProfile(uuid);
+        acmeProfileService.enableAcmeProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void disableAcmeProfile(String uuid) throws NotFoundException {
-        acmeProfileService.disableAcmeProfile(uuid);
+        acmeProfileService.disableAcmeProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void bulkEnableAcmeProfile(List<String> uuids) {
-        acmeProfileService.bulkEnableAcmeProfile(uuids);
+        acmeProfileService.bulkEnableAcmeProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public void bulkDisableAcmeProfile(List<String> uuids) {
-        acmeProfileService.bulkDisableAcmeProfile(uuids);
+        acmeProfileService.bulkDisableAcmeProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public List<BulkActionMessageDto> bulkDeleteAcmeProfile(List<String> uuids) {
-        return acmeProfileService.bulkDeleteAcmeProfile(uuids);
+        return acmeProfileService.bulkDeleteAcmeProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
-        return acmeProfileService.bulkForceRemoveACMEProfiles(uuids);
+    public List<BulkActionMessageDto> forceDeleteACMEProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+        return acmeProfileService.bulkForceRemoveACMEProfiles(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public void updateRaProfile(String uuid, String raProfileUuid) throws NotFoundException {
-        acmeProfileService.updateRaProfile(uuid, raProfileUuid);
+        acmeProfileService.updateRaProfile(SecuredUUID.fromString(uuid), raProfileUuid);
     }
 }

@@ -23,10 +23,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
+// TODO AUTH - should be secured with @ExternalAuthorization?
 public class CertificateEventHistoryServiceImpl implements CertificateEventHistoryService {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateEventHistoryServiceImpl.class);
@@ -46,7 +48,7 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
         CertificateEventHistory history = new CertificateEventHistory();
         history.setEvent(event);
-        history.setCertificate(certificate);
+        history.setCertificateUuid(certificate.getUuid());
         history.setStatus(status);
         history.setAdditionalInformation(additionalInformation);
         history.setMessage(message);
@@ -65,7 +67,7 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     }
 
     @Override
-    public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException {
+    public List<CertificateEventHistoryDto> getCertificateEventHistory(UUID uuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         return certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream().map(CertificateEventHistory::mapToDto).collect(Collectors.toList());
     }

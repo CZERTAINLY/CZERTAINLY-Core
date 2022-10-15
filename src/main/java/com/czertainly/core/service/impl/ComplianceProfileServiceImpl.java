@@ -19,19 +19,19 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.ComplianceGroup;
-import com.czertainly.core.dao.entity.ComplianceProfile;
-import com.czertainly.core.dao.entity.ComplianceProfileRule;
-import com.czertainly.core.dao.entity.ComplianceRule;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.ComplianceGroupRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
@@ -43,14 +43,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -85,13 +78,15 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
-    public List<ComplianceProfilesListDto> listComplianceProfiles() {
-        return complianceProfileRepository.findAll().stream().map(ComplianceProfile::ListMapToDTO).collect(Collectors.toList());
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
+    public List<ComplianceProfilesListDto> listComplianceProfiles(SecurityFilter filter) {
+        return complianceProfileRepository.findUsingSecurityFilter(filter).stream().map(ComplianceProfile::ListMapToDTO).collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
-    public ComplianceProfileDto getComplianceProfile(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
+    public ComplianceProfileDto getComplianceProfile(SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting Compliance Profile details for: {}", uuid);
         ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
         logger.debug("Compliance Profile: {}", complianceProfile);
@@ -99,13 +94,15 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
-    public ComplianceProfile getComplianceProfileEntity(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
+    public ComplianceProfile getComplianceProfileEntity(SecuredUUID uuid) throws NotFoundException {
         logger.debug("Gathering details for Entity: {}", uuid);
         return complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CREATE)
     public ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
         logger.info("Creating new Compliance Profile: {}", request);
         if (checkComplianceProfileEntityByName(request.getName())) {
@@ -123,7 +120,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_RULE, operation = OperationType.CREATE)
-    public ComplianceProfileDto addRule(String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public ComplianceProfileRuleDto addRule(SecuredUUID uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
         logger.info("Adding new rule : {} to the profile: {}", request, uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Identified profile to add rule: {}", complianceProfile);
@@ -136,32 +134,35 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.debug("Rule Entity: {}", complianceRule);
         ComplianceProfileRule complianceProfileRule = generateComplianceProfileRule(complianceProfile, complianceRule, request.getAttributes());
         complianceProfileRuleRepository.save(complianceProfileRule);
-        return complianceProfile.mapToDto();
+        return complianceProfileRule.mapToDto();
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_RULE, operation = OperationType.DELETE)
-    public ComplianceProfileDto removeRule(String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public ComplianceProfileRuleDto removeRule(SecuredUUID uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
         logger.info("Removing rule : {} from the profile: {}", request, uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         Connector connector = getConnectorEntity(request.getConnectorUuid());
         ComplianceRule complianceRule = getComplianceRuleEntity(request.getRuleUuid(), connector, request.getKind());
         ComplianceProfileRule complianceProfileRule = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule).orElseThrow(() -> new NotFoundException(ComplianceProfileRule.class, request.getRuleUuid()));
-        complianceProfile.getComplianceRules().remove(complianceProfileRule);
+        ComplianceProfileRuleDto response = complianceProfileRule.mapToDto();
         complianceProfileRuleRepository.delete(complianceProfileRule);
+        complianceProfile.getComplianceRules().remove(complianceProfileRule);
         complianceProfileRepository.save(complianceProfile);
         logger.debug("Rule: {} removed", request);
-        return complianceProfile.mapToDto();
+        return response;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_GROUP, operation = OperationType.CREATE)
-    public ComplianceProfileDto addGroup(String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public ComplianceProfileDto addGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException {
         logger.info("Adding new group : {} to the profile: {}", request, uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Identified profile to add group: {}", complianceProfile);
         Connector connector = getConnectorEntity(request.getConnectorUuid());
-        boolean isAvail = complianceProfile.getGroups().stream().anyMatch(r -> r.getUuid().equals(request.getGroupUuid()) && r.getConnector().getUuid().equals(request.getConnectorUuid()) && r.getKind().equals(request.getKind()));
+        boolean isAvail = complianceProfile.getGroups().stream().anyMatch(r -> r.getUuid().toString().equals(request.getGroupUuid()) && r.getConnector().getUuid().toString().equals(request.getConnectorUuid()) && r.getKind().equals(request.getKind()));
         if (isAvail) {
             logger.error("Group: {} already exists in the Compliance Profile", request);
             throw new AlreadyExistException("Selected group is already available in the Compliance Profile");
@@ -175,7 +176,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_GROUP, operation = OperationType.DELETE)
-    public ComplianceProfileDto removeGroup(String uuid, ComplianceGroupRequestDto request) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public ComplianceProfileDto removeGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws NotFoundException {
         logger.info("Removing group : {} from the profile: {}", request, uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         Connector connector = getConnectorEntity(request.getConnectorUuid());
@@ -188,36 +190,39 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CHANGE)
-    public List<SimplifiedRaProfileDto> getAssociatedRAProfiles(String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
+    public List<SimplifiedRaProfileDto> getAssociatedRAProfiles(SecuredUUID uuid) throws NotFoundException {
         logger.info("Request to list RA Profiles for the profile with UUID: {}", uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Associated RA Profiles: {}", complianceProfile.getRaProfiles());
-        return complianceProfile.getRaProfiles().stream().map(RaProfile::mapToDtoSimplified).collect(Collectors.toList());
+        List<String> raProfileUuids = raProfileService.listRaProfiles(SecurityFilter.create(), null).stream().map(RaProfileDto::getUuid).collect(Collectors.toList());
+        return complianceProfile.getRaProfiles().stream().filter(e -> raProfileUuids.contains(e.getUuid().toString())).map(RaProfile::mapToDtoSimplified).collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.DELETE)
-    public void removeComplianceProfile(String uuid) throws NotFoundException, ValidationException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DELETE)
+    public void deleteComplianceProfile(SecuredUUID uuid) throws NotFoundException, ValidationException {
         logger.info("Request to delete the Compliance Profile with UUID: {}", uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Profile identified: {}", complianceProfile);
-        deleteComplianceProfile(complianceProfile);
+        deleteComplianceProfile(complianceProfile, false);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.DELETE)
-    public List<BulkActionMessageDto> bulkRemoveComplianceProfiles(List<String> uuids) throws ValidationException {
-        logger.info("Request to remove Compliance Profiles with UUIDs: {}", String.join(",", uuids));
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<SecuredUUID> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
-        for (String uuid : uuids) {
+        for (SecuredUUID uuid : uuids) {
             logger.debug("Removing profile with UUID: {}", uuid);
             ComplianceProfile complianceProfile = null;
             try {
                 complianceProfile = getComplianceProfileEntityByUuid(uuid);
-                deleteComplianceProfile(complianceProfile);
+                deleteComplianceProfile(complianceProfile, false);
             } catch (Exception e) {
                 logger.warn("Unable to find the Compliance Profile with UUID: {}, Proceeding to next", uuid);
-                messages.add(new BulkActionMessageDto(uuid, complianceProfile != null ? complianceProfile.getName() : "", e.getMessage()));
+                messages.add(new BulkActionMessageDto(uuid.toString(), complianceProfile != null ? complianceProfile.getName() : "", e.getMessage()));
             }
         }
         logger.debug("Warning messages: {}", messages);
@@ -226,26 +231,18 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.FORCE_DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveComplianceProfiles(List<String> uuids) {
-        logger.info("Requesting force remove Compliance Profile: {}", String.join(", ", uuids));
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DELETE)
+    public List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         ComplianceProfile complianceProfile = null;
-        for (String uuid : uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 complianceProfile = getComplianceProfileEntityByUuid(uuid);
                 logger.debug("Trying to remove Compliance Profile: {}", complianceProfile);
-                if (!complianceProfile.getRaProfiles().isEmpty()) {
-                    for (RaProfile ref : complianceProfile.getRaProfiles()) {
-                        if (ref.getComplianceProfiles() != null) {
-                            ref.getComplianceProfiles().remove(complianceProfile);
-                        }
-                        raProfileService.updateRaProfileEntity(ref);
-                    }
-                }
-                deleteComplianceProfile(complianceProfile);
+                deleteComplianceProfile(complianceProfile, true);
             } catch (Exception e) {
                 logger.warn("Unable to delete the Compliance Profile with uuid {}. It may have been already deleted", uuid);
-                messages.add(new BulkActionMessageDto(uuid, complianceProfile != null ? complianceProfile.getName() : "", e.getMessage()));
+                messages.add(new BulkActionMessageDto(uuid.toString(), complianceProfile != null ? complianceProfile.getName() : "", e.getMessage()));
             }
         }
         return messages;
@@ -253,6 +250,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_RULE, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
     public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException {
         logger.info("Gathering Compliance Rules for Provider: {}, Kind: {}, CertificateType: {}", complianceProviderUuid, kind, certificateType);
         List<ComplianceRulesListResponseDto> complianceRules = new ArrayList<>();
@@ -271,14 +269,14 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 logger.debug("Fetching data for all kinds from the connector: {}", connector);
 
                 Optional<FunctionGroupDto> functionGroup = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst();
-                if(functionGroup.isPresent()) {
-                    for (String connectorKind : functionGroup.get().getKinds()){
+                if (functionGroup.isPresent()) {
+                    for (String connectorKind : functionGroup.get().getKinds()) {
                         logger.debug("Fetching data for Kind: {}", connectorKind);
                         List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, connectorKind, certificateType);
                         complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, connectorKind));
                     }
-                }
-                else logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
+                } else
+                    logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
             }
         } else {
             logger.debug("Finding rules from all available connectors in the inventory");
@@ -292,14 +290,14 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                     logger.debug("Fetching data for all kinds available in the connector");
 
                     Optional<FunctionGroupDto> functionGroup = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst();
-                    if(functionGroup.isPresent()) {
-                        for (String connectorKind : functionGroup.get().getKinds()){
+                    if (functionGroup.isPresent()) {
+                        for (String connectorKind : functionGroup.get().getKinds()) {
                             logger.debug("Fetching data from Kind: {}", connectorKind);
                             List<ComplianceRule> response = complianceRuleRepository.findByConnectorAndKindAndCertificateTypeIn(connector, connectorKind, certificateType);
                             complianceRules.add(frameComplianceRulesResponseFromConnectorResponse(response, connector, connectorKind));
                         }
-                    }
-                    else logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
+                    } else
+                        logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
                 }
             }
         }
@@ -309,6 +307,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_GROUP, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
     public List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException {
         logger.info("Gathering Compliance Groups for Provider: {}, Kind: {}", complianceProviderUuid, kind);
         List<ComplianceGroupsListResponseDto> complianceGroups = new ArrayList<>();
@@ -324,14 +323,14 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 logger.debug("Fetching data for all kinds from the connector: {}", connector);
 
                 Optional<FunctionGroupDto> functionGroup = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst();
-                if(functionGroup.isPresent()) {
+                if (functionGroup.isPresent()) {
                     for (String connectorKind : functionGroup.get().getKinds()) {
                         logger.debug("Fetching data for Kind: {}", connectorKind);
                         List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, connectorKind);
                         complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, connectorKind));
                     }
-                }
-                else logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
+                } else
+                    logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
             }
         } else {
             logger.debug("Finding rules from all available connectors in the inventory");
@@ -345,14 +344,14 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                     logger.debug("Fetching data for all kinds available in the connector");
 
                     Optional<FunctionGroupDto> functionGroup = connector.mapToDto().getFunctionGroups().stream().filter(r -> r.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER)).findFirst();
-                    if(functionGroup.isPresent()) {
-                        for (String connectorKind : functionGroup.get().getKinds()){
+                    if (functionGroup.isPresent()) {
+                        for (String connectorKind : functionGroup.get().getKinds()) {
                             logger.debug("Fetching data from Kind: {}", connectorKind);
                             List<ComplianceGroup> response = complianceGroupRepository.findByConnectorAndKind(connector, connectorKind);
                             complianceGroups.add(frameComplianceGroupsResponseFromConnectorResponse(response, connector, connectorKind));
                         }
-                    }
-                    else logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
+                    } else
+                        logger.debug("No kinds of function group {} in the connector: {}", FunctionGroupCode.COMPLIANCE_PROVIDER, connector);
                 }
             }
         }
@@ -361,10 +360,11 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CHANGE)
-    public void associateProfile(String uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
         logger.info("Associate RA Profiles: {} to Compliance Profile: {}", raprofile, uuid);
         for (String raProfileUuid : raprofile.getRaProfileUuids()) {
-            RaProfile raProfile = raProfileService.getRaProfileEntity(raProfileUuid);
+            RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromString(raProfileUuid));
             ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
             if (raProfile.getComplianceProfiles() != null) {
                 if (raProfile.getComplianceProfiles().contains(complianceProfile)) {
@@ -376,7 +376,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 raProfile.setComplianceProfiles(new HashSet<>(List.of(complianceProfile)));
             }
             try {
-                complianceService.complianceCheckForRaProfile(raProfileUuid);
+                complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfileUuid));
             } catch (ConnectorException e) {
                 logger.error("Unable to check compliance: ", e);
             }
@@ -386,10 +386,11 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CHANGE)
-    public void disassociateProfile(String uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public void disassociateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
         logger.info("Associate RA Profiles: {} to Compliance Profile: {}", raprofile, uuid);
         for (String raProfileUuid : raprofile.getRaProfileUuids()) {
-            RaProfile raProfile = raProfileService.getRaProfileEntity(raProfileUuid);
+            RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromString(raProfileUuid));
             ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
             if (raProfile.getComplianceProfiles() != null) {
                 if (!raProfile.getComplianceProfiles().contains(complianceProfile)) {
@@ -407,7 +408,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 }
             } else {
                 try {
-                    complianceService.complianceCheckForRaProfile(raProfileUuid);
+                    complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfileUuid));
                 } catch (ConnectorException e) {
                     logger.error("Unable to check compliance: ", e);
                 }
@@ -460,8 +461,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
-    public void checkCompliance(ComplianceProfileComplianceCheckDto request) {
-        for (String uuid : request.getComplianceProfileUuids()) {
+    public void checkCompliance(List<SecuredUUID> uuids) {
+        for (SecuredUUID uuid : uuids) {
             try {
                 complianceService.complianceCheckForComplianceProfile(uuid);
             } catch (Exception e) {
@@ -485,7 +486,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             List<ComplianceRule> complianceRulesFromConnector = complianceRuleRepository.findByConnectorAndKind(connector, request.getKind());
             Map<String, ComplianceRule> ruleMap = new HashMap<>();
             if (request.getRules() != null && !request.getRules().isEmpty()) {
-                complianceRulesFromConnector.forEach(r -> ruleMap.put(r.getUuid(), r));
+                complianceRulesFromConnector.forEach(r -> ruleMap.put(r.getUuid().toString(), r));
                 for (ComplianceRequestRulesDto complianceRequestRulesDto : request.getRules()) {
                     if (ruleMap.get(complianceRequestRulesDto.getUuid()) != null) {
                         ComplianceProfileRule complianceProfileRule = generateComplianceProfileRule(profile, ruleMap.get(complianceRequestRulesDto.getUuid()), complianceRequestRulesDto.getAttributes());
@@ -497,7 +498,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             }
             if (request.getGroups() != null && !request.getGroups().isEmpty()) {
                 for (String group : request.getGroups()) {
-                    ComplianceGroup complianceGroup = complianceGroupRepository.findByUuidAndConnectorAndKind(group, connector, request.getKind()).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, group));
+                    ComplianceGroup complianceGroup = complianceGroupRepository.findByUuidAndConnectorAndKind(UUID.fromString(group), connector, request.getKind()).orElseThrow(() -> new NotFoundException(ComplianceGroup.class, group));
                     profile.getGroups().add(complianceGroup);
                 }
             }
@@ -515,6 +516,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             }
         }
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
+        complianceProfileRule.setComplianceProfileUuid(complianceProfile.getUuid());
         complianceProfileRule.setComplianceProfile(complianceProfile);
         complianceProfileRule.setComplianceRule(complianceRule);
         complianceProfileRule.setAttributes(attributes);
@@ -527,7 +529,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         return complianceProfileRepository.findByName(name).isPresent();
     }
 
-    private ComplianceProfile getComplianceProfileEntityByUuid(String uuid) throws NotFoundException {
+    private ComplianceProfile getComplianceProfileEntityByUuid(SecuredUUID uuid) throws NotFoundException {
         return complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
     }
 
@@ -535,7 +537,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.error("Connector Response: {}", response);
         ComplianceRulesListResponseDto dto = new ComplianceRulesListResponseDto();
         dto.setConnectorName(connector.getName());
-        dto.setConnectorUuid(connector.getUuid());
+        dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind(kind);
         dto.setRules(response.stream().map(ComplianceRule::mapToComplianceResponse).collect(Collectors.toList()));
         return dto;
@@ -545,7 +547,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.error("Connector Response: {}", response);
         ComplianceGroupsListResponseDto dto = new ComplianceGroupsListResponseDto();
         dto.setConnectorName(connector.getName());
-        dto.setConnectorUuid(connector.getUuid());
+        dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind(kind);
         dto.setGroups(response.stream().map(ComplianceGroup::mapToGroupResponse).collect(Collectors.toList()));
         return dto;
@@ -553,7 +555,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     private ComplianceRule getComplianceRuleEntity(String ruleUuid, Connector connector, String kind) throws NotFoundException {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(
-                        ruleUuid,
+                        UUID.fromString(ruleUuid),
                         connector,
                         kind)
                 .orElseThrow(
@@ -569,7 +571,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     private ComplianceGroup getComplianceGroupEntity(String groupUuid, Connector connector, String kind) throws NotFoundException {
         return complianceGroupRepository.findByUuidAndConnectorAndKind(
-                        groupUuid,
+                        UUID.fromString(groupUuid),
                         connector,
                         kind)
                 .orElseThrow(
@@ -579,7 +581,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     private Connector getConnectorEntity(String uuid) throws NotFoundException {
-        return connectorRepository.findByUuid(uuid)
+        return connectorRepository.findByUuid(UUID.fromString(uuid))
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
     }
 
@@ -598,18 +600,19 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         return connectors;
     }
 
-    private void deleteComplianceProfile(ComplianceProfile complianceProfile) {
-        ValidationError error = null;
-        if (!complianceProfile.getRaProfiles().isEmpty()) {
-            logger.warn("Compliance Profile has dependent RA Profile: {}", complianceProfile.getRaProfiles());
-            error = ValidationError.create("Dependent RA profiles: {}", complianceProfile.getRaProfiles().stream().map(RaProfile::getName).collect(Collectors.toSet()));
-        }
+    private void deleteComplianceProfile(ComplianceProfile complianceProfile, Boolean isForce) {
+        if (!isForce) {
+            ValidationError error = null;
+            if (!complianceProfile.getRaProfiles().isEmpty()) {
+                logger.warn("Compliance Profile has dependent RA Profile: {}", complianceProfile.getRaProfiles());
+                error = ValidationError.create("Dependent RA profiles: {}", complianceProfile.getRaProfiles().stream().map(RaProfile::getName).collect(Collectors.toSet()));
+            }
 
-        if (error != null) {
-            logger.error("Unable to delete Compliance Profile due to dependency: {}", complianceProfile);
-            throw new ValidationException(error);
+            if (error != null) {
+                logger.error("Unable to delete Compliance Profile due to dependency: {}", complianceProfile);
+                throw new ValidationException(error);
+            }
         }
-
         complianceProfileRepository.delete(complianceProfile);
     }
 }

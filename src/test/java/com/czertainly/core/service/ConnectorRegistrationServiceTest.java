@@ -4,22 +4,17 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.core.connector.AuthType;
+import com.czertainly.core.util.AuthenticationTokenTestHelper;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="ANONYMOUS")
-public class ConnectorRegistrationServiceTest {
+public class ConnectorRegistrationServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private ConnectorRegistrationService connectorRegistrationService;
@@ -47,5 +42,10 @@ public class ConnectorRegistrationServiceTest {
         request.setAuthType(AuthType.NONE);
         request.setUrl("localhost:3665");
         connectorRegistrationService.registerConnector(request);
+    }
+
+    @Override
+    protected Authentication getAuthentication() {
+        return AuthenticationTokenTestHelper.getAnonymousToken("anonymousUser");
     }
 }

@@ -5,18 +5,17 @@ import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.Table;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "endpoint")
 public class Endpoint extends UniquelyIdentified implements Serializable, DtoMapper<EndpointDto> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "endpoint_seq")
-    @SequenceGenerator(name = "endpoint_seq", sequenceName = "endpoint_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "name")
     private String name;
@@ -31,13 +30,16 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     private Boolean required;
 
     @ManyToOne
-    @JoinColumn(name = "function_group_id", nullable = false)
+    @JoinColumn(name = "function_group_uuid", nullable = false, insertable = false, updatable = false)
     private FunctionGroup functionGroup;
+
+    @Column(name = "function_group_uuid", nullable = false)
+    private UUID functionGroupUuid;
 
     @Override
     public EndpointDto mapToDto() {
         EndpointDto dto = new EndpointDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setContext(this.context);
         dto.setMethod(this.method);
@@ -48,21 +50,12 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("name", name)
                 .append("context", context)
                 .append("method", method)
                 .append("required", required)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {
@@ -95,5 +88,17 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
 
     public void setRequired(Boolean required) {
         this.required = required;
+    }
+
+    public UUID getFunctionGroupUuid() {
+        return functionGroupUuid;
+    }
+
+    public void setFunctionGroupUuid(UUID functionGroupUuid) {
+        this.functionGroupUuid = functionGroupUuid;
+    }
+
+    public void setFunctionGroupUuid(String functionGroupUuid) {
+        this.functionGroupUuid = UUID.fromString(functionGroupUuid);
     }
 }

@@ -3,7 +3,7 @@ package com.czertainly.core.dao.entity.acme;
 import com.czertainly.api.model.core.acme.Challenge;
 import com.czertainly.api.model.core.acme.ChallengeStatus;
 import com.czertainly.api.model.core.acme.ChallengeType;
-import com.czertainly.core.dao.entity.Audited;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -13,15 +13,11 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.UUID;
 
 @Entity
 @Table(name = "acme_challenge")
-public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Challenge> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_new_challenge_seq")
-    @SequenceGenerator(name = "acme_new_challenge_seq", sequenceName = "acme_new_challenge_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Challenge> {
 
     @Column(name="challenge_id")
     private String challengeId;
@@ -41,8 +37,11 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
     private Date validated;
 
     @OneToOne
-    @JoinColumn(name = "authorization_id", nullable = false)
+    @JoinColumn(name = "authorization_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeAuthorization authorization;
+
+    @Column(name = "authorization_uuid", nullable = false)
+    private UUID authorizationUuid;
 
     @Override
     public Challenge mapToDto(){
@@ -58,21 +57,12 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("challengeId", challengeId)
                 .append("type", type)
                 .append("status", status)
                 .append("validated", validated)
                 .toString();
 
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getChallengeId() {
@@ -87,12 +77,11 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
         return type;
     }
 
-    public AcmeAuthorization getAuthorization() {
-        return authorization;
-    }
+    public AcmeAuthorization getAuthorization() { return authorization; }
 
     public void setAuthorization(AcmeAuthorization authorization) {
         this.authorization = authorization;
+        this.authorizationUuid = authorization.getUuid();
     }
 
     public void setType(ChallengeType type) {
@@ -121,6 +110,18 @@ public class AcmeChallenge extends Audited implements Serializable, DtoMapper<Ch
 
     public void setValidated(Date validated) {
         this.validated = validated;
+    }
+
+    public UUID getAuthorizationUuid() {
+        return authorizationUuid;
+    }
+
+    public void setAuthorizationUuid(UUID authorizationUuid) {
+        this.authorizationUuid = authorizationUuid;
+    }
+
+    public void setAuthorizationUuid(String authorizationUuid) {
+        this.authorizationUuid = UUID.fromString(authorizationUuid);
     }
 
     // Customer Getter for Challenge URL

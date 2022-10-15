@@ -1,6 +1,9 @@
 package com.czertainly.core.util;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.CRC32;
 
@@ -44,7 +47,9 @@ public class DatabaseMigration {
      * Stores the checksum of a Java-based migration.
      */
     public enum JavaMigrationChecksums {
-        V202206151000__AttributeChanges(595685930);
+        V202206151000__AttributeChanges(595685930),
+        V202209211100__Access_Control(-2127987777);
+
         private final int checksum;
 
         JavaMigrationChecksums(int checksum) {

@@ -1,13 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.core.compliance.ComplianceConnectorAndGroupsDto;
-import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
-import com.czertainly.api.model.core.compliance.ComplianceGroupsDto;
-import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
-import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
-import com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto;
-import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
+import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
+import com.czertainly.api.model.core.compliance.*;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -29,12 +23,7 @@ import java.util.stream.Collectors;
  */
 @Entity
 @Table(name = "compliance_profile")
-public class ComplianceProfile extends Audited implements Serializable, DtoMapper<ComplianceProfileDto> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "compliance_profile_seq")
-    @SequenceGenerator(name = "compliance_profile_seq", sequenceName = "compliance_profile_id_seq", allocationSize = 1)
-    private Long id;
+public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceProfileDto> {
 
     @Column(name = "name")
     private String name;
@@ -49,8 +38,8 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     @ManyToMany
     @JoinTable(
             name = "compliance_profile_2_compliance_group",
-            joinColumns = @JoinColumn(name = "profile_id"),
-            inverseJoinColumns = @JoinColumn(name = "group_id"))
+            joinColumns = @JoinColumn(name = "profile_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid"))
     private Set<ComplianceGroup> groups = new HashSet<>();
 
     @JsonBackReference
@@ -62,14 +51,14 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
         ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
-        complianceProfileDto.setUuid(uuid);
+        complianceProfileDto.setUuid(uuid.toString());
         complianceProfileDto.setRaProfiles(raProfiles.stream().map(RaProfile::mapToDtoSimplified).collect(Collectors.toList()));
         Map<String, List<ComplianceRulesDto>> rules = new HashMap<>();
         //Frame a map with the Unique ID as Connector UUID, Name and Kind. This will later than be used to group the response
         for(ComplianceProfileRule complianceRule: complianceRules){
             ComplianceRule rul = complianceRule.getComplianceRule();
             String ruleKey = rul.getConnector().getUuid() + ":" + rul.getConnector().getName() + ":" + rul.getKind();
-            rules.computeIfAbsent(ruleKey, k -> new ArrayList<>()).add(complianceRule.mapToDto());
+            rules.computeIfAbsent(ruleKey, k -> new ArrayList<>()).add(complianceRule.mapToDtoForProfile());
         }
 
         List<ComplianceConnectorAndRulesDto> rulesDtos = new ArrayList<>();
@@ -88,7 +77,7 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
         for(ComplianceGroup complianceGroup: groups){
             String groupKey = complianceGroup.getConnector().getUuid() + ":" + complianceGroup.getConnector().getName() + ":" + complianceGroup.getKind();
             ComplianceGroupsDto uuidDto = new ComplianceGroupsDto();
-            uuidDto.setUuid(complianceGroup.getUuid());
+            uuidDto.setUuid(complianceGroup.getUuid().toString());
             uuidDto.setName(complianceGroup.getName());
             uuidDto.setDescription(complianceGroup.getDescription());
             locGroups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(uuidDto);
@@ -109,11 +98,11 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     }
 
 
-    public ComplianceProfileDto raProfileMapToDto(){
-        ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
+    public SimplifiedComplianceProfileDto raProfileMapToDto(){
+        SimplifiedComplianceProfileDto complianceProfileDto = new SimplifiedComplianceProfileDto();
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
-        complianceProfileDto.setUuid(uuid);
+        complianceProfileDto.setUuid(uuid.toString());
         return complianceProfileDto;
     }
 
@@ -124,7 +113,7 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
     public ComplianceProfilesListDto ListMapToDTO(){
         ComplianceProfilesListDto complianceProfileDto = new ComplianceProfilesListDto();
         complianceProfileDto.setName(name);
-        complianceProfileDto.setUuid(uuid);
+        complianceProfileDto.setUuid(uuid.toString());
         complianceProfileDto.setDescription(description);
 
         Map<String, Integer> providerGroupSummary = new HashMap<>();
@@ -173,23 +162,17 @@ public class ComplianceProfile extends Audited implements Serializable, DtoMappe
         return complianceProfileDto;
     }
 
+
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("name", name)
+                .append("uuid", uuid)
                 .append("description", description)
                 .append("complianceRules", complianceRules)
                 .append("raProfiles", raProfiles)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {

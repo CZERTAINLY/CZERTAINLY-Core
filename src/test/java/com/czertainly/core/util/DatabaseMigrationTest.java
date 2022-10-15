@@ -16,4 +16,11 @@ public class DatabaseMigrationTest {
 
         Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202206151000__AttributeChanges.getChecksum(), checksum);
     }
+
+    @Test
+    public void testCalculateChecksum_V202209211100__Access_Control() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202209211100__Access_Control.java");
+
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202209211100__Access_Control.getChecksum(), checksum);
+    }
 }

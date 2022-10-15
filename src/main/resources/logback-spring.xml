@@ -9,4 +9,5 @@
 <!--        <appender-ref ref="FILE" />-->
     </root>
     <logger name="com.czertainly" level="INFO"/>
+    <logger name="com.czertainly.core.security" level="TRACE"/>
 </configuration>

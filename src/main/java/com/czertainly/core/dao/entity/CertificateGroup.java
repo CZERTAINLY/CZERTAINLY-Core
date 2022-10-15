@@ -9,41 +9,23 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 import java.io.Serializable;
 
 @Entity
 @Table(name = "certificate_group")
-public class CertificateGroup extends Audited implements Serializable, DtoMapper<GroupDto> {
+public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto> {
 
     /**
      *
      */
     private static final long serialVersionUID = 6407781756692461875L;
 
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "group_seq")
-    @SequenceGenerator(name = "group_seq", sequenceName = "group_id_seq", allocationSize = 1)
-    protected Long id;
-
     @Column(name = "name")
     protected String name;
 
     @Column(name = "description")
     protected String description;
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getName() {
         return name;
@@ -65,7 +47,7 @@ public class CertificateGroup extends Audited implements Serializable, DtoMapper
     public GroupDto mapToDto() {
         GroupDto dto = new GroupDto();
         dto.setName(this.name);
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setDescription(description);
         return dto;
     }
@@ -73,9 +55,9 @@ public class CertificateGroup extends Audited implements Serializable, DtoMapper
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("name", name)
                 .append("description", description)
+                .append("uuid", uuid)
                 .toString();
     }
 
@@ -84,11 +66,11 @@ public class CertificateGroup extends Audited implements Serializable, DtoMapper
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         CertificateGroup that = (CertificateGroup) o;
-        return new EqualsBuilder().append(id, that.id).isEquals();
+        return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(id).toHashCode();
+        return new HashCodeBuilder(17, 37).append(uuid).toHashCode();
     }
 }

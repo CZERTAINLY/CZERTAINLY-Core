@@ -4,18 +4,10 @@ import com.czertainly.api.exception.AcmeProblemDocumentException;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.core.acme.AccountStatus;
-import com.czertainly.api.model.core.acme.Authorization;
-import com.czertainly.api.model.core.acme.AuthorizationStatus;
-import com.czertainly.api.model.core.acme.ChallengeStatus;
-import com.czertainly.api.model.core.acme.ChallengeType;
-import com.czertainly.api.model.core.acme.Directory;
-import com.czertainly.api.model.core.acme.Order;
-import com.czertainly.api.model.core.acme.OrderStatus;
+import com.czertainly.api.model.core.acme.*;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Client;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
@@ -27,7 +19,6 @@ import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ClientRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
@@ -35,32 +26,25 @@ import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.service.acme.AcmeRaProfileService;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="ACME")
-public class AcmeRaProfileServiceTest {
+public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
     private static final String ADMIN_NAME = "ACME_USER";
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";
     private static final String CLIENT_NAME = "testClient1";
 
     @Autowired
-    private RaProfileService raProfileService;
+    private com.czertainly.core.service.RaProfileService raProfileService;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -69,8 +53,6 @@ public class AcmeRaProfileServiceTest {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
     @Autowired
-    private ClientRepository clientRepository;
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -78,7 +60,6 @@ public class AcmeRaProfileServiceTest {
     private RaProfile raProfile;
     private Certificate certificate;
     private CertificateContent certificateContent;
-    private Client client;
     private AuthorityInstanceReference authorityInstanceReference;
     private Connector connector;
 
@@ -121,12 +102,6 @@ public class AcmeRaProfileServiceTest {
         certificate.setSerialNumber("123456789");
         certificate = certificateRepository.save(certificate);
 
-        client = new Client();
-        client.setName(CLIENT_NAME);
-        client.setCertificate(certificate);
-        client.setSerialNumber(certificate.getSerialNumber());
-        client = clientRepository.save(client);
-
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
@@ -152,12 +127,10 @@ public class AcmeRaProfileServiceTest {
         acmeProfile.setDnsResolverPort("53");
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
-        acmeProfile.setUuid("1757e43e-7d12-11ec-90d6-0242ac120003");
         acmeProfileRepository.save(acmeProfile);
 
 
         acmeAccount = new AcmeAccount();
-        acmeAccount.setUuid("1757e43e-7d12-11ec-90d6-0242ac120004");
         acmeAccount.setStatus(AccountStatus.VALID);
         acmeAccount.setEnabled(true);
         acmeAccount.setAccountId("RMAl70zrRrs");
@@ -176,7 +149,7 @@ public class AcmeRaProfileServiceTest {
         authorization1.setAuthorizationId("auth123");
         authorization1.setStatus(AuthorizationStatus.PENDING);
         authorization1.setWildcard(false);
-        authorization1.setOrder(order1);
+        authorization1.setOrderUuid(order1.getUuid());
         acmeAuthorizationRepository.save(authorization1);
 
         AcmeChallenge challenge2 = new AcmeChallenge();
@@ -184,7 +157,7 @@ public class AcmeRaProfileServiceTest {
         challenge2.setStatus(ChallengeStatus.VALID);
         challenge2.setType(ChallengeType.HTTP01);
         challenge2.setToken("122324");
-        challenge2.setAuthorization(authorization1);
+        challenge2.setAuthorizationUuid(authorization1.getUuid());
         acmeChallengeRepository.save(challenge2);
 
     }
@@ -201,7 +174,7 @@ public class AcmeRaProfileServiceTest {
     }
 
     @Test
-    public void testGetNonce(){
+    public void testGetNonce() {
         ResponseEntity<?> response = acmeService.getNonce(true);
         Assertions.assertNotNull(response.getHeaders().get("Replay-Nonce"));
     }
@@ -213,7 +186,7 @@ public class AcmeRaProfileServiceTest {
                 "  \"signature\": \"qR4sGW8IpGEeszEEoecE0l-cYZw-g1vWOTnEDVXgafotTN0cJosM55L_MB416Gixm2KPPPWSa96FzZ53Z0tEUJiqfrmczdW14fsHEpXuEuBfQ9jptlqZyoS3flYz98VDAUpr4jnHVvzyeMY5zTo2pSOt9Vrs2TJgjwbjqybsF7W4R_DWULyHnHF6mb-6eBx5u3KWUSgRd4sd83NZkI-XJp3X3fMenCDyMHKp0sT4hffI0_LaurD-Zxt4c6UgPEX1LCZSUthPEcZvdYfW1gxvNjWs4QR4SGKe2CqWurxlfShi8BRHiCk2oT2qKP5Y8Nyqq_OXQPLm9B24a9izieqPwA\",\n" +
                 "  \"payload\": \"ewogICJjb250YWN0IjogWwogICAgIm1haWx0bzp0ZXN0LnRlc3RAdGVzdCIKICBdLAogICJ0ZXJtc09mU2VydmljZUFncmVlZCI6IHRydWUKfQ\"\n" +
                 "}";
-            Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount(RA_PROFILE_NAME, requestJson));
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount(RA_PROFILE_NAME, requestJson));
     }
 
     @Test
@@ -238,8 +211,8 @@ public class AcmeRaProfileServiceTest {
             Assertions.assertNotNull(order.getBody());
             Assertions.assertEquals(OrderStatus.PENDING, order.getBody().getStatus());
             Assertions.assertEquals(1, order.getBody().getAuthorizations().size());
-        }catch (Exception e){
-                System.out.println(e.getMessage());
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
         }
 
     }

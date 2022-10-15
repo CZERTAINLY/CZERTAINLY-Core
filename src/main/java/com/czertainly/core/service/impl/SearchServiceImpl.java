@@ -13,12 +13,12 @@ import com.czertainly.core.dao.entity.CertificateGroup;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SearchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.access.annotation.Secured;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,11 +31,11 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR", "ROLE_CLIENT", "ROLE_ACME"})
 public class SearchServiceImpl implements SearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
@@ -67,7 +67,7 @@ public class SearchServiceImpl implements SearchService {
         String sqlQuery = "select c from " + entity + " c";
         logger.debug("Executing query: {}", sqlQuery);
         if (!filters.isEmpty()) {
-            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, "", false, false);
+            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, "", false, false, "");
         }
         return customQueryExecutor(sqlQuery);
     }
@@ -78,7 +78,7 @@ public class SearchServiceImpl implements SearchService {
         String sqlQuery = !conditionOnly ? "select c from " + entity + " c" : "";
         logger.debug("Executing query: {}", sqlQuery);
         if (!filters.isEmpty()) {
-            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, joinQuery, conditionOnly, nativeCode);
+            sqlQuery = getQueryDynamicBasedOnFilter(filters, entity, originalJson, joinQuery, conditionOnly, nativeCode, "");
         }
         return sqlQuery;
     }
@@ -127,7 +127,7 @@ public class SearchServiceImpl implements SearchService {
 
 
     @Override
-    public DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson) {
+    public DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson, String additionalWhereClause) {
         logger.debug("Search request: {}", searchRequestDto.toString());
         Map<String, Integer> page = getPageable(searchRequestDto);
         DynamicSearchInternalResponse dynamicSearchInternalResponse = new DynamicSearchInternalResponse();
@@ -137,7 +137,7 @@ public class SearchServiceImpl implements SearchService {
         if (searchRequestDto.getPageNumber() == null) {
             searchRequestDto.setPageNumber(1);
         }
-        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false);
+        String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false, additionalWhereClause) + " GROUP BY created, uuid ORDER BY created DESC";
         EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         query.setFirstResult(page.get("start"));
@@ -167,10 +167,10 @@ public class SearchServiceImpl implements SearchService {
     }
 
     @Override
-    public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode) throws ValidationException {
+    public String getQueryDynamicBasedOnFilter(List<SearchFilterRequestDto> conditions, String entity, List<SearchFieldDataDto> originalJson, String joinQuery, Boolean conditionOnly, Boolean nativeCode, String additionalWhereClause) throws ValidationException {
         String query;
         if (joinQuery.isEmpty()) {
-            query = (!conditionOnly ? "select c from " + entity + " c " : "") + " WHERE";
+            query = (!conditionOnly ? "select c from " + entity + " c " : "") + " WHERE " + additionalWhereClause;
         } else {
             query = (!conditionOnly ? "select c from " + entity + " c " : " ") + joinQuery;
             if (!conditions.isEmpty()) {
@@ -210,9 +210,9 @@ public class SearchServiceImpl implements SearchService {
             if (filter.isMultiValue() && !(filter.getValue() instanceof String)) {
                 List<String> whereObjects = new ArrayList<>();
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
-                    whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getId).map(i -> i.toString()).collect(Collectors.toList()));
+                    whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
                 } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
-                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getId).map(i -> i.toString()).collect(Collectors.toList()));
+                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
                 } else {
                     whereObjects.addAll(((List<Object>) filter.getValue()).stream().map(i -> "'" + i.toString() + "'").collect(Collectors.toList()));
                 }
@@ -280,11 +280,11 @@ public class SearchServiceImpl implements SearchService {
                     qp += filter.getConditions().get(0).getCode();
                 } else {
                     if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
-                        String raProfileId = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
-                        qp += filter.getConditions().get(0).getCode() + " '" + raProfileId + "'";
+                        String raProfileUuid = raProfileRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getUuid().toString();
+                        qp += filter.getConditions().get(0).getCode() + " '" + raProfileUuid + "'";
                     } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
-                        String groupId = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getId().toString();
-                        qp += filter.getConditions().get(0).getCode() + " '" + groupId + "'";
+                        String groupUuid = groupRepository.findByName(filter.getValue().toString()).orElseThrow(() -> new ValidationException(ValidationError.create(filter.getValue().toString() + " not found"))).getUuid().toString();
+                        qp += filter.getConditions().get(0).getCode() + " '" + groupUuid + "'";
                     } else {
                         qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "'";
                     }
@@ -293,7 +293,6 @@ public class SearchServiceImpl implements SearchService {
             queryParts.add(qp);
         }
         query += String.join(" AND ", queryParts);
-        query += " GROUP BY c.id ORDER BY c.id DESC";
         logger.debug("Executable query: {}", query);
         return query;
     }
@@ -317,5 +316,36 @@ public class SearchServiceImpl implements SearchService {
         return Map.ofEntries(Map.entry("start", pageStart), Map.entry("end", pageEnd));
     }
 
+    @Override
+    public String createCriteriaBuilderString(SecurityFilter filter, Boolean addFinisher) {
+        String whereCondition = "";
+        if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
+            String data = filter.getResourceFilter().getAllowedObjects().stream().map(UUID::toString).collect(Collectors.joining("','", "'", "'"));
+            whereCondition += "c.uuid" + " IN ( " + data + " )";
+        } else {
+            if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
+                String data = filter.getResourceFilter().getForbiddenObjects().stream().map(UUID::toString).collect(Collectors.joining("','", "'", "'"));
+                whereCondition += "c.uuid" + " NOT IN ( " + data + " )";
+            }
+        }
 
+        if(filter.getParentResourceFilter() != null) {
+            if(filter.getParentRefProperty() == null) throw new ValidationException("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource());
+
+            if (filter.getParentResourceFilter().areOnlySpecificObjectsAllowed()) {
+                String data = filter.getParentResourceFilter().getAllowedObjects().stream().map(UUID::toString).collect(Collectors.joining("','", "'", "'"));
+                whereCondition += "c." + filter.getParentRefProperty() + " IN ( " + data + " )";
+            } else {
+                if (!filter.getParentResourceFilter().getForbiddenObjects().isEmpty()) {
+                    String data = filter.getParentResourceFilter().getForbiddenObjects().stream().map(UUID::toString).collect(Collectors.joining("','", "'", "'"));
+                    whereCondition += "c." + filter.getParentRefProperty() + "NOT IN ( " + data + " )";
+                }
+            }
+        }
+        if(!whereCondition.equals("") && addFinisher){
+            whereCondition = whereCondition + " AND";
+        }
+        return whereCondition;
+
+    }
 }

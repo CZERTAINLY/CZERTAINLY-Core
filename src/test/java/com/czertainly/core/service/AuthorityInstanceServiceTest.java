@@ -15,6 +15,9 @@ import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -23,18 +26,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class AuthorityInstanceServiceTest {
+public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     private static final String AUTHORITY_INSTANCE_NAME = "testAuthorityInstance1";
 
@@ -63,7 +58,6 @@ public class AuthorityInstanceServiceTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUuid("123");
         connector.setName("authorityInstanceConnector");
         connector.setUrl("http://localhost:3665");
         connector.setStatus(ConnectorStatus.CONNECTED);
@@ -76,7 +70,9 @@ public class AuthorityInstanceServiceTest {
 
         Connector2FunctionGroup c2fg = new Connector2FunctionGroup();
         c2fg.setConnector(connector);
+        c2fg.setConnectorUuid(connector.getUuid());
         c2fg.setFunctionGroup(functionGroup);
+        c2fg.setFunctionGroupUuid(functionGroup.getUuid());
         c2fg.setKinds(MetaDefinitions.serializeArrayString(List.of("ApiKey")));
         connector2FunctionGroupRepository.save(c2fg);
 
@@ -86,6 +82,7 @@ public class AuthorityInstanceServiceTest {
         authorityInstance = new AuthorityInstanceReference();
         authorityInstance.setName(AUTHORITY_INSTANCE_NAME);
         authorityInstance.setConnector(connector);
+        authorityInstance.setConnectorUuid(connector.getUuid());
         authorityInstance.setKind("sample");
         authorityInstance.setAuthorityInstanceUuid("1l");
         authorityInstance = authorityInstanceReferenceRepository.save(authorityInstance);
@@ -98,11 +95,11 @@ public class AuthorityInstanceServiceTest {
 
     @Test
     public void testListAuthorityInstances() {
-        List<AuthorityInstanceDto> authorityInstances = authorityInstanceService.listAuthorityInstances();
+        List<AuthorityInstanceDto> authorityInstances = authorityInstanceService.listAuthorityInstances(SecurityFilter.create());
         Assertions.assertNotNull(authorityInstances);
         Assertions.assertFalse(authorityInstances.isEmpty());
         Assertions.assertEquals(1, authorityInstances.size());
-        Assertions.assertEquals(authorityInstance.getUuid(), authorityInstances.get(0).getUuid());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), authorityInstances.get(0).getUuid());
     }
 
     @Test
@@ -111,16 +108,16 @@ public class AuthorityInstanceServiceTest {
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.okJson("{}")));
 
-        AuthorityInstanceDto dto = authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid());
+        AuthorityInstanceDto dto = authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(authorityInstance.getUuid(), dto.getUuid());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(authorityInstance.getConnector().getUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
     public void testGetAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -138,7 +135,7 @@ public class AuthorityInstanceServiceTest {
 
         AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
         request.setName("testAuthorityInstance2");
-        request.setConnectorUuid(connector.getUuid());
+        request.setConnectorUuid(connector.getUuid().toString());
         request.setAttributes(List.of());
         request.setKind("Ejbca");
 
@@ -146,12 +143,14 @@ public class AuthorityInstanceServiceTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getConnectorUuid());
-        Assertions.assertEquals(authorityInstance.getConnector().getUuid(), dto.getConnectorUuid());
+        Assertions.assertEquals(authorityInstance.getConnector().getUuid().toString(), dto.getConnectorUuid());
     }
 
     @Test
     public void testAddAuthorityInstance_notFound() {
         AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
+        request.setName("Demo");
+        request.setConnectorUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         // connector uui not set
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.createAuthorityInstance(request));
     }
@@ -166,7 +165,7 @@ public class AuthorityInstanceServiceTest {
 
     @Test
     public void testEditAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.updateAuthorityInstance("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
@@ -175,8 +174,8 @@ public class AuthorityInstanceServiceTest {
                 .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.ok()));
 
-        authorityInstanceService.removeAuthorityInstance(authorityInstance.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid()));
+        authorityInstanceService.deleteAuthorityInstance(authorityInstance.getSecuredUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid()));
     }
 
     @Test
@@ -185,12 +184,12 @@ public class AuthorityInstanceServiceTest {
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.ok()));
 
-        authorityInstanceService.listRAProfileAttributes(authorityInstance.getUuid());
+        authorityInstanceService.listRAProfileAttributes(authorityInstance.getSecuredUuid());
     }
 
     @Test
     public void testGetRaProfileAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.listRAProfileAttributes("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.listRAProfileAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -199,22 +198,22 @@ public class AuthorityInstanceServiceTest {
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        authorityInstanceService.validateRAProfileAttributes(authorityInstance.getUuid(), List.of());
+        authorityInstanceService.validateRAProfileAttributes(authorityInstance.getSecuredUuid(), List.of());
     }
 
     @Test
     public void testValidateRaProfileAttributes_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.validateRAProfileAttributes("wrong-uuid", null));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
     public void testRemoveAuthorityInstance_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.removeAuthorityInstance("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testBulkRemove() throws NotFoundException, ConnectorException {
-        authorityInstanceService.bulkRemoveAuthorityInstance(List.of(authorityInstance.getUuid()));
-        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getUuid()));
+        authorityInstanceService.bulkDeleteAuthorityInstance(List.of(authorityInstance.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid()));
     }
 }

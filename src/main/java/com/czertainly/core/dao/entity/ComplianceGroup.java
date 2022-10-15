@@ -8,6 +8,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Entity storing the available groups obtained from the Compliance Provider. These entities have relations with the
@@ -16,19 +17,10 @@ import java.util.Set;
  */
 @Entity
 @Table(name = "compliance_group")
-public class ComplianceGroup implements Serializable {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "compliance_group_seq")
-    @SequenceGenerator(name = "compliance_group_seq", sequenceName = "compliance_group_id_seq", allocationSize = 1)
-    private Long id;
+public class ComplianceGroup extends UniquelyIdentified implements Serializable {
 
     @Column(name = "name")
     private String name;
-
-    @Column(name = "uuid")
-    private String uuid;
 
     @Column(name = "kind")
     private String kind;
@@ -40,8 +32,11 @@ public class ComplianceGroup implements Serializable {
     private Boolean decommissioned;
 
     @OneToOne
-    @JoinColumn(name = "connector_id", nullable = false)
+    @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     private Connector connector;
+
+    @Column(name = "connector_uuid", nullable = false)
+    private UUID connectorUuid;
 
     @JsonBackReference
     @OneToMany(mappedBy = "group")
@@ -53,7 +48,7 @@ public class ComplianceGroup implements Serializable {
 
     public ComplianceGroupsResponseDto mapToGroupResponse(){
         ComplianceGroupsResponseDto dto = new ComplianceGroupsResponseDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(description);
         return dto;
@@ -64,19 +59,10 @@ public class ComplianceGroup implements Serializable {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("uuid", uuid)
                 .append("name", name)
-                .append("id", id)
                 .append("kind", kind)
                 .append("description", description)
                 .append("decommissioned", decommissioned)
                 .toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {
@@ -85,14 +71,6 @@ public class ComplianceGroup implements Serializable {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public String getUuid() {
-        return uuid;
-    }
-
-    public void setUuid(String uuid) {
-        this.uuid = uuid;
     }
 
     public String getKind() {
@@ -109,7 +87,14 @@ public class ComplianceGroup implements Serializable {
 
     public void setConnector(Connector connector) {
         this.connector = connector;
+        this.connectorUuid = connector.getUuid();
     }
+
+    public UUID getConnectorUuid() { return connectorUuid; }
+
+    public void setConnectorUuid(UUID connectorUuid) { this.connectorUuid = connectorUuid; }
+
+    public void setConnectorUuid(String connectorUuid) { this.connectorUuid = UUID.fromString(connectorUuid); }
 
     public String getDescription() {
         return description;

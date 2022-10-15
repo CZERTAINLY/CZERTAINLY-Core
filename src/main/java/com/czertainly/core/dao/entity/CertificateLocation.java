@@ -4,14 +4,9 @@ import com.czertainly.api.model.common.attribute.AttributeDefinition;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
 
-import javax.persistence.Column;
-import javax.persistence.EmbeddedId;
-import javax.persistence.Entity;
-import javax.persistence.FetchType;
-import javax.persistence.ManyToOne;
-import javax.persistence.MapsId;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -24,11 +19,11 @@ public class CertificateLocation implements Serializable {
     private CertificateLocationId id = new CertificateLocationId();
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @MapsId("locationId")
+    @MapsId("locationUuid")
     private Location location;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @MapsId("certificateId")
+    @MapsId("certificateUuid")
     private Certificate certificate;
 
     @Column(name = "metadata")
@@ -93,6 +88,8 @@ public class CertificateLocation implements Serializable {
         this.csrAttributes = AttributeDefinitionUtils.serialize(csrAttributes);
     }
 
+    public LocalDateTime getCreated() {return certificate.getCreated();}
+
     public boolean isWithKey() {
         return withKey;
     }
@@ -116,5 +113,18 @@ public class CertificateLocation implements Serializable {
     @Override
     public int hashCode() {
         return Objects.hash(location, certificate);
+    }
+
+    @Override
+    public String toString() {
+        return "CertificateLocation{" +
+                "id=" + id +
+                ", location=" + location +
+                ", certificate=" + certificate +
+                ", metadata='" + metadata + '\'' +
+                ", pushAttributes='" + pushAttributes + '\'' +
+                ", csrAttributes='" + csrAttributes + '\'' +
+                ", withKey=" + withKey +
+                '}';
     }
 }
