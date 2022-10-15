@@ -23,6 +23,19 @@ There are 2 types of communication that the `Core` is responsible for:
 | `Group`              | Grouping of different certificates based on different requirements                                                                                     |
 | `Compliance Profile` | Matching rules for the certificate to assess compliance                                                                                                | 
 
+## Access Control
+
+`Core` access control requires the following to run:
+- [CZERTAINLY-Auth](https://github.com/3KeyCompany/CZERTAINLY-Auth) service to manage users, roles, permission. The URL of the `Auth` service can be configured using `AUTH_SERVICE_BASE_URL` environment variable.
+- OPA (Open Policy Agent) evaluating policies and providing decisions about authorization. The OPA service URL can be confgiured using `OPA_BASE_URL` environment variable.
+- OPA policies bundles that are loaded into OPA service and define the rules to be evaluated. The policies are defined in [CZERTAINLY-Auth-OPA-Policies](https://github.com/3KeyCompany/CZERTAINLY-Auth-OPA-Policies)
+
+> **Warning**
+> The `Core` will fail to run when `Auth` or OPA is missing.
+
+> **Note**
+> OPA can run on the same system with the `Core` or it can be hosted externally. To improve the performance of the permissions evaluation it is typically running on the same host as `Core` (e.g. as a sidecar).
+
 ## RA profile
 
 `RA profile` is one of the main concepts of the `Core`. `RA profile` represents the certificate management service containing all specific `Attributes` and configuration you need for specific `Certificate` and use-case, which may be for example web server certificate, authentication certificates, etc.
@@ -84,18 +97,20 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 
 `Core` is provided as a Docker container. Use the 3keycompany/czertainly-core:tagname to pull the required image from the repository. It can be configured using the following environment variables:
 
-| Variable                | Description                                                         | Required | Default value     |
-|-------------------------|---------------------------------------------------------------------|----------|-------------------|
-| `JDBC_URL`              | JDBC URL for database access                                        | Yes      | N/A               |
-| `JDBC_USERNAME`         | Username to access the database                                     | Yes      | N/A               |
-| `JDBC_PASSWORD`         | Password to access the database                                     | Yes      | N/A               |
-| `DB_SCHEMA`             | Database schema to use                                              | No       | ejbca             |
-| `PORT`                  | Port where the service is exposed                                   | No       | 8080              |
-| `HEADER_NAME`           | Name of the header where the certificate of the client can be found | No       | X-APP-CERTIFICATE |
-| `HEADER_ENABLED`        | True if the certificate should be get from the header               | Yes      | N/A               |
-| `TS_PASSWORD`           | Password for the trusted certificate store                          | Yes      | Any               |
-| `OPA_BASE_URL`          | Base URL of the Open Policy Agent                                   | Yes      | N/A               |
-| `AUTH_SERVICE_BASE_URL` | Base URL of the authentication service                              | Yes      | N/A               |
+| Variable                 | Description                                                         | Required                                           | Default value       |
+|--------------------------|---------------------------------------------------------------------|----------------------------------------------------|---------------------|
+| `JDBC_URL`               | JDBC URL for database access                                        | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `JDBC_USERNAME`          | Username to access the database                                     | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `JDBC_PASSWORD`          | Password to access the database                                     | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `DB_SCHEMA`              | Database schema to use                                              | ![NO](https://img.shields.io/badge/-NO-red.svg)    | core                |
+| `PORT`                   | Port where the service is exposed                                   | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `8080`              |
+| `HEADER_NAME`            | Name of the header where the certificate of the client can be found | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `X-APP-CERTIFICATE` |
+| `HEADER_ENABLED`         | True if the certificate should be get from the header               | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `TS_PASSWORD`            | Password for the trusted certificate store                          | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `OPA_BASE_URL`           | Base URL of the Open Policy Agent                                   | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `AUTH_SERVICE_BASE_URL`  | Base URL of the authentication service                              | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `AUTH_TOKEN_HEADER_NAME` | Name of the header for the JSON ID content                          | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `X-USERINFO`        |
+| `AUDITLOG_ENABLED`       | Audit log enable / disable                                          | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `false`             |
 
 ### Proxy settings
 
@@ -104,9 +119,9 @@ To enable proxy, use the following environment variables for docker container:
 
 | Variable      | Description                                                                                                                                                | Required | Default value |
 |---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|---------------|
-| `HTTP_PROXY`  | The proxy URL to use for http connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>`  | No       | N/A           |
-| `HTTPS_PROXY` | The proxy URL to use for https connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>` | No       | N/A           |
-| `NO_PROXY`    | A comma-separated list of host names that shouldn't go through any proxy                                                                                   | No       | N/A           |
+| `HTTP_PROXY`  | The proxy URL to use for http connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>`  | ![NO](https://img.shields.io/badge/-NO-red.svg)       | `N/A`           |
+| `HTTPS_PROXY` | The proxy URL to use for https connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>` | ![NO](https://img.shields.io/badge/-NO-red.svg)       | `N/A`           |
+| `NO_PROXY`    | A comma-separated list of host names that shouldn't go through any proxy                                                                                   | ![NO](https://img.shields.io/badge/-NO-red.svg)       | `N/A`           |
 
 Example values:
 - `HTTP_PROXY=http://user:password@proxy.example.com:3128`
