@@ -5,8 +5,6 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
 import com.czertainly.api.model.client.certificate.*;
-import com.czertainly.api.model.client.certificate.owner.CertificateOwnerBulkUpdateDto;
-import com.czertainly.api.model.client.certificate.owner.CertificateOwnerRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.BulkOperationStatus;
 import com.czertainly.api.model.core.certificate.CertificateDto;
@@ -16,6 +14,8 @@ import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
@@ -28,9 +28,11 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 public class CertificateControllerImpl implements CertificateController {
@@ -45,69 +47,41 @@ public class CertificateControllerImpl implements CertificateController {
 	private CertificateEventHistoryService certificateEventHistoryService;
 
 	@Override
-	public CertificateResponseDto listCertificate(SearchRequestDto request) throws ValidationException {
-		return certificateService.listCertificates(request);
+	public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
+		return certificateService.listCertificates(SecurityFilter.create(), request);
 	}
 
 	@Override
 	public CertificateDto getCertificate(@PathVariable String uuid)
 			throws NotFoundException, CertificateException, IOException {
-		return certificateService.getCertificate(uuid);
+		return certificateService.getCertificate(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	public void removeCertificate(@PathVariable String uuid) throws NotFoundException {
-		certificateService.removeCertificate(uuid);
+	public void deleteCertificate(@PathVariable String uuid) throws NotFoundException {
+		certificateService.deleteCertificate(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	public void updateRaProfile(@PathVariable String uuid, @RequestBody CertificateUpdateRAProfileDto request)
-			throws NotFoundException {
-		certificateService.updateRaProfile(uuid, request);
-	}
-
-	@Override
-	public void updateCertificateGroup(@PathVariable String uuid,
-			@RequestBody CertificateUpdateGroupDto request) throws NotFoundException {
-		certificateService.updateCertificateGroup(uuid, request);
-	}
-
-	@Override
-	public void updateOwner(@PathVariable String uuid, @RequestBody CertificateOwnerRequestDto request)
-			throws NotFoundException {
-		certificateService.updateOwner(uuid, request);
+	public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+		certificateService.updateCertificateObjects(SecuredUUID.fromString(uuid), request);
 	}
 
 	@Override
 	public void check(@PathVariable String uuid)
 			throws CertificateException, IOException, NotFoundException {
-		Certificate crt = certificateService.getCertificateEntity(uuid);
+		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
 		certValidationService.validate(crt);
 	}
 
-	// -------------------- BulkUpdate APIs -------------------
 	@Override
-	public void bulkUpdateRaProfile(@RequestBody MultipleRAProfileUpdateDto request)
-			throws NotFoundException {
-		certificateService.bulkUpdateRaProfile(request);
+	public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+		certificateService.bulkUpdateCertificateObjects(SecurityFilter.create(), request);
 	}
-
-	@Override
-	public void bulkUpdateCertificateGroup(@RequestBody MultipleGroupUpdateDto request)
-			throws NotFoundException {
-		certificateService.bulkUpdateCertificateGroup(request);
-	}
-
-	@Override
-	public void bulkUpdateOwner(@RequestBody CertificateOwnerBulkUpdateDto request)
-			throws NotFoundException {
-		certificateService.bulkUpdateOwner(request);
-	}
-	// ------------------- /Bulk Update API -----------------------
 
 	@Override
 	public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
-			throws AlreadyExistException, CertificateException {
+			throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
 		CertificateDto dto = certificateService.upload(request);
 		URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -120,8 +94,8 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public BulkOperationResponse bulkRemoveCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
-		certificateService.bulkRemoveCertificate(request);
+	public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
+		certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
 		BulkOperationResponse response = new BulkOperationResponse();
 		response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
 		response.setStatus(BulkOperationStatus.SUCCESS);
@@ -140,12 +114,12 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
-		return certificateEventHistoryService.getCertificateEventHistory(uuid);
+		return certificateEventHistoryService.getCertificateEventHistory(UUID.fromString(uuid));
 	}
 
 	@Override
 	public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
-		return certificateService.listLocations(certificateUuid);
+		return certificateService.listLocations(SecuredUUID.fromString(certificateUuid));
 	}
 
 	@Override
@@ -155,12 +129,12 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException, CertificateException, IOException {
-		Certificate crt = certificateService.getCertificateEntity(uuid);
+		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
 		certificateService.updateIssuer();
 		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
 			certValidationService.validate(crt);
 		}
-		return certificateService.getCertificateValidationResult(uuid);
+		return certificateService.getCertificateValidationResult(SecuredUUID.fromString(uuid));
 	}
 
 }

@@ -2,8 +2,8 @@ package com.czertainly.core.dao.entity.acme;
 
 import com.czertainly.api.model.core.acme.Order;
 import com.czertainly.api.model.core.acme.OrderStatus;
-import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.SerializationUtil;
@@ -17,28 +17,29 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "acme_order")
-public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_new_order_seq")
-    @SequenceGenerator(name = "acme_new_order_seq", sequenceName = "acme_new_order_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Order> {
 
     @Column(name="order_id")
     private String orderId;
 
     @OneToOne
-    @JoinColumn(name = "account_id", nullable = false)
+    @JoinColumn(name = "account_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeAccount acmeAccount;
 
+    @Column(name = "account_uuid")
+    private UUID acmeAccountUuid;
+
     @OneToOne
-    @JoinColumn(name = "certificate_ref")
+    @JoinColumn(name = "certificate_ref", insertable = false, updatable = false)
     private Certificate certificateReference;
+
+    @Column(name = "certificate_ref")
+    private UUID certificateReferenceUuid;
 
     @Column(name="certificate_id")
     private String certificateId;
@@ -82,7 +83,6 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("orderId", orderId)
                 .append("issuedCertificate", certificateReference)
                 .append("acmeAccount", acmeAccount)
@@ -91,14 +91,6 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
                 .append("expires", expires)
                 .append("certificateId", certificateId)
                 .append("identifiers", identifiers).toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getOrderId() {
@@ -115,6 +107,28 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
 
     public void setAcmeAccount(AcmeAccount acmeAccount) {
         this.acmeAccount = acmeAccount;
+        this.acmeAccountUuid = acmeAccount.getUuid();
+    }
+
+    public Certificate getCertificateReference() {
+        return certificateReference;
+    }
+
+    public void setCertificateReference(Certificate certificateReference) {
+        this.certificateReference = certificateReference;
+        if(certificateReference != null) this.certificateReferenceUuid = certificateReference.getUuid();
+    }
+
+    public UUID getAcmeAccountUuid() {
+        return acmeAccountUuid;
+    }
+
+    public void setAcmeAccountUuid(UUID acmeAccountUuid) {
+        this.acmeAccountUuid = acmeAccountUuid;
+    }
+
+    public void setAcmeAccountUuid(String acmeAccountUuid) {
+        this.acmeAccountUuid = UUID.fromString(acmeAccountUuid);
     }
 
     public Date getNotBefore() {
@@ -165,20 +179,24 @@ public class AcmeOrder extends Audited implements Serializable, DtoMapper<Order>
         this.authorizations = authorizations;
     }
 
-    public Certificate getCertificateReference() {
-        return certificateReference;
-    }
-
-    public void setCertificateReference(Certificate certificateReference) {
-        this.certificateReference = certificateReference;
-    }
-
     public String getCertificateId() {
         return certificateId;
     }
 
     public void setCertificateId(String certificateId) {
         this.certificateId = certificateId;
+    }
+
+    public UUID getCertificateReferenceUuid() {
+        return certificateReferenceUuid;
+    }
+
+    public void setCertificateReferenceUuid(UUID certificateReferenceUuid) {
+        this.certificateReferenceUuid = certificateReferenceUuid;
+    }
+
+    public void setCertificateReferenceUuid(String certificateReferenceUuid) {
+        this.certificateReferenceUuid = UUID.fromString(certificateReferenceUuid);
     }
 
     // Customer Getter for Order

@@ -2,8 +2,8 @@ package com.czertainly.core.dao.entity.acme;
 
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
-import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -11,17 +11,17 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
 import java.io.Serializable;
+import java.util.UUID;
 
 @Entity
 @Table(name = "acme_profile")
-public class AcmeProfile extends Audited implements Serializable, DtoMapper<AcmeProfileDto> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_profile_seq")
-    @SequenceGenerator(name = "acme_profile_seq", sequenceName = "acme_profile_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AcmeProfileDto> {
 
     @Column(name="name")
     private String name;
@@ -43,8 +43,11 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
 
     @OneToOne
     @JsonBackReference
-    @JoinColumn(name = "ra_profile_id")
+    @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
+
+    @Column(name = "ra_profile_uuid")
+    private UUID raProfileUuid;
 
     @Column(name = "issue_certificate_attributes")
     private String issueCertificateAttributes;
@@ -82,7 +85,7 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
         acmeProfileDto.setDescription(description);
         acmeProfileDto.setEnabled(isEnabled);
         acmeProfileDto.setName(name);
-        acmeProfileDto.setUuid(uuid);
+        acmeProfileDto.setUuid(uuid.toString());
         acmeProfileDto.setDnsResolverIp(dnsResolverIp);
         acmeProfileDto.setDnsResolverPort(dnsResolverPort);
         acmeProfileDto.setRetryInterval(retryInterval);
@@ -105,12 +108,12 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
         AcmeProfileListDto acmeProfileDto = new AcmeProfileListDto();
         if(raProfile != null) {
             acmeProfileDto.setRaProfileName(raProfile.getName());
-            acmeProfileDto.setRaProfileUuid(raProfile.getUuid());
+            acmeProfileDto.setRaProfileUuid(raProfile.getUuid().toString());
         }
         acmeProfileDto.setDescription(description);
         acmeProfileDto.setEnabled(isEnabled);
         acmeProfileDto.setName(name);
-        acmeProfileDto.setUuid(uuid);
+        acmeProfileDto.setUuid(uuid.toString());
         if(raProfile != null) {
             acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/" + name + "/directory");
         }
@@ -120,7 +123,6 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("description", description)
                 .append("name", name)
                 .append("isEnabled", isEnabled)
@@ -131,15 +133,6 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
                 .append("issueCertificateAttributes", issueCertificateAttributes)
                 .append("revokeCertificateAttributes", revokeCertificateAttributes)
                 .toString();
-    }
-
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {
@@ -196,6 +189,8 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
+        if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
+        else this.raProfileUuid = null;
     }
 
     public String getIssueCertificateAttributes() {
@@ -269,4 +264,13 @@ public class AcmeProfile extends Audited implements Serializable, DtoMapper<Acme
     public void setTermsOfServiceChangeUrl(String termsOfServiceChangeUrl) {
         this.termsOfServiceChangeUrl = termsOfServiceChangeUrl;
     }
+
+    public UUID getRaProfileUuid() {
+        return raProfileUuid;
+    }
+
+    public void setRaProfileUuid(UUID raProfileUuid) {
+        this.raProfileUuid = raProfileUuid;
+    }
+
 }

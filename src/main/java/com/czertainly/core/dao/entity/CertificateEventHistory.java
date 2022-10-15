@@ -12,15 +12,11 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.UUID;
 
 @Entity
 @Table(name = "certificate_event_history")
-public class CertificateEventHistory extends Audited implements Serializable, DtoMapper<CertificateEventHistoryDto> {
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_event_history_seq")
-    @SequenceGenerator(name = "certificate_event_history_seq", sequenceName = "certificate_event_history_id_seq", allocationSize = 1)
-    private Long id;
+public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateEventHistoryDto> {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "event")
@@ -37,13 +33,15 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
     private String additionalInformation;
 
     @ManyToOne
-    @JoinColumn(name = "certificate_id", nullable = false)
+    @JoinColumn(name = "certificate_uuid", nullable = false, insertable = false, updatable = false)
     private Certificate certificate;
+
+    @Column(name = "certificate_uuid", nullable = false)
+    private UUID certificateUuid;
 
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("created", created)
                 .append("createdBy", author)
@@ -56,7 +54,7 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
     @Override
     public CertificateEventHistoryDto mapToDto(){
         CertificateEventHistoryDto certificateEventHistoryDto = new CertificateEventHistoryDto();
-        certificateEventHistoryDto.setCertificateUuid(certificate.getUuid());
+        certificateEventHistoryDto.setCertificateUuid(certificate.getUuid().toString());
         certificateEventHistoryDto.setEvent(event);
         try {
             certificateEventHistoryDto.setAdditionalInformation(new ObjectMapper().readValue(additionalInformation, HashMap.class));
@@ -64,19 +62,11 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
             certificateEventHistoryDto.setAdditionalInformation(null);
         }
         certificateEventHistoryDto.setMessage(message);
-        certificateEventHistoryDto.setUuid(uuid);
+        certificateEventHistoryDto.setUuid(uuid.toString());
         certificateEventHistoryDto.setCreated(created);
         certificateEventHistoryDto.setCreatedBy(author);
         certificateEventHistoryDto.setStatus(status);
         return certificateEventHistoryDto;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public CertificateEvent getEvent() {
@@ -117,5 +107,18 @@ public class CertificateEventHistory extends Audited implements Serializable, Dt
 
     public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
+        this.certificateUuid = certificate.getUuid();
+    }
+
+    public UUID getCertificateUuid() {
+        return certificateUuid;
+    }
+
+    public void setCertificateUuid(UUID certificateUuid) {
+        this.certificateUuid = certificateUuid;
+    }
+
+    public void setCertificateUuid(String certificateUuid) {
+        this.certificateUuid = UUID.fromString(certificateUuid);
     }
 }

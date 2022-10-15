@@ -23,6 +23,10 @@ import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -30,21 +34,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-@SpringBootTest
-@Transactional
-@Rollback
-@WithMockUser(roles="SUPERADMINISTRATOR")
-public class LocationServiceTest {
+public class LocationServiceTest extends BaseSpringBootTest {
 
     private static final String LOCATION_NAME = "testLocation1";
     private static final String LOCATION_NAME_NOMULTIENTRIES = "testLocation-noMultiEntries";
@@ -87,7 +83,7 @@ public class LocationServiceTest {
         certificate = certificateRepository.save(certificate);
 
         certificateWithoutLocation = new Certificate();
-        certificateWithoutLocation.setCertificateContent(certificateContent);
+        certificateWithoutLocation.setCertificateContentId(certificateContent.getId());
         certificateWithoutLocation.setSerialNumber("aa4ab59d436a88dae957");
         certificateWithoutLocation = certificateRepository.save(certificateWithoutLocation);
 
@@ -158,7 +154,7 @@ public class LocationServiceTest {
 
         Location location = new Location();
         location.setName(LOCATION_NAME_NOMULTIENTRIES);
-        location.setEntityInstanceReference(entityInstanceReference);
+        location.setEntityInstanceReferenceUuid(entityInstanceReference.getUuid());
         location.setEnabled(true);
         location.setSupportKeyManagement(true);
         location.setSupportMultipleEntries(false);
@@ -200,23 +196,22 @@ public class LocationServiceTest {
 
     @Test
     public void testListLocations() {
-        List<LocationDto> locations = locationService.listLocation();
+        List<LocationDto> locations = locationService.listLocation(SecurityFilter.create());
         Assertions.assertNotNull(locations);
         Assertions.assertFalse(locations.isEmpty());
         Assertions.assertEquals(3, locations.size());
-        Assertions.assertEquals(location.getUuid(), locations.get(0).getUuid());
     }
 
     @Test
     public void testGetLocationByUuid() throws NotFoundException {
-        LocationDto dto = locationService.getLocation(location.getUuid());
+        LocationDto dto = locationService.getLocation(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), location.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(location.getUuid(), dto.getUuid());
+        Assertions.assertEquals(location.getUuid().toString(), dto.getUuid());
     }
 
     @Test
     public void testGetLocationByUuid_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.getLocation("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.getLocation(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
@@ -238,9 +233,8 @@ public class LocationServiceTest {
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName("testLocation2");
         request.setAttributes(List.of());
-        request.setEntityInstanceUuid(entityInstanceReference.getUuid());
 
-        LocationDto dto = locationService.addLocation(request);
+        LocationDto dto = locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()),request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }
@@ -248,7 +242,7 @@ public class LocationServiceTest {
     @Test
     public void testAddLocation_validationFail() {
         AddLocationRequestDto request = new AddLocationRequestDto();
-        Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(request));
+        Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(entityInstanceReference.getSecuredParentUuid(), request));
     }
 
     @Test
@@ -256,7 +250,7 @@ public class LocationServiceTest {
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName(LOCATION_NAME); // location with the name that already exists
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> locationService.addLocation(request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> locationService.addLocation(entityInstanceReference.getSecuredParentUuid(), request));
     }
 
     // TODO
@@ -279,9 +273,8 @@ public class LocationServiceTest {
         EditLocationRequestDto request = new EditLocationRequestDto();
         request.setDescription("some description");
         request.setAttributes(List.of());
-        request.setEntityInstanceUuid(entityInstanceReference.getUuid());
 
-        LocationDto dto = locationService.editLocation(location.getUuid(), request);
+        LocationDto dto = locationService.editLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -290,7 +283,7 @@ public class LocationServiceTest {
     public void testEditLocation_notFound() {
         EditLocationRequestDto request = new EditLocationRequestDto();
 
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation("wrong-uuid", request));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
 //    @Test
@@ -312,34 +305,34 @@ public class LocationServiceTest {
 
     @Test
     public void testRemoveLocation_withCertificates() {
-        Assertions.assertThrows(ValidationException.class, () -> locationService.removeLocation(location.getUuid()));
+        Assertions.assertThrows(ValidationException.class, () -> locationService.deleteLocation(location.getEntityInstanceReference().getSecuredParentUuid(), location.getSecuredUuid()));
     }
 
     @Test
     public void testRemoveLocation_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.removeLocation("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.deleteLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testEnableLocation() throws NotFoundException {
-        locationService.enableLocation(location.getUuid());
+        locationService.enableLocation(location.getEntityInstanceReference().getSecuredParentUuid(), location.getSecuredUuid());
         Assertions.assertEquals(true, location.getEnabled());
     }
 
     @Test
     public void testEnableLocation_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.enableLocation("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.enableLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
     public void testDisableLocation() throws NotFoundException {
-        locationService.disableLocation(location.getUuid());
+        locationService.disableLocation(location.getEntityInstanceReference().getSecuredParentUuid(), location.getSecuredUuid());
         Assertions.assertEquals(false, location.getEnabled());
     }
 
     @Test
     public void testDisableLocation_notFound() {
-        Assertions.assertThrows(NotFoundException.class, () -> locationService.disableLocation("wrong-uuid"));
+        Assertions.assertThrows(NotFoundException.class, () -> locationService.disableLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     // TODO: testing the location push, remove, issue, sync
@@ -350,9 +343,9 @@ public class LocationServiceTest {
         request.setAttributes(List.of());
 
         Assertions.assertThrows(LocationException.class, () -> locationService.pushCertificateToLocation(
-                locationNoMultiEntries.getUuid(),
-                certificateWithoutLocation.getUuid(),
-                request)
+                entityInstanceReference.getSecuredParentUuid(),
+                locationNoMultiEntries.getSecuredUuid(),
+                certificateWithoutLocation.getUuid().toString(), request)
         );
     }
 
@@ -363,9 +356,9 @@ public class LocationServiceTest {
         request.setIssueAttributes(List.of());
         request.setRaProfileUuid("test");
 
-        Assertions.assertThrows(LocationException.class, () -> locationService.issueCertificateToLocation(
-                locationNoKeyManagement.getUuid(),
-                request)
+        Assertions.assertThrows(LocationException.class, () -> locationService.issueCertificateToLocation(SecuredParentUUID.fromUUID(locationNoKeyManagement.getEntityInstanceReferenceUuid()),
+                locationNoKeyManagement.getSecuredUuid(),
+                request.getRaProfileUuid(), request)
         );
     }
 
@@ -377,8 +370,9 @@ public class LocationServiceTest {
         request.setRaProfileUuid("test");
 
         Assertions.assertThrows(LocationException.class, () -> locationService.issueCertificateToLocation(
-                locationNoMultiEntries.getUuid(),
-                request)
+                SecuredParentUUID.fromUUID(locationNoMultiEntries.getEntityInstanceReferenceUuid()),
+                locationNoMultiEntries.getSecuredUuid(),
+                request.getRaProfileUuid(), request)
         );
     }
 }

@@ -5,8 +5,8 @@ import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.api.model.core.acme.Account;
 import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.OrderStatus;
-import com.czertainly.core.dao.entity.Audited;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -17,17 +17,12 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "acme_account")
-public class AcmeAccount extends Audited implements Serializable, DtoMapper<Account> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_new_account_seq")
-    @SequenceGenerator(name = "acme_new_account_seq", sequenceName = "acme_new_account_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Account> {
 
     @Column(name="account_id")
     private String accountId;
@@ -56,12 +51,18 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
     private Set<AcmeOrder> orders = new HashSet<>();
 
     @OneToOne
-    @JoinColumn(name = "ra_profile_id", nullable = false)
+    @JoinColumn(name = "ra_profile_uuid", nullable = false, insertable = false, updatable = false)
     private RaProfile raProfile;
 
+    @Column(name = "ra_profile_uuid", nullable = false)
+    private UUID raProfileUuid;
+
     @OneToOne
-    @JoinColumn(name = "acme_profile_id", nullable = false)
+    @JoinColumn(name = "acme_profile_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
+
+    @Column(name = "acme_profile_uuid", nullable = false)
+    private UUID acmeProfileUuid;
 
     @Override
     public Account mapToDto(){
@@ -74,17 +75,17 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
 
     public AcmeAccountResponseDto mapToDtoForUi(){
         AcmeAccountResponseDto account = new AcmeAccountResponseDto();
-        account.setUuid(uuid);
+        account.setUuid(uuid.toString());
         account.setAccountId(accountId);
         account.setEnabled(isEnabled);
         account.setContact(MetaDefinitions.deserializeArrayString(contact));
         if(acmeProfile != null) {
             account.setAcmeProfileName(acmeProfile.getName());
-            account.setAcmeProfileUuid(acmeProfile.getUuid());
+            account.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         }
         if(raProfile != null) {
             account.setRaProfileName(raProfile.getName());
-            account.setRaProfileUuid(raProfile.getUuid());
+            account.setRaProfileUuid(raProfile.getUuid().toString());
         }
         account.setSuccessfulOrders(orders.stream()
                 .filter(acmeOrder -> acmeOrder.getStatus()
@@ -115,11 +116,12 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
 
     public AcmeAccountListResponseDto mapToDtoForUiSimple(){
         AcmeAccountListResponseDto account = new AcmeAccountListResponseDto();
-        account.setUuid(uuid);
+        account.setUuid(uuid.toString());
         account.setAccountId(accountId);
         account.setEnabled(isEnabled);
         if(acmeProfile != null) {
             account.setAcmeProfileName(acmeProfile.getName());
+            account.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         }
         if(raProfile != null) {
             account.setRaProfileName(raProfile.getName());
@@ -131,18 +133,10 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id)
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("accountId", accountId)
                 .append("raProfileName", raProfile.getName()).toString();
 
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getAccountId() {
@@ -201,12 +195,11 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
         this.orders = orders;
     }
 
-    public RaProfile getRaProfile() {
-        return raProfile;
-    }
+    public RaProfile getRaProfile() { return raProfile; }
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
+        this.raProfileUuid = raProfile.getUuid();
     }
 
     public AcmeProfile getAcmeProfile() {
@@ -215,6 +208,7 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
 
     public void setAcmeProfile(AcmeProfile acmeProfile) {
         this.acmeProfile = acmeProfile;
+        this.acmeProfileUuid = acmeProfile.getUuid();
     }
 
     public boolean isEnabled() {
@@ -223,5 +217,29 @@ public class AcmeAccount extends Audited implements Serializable, DtoMapper<Acco
 
     public void setEnabled(boolean enabled) {
         isEnabled = enabled;
+    }
+
+    public Boolean getTermsOfServiceAgreed() {
+        return termsOfServiceAgreed;
+    }
+
+    public UUID getRaProfileUuid() {
+        return raProfileUuid;
+    }
+
+    public void setRaProfileUuid(UUID raProfileUuid) {
+        this.raProfileUuid = raProfileUuid;
+    }
+
+    public void setRaProfileUuid(String raProfileUuid) {
+        this.raProfileUuid = UUID.fromString(raProfileUuid);
+    }
+
+    public UUID getAcmeProfileUuid() {
+        return acmeProfileUuid;
+    }
+
+    public void setAcmeProfileUuid(String acmeProfileUuid) {
+        this.acmeProfileUuid = UUID.fromString(acmeProfileUuid);
     }
 }

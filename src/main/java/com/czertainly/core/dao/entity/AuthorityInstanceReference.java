@@ -8,21 +8,21 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "authority_instance_reference")
-public class AuthorityInstanceReference extends Audited implements Serializable, DtoMapper<AuthorityInstanceDto> {
+public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AuthorityInstanceDto> {
     private static final long serialVersionUID = -2377655450967447704L;
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "authority_instance_reference_seq")
-    @SequenceGenerator(name = "authority_instance_reference_seq", sequenceName = "authority_instance_reference_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "authority_instance_uuid")
     private String authorityInstanceUuid;
@@ -37,8 +37,11 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
     private String kind;
 
     @ManyToOne
-    @JoinColumn(name = "connector_id")
+    @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
+
+    @Column(name = "connector_uuid")
+    private UUID connectorUuid;
 
     @Column(name="connector_name")
     private String connectorName;
@@ -46,14 +49,6 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
     @OneToMany(mappedBy = "authorityInstanceReference")
     @JsonIgnore
     private Set<RaProfile> raProfiles = new HashSet<>();
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getAuthorityInstanceUuid() {
         return authorityInstanceUuid;
@@ -85,6 +80,8 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
 
     public void setConnector(Connector connector) {
         this.connector = connector;
+        if(connector != null) this.connectorUuid = connector.getUuid();
+        else this.connectorUuid = null;
     }
 
     public Set<RaProfile> getRaProfiles() {
@@ -107,15 +104,23 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
 
     public void setConnectorName(String connectorName) { this.connectorName = connectorName; }
 
+    public UUID getConnectorUuid() {
+        return connectorUuid;
+    }
+
+    public void setConnectorUuid(UUID connectorUuid) {
+        this.connectorUuid = connectorUuid;
+    }
+
     public AuthorityInstanceDto mapToDto() {
         AuthorityInstanceDto dto = new AuthorityInstanceDto();
-        dto.setUuid(this.uuid);
+        dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setStatus(this.status);
         dto.setKind(kind);
         dto.setConnectorName(this.connectorName);
         if (this.connector != null) {
-            dto.setConnectorUuid(this.connector.getUuid());
+            dto.setConnectorUuid(this.connector.getUuid().toString());
         }
         return dto;
     }
@@ -123,7 +128,6 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("uuid", uuid)
                 .append("authorityInstanceUuid", authorityInstanceUuid)
                 .append("name", name)
@@ -138,11 +142,11 @@ public class AuthorityInstanceReference extends Audited implements Serializable,
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         AuthorityInstanceReference that = (AuthorityInstanceReference) o;
-        return new EqualsBuilder().append(id, that.id).isEquals();
+        return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }
 
     @Override
     public int hashCode() {
-        return new HashCodeBuilder(17, 37).append(id).toHashCode();
+        return new HashCodeBuilder(17, 37).append(uuid).toHashCode();
     }
 }

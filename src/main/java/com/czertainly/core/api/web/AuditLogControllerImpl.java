@@ -10,7 +10,6 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -33,7 +32,7 @@ public class AuditLogControllerImpl implements AuditLogController {
     }
 
     @Override
-    public ResponseEntity<Resource> exportAuditLogs(AuditLogFilter filter, Pageable pageable) {
+    public ResponseEntity<org.springframework.core.io.Resource> exportAuditLogs(AuditLogFilter filter, Pageable pageable) {
         ExportResultDto export = auditLogService.exportAuditLogs(filter, pageable.getSort());
 
         return ResponseEntity.ok()

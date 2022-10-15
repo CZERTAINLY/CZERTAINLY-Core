@@ -161,6 +161,17 @@ public class CertificateUtil {
 		return thumbprint;
 	}
 
+	public static String getThumbprint(X509Certificate certificate)
+			throws NoSuchAlgorithmException, CertificateEncodingException {
+		return getThumbprint(certificate.getEncoded());
+	}
+
+	public static String getThumbprint(String certificate)
+			throws NoSuchAlgorithmException, CertificateException {
+		X509Certificate x509Certificate = getX509Certificate(normalizeCertificateContent(certificate));
+		return getThumbprint(x509Certificate.getEncoded());
+	}
+
     public static String normalizeCertificateContent(String content) {
         return content
                 .replace("-----BEGIN CERTIFICATE-----", "")

@@ -9,13 +9,17 @@ import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto
 import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
 
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
 
+// TODO AUTH - Use UUID instead of string name
 public interface ClientOperationService {
 
-    ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws NotFoundException, AlreadyExistException, CertificateException, ConnectorException;
+    ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws NotFoundException, AlreadyExistException, CertificateException, ConnectorException, NoSuchAlgorithmException;
 
     void revokeCertificate(String raProfileName, ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException;
 
@@ -30,4 +34,6 @@ public interface ClientOperationService {
     void revokeAndDeleteEndEntity(String raProfileName, String username) throws NotFoundException, ConnectorException;
 
     void resetPassword(String raProfileName, String username) throws NotFoundException, ConnectorException;
+
+    void checkAccessPermissions(SecuredUUID raProfileUuid, SecuredParentUUID authorityUuid);
 }

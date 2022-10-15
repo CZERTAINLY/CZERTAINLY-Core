@@ -1,73 +1,84 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.auth.EditAuthProfileDto;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.auth.AuthProfileDto;
+import com.czertainly.api.model.core.auth.ResourceDetailDto;
+import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Admin;
-import com.czertainly.core.dao.repository.AdminRepository;
+import com.czertainly.core.security.authn.CzertainlyUserDetails;
+import com.czertainly.core.security.authn.client.ResourceApiClient;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.AuthService;
-import org.apache.commons.lang3.StringUtils;
+import com.czertainly.core.service.UserManagementService;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.annotation.Secured;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
+import java.security.cert.CertificateException;
+import java.util.List;
 
 @Service
 @Transactional
-@Secured({"ROLE_ADMINISTRATOR", "ROLE_SUPERADMINISTRATOR"})
 public class AuthServiceImpl implements AuthService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
+
     @Autowired
-    private AdminRepository adminRepository;
+    private UserManagementApiClient userManagementApiClient;
+
+    @Autowired
+    private ResourceApiClient resourceApiClient;
+
+    @Autowired
+    private UserManagementService userManagementService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACCESS, operation = OperationType.REQUEST)
-    public AuthProfileDto getAuthProfile() throws NotFoundException {
-        String username = getCurrentUsername();
-        Admin admin = adminRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException(Admin.class, username));
-        AuthProfileDto dto = new AuthProfileDto();
-        dto.setEmail(admin.getEmail());
-        dto.setName(admin.getName());
-        dto.setRole(admin.getRole());
-        dto.setSurname(admin.getSurname());
-        dto.setUsername(admin.getUsername());
-        return dto;
+    public UserDetailDto getAuthProfile() throws NotFoundException {
+        UserProfileDto userProfileDto = getUserProfile();
+        return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACCESS, operation = OperationType.CHANGE)
-    public void editAuthProfile(EditAuthProfileDto authProfileDTO) throws NotFoundException {
-        String username = getCurrentUsername();
-        Admin admin = adminRepository.findByUsername(username)
-                .orElseThrow(() -> new NotFoundException(Admin.class, username));
-
-        if (StringUtils.isNotBlank(authProfileDTO.getName())) {
-            admin.setName(authProfileDTO.getName());
-        }
-        if (StringUtils.isNotBlank(authProfileDTO.getSurname())) {
-            admin.setSurname(authProfileDTO.getSurname());
-        }
-        if (StringUtils.isNotBlank(authProfileDTO.getEmail())) {
-            admin.setEmail(authProfileDTO.getEmail());
-        }
-
-        adminRepository.save(admin);
+    public List<ResourceDetailDto> getAllResources() {
+        return resourceApiClient.getAllResources();
     }
 
-    private String getCurrentUsername() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication.getPrincipal() instanceof User) {
-            return ((User) authentication.getPrincipal()).getUsername();
-        } else {
-            throw new IllegalStateException("Unexpected type of principal.");
+    @Override
+    public UserDetailDto updateUserProfile(UpdateUserRequestDto request) throws NotFoundException, CertificateException {
+        UserProfileDto userProfileDto = getUserProfile();
+        UserDetailDto detail = userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
+        String certificateUuid = "";
+        String certificateFingerprint = "";
+        if(detail.getCertificate() != null) {
+            if(detail.getCertificate().getUuid() != null) certificateUuid = detail.getCertificate().getUuid();
+            if(detail.getCertificate().getFingerprint() != null) certificateFingerprint = detail.getCertificate().getFingerprint();
         }
+        return userManagementService.updateUserInternal(userProfileDto.getUser().getUuid(), request, certificateUuid, certificateFingerprint);
     }
+
+    private UserProfileDto getUserProfile() {
+        UserProfileDto userProfileDto;
+        try {
+            CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+            throw new ValidationException(ValidationError.create("Cannot retrieve profile information for Unknown/Anonymous user"));
+        }
+        return userProfileDto;
+    }
+
 }

@@ -5,23 +5,22 @@ import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.UUID;
 
 @Entity
 @Table(name = "discovery_certificate")
-public class DiscoveryCertificate extends Audited implements Serializable, DtoMapper<DiscoveryCertificatesDto> {
+public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryCertificatesDto> {
     /**
      *
      */
     private static final long serialVersionUID = 9115753988094130017L;
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "discovery_certificate_seq")
-    @SequenceGenerator(name = "discovery_certificate_seq", sequenceName = "discovery_certificate_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "common_name")
     private String commonName;
@@ -39,17 +38,23 @@ public class DiscoveryCertificate extends Audited implements Serializable, DtoMa
     private Date notAfter;
 
     @OneToOne
-    @JoinColumn(name = "certificate_content_id", nullable = false)
+    @JoinColumn(name = "certificate_content_id", nullable = false, insertable = false, updatable = false)
     private CertificateContent certificateContent;
 
+    @Column(name = "certificate_content_id", nullable = false)
+    private Long certificateContentId ;
+
     @OneToOne
-    @JoinColumn(name = "discovery_id", nullable = false)
+    @JoinColumn(name = "discovery_uuid", nullable = false, insertable = false, updatable = false)
     private DiscoveryHistory discovery;
+
+    @Column(name = "discovery_uuid", nullable = false)
+    private UUID discoveryUuid;
 
     @Override
     public DiscoveryCertificatesDto mapToDto() {
         DiscoveryCertificatesDto dto = new DiscoveryCertificatesDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setCommonName(commonName);
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
@@ -62,16 +67,8 @@ public class DiscoveryCertificate extends Audited implements Serializable, DtoMa
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id)
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("commonName", commonName).append("serialNumber", serialNumber).toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getCommonName() {
@@ -120,6 +117,7 @@ public class DiscoveryCertificate extends Audited implements Serializable, DtoMa
 
     public void setCertificateContent(CertificateContent certificateContent) {
         this.certificateContent = certificateContent;
+        this.certificateContentId = certificateContent.getId();
     }
 
     public DiscoveryHistory getDiscovery() {
@@ -128,5 +126,22 @@ public class DiscoveryCertificate extends Audited implements Serializable, DtoMa
 
     public void setDiscovery(DiscoveryHistory discovery) {
         this.discovery = discovery;
+        this.discoveryUuid = discovery.getUuid();
+    }
+
+    public Long getCertificateContentId() {
+        return certificateContentId;
+    }
+
+    public void setCertificateContentId(Long certificateContentId) {
+        this.certificateContentId = certificateContentId;
+    }
+
+    public UUID getDiscoveryUuid() {
+        return discoveryUuid;
+    }
+
+    public void setDiscoveryUuid(String discoveryUuid) {
+        this.discoveryUuid = UUID.fromString(discoveryUuid);
     }
 }

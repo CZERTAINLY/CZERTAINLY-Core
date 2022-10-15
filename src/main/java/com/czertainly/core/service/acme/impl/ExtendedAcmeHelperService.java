@@ -25,16 +25,12 @@ import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeNonceRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
-import com.czertainly.core.util.AcmeCommonHelper;
-import com.czertainly.core.util.AcmeJsonProcessor;
-import com.czertainly.core.util.AcmePublicKeyProcessor;
-import com.czertainly.core.util.AcmeRandomGeneratorAndValidator;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.SerializationUtil;
-import com.czertainly.core.util.X509ObjectToString;
+import com.czertainly.core.util.*;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
@@ -87,13 +83,7 @@ import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -595,9 +585,9 @@ public class ExtendedAcmeHelperService {
             logger.debug("Initiating issue Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());
         }
         try {
-            ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(order.getAcmeAccount().getRaProfile().getUuid(), certificateSignRequestDto, true);
+            ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(order.getAcmeAccount().getRaProfile().getAuthorityInstanceReferenceUuid()), order.getAcmeAccount().getRaProfile().getSecuredUuid(), certificateSignRequestDto);
             order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
-            order.setCertificateReference(certificateService.getCertificateEntity(certificateOutput.getUuid()));
+            order.setCertificateReference(certificateService.getCertificateEntity(SecuredUUID.fromString(certificateOutput.getUuid())));
             order.setStatus(OrderStatus.VALID);
         } catch (Exception e) {
             logger.error("Issue Certificate failed. Exception: {}", e.getMessage());
@@ -718,7 +708,7 @@ public class ExtendedAcmeHelperService {
         revokeRequest.setReason(RevocationReason.fromCode(request.getReason().getCode()));
         revokeRequest.setAttributes(List.of());
         try {
-            clientOperationService.revokeCertificate(cert.getRaProfile().getUuid(), cert.getUuid(), revokeRequest, true);
+            clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(cert.getRaProfile().getAuthorityInstanceReferenceUuid()), cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest);
             return ResponseEntity
                     .ok()
                     .header(NONCE_HEADER_NAME, generateNonce())

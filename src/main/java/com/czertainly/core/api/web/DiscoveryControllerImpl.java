@@ -8,6 +8,8 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.DiscoveryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,13 +28,13 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	private DiscoveryService discoveryService;
 
 	@Override
-	public List<DiscoveryHistoryDto> listDiscovery() {
-		return discoveryService.listDiscovery();
+	public List<DiscoveryHistoryDto> listDiscoveries() {
+		return discoveryService.listDiscoveries(SecurityFilter.create());
 	}
 
 	@Override
 	public DiscoveryHistoryDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
-		return discoveryService.getDiscovery(uuid);
+		return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
@@ -46,17 +48,17 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 				.buildAndExpand(modal.getUuid())
 				.toUri();
 		UuidDto dto = new UuidDto();
-		dto.setUuid(modal.getUuid());
+		dto.setUuid(modal.getUuid().toString());
 		return ResponseEntity.created(location).body(dto);
 	}
 
 	@Override
-	public void removeDiscovery(@PathVariable String uuid) throws NotFoundException {
-		discoveryService.removeDiscovery(uuid);
+	public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
+		discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
 	}
 
 	@Override
-	public void bulkRemoveDiscovery(List<String> discoveryUuids) throws NotFoundException {
-		discoveryService.bulkRemoveDiscovery(discoveryUuids);
+	public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
+		discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
 	}
 }

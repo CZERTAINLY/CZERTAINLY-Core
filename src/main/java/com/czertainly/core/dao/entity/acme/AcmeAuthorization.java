@@ -2,7 +2,7 @@ package com.czertainly.core.dao.entity.acme;
 
 import com.czertainly.api.model.core.acme.Authorization;
 import com.czertainly.api.model.core.acme.AuthorizationStatus;
-import com.czertainly.core.dao.entity.Audited;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.SerializationUtil;
@@ -16,17 +16,12 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "acme_authorization")
-public class AcmeAuthorization  extends Audited implements Serializable, DtoMapper<Authorization> {
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "acme_new_authorization_seq")
-    @SequenceGenerator(name = "acme_new_authorization_seq", sequenceName = "acme_new_authorization_id_seq", allocationSize = 1)
-    private Long id;
+public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<Authorization> {
 
     @Column(name="authorization_id")
     private String authorizationId;
@@ -49,8 +44,11 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     private Boolean wildcard;
 
     @OneToOne
-    @JoinColumn(name = "order_id", nullable = false)
+    @JoinColumn(name = "order_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeOrder order;
+
+    @Column(name = "order_uuid", nullable = false)
+    private UUID orderUuid;
 
     @Override
     public Authorization mapToDto() {
@@ -66,7 +64,6 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("id", id)
                 .append("authorizationId", authorizationId)
                 .append("status", status)
                 .append("expires", expires)
@@ -75,20 +72,13 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
                 .toString();
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
     public AcmeOrder getOrder() {
         return order;
     }
 
     public void setOrder(AcmeOrder order) {
         this.order = order;
+        this.orderUuid = order.getUuid();
     }
 
     public String getAuthorizationId() {
@@ -150,5 +140,21 @@ public class AcmeAuthorization  extends Audited implements Serializable, DtoMapp
     // Customer Getter for Authorization URL
     public String getUrl() {
         return getBaseUrl() + "/authz/" + authorizationId;
+    }
+
+    public Boolean getWildcard() {
+        return wildcard;
+    }
+
+    public UUID getOrderUuid() {
+        return orderUuid;
+    }
+
+    public void setOrderUuid(UUID orderUuid) {
+        this.orderUuid = orderUuid;
+    }
+
+    public void setOrderUuid(String orderUuid) {
+        this.orderUuid = UUID.fromString(orderUuid);
     }
 }

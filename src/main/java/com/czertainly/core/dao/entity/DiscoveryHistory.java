@@ -9,27 +9,27 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.EnumType;
+import javax.persistence.Enumerated;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "discovery_history")
-public class DiscoveryHistory extends Audited implements Serializable, DtoMapper<DiscoveryHistoryDto> {
+public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryHistoryDto> {
 
     /**
      *
      */
     private static final long serialVersionUID = 571684590427678474L;
-
-    @Id
-    @Column(name = "id")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "discovery_seq")
-    @SequenceGenerator(name = "discovery_seq", sequenceName = "discovery_id_seq", allocationSize = 1)
-    private Long id;
 
     @Column(name = "name")
     private String name;
@@ -60,7 +60,7 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
     private String meta;
 
     @Column(name = "connector_uuid")
-    private String connectorUuid;
+    private UUID connectorUuid;
     
     @Column(name = "connector_name")
     private String connectorName;
@@ -74,16 +74,8 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("id", id).append("uuid", uuid)
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid)
                 .append("totalCertificatesDiscovered", totalCertificatesDiscovered).toString();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getName() {
@@ -135,12 +127,16 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         this.certificate = certificate;
     }
 
-    public String getConnectorUuid() {
+    public UUID getConnectorUuid() {
         return connectorUuid;
     }
 
-    public void setConnectorUuid(String connectorUuid) {
+    public void setConnectorUuid(UUID connectorUuid) {
         this.connectorUuid = connectorUuid;
+    }
+
+    public void setConnectorUuid(String connectorUuid) {
+        this.connectorUuid = UUID.fromString(connectorUuid);
     }
 
     public String getAttributes() {
@@ -194,7 +190,7 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
     @Override
     public DiscoveryHistoryDto mapToDto() {
         DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
-        dto.setUuid(uuid);
+        dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setEndTime(endTime);
         dto.setStartTime(startTime);
@@ -202,7 +198,7 @@ public class DiscoveryHistory extends Audited implements Serializable, DtoMapper
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
-        dto.setConnectorUuid(connectorUuid);
+        dto.setConnectorUuid(connectorUuid.toString());
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(attributes)));
         dto.setKind(kind);
         dto.setMessage(message);
