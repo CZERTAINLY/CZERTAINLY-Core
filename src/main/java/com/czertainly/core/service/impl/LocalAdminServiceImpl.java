@@ -90,7 +90,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
             throw new AlreadyExistException("User already exist for the provided certificate");
         }
         UserDetailDto response = createUser(request, fingerPrint);
-        userManagementService.updateRole(response.getUuid(), superAdminUuid);
+        userManagementApiClient.updateRole(response.getUuid(), superAdminUuid);
 
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(getHeaders(request.getCertificateData()));
         SecurityContext securityContext = SecurityContextHolder.getContext();
