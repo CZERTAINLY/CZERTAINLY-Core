@@ -24,6 +24,8 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
     private static final String DISCOVERY_TABLE_NAME = "discovery_history";
     private static final String LOCATION_TABLE_NAME = "location";
     private static final String CERTIFICATE_LOCATION_TABLE_NAME = "certificate_location";
+    private static final String COMPLIANCE_RULE_TABLE = "compliance_rule";
+    private static final String COMPLIANCE_PROFILE_RULE = "compliance_profile_rule";
 
     private static final String ATTRIBUTE_COLUMN_NAME = "attributes";
     private static final String UNIQUE_IDENTIFIER = "uuid";
@@ -40,7 +42,10 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
             applyDiscoveryHistoryMigration(context);
             applyAcmeProfileMigration(context);
             applyCertificateLocationMigration(context);
+            applyCertificateLocationMigrationCsAttributes(context);
             applyLocationMigration(context);
+            applyComplianceProfileMigration(context);
+            applyComplianceRuleMigration(context);
         }
     }
 
@@ -62,12 +67,37 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
         }
     }
 
+    private void applyComplianceRuleMigration(Context context) throws Exception {
+        try (Statement select = context.getConnection().createStatement()) {
+            try (ResultSet rows = select.executeQuery("SELECT uuid, attributes FROM compliance_rule ORDER BY uuid")) {
+                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, COMPLIANCE_RULE_TABLE, ATTRIBUTE_COLUMN_NAME, UNIQUE_IDENTIFIER);
+                executeCommands(select, migrationCommands);
+            }
+        }
+    }
+
+    private void applyComplianceProfileMigration(Context context) throws Exception {
+        try (Statement select = context.getConnection().createStatement()) {
+            try (ResultSet rows = select.executeQuery("SELECT uuid, attributes FROM compliance_profile_rule ORDER BY uuid")) {
+                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, COMPLIANCE_PROFILE_RULE, ATTRIBUTE_COLUMN_NAME, UNIQUE_IDENTIFIER);
+                executeCommands(select, migrationCommands);
+            }
+        }
+    }
+
     private void applyCertificateLocationMigration(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("select location_uuid, certificate_uuid, csr_attributes, push_attributes FROM certificate_location")) {
                 List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "push_attributes", UNIQUE_IDENTIFIER);
-                List<String> csrCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "csr_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, migrationCommands);
+            }
+        }
+    }
+
+    private void applyCertificateLocationMigrationCsAttributes(Context context) throws Exception {
+        try (Statement select = context.getConnection().createStatement()) {
+            try (ResultSet rows = select.executeQuery("select location_uuid, certificate_uuid, csr_attributes, push_attributes FROM certificate_location")) {
+                List<String> csrCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "csr_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, csrCommands);
             }
         }

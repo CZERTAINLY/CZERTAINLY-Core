@@ -49,7 +49,7 @@ public class DatabaseMigration {
     public enum JavaMigrationChecksums {
         V202206151000__AttributeChanges(595685930),
         V202209211100__Access_Control(-2127987777),
-        V202211031400__AttributeV2Changes(1574415558);
+        V202211031400__AttributeV2Changes(868166739);
 
         private final int checksum;
 
