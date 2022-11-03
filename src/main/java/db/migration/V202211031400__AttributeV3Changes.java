@@ -107,11 +107,7 @@ public class V202211031400__AttributeV3Changes extends BaseJavaMigration {
 
     private void executeCommands(Statement select, List<String> commands) throws SQLException {
         for(String command: commands) {
-            try {
-                select.execute(command);
-            } catch (Exception e) {
-                String a = "asasas";
-            }
+            select.execute(command);
         }
     }
 }
