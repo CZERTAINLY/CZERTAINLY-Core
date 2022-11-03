@@ -3,15 +3,16 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.clients.LocationApiClient;
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.AttributeType;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
@@ -59,7 +60,7 @@ public class LocationServiceImpl implements LocationService {
 
     private static final Logger logger = LoggerFactory.getLogger(LocationServiceImpl.class);
 
-    private static final List<AttributeType> TO_BE_MASKED = List.of(AttributeType.SECRET);
+    private static final List<AttributeContentType> TO_BE_MASKED = List.of(AttributeContentType.SECRET);
     private LocationRepository locationRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private CertificateLocationRepository certificateLocationRepository;
@@ -159,7 +160,7 @@ public class LocationServiceImpl implements LocationService {
         EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
-        List<AttributeDefinition> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), dto.getName());
+        List<DataAttribute> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), dto.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), dto.getName());
 
         Location location;
@@ -196,7 +197,7 @@ public class LocationServiceImpl implements LocationService {
         entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 
-        List<AttributeDefinition> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), location.getName());
+        List<DataAttribute> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), location.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), location.getName());
 
         //Location updatedLocation = updateLocation(location, entityInstanceRef, dto, attributes, locationDetailResponseDto);
@@ -265,7 +266,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY, parentAction = ResourceAction.ANY)
-    public List<AttributeDefinition> listPushAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
+    public List<BaseAttribute> listPushAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -282,7 +283,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY, parentAction = ResourceAction.ANY)
-    public List<AttributeDefinition> listCsrAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
+    public List<BaseAttribute> listCsrAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -696,8 +697,8 @@ public class LocationServiceImpl implements LocationService {
 
         //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
         //stored in the database
-        List<AttributeDefinition> fullPushAttributes;
-        List<AttributeDefinition> fullCsrAttributes;
+        List<BaseAttribute> fullPushAttributes;
+        List<BaseAttribute> fullCsrAttributes;
         try {
             fullPushAttributes = listPushAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
             fullCsrAttributes = listCsrAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
@@ -706,8 +707,8 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Failed to get Attributes for Location: " + location.getName() + ". Location not found");
         }
 
-        List<AttributeDefinition> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
-        List<AttributeDefinition> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
+        List<DataAttribute> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
+        List<DataAttribute> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
 
         CertificateLocation certificateLocation = new CertificateLocation();
         certificateLocation.setLocation(location);
@@ -737,8 +738,8 @@ public class LocationServiceImpl implements LocationService {
         );
     }
 
-    private List<AttributeDefinition> validateAttributes(EntityInstanceReference entityInstanceReference, List<RequestAttributeDto> requestAttributes, String locationName) throws LocationException {
-        List<AttributeDefinition> attributes;
+    private List<DataAttribute> validateAttributes(EntityInstanceReference entityInstanceReference, List<RequestAttributeDto> requestAttributes, String locationName) throws LocationException {
+        List<DataAttribute> attributes;
         try {
             attributes = mergeAndValidateAttributes(entityInstanceReference, requestAttributes);
         } catch (ConnectorException e) {
@@ -805,11 +806,11 @@ public class LocationServiceImpl implements LocationService {
         locationRepository.save(entity);
     }
 
-    private List<AttributeDefinition> mergeAndValidateAttributes(EntityInstanceReference entityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
-        List<AttributeDefinition> definitions = entityInstanceApiClient.listLocationAttributes(
+    private List<DataAttribute> mergeAndValidateAttributes(EntityInstanceReference entityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
+        List<BaseAttribute> definitions = entityInstanceApiClient.listLocationAttributes(
                 entityInstanceRef.getConnector().mapToDto(),
                 entityInstanceRef.getEntityInstanceUuid());
-        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+        List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         entityInstanceApiClient.validateLocationAttributes(
                 entityInstanceRef.getConnector().mapToDto(),
@@ -819,7 +820,7 @@ public class LocationServiceImpl implements LocationService {
         return merged;
     }
 
-    private Location createLocation(AddLocationRequestDto dto, List<AttributeDefinition> attributes,
+    private Location createLocation(AddLocationRequestDto dto, List<DataAttribute> attributes,
                                     EntityInstanceReference entityInstanceRef, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException {
         Location entity = new Location();
         entity.setName(dto.getName());
@@ -839,7 +840,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private void updateLocation(Location entity, EntityInstanceReference entityInstanceRef, EditLocationRequestDto dto,
-                                List<AttributeDefinition> attributes, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException {
+                                List<DataAttribute> attributes, LocationDetailResponseDto locationDetailResponseDto) throws CertificateException {
         entity.setDescription(dto.getDescription());
         entity.setAttributes(attributes);
         entity.setEntityInstanceReference(entityInstanceRef);
@@ -907,7 +908,7 @@ public class LocationServiceImpl implements LocationService {
     private LocationDto maskSecret(LocationDto locationDto) {
         for (ResponseAttributeDto responseAttributeDto : locationDto.getAttributes()) {
             if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
-                responseAttributeDto.setContent(new BaseAttributeContent<String>(null));
+                responseAttributeDto.setContent(List.of(new StringAttributeContent(null)));
             }
         }
         return locationDto;

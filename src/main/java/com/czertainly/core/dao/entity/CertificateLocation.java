@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
+
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
 
@@ -72,19 +73,19 @@ public class CertificateLocation implements Serializable {
         this.metadata = MetaDefinitions.serialize(metadata);
     }
 
-    public List<AttributeDefinition> getPushAttributes() {
-        return AttributeDefinitionUtils.deserialize(pushAttributes);
+    public List<DataAttribute> getPushAttributes() {
+        return AttributeDefinitionUtils.deserialize(pushAttributes, DataAttribute.class);
     }
 
-    public void setPushAttributes(List<AttributeDefinition> pushAttributes) {
+    public void setPushAttributes(List<DataAttribute> pushAttributes) {
         this.pushAttributes = AttributeDefinitionUtils.serialize(pushAttributes);
     }
 
-    public List<AttributeDefinition> getCsrAttributes() {
-        return AttributeDefinitionUtils.deserialize(csrAttributes);
+    public List<DataAttribute> getCsrAttributes() {
+        return AttributeDefinitionUtils.deserialize(csrAttributes, DataAttribute.class);
     }
 
-    public void setCsrAttributes(List<AttributeDefinition> csrAttributes) {
+    public void setCsrAttributes(List<DataAttribute> csrAttributes) {
         this.csrAttributes = AttributeDefinitionUtils.serialize(csrAttributes);
     }
 

@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -18,6 +19,7 @@ import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -199,7 +201,8 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setStatus(status);
         dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
         dto.setConnectorUuid(connectorUuid.toString());
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(attributes)));
+        List<DataAttribute> a = AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class);
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(a));
         dto.setKind(kind);
         dto.setMessage(message);
         dto.setConnectorName(connectorName);

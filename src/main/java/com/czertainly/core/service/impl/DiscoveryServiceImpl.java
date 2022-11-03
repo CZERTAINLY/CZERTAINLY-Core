@@ -7,7 +7,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
+
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
@@ -168,7 +169,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
             throws ConnectorException {
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
+        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
                 SecuredUUID.fromString(request.getConnectorUuid()),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),
@@ -263,7 +264,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
+        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
                 SecuredUUID.fromString(request.getConnectorUuid()),
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),

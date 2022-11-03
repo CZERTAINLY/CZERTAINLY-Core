@@ -4,8 +4,9 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
@@ -19,7 +20,7 @@ import java.util.List;
 
 public interface ClientOperationService {
 
-    List<AttributeDefinition> listIssueCertificateAttributes(
+    List<BaseAttribute> listIssueCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid) throws ConnectorException;
 
@@ -39,7 +40,7 @@ public interface ClientOperationService {
             String certificateUuid,
             ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
 
-    List<AttributeDefinition> listRevokeCertificateAttributes(
+    List<BaseAttribute> listRevokeCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid) throws ConnectorException;
 

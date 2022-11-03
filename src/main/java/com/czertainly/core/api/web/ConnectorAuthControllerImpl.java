@@ -1,8 +1,8 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.ConnectorAuthController;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,7 +24,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public List<AttributeDefinition> getBasicAuthAttributes() {
+    public List<BaseAttribute> getBasicAuthAttributes() {
         return connectorAuthService.getBasicAuthAttributes();
     }
 
@@ -34,7 +34,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public List<AttributeDefinition> getCertificateAttributes() {
+    public List<BaseAttribute> getCertificateAttributes() {
         return connectorAuthService.getCertificateAttributes();
     }
 
@@ -44,7 +44,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public List<AttributeDefinition> getApiKeyAuthAttributes() {
+    public List<BaseAttribute> getApiKeyAuthAttributes() {
         return connectorAuthService.getApiKeyAuthAttributes();
     }
 
@@ -54,7 +54,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
     }
 
     @Override
-    public List<AttributeDefinition> getJWTAuthAttributes() {
+    public List<BaseAttribute> getJWTAuthAttributes() {
         return connectorAuthService.getJWTAuthAttributes();
     }
 

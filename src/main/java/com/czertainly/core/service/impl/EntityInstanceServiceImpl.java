@@ -7,8 +7,10 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
@@ -115,7 +117,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), codeToSearch,
+        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), codeToSearch,
                 request.getAttributes(), request.getKind());
 
         // Load complete credential data
@@ -154,7 +156,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
+        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), ref.getKind());
 
         // Load complete credential data
@@ -201,7 +203,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
-    public List<AttributeDefinition> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException {
+    public List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException {
         EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
 

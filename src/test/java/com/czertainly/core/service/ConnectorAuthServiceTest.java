@@ -2,10 +2,13 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.clients.BaseApiClient;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.content.FileAttributeContent;
+
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.FileAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.data.FileAttributeContentData;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -47,7 +50,7 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetBasicAuthAttributes() {
-        List<AttributeDefinition> attrs = connectorAuthService.getBasicAuthAttributes();
+        List<BaseAttribute> attrs = connectorAuthService.getBasicAuthAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
@@ -57,8 +60,8 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
         List<RequestAttributeDto> attrs = new ArrayList<>();
 
 
-        attrs.addAll(createAttributes(ATTRIBUTE_USERNAME, new BaseAttributeContent<String>(){{setValue("username");}}));
-        attrs.addAll(createAttributes(ATTRIBUTE_PASSWORD, new BaseAttributeContent<String>(){{setValue("password");}}));
+        attrs.addAll(createAttributes(ATTRIBUTE_USERNAME, List.of(new StringAttributeContent("username"))));
+        attrs.addAll(createAttributes(ATTRIBUTE_PASSWORD, List.of(new StringAttributeContent("password"))));
 
         boolean result = connectorAuthService.validateBasicAuthAttributes(attrs);
         Assertions.assertTrue(result);
@@ -66,7 +69,7 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetCertificateAttributes() {
-        List<AttributeDefinition> attrs = connectorAuthService.getCertificateAttributes();
+        List<BaseAttribute> attrs = connectorAuthService.getCertificateAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
@@ -78,9 +81,11 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
         List<RequestAttributeDto> attrs = new ArrayList<>();
 
-        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_TYPE, new BaseAttributeContent<>(){{setValue("PKCS12");}}));
-        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE, new FileAttributeContent(){{setValue(Base64.getEncoder().encodeToString(keyStoreData));}}));
-        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_PASSWORD, new BaseAttributeContent<>(){{setValue("123456");}}));
+        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_TYPE, List.of(new StringAttributeContent("PKCS12"))));
+        FileAttributeContentData data = new FileAttributeContentData();
+        data.setContent(Base64.getEncoder().encodeToString(keyStoreData));
+        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE, List.of(new FileAttributeContent("", data))));
+        attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_PASSWORD, List.of(new StringAttributeContent("123456"))));
 
         boolean result = connectorAuthService.validateCertificateAttributes(attrs);
         Assertions.assertTrue(result);
@@ -88,7 +93,7 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetApiKeyAuthAttributes() {
-        List<AttributeDefinition> attrs = connectorAuthService.getApiKeyAuthAttributes();
+        List<BaseAttribute> attrs = connectorAuthService.getApiKeyAuthAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
@@ -96,14 +101,14 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
     @Test
     public void testValidateApiKeyAuthAttributes() {
         List<RequestAttributeDto> attrs = new ArrayList<>();
-        BaseAttributeContent base = new BaseAttributeContent<String>();
-        base.setValue("apiKetTesting");
+        BaseAttributeContent base = new StringAttributeContent();
+        base.setData("apiKetTesting");
 
-        BaseAttributeContent header = new BaseAttributeContent<String>();
-        header.setValue("X-API-KEY");
+        BaseAttributeContent header = new StringAttributeContent();
+        header.setData("X-API-KEY");
 
-        attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY, base));
-        attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY_HEADER, header));
+        attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY, List.of(base)));
+        attrs.addAll(createAttributes(BaseApiClient.ATTRIBUTE_API_KEY_HEADER, List.of(header)));
 
         boolean result = connectorAuthService.validateApiKeyAuthAttributes(attrs);
         Assertions.assertTrue(result);

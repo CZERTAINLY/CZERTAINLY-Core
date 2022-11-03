@@ -10,8 +10,10 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -119,7 +121,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             }
         }
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
+        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), request.getKind());
 
         // Load complete credential data
@@ -162,7 +164,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             }
         }
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
+        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), ref.getKind());
 
         // Load complete credential data
@@ -223,7 +225,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.ANY)
-    public List<AttributeDefinition> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException {
+    public List<BaseAttribute> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
         Connector connector = authorityInstance.getConnector();
