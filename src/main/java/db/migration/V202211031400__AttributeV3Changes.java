@@ -29,7 +29,7 @@ public class V202211031400__AttributeV3Changes extends BaseJavaMigration {
 
     @Override
     public Integer getChecksum() {
-        return DatabaseMigration.JavaMigrationChecksums.V202211031400__AttributeV3Changesgithub.getChecksum();
+        return DatabaseMigration.JavaMigrationChecksums.V202211031400__AttributeV3Changes.getChecksum();
     }
 
     public void migrate(Context context) throws Exception {
