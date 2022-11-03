@@ -25,9 +25,9 @@ public class DatabaseMigrationTest {
     }
 
     @Test
-    public void testCalculateChecksum_V202211031400__AttributeV3Changes() throws IOException {
-        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202211031400__AttributeV3Changes.java");
+    public void testCalculateChecksum_V202211031400__AttributeV2Changes() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202211031400__AttributeV2Changes.java");
 
-        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211031400__AttributeV3Changes.getChecksum(), checksum);
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211031400__AttributeV2Changes.getChecksum(), checksum);
     }
 }

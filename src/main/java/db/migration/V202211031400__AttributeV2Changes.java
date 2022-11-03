@@ -16,7 +16,7 @@ import java.util.List;
  * If the relaxed version of the AttributeDefinition is stored, the migration will fail, including missing
  * type, name, uuid, label.
  */
-public class V202211031400__AttributeV3Changes extends BaseJavaMigration {
+public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
 
     private static final String CREDENTIAL_TABLE_NAME = "credential";
     private static final String ACME_TABLE_NAME = "acme_profile";
@@ -29,7 +29,7 @@ public class V202211031400__AttributeV3Changes extends BaseJavaMigration {
 
     @Override
     public Integer getChecksum() {
-        return DatabaseMigration.JavaMigrationChecksums.V202211031400__AttributeV3Changes.getChecksum();
+        return DatabaseMigration.JavaMigrationChecksums.V202211031400__AttributeV2Changes.getChecksum();
     }
 
     public void migrate(Context context) throws Exception {
