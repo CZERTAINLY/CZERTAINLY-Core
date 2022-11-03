@@ -26,6 +26,7 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
     private static final String CERTIFICATE_LOCATION_TABLE_NAME = "certificate_location";
 
     private static final String ATTRIBUTE_COLUMN_NAME = "attributes";
+    private static final String UNIQUE_IDENTIFIER = "uuid";
 
     @Override
     public Integer getChecksum() {
@@ -46,7 +47,7 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
     private void applyCredentialMigration(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT uuid, attributes FROM credential ORDER BY uuid")) {
-                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CREDENTIAL_TABLE_NAME, ATTRIBUTE_COLUMN_NAME);
+                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CREDENTIAL_TABLE_NAME, ATTRIBUTE_COLUMN_NAME, UNIQUE_IDENTIFIER);
                 executeCommands(select, migrationCommands);
             }
         }
@@ -55,7 +56,7 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
     private void applyLocationMigration(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT uuid, attributes FROM location ORDER BY uuid")) {
-                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, LOCATION_TABLE_NAME, ATTRIBUTE_COLUMN_NAME);
+                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, LOCATION_TABLE_NAME, ATTRIBUTE_COLUMN_NAME, UNIQUE_IDENTIFIER);
                 executeCommands(select, migrationCommands);
             }
         }
@@ -64,8 +65,8 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
     private void applyCertificateLocationMigration(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("select location_uuid, certificate_uuid, csr_attributes, push_attributes FROM certificate_location")) {
-                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "push_attributes");
-                List<String> csrCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "csr_attributes");
+                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "push_attributes", UNIQUE_IDENTIFIER);
+                List<String> csrCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, CERTIFICATE_LOCATION_TABLE_NAME, "csr_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, migrationCommands);
                 executeCommands(select, csrCommands);
             }
@@ -75,7 +76,7 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
     private void applyDiscoveryHistoryMigration(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT uuid, attributes FROM discovery_history ORDER BY uuid")) {
-                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, DISCOVERY_TABLE_NAME, ATTRIBUTE_COLUMN_NAME);
+                List<String> migrationCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, DISCOVERY_TABLE_NAME, ATTRIBUTE_COLUMN_NAME, UNIQUE_IDENTIFIER);
                 executeCommands(select, migrationCommands);
             }
         }
@@ -84,9 +85,9 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
     private void applyRaProfileMigration(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT uuid, attributes,acme_issue_certificate_attributes,acme_revoke_certificate_attributes FROM ra_profile ORDER BY uuid")) {
-                List<String> raProfileCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, ATTRIBUTE_COLUMN_NAME);
-                List<String> raProfileIssueCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, "acme_issue_certificate_attributes");
-                List<String> raProfileRevokeCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, "acme_revoke_certificate_attributes");
+                List<String> raProfileCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, ATTRIBUTE_COLUMN_NAME, UNIQUE_IDENTIFIER);
+                List<String> raProfileIssueCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, "acme_issue_certificate_attributes", UNIQUE_IDENTIFIER);
+                List<String> raProfileRevokeCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, "acme_revoke_certificate_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, raProfileCommands);
                 executeCommands(select, raProfileIssueCommands);
                 executeCommands(select, raProfileRevokeCommands);
@@ -97,8 +98,8 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
     private void applyAcmeProfileMigration(Context context) throws Exception {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT uuid, issue_certificate_attributes, revoke_certificate_attributes FROM acme_profile ORDER BY uuid")) {
-                List<String> acmeProfileIssueCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, ACME_TABLE_NAME, "issue_certificate_attributes");
-                List<String> acmeProfileRevokeCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, ACME_TABLE_NAME, "revoke_certificate_attributes");
+                List<String> acmeProfileIssueCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, ACME_TABLE_NAME, "issue_certificate_attributes", UNIQUE_IDENTIFIER);
+                List<String> acmeProfileRevokeCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, ACME_TABLE_NAME, "revoke_certificate_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, acmeProfileIssueCommands);
                 executeCommands(select, acmeProfileRevokeCommands);
             }
