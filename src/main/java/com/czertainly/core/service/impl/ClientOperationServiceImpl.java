@@ -15,7 +15,6 @@ import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.common.NameAndIdDto;
-
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;

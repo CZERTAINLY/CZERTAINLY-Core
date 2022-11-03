@@ -2,11 +2,10 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-
-import com.czertainly.api.model.common.attribute.v2.AttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;

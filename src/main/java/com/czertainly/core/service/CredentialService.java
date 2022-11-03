@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
-
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;

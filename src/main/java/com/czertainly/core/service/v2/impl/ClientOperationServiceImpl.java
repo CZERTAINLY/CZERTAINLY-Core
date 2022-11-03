@@ -6,10 +6,9 @@ import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.v2.CertRevocationDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;

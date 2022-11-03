@@ -5,7 +5,6 @@ import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.client.v2.ClientOperationController;
-
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;

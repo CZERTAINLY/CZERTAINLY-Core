@@ -8,7 +8,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
-
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;

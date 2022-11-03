@@ -8,7 +8,6 @@ import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-
 import com.czertainly.api.model.common.attribute.v2.AttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;

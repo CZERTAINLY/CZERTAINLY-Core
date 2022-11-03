@@ -5,7 +5,6 @@ import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.NameAndIdDto;
-
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
 import com.czertainly.api.model.core.connector.ConnectorStatus;

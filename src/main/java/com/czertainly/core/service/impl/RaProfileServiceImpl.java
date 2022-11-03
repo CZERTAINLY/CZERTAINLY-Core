@@ -5,13 +5,12 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
-
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;

@@ -6,10 +6,9 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
-
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallbackMapping;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeValueTarget;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;

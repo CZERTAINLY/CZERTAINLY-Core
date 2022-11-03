@@ -8,7 +8,6 @@ import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.HealthStatus;
-
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;

@@ -3,9 +3,8 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
-
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.security.authz.SecuredUUID;

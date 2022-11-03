@@ -4,14 +4,13 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
-
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;

@@ -1,7 +1,6 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.NameAndIdDto;
-
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
