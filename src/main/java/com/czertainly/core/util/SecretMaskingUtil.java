@@ -18,7 +18,9 @@ public class SecretMaskingUtil {
     public static List<ResponseAttributeDto> maskSecret(List<ResponseAttributeDto> responseAttributeDtos) {
         List<ResponseAttributeDto> responses = new ArrayList<>();
         for (ResponseAttributeDto responseAttributeDto : responseAttributeDtos) {
-            if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
+            if (responseAttributeDto.getType() == null) {
+                //Do nothing
+            } else if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
                 responseAttributeDto.setContent(new BaseAttributeContent<String>(null));
             } else if (responseAttributeDto.getType().equals(AttributeType.CREDENTIAL)) {
                 ObjectMapper OBJECT_MAPPER = new ObjectMapper();
