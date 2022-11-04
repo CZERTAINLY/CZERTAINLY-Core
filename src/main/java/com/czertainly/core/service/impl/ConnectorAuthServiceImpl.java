@@ -4,7 +4,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
@@ -102,7 +102,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         username.setType(AttributeType.DATA);
         username.setContentType(AttributeContentType.STRING);
 
-        AttributeProperties usernameProperties = new AttributeProperties();
+        DataAttributeProperties usernameProperties = new DataAttributeProperties();
         usernameProperties.setRequired(true);
         usernameProperties.setReadOnly(false);
         usernameProperties.setVisible(true);
@@ -115,7 +115,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         password.setType(AttributeType.DATA);
         password.setContentType(AttributeContentType.SECRET);
 
-        AttributeProperties pwdProperties = new AttributeProperties();
+        DataAttributeProperties pwdProperties = new DataAttributeProperties();
         pwdProperties.setRequired(true);
         pwdProperties.setReadOnly(false);
         pwdProperties.setVisible(true);
@@ -142,7 +142,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         keyStoreType.setType(AttributeType.DATA);
         keyStoreType.setContentType(AttributeContentType.STRING);
 
-        AttributeProperties kstProperties = new AttributeProperties();
+        DataAttributeProperties kstProperties = new DataAttributeProperties();
         kstProperties.setList(true);
         kstProperties.setRequired(true);
         kstProperties.setReadOnly(false);
@@ -163,7 +163,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         keyStore.setType(AttributeType.DATA);
         keyStore.setContentType(AttributeContentType.FILE);
 
-        AttributeProperties ksProperties = new AttributeProperties();
+        DataAttributeProperties ksProperties = new DataAttributeProperties();
         ksProperties.setRequired(true);
         ksProperties.setReadOnly(false);
         ksProperties.setVisible(true);
@@ -177,7 +177,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         keyStorePassword.setType(AttributeType.DATA);
         keyStorePassword.setContentType(AttributeContentType.SECRET);
 
-        AttributeProperties kspProperties = new AttributeProperties();
+        DataAttributeProperties kspProperties = new DataAttributeProperties();
         kspProperties.setRequired(true);
         kspProperties.setReadOnly(false);
         kspProperties.setVisible(true);
@@ -191,7 +191,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         trustStoreType.setType(AttributeType.DATA);
         trustStoreType.setContentType(AttributeContentType.STRING);
 
-        AttributeProperties tstProperties = new AttributeProperties();
+        DataAttributeProperties tstProperties = new DataAttributeProperties();
         tstProperties.setList(true);
         tstProperties.setRequired(false);
         tstProperties.setReadOnly(false);
@@ -207,7 +207,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         trustStore.setType(AttributeType.DATA);
         trustStore.setContentType(AttributeContentType.FILE);
 
-        AttributeProperties tsProperties = new AttributeProperties();
+        DataAttributeProperties tsProperties = new DataAttributeProperties();
         tsProperties.setRequired(false);
         tsProperties.setReadOnly(false);
         tsProperties.setVisible(true);
@@ -221,7 +221,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         trustStorePassword.setType(AttributeType.DATA);
         trustStorePassword.setContentType(AttributeContentType.SECRET);
 
-        AttributeProperties tspProperties = new AttributeProperties();
+        DataAttributeProperties tspProperties = new DataAttributeProperties();
         tspProperties.setRequired(false);
         tspProperties.setReadOnly(false);
         tspProperties.setVisible(true);
@@ -281,7 +281,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         apiKeyHeader.setType(AttributeType.DATA);
         apiKeyHeader.setContentType(AttributeContentType.STRING);
 
-        AttributeProperties properties = new AttributeProperties();
+        DataAttributeProperties properties = new DataAttributeProperties();
         properties.setRequired(true);
         properties.setReadOnly(false);
         properties.setVisible(true);
@@ -301,7 +301,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         apiKey.setType(AttributeType.DATA);
         apiKey.setContentType(AttributeContentType.SECRET);
 
-        AttributeProperties apiKeyproperties = new AttributeProperties();
+        DataAttributeProperties apiKeyproperties = new DataAttributeProperties();
         apiKeyproperties.setRequired(true);
         apiKeyproperties.setReadOnly(false);
         apiKeyproperties.setVisible(true);

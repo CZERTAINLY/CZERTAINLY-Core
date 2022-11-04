@@ -8,7 +8,7 @@ import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -124,7 +124,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         attribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1c");
         attribute.setName("attribute");
 
-        AttributeProperties properties = new AttributeProperties();
+        DataAttributeProperties properties = new DataAttributeProperties();
         properties.setLabel("attribute");
         attribute.setDescription("description");
         attribute.setContentType(AttributeContentType.STRING);
@@ -151,7 +151,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         DataAttribute attribute = new DataAttribute();
         attribute.setUuid("a9392cc3-6f7f-46a2-8915-b9873f1267df");
         attribute.setName("attribute");
-        AttributeProperties properties = new AttributeProperties();
+        DataAttributeProperties properties = new DataAttributeProperties();
 
         properties.setLabel("attribute");
         attribute.setDescription("description");
@@ -180,7 +180,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         DataAttribute attribute = new DataAttribute();
         attribute.setUuid("eec75a92-a8c3-4903-935e-60c248f92af6");
         attribute.setName("attribute");
-        AttributeProperties properties = new AttributeProperties();
+        DataAttributeProperties properties = new DataAttributeProperties();
 
         properties.setLabel("attribute");
         attribute.setDescription("description");
