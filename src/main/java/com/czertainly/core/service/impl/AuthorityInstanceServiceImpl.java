@@ -11,13 +11,18 @@ import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestD
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.AttributeType;
 import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
@@ -34,6 +39,8 @@ import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.SecretMaskingUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +48,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -93,7 +101,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         AuthorityProviderInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
                 authorityInstanceReference.getAuthorityInstanceUuid());
 
-        authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(authorityProviderInstanceDto.getAttributes()));
+        authorityInstanceDto.setAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(authorityProviderInstanceDto.getAttributes())));
         authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
         authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnector().getName());
         authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid().toString());
