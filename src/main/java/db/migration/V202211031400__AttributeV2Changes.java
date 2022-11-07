@@ -39,8 +39,11 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
         try (Statement select = context.getConnection().createStatement()) {
             applyCredentialMigration(context);
             applyRaProfileMigration(context);
+            applyRaProfileMigrationAcemIssueAttribute(context);
+            applyRaProfileMigrationAcmeRevokeAttribute(context);
             applyDiscoveryHistoryMigration(context);
             applyAcmeProfileMigration(context);
+            applyAcmeProfileMigrationRevokeAttributes(context);
             applyCertificateLocationMigration(context);
             applyCertificateLocationMigrationCsAttributes(context);
             applyLocationMigration(context);
@@ -116,10 +119,24 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT uuid, attributes,acme_issue_certificate_attributes,acme_revoke_certificate_attributes FROM ra_profile ORDER BY uuid")) {
                 List<String> raProfileCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, ATTRIBUTE_COLUMN_NAME, UNIQUE_IDENTIFIER);
-                List<String> raProfileIssueCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, "acme_issue_certificate_attributes", UNIQUE_IDENTIFIER);
-                List<String> raProfileRevokeCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, "acme_revoke_certificate_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, raProfileCommands);
+            }
+        }
+    }
+
+    private void applyRaProfileMigrationAcemIssueAttribute(Context context) throws Exception {
+        try (Statement select = context.getConnection().createStatement()) {
+            try (ResultSet rows = select.executeQuery("SELECT uuid, attributes,acme_issue_certificate_attributes,acme_revoke_certificate_attributes FROM ra_profile ORDER BY uuid")) {
+                List<String> raProfileIssueCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, "acme_issue_certificate_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, raProfileIssueCommands);
+            }
+        }
+    }
+
+    private void applyRaProfileMigrationAcmeRevokeAttribute(Context context) throws Exception {
+        try (Statement select = context.getConnection().createStatement()) {
+            try (ResultSet rows = select.executeQuery("SELECT uuid, attributes,acme_issue_certificate_attributes,acme_revoke_certificate_attributes FROM ra_profile ORDER BY uuid")) {
+                List<String> raProfileRevokeCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, RA_TABLE_NAME, "acme_revoke_certificate_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, raProfileRevokeCommands);
             }
         }
@@ -129,8 +146,16 @@ public class V202211031400__AttributeV2Changes extends BaseJavaMigration {
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT uuid, issue_certificate_attributes, revoke_certificate_attributes FROM acme_profile ORDER BY uuid")) {
                 List<String> acmeProfileIssueCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, ACME_TABLE_NAME, "issue_certificate_attributes", UNIQUE_IDENTIFIER);
-                List<String> acmeProfileRevokeCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, ACME_TABLE_NAME, "revoke_certificate_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, acmeProfileIssueCommands);
+            }
+        }
+    }
+
+
+    private void applyAcmeProfileMigrationRevokeAttributes(Context context) throws Exception {
+        try (Statement select = context.getConnection().createStatement()) {
+            try (ResultSet rows = select.executeQuery("SELECT uuid, issue_certificate_attributes, revoke_certificate_attributes FROM acme_profile ORDER BY uuid")) {
+                List<String> acmeProfileRevokeCommands = V2AttributeMigrationUtils.getMigrationCommands(rows, ACME_TABLE_NAME, "revoke_certificate_attributes", UNIQUE_IDENTIFIER);
                 executeCommands(select, acmeProfileRevokeCommands);
             }
         }
