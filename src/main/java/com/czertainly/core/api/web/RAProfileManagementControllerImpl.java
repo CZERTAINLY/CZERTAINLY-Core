@@ -113,8 +113,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    public void deactivateAcmeForRaProfile(String authorityUuid, String uuid) throws NotFoundException {
-        raProfileService.deactivateAcmeForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(uuid));
+    public void deactivateAcmeForRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        raProfileService.deactivateAcmeForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
