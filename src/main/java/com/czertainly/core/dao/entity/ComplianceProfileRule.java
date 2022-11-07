@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.ComplianceProfileRuleDto;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;

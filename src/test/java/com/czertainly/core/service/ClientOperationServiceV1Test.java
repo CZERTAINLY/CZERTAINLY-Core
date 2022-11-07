@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
 import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
@@ -37,8 +38,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 public class ClientOperationServiceV1Test extends BaseSpringBootTest {
 
@@ -92,13 +92,13 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         raProfile.setAuthorityInstanceReferenceUuid(authorityInstanceReference.getUuid());
         raProfile.setEnabled(true);
 
-        Map<String, Object> contentMap = new HashMap<>();
-        contentMap.put("value", 1);
-        contentMap.put("data", new NameAndIdDto(1, "profile"));
+        ObjectAttributeContent contentMap = new ObjectAttributeContent();
+        contentMap.setReference("1");
+        contentMap.setData(new NameAndIdDto(1, "profile"));
 
 
         raProfile.setAttributes(AttributeDefinitionUtils.serialize(
-                AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("endEntityProfile", contentMap))
+                AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("endEntityProfile", List.of(contentMap)))
         ));
 
         raProfile = raProfileRepository.save(raProfile);

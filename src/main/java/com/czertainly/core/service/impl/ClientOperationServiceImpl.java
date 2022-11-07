@@ -15,7 +15,7 @@ import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.authority.AddEndEntityRequestDto;
@@ -223,7 +223,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     private String getEndEntityProfileName(RaProfile raProfile) {
-        List<AttributeDefinition> attributes = AttributeDefinitionUtils.deserialize(raProfile.getAttributes());
+        List<DataAttribute> attributes = AttributeDefinitionUtils.deserialize(raProfile.getAttributes(), DataAttribute.class);
         if (attributes == null
                 || !AttributeDefinitionUtils.containsAttributeDefinition("endEntityProfile", attributes)) {
             throw new ValidationException(ValidationError.create("EndEntityProfile not found in attributes"));

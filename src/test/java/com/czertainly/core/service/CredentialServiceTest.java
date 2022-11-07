@@ -6,13 +6,14 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.AttributeCallback;
-import com.czertainly.api.model.common.attribute.AttributeCallbackMapping;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.AttributeType;
-import com.czertainly.api.model.common.attribute.AttributeValueTarget;
-import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
-import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
@@ -38,6 +39,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
@@ -225,49 +228,45 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testLoadFullData_attributes() throws NotFoundException {
-        HashMap<String, String> nameAndUuidMap = new HashMap<>();
-        HashMap<String, Object> content = new HashMap<>();
-        nameAndUuidMap.put("uuid", credential.getUuid().toString());
-        nameAndUuidMap.put("name", credential.getName());
-        content.put("value", credential.getUuid());
-        content.put("data", nameAndUuidMap);
+        CredentialDto dto = new CredentialDto();
+        CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
+        dto.setUuid(credential.getUuid().toString());
+        dto.setName(credential.getName());
+        nameAndUuidMap.setReference(credential.getUuid().toString());
+        nameAndUuidMap.setData(dto);
 
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", content));
-        attrs.get(0).setType(AttributeType.CREDENTIAL);
+        List<DataAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", List.of(nameAndUuidMap)));
+        attrs.get(0).setType(AttributeType.DATA);
+        attrs.get(0).setContentType(AttributeContentType.CREDENTIAL);
+
 
         credentialService.loadFullCredentialData(attrs);
 
-        Assertions.assertTrue(attrs.get(0).getContent() instanceof JsonAttributeContent);
+        Assertions.assertTrue(attrs.get(0).getContent().get(0).getData() instanceof CredentialDto);
 
-        CredentialDto credentialDto = (CredentialDto) ((JsonAttributeContent) attrs.get(0).getContent()).getData();
+        CredentialDto credentialDto = ((CredentialAttributeContent) attrs.get(0).getContent().get(0)).getData();
         Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
 
     @Test
     public void testLoadFullData_attributesNotFound() throws NotFoundException {
-        HashMap<String, String> nameAndUuidMap = new HashMap<>();
-        HashMap<String, Object> contentMap = new HashMap<>();
-        nameAndUuidMap.put("uuid", "abfbc322-29e1-11ed-a261-0242ac120002");
-        nameAndUuidMap.put("name", "wrong-name");
-        contentMap.put("value", "wrong-name");
-        contentMap.put("data", nameAndUuidMap);
+        CredentialDto dto = new CredentialDto();
+        CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
+        dto.setUuid("abfbc322-29e1-11ed-a261-0242ac120002");
+        dto.setName("wrong-name");
+        nameAndUuidMap.setReference("wrong-name");
+        nameAndUuidMap.setData(dto);
 
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", contentMap));
-        attrs.get(0).setType(AttributeType.CREDENTIAL);
+        List<DataAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", List.of(nameAndUuidMap)));
+        attrs.get(0).setType(AttributeType.DATA);
+        attrs.get(0).setContentType(AttributeContentType.CREDENTIAL);
 
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs));
     }
 
-    @Test
-    public void testLoadFullData_attributesEmpty() throws NotFoundException {
-        credentialService.loadFullCredentialData(List.of()); // this should not throw exception
-
-        List<AttributeDefinition> attrs = null;
-        credentialService.loadFullCredentialData(attrs); // this should not throw exception
-    }
 
     @Test
     public void testLoadFullData_attributesNonCredential() throws NotFoundException {
@@ -278,34 +277,35 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     public void testLoadFullData_callback() throws NotFoundException {
         String credentialBodyKey = "testCredential";
 
-        HashMap<String, String> nameAndUuidMap = new HashMap<>();
-        nameAndUuidMap.put("uuid", credential.getUuid().toString());
-        nameAndUuidMap.put("name", credential.getName());
-
-        HashMap<String, Serializable> attrib = new HashMap<>();
-        attrib.put("value", credential.getName());
-        attrib.put("data", nameAndUuidMap);
+        CredentialDto dto = new CredentialDto();
+        CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
+        dto.setUuid(credential.getUuid().toString());
+        dto.setName(credential.getName());
+        nameAndUuidMap.setReference(credential.getUuid().toString());
+        nameAndUuidMap.setData(dto);
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                AttributeType.CREDENTIAL,
+                AttributeType.DATA,
+                AttributeContentType.CREDENTIAL,
                 credentialBodyKey,
-                AttributeValueTarget.BODY);
-
+                Collections.singleton(AttributeValueTarget.BODY));
+        ArrayList<CredentialAttributeContent> cont = new ArrayList<>();
+        cont.add(nameAndUuidMap);
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
-        requestBodyMap.put(credentialBodyKey, attrib);
+        requestBodyMap.put(credentialBodyKey, cont);
 
         AttributeCallback callback = new AttributeCallback();
         callback.setMappings(Set.of(mapping));
 
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
-        requestAttributeCallback.setRequestBody(requestBodyMap);
+        requestAttributeCallback.setBody(requestBodyMap);
 
         credentialService.loadFullCredentialData(callback, requestAttributeCallback);
 
-        Assertions.assertTrue(requestAttributeCallback.getRequestBody().get(credentialBodyKey) instanceof CredentialDto);
+        Assertions.assertTrue(((List<CredentialAttributeContent>)requestAttributeCallback.getBody().get(credentialBodyKey)).get(0).getData() instanceof CredentialDto);
 
-        CredentialDto credentialDto = (CredentialDto) requestAttributeCallback.getRequestBody().get(credentialBodyKey);
+        CredentialDto credentialDto = ((List<CredentialAttributeContent>) requestAttributeCallback.getBody().get(credentialBodyKey)).get(0).getData();
         Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -314,19 +314,19 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     public void testLoadFullData_callbackValidation() {
         String credentialBodyKey = "testCredential";
 
-        HashMap<String, String> nameAndUuidMap = new HashMap<>();
-        nameAndUuidMap.put("uuid", "abfbc322-29e1-11ed-a261-0242ac120002");
-        nameAndUuidMap.put("name", "wrong-name");
-
-        HashMap<String, Serializable> attrib = new HashMap<>();
-        attrib.put("value", "abfbc322-29e1-11ed-a261-0242ac120002");
-        attrib.put("data", nameAndUuidMap);
+        CredentialDto dto = new CredentialDto();
+        CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
+        dto.setUuid("abfbc322-29e1-11ed-a261-0242ac120002");
+        dto.setName("wrong-name");
+        nameAndUuidMap.setReference("wrong-name");
+        nameAndUuidMap.setData(dto);
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                AttributeType.CREDENTIAL,
+                AttributeType.DATA,
+                AttributeContentType.CREDENTIAL,
                 credentialBodyKey,
-                AttributeValueTarget.BODY);
+                Collections.singleton(AttributeValueTarget.BODY));
 
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
 
@@ -334,7 +334,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         callback.setMappings(Set.of(mapping));
 
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
-        requestAttributeCallback.setRequestBody(requestBodyMap);
+        requestAttributeCallback.setBody(requestBodyMap);
 
         Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
     }
@@ -345,9 +345,10 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
                 "from",
-                AttributeType.CREDENTIAL,
+                AttributeType.DATA,
+                AttributeContentType.CREDENTIAL,
                 credentialBodyKey,
-                AttributeValueTarget.BODY);
+                Collections.singleton(AttributeValueTarget.BODY));
 
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
         requestBodyMap.put(credentialBodyKey, "wrong-value");
@@ -356,7 +357,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         callback.setMappings(Set.of(mapping));
 
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
-        requestAttributeCallback.setRequestBody(requestBodyMap);
+        requestAttributeCallback.setBody(requestBodyMap);
 
         Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
     }

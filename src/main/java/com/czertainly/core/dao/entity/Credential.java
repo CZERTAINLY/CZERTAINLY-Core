@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
@@ -104,7 +105,7 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setKind(this.kind);
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes, BaseAttribute.class)));
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
         if(this.connectorUuid != null) {

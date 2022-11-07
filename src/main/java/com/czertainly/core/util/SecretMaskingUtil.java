@@ -1,9 +1,9 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.common.attribute.AttributeType;
-import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -13,7 +13,7 @@ import java.util.List;
 
 public class SecretMaskingUtil {
 
-    private static final List<AttributeType> TO_BE_MASKED = List.of(AttributeType.SECRET);
+    private static final List<AttributeContentType> TO_BE_MASKED = List.of(AttributeContentType.SECRET);
 
     public static List<ResponseAttributeDto> maskSecret(List<ResponseAttributeDto> responseAttributeDtos) {
         List<ResponseAttributeDto> responses = new ArrayList<>();
@@ -21,8 +21,8 @@ public class SecretMaskingUtil {
             if (responseAttributeDto.getType() == null) {
                 //Do nothing
             } else if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
-                responseAttributeDto.setContent(new BaseAttributeContent<String>(null));
-            } else if (responseAttributeDto.getType().equals(AttributeType.CREDENTIAL)) {
+                responseAttributeDto.setContent(List.of(new StringAttributeContent(null)));
+            } else if (responseAttributeDto.getType().equals(AttributeContentType.CREDENTIAL)) {
                 ObjectMapper OBJECT_MAPPER = new ObjectMapper();
                 CredentialDto credentialDto = OBJECT_MAPPER.convertValue(((LinkedHashMap) responseAttributeDto.getContent()).get("data"), CredentialDto.class);
                 List<ResponseAttributeDto> credentialAttrs = new ArrayList<>();
@@ -31,11 +31,11 @@ public class SecretMaskingUtil {
                 } else {
                     for (ResponseAttributeDto credentialAttributeDto : credentialDto.getAttributes()) {
                         if (TO_BE_MASKED.contains(credentialAttributeDto.getType())) {
-                            credentialAttributeDto.setContent(new BaseAttributeContent<String>(null));
+                            credentialAttributeDto.setContent(List.of(new StringAttributeContent(null)));
                         }
                         credentialAttrs.add(credentialAttributeDto);
                     }
-                    responseAttributeDto.setContent(new JsonAttributeContent(credentialDto.getName(), credentialDto));
+                    responseAttributeDto.setContent(List.of(new ObjectAttributeContent(credentialDto.getName(), credentialDto)));
                 }
             }
             responses.add(responseAttributeDto);
