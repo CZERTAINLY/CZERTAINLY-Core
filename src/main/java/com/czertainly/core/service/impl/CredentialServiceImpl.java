@@ -5,12 +5,19 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.*;
-import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -37,6 +44,7 @@ import org.springframework.stereotype.Service;
 
 import javax.transaction.Transactional;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,7 +55,7 @@ import java.util.stream.Collectors;
 public class CredentialServiceImpl implements CredentialService {
 
     private static final Logger logger = LoggerFactory.getLogger(CredentialServiceImpl.class);
-    private static final List<AttributeType> TO_BE_MASKED = List.of(AttributeType.SECRET);
+    private static final List<AttributeContentType> TO_BE_MASKED = List.of(AttributeContentType.SECRET);
 
     @Autowired
     private CredentialRepository credentialRepository;
@@ -108,7 +116,7 @@ public class CredentialServiceImpl implements CredentialService {
         SecuredUUID connectorUuid = SecuredUUID.fromString(request.getConnectorUuid());
         ConnectorDto connector = connectorService.getConnectorEntity(connectorUuid).mapToDto();
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
+        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
                 connectorUuid,
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
                 request.getAttributes(), request.getKind());
@@ -132,7 +140,7 @@ public class CredentialServiceImpl implements CredentialService {
         Credential credential = getCredentialEntity(uuid);
         SecuredUUID connectorUuid = SecuredUUID.fromUUID(credential.getConnectorUuid());
 
-        List<AttributeDefinition> attributes = connectorService.mergeAndValidateAttributes(
+        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
                 connectorUuid,
                 FunctionGroupCode.CREDENTIAL_PROVIDER,
                 request.getAttributes(), credential.getKind());
@@ -186,21 +194,21 @@ public class CredentialServiceImpl implements CredentialService {
     @Override
     @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
-    public void loadFullCredentialData(List<AttributeDefinition> attributes) throws NotFoundException {
+    public void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException {
         if (attributes == null || attributes.isEmpty()) {
             logger.warn("Given Attributes are null or empty");
             return;
         }
 
-        for (AttributeDefinition attribute : attributes) {
-            if (!AttributeType.CREDENTIAL.equals(attribute.getType())) {
-                logger.trace("Attribute not of type {} but {}.", AttributeType.CREDENTIAL, attribute.getType());
+        for (DataAttribute attribute : attributes) {
+            if (!AttributeContentType.CREDENTIAL.equals(attribute.getContentType())) {
+                logger.trace("Attribute not of type {} but {}.", AttributeContentType.CREDENTIAL, attribute.getType());
                 continue;
             }
 
             NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
             Credential credential = getCredentialEntity(SecuredUUID.fromString(credentialId.getUuid()));
-            attribute.setContent(new JsonAttributeContent(credentialId.getName(), credential.mapToDto()));
+            attribute.setContent(List.of(new CredentialAttributeContent(credentialId.getName(), credential.mapToDto())));
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
         }
     }
@@ -215,7 +223,7 @@ public class CredentialServiceImpl implements CredentialService {
 
         if (callback.getMappings() != null) {
             for (AttributeCallbackMapping mapping : callback.getMappings()) {
-                if (AttributeType.CREDENTIAL.equals(mapping.getAttributeType())) {
+                if (AttributeContentType.CREDENTIAL.equals(mapping.getAttributeContentType())) {
                     for (AttributeValueTarget target : mapping.getTargets()) {
                         switch (target) {
                             case PATH_VARIABLE:
@@ -227,15 +235,28 @@ public class CredentialServiceImpl implements CredentialService {
                                 logger.info("Found 'from' Attribute type {} for target {}, going to load full Credential data",
                                         mapping.getAttributeType(), target);
 
-                                Serializable bodyKeyValue = requestAttributeCallback.getRequestBody().get(mapping.getTo());
+                                Serializable bodyKeyValue = requestAttributeCallback.getBody().get(mapping.getTo());
 
                                 String credentialUuid;
+                                String referenceName;
                                 if (bodyKeyValue instanceof NameAndUuidDto) {
                                     credentialUuid = ((NameAndUuidDto) bodyKeyValue).getUuid();
+                                    referenceName = ((NameAndUuidDto) bodyKeyValue).getName();
                                 }
-                                else if (bodyKeyValue instanceof Map) {
+                                else if (bodyKeyValue instanceof CredentialDto) {
+                                    credentialUuid = ((CredentialDto) bodyKeyValue).getUuid();
+                                    referenceName = ((CredentialDto) bodyKeyValue).getName();
+                                }
+                                else if (bodyKeyValue instanceof CredentialAttributeContent) {
+                                    credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
+                                    referenceName = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getReference();
+                                }else if (bodyKeyValue instanceof List && ((List<?>) bodyKeyValue).get(0) instanceof CredentialAttributeContent) {
+                                    credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
+                                    referenceName = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getReference();
+                                }else if (bodyKeyValue instanceof Map) {
                                     try {
-                                        credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, JsonAttributeContent.class)).getData()).get("uuid");
+                                        credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("uuid");
+                                        referenceName = credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("name");
                                     } catch (Exception e) {
                                         logger.error(e.getMessage(), e);
                                         throw new ValidationException(ValidationError.create(
@@ -247,7 +268,9 @@ public class CredentialServiceImpl implements CredentialService {
                                 }
 
                                 CredentialDto credential = getCredentialEntity(SecuredUUID.fromString(credentialUuid)).mapToDto();
-                                requestAttributeCallback.getRequestBody().put(mapping.getTo(), credential);
+                                ArrayList<CredentialAttributeContent> credAttributes = new ArrayList<>();
+                                credAttributes.add(new CredentialAttributeContent(referenceName, credential));
+                                requestAttributeCallback.getBody().put(mapping.getTo(), credAttributes);
                                 break;
                         }
                     }
@@ -261,10 +284,10 @@ public class CredentialServiceImpl implements CredentialService {
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
     }
 
-    private CredentialDto maskSecret(CredentialDto credentialDto){
-        for(ResponseAttributeDto responseAttributeDto: credentialDto.getAttributes()){
-            if(TO_BE_MASKED.contains(responseAttributeDto.getType())){
-                responseAttributeDto.setContent(new BaseAttributeContent<String>(null));
+    private CredentialDto maskSecret(CredentialDto credentialDto) {
+        for (ResponseAttributeDto responseAttributeDto : credentialDto.getAttributes()) {
+            if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
+                responseAttributeDto.setContent(List.of(new StringAttributeContent(null)));
             }
         }
         return credentialDto;

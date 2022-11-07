@@ -8,8 +8,10 @@ import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -118,15 +120,19 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     private Location createLocation() {
-        AttributeDefinition attribute = new AttributeDefinition();
+        DataAttribute attribute = new DataAttribute();
         attribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1c");
         attribute.setName("attribute");
-        attribute.setLabel("attribute");
+
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("attribute");
         attribute.setDescription("description");
-        attribute.setType(AttributeType.STRING);
-        attribute.setRequired(true);
-        attribute.setReadOnly(false);
-        attribute.setVisible(true);
+        attribute.setContentType(AttributeContentType.STRING);
+        attribute.setType(AttributeType.DATA);
+        properties.setRequired(true);
+        properties.setReadOnly(false);
+        properties.setVisible(true);
+        attribute.setProperties(properties);
 
         Location location = new Location();
         location.setName(LOCATION_NAME);
@@ -134,7 +140,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         location.setEnabled(true);
         location.setSupportKeyManagement(true);
         location.setSupportMultipleEntries(true);
-        List<AttributeDefinition> attributes = new ArrayList<>();
+        List<DataAttribute> attributes = new ArrayList<>();
         attributes.add(attribute);
         location.setAttributes(attributes);
 
@@ -142,15 +148,20 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     private Location createLocationNoMultiEntries() {
-        AttributeDefinition attribute = new AttributeDefinition();
+        DataAttribute attribute = new DataAttribute();
         attribute.setUuid("a9392cc3-6f7f-46a2-8915-b9873f1267df");
         attribute.setName("attribute");
-        attribute.setLabel("attribute");
+        DataAttributeProperties properties = new DataAttributeProperties();
+
+        properties.setLabel("attribute");
         attribute.setDescription("description");
-        attribute.setType(AttributeType.STRING);
-        attribute.setRequired(true);
-        attribute.setReadOnly(false);
-        attribute.setVisible(true);
+        attribute.setContentType(AttributeContentType.STRING);
+        attribute.setType(AttributeType.DATA);
+        properties.setRequired(true);
+        properties.setReadOnly(false);
+        properties.setVisible(true);
+
+        attribute.setProperties(properties);
 
         Location location = new Location();
         location.setName(LOCATION_NAME_NOMULTIENTRIES);
@@ -158,7 +169,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         location.setEnabled(true);
         location.setSupportKeyManagement(true);
         location.setSupportMultipleEntries(false);
-        List<AttributeDefinition> attributes = new ArrayList<>();
+        List<DataAttribute> attributes = new ArrayList<>();
         attributes.add(attribute);
         location.setAttributes(attributes);
 
@@ -166,15 +177,20 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     private Location createLocationNoKeyManagement() {
-        AttributeDefinition attribute = new AttributeDefinition();
+        DataAttribute attribute = new DataAttribute();
         attribute.setUuid("eec75a92-a8c3-4903-935e-60c248f92af6");
         attribute.setName("attribute");
-        attribute.setLabel("attribute");
+        DataAttributeProperties properties = new DataAttributeProperties();
+
+        properties.setLabel("attribute");
         attribute.setDescription("description");
-        attribute.setType(AttributeType.STRING);
-        attribute.setRequired(true);
-        attribute.setReadOnly(false);
-        attribute.setVisible(true);
+        attribute.setContentType(AttributeContentType.STRING);
+        attribute.setType(AttributeType.DATA);
+        properties.setRequired(true);
+        properties.setReadOnly(false);
+        properties.setVisible(true);
+
+        attribute.setProperties(properties);
 
         Location location = new Location();
         location.setName(LOCATION_NAME_NOKEYMANAGEMENT);
@@ -182,7 +198,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         location.setEnabled(true);
         location.setSupportKeyManagement(false);
         location.setSupportMultipleEntries(true);
-        List<AttributeDefinition> attributes = new ArrayList<>();
+        List<DataAttribute> attributes = new ArrayList<>();
         attributes.add(attribute);
         location.setAttributes(attributes);
 

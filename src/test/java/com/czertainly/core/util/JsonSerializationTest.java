@@ -1,7 +1,9 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
 import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -66,9 +68,9 @@ public class JsonSerializationTest {
 
     @Test
     public void testDeserializeRAProfileAttributes() {
-        String attrData = "[{ \"name\": \"tokenType\", \"content\": { \"value\": \"PEM\" } }," + "{ \"name\": \"description\", \"content\": \"DEMO RA Profile\" }," + "{ \"name\": \"endEntityProfile\", \"content\": { \"value\": \"DemoTLSServerEndEntityProfile\", \"data\": { \"id\": 0, \"name\": \"DemoTLSServerEndEntityProfile\" } } }," + "{ \"name\": \"certificateProfile\", \"content\": \"DemoTLSServerEECertificateProfile\", \"data\": { \"id\": 0, \"name\": \"DemoTLSServerEECertificateProfile\" } }," + "{ \"name\": \"certificationAuthority\", \"content\": \"DemoServerSubCA\", \"data\": { \"id\": 0, \"name\": \"DemoServerSubCA\" } }," + "{ \"name\": \"sendNotifications\", \"content\": false }," + "{ \"name\": \"keyRecoverable\", \"content\": true }]";
+        String attrData = "[{\"name\": \"tokenType\", \"content\": [{\"data\": \"PEM\"}]}, {\"name\": \"description\", \"content\": [{\"data\": \"DEMO RA Profile\"}]}, {\"name\": \"endEntityProfile\", \"content\": [{\"reference\": \"DemoTLSServerEndEntityProfile\", \"data\": {\"id\": 0, \"name\": \"DemoTLSServerEndEntityProfile\"}}]}, {\"name\": \"certificateProfile\", \"content\": [{\"reference\": \"DemoTLSServerEECertificateProfile\", \"data\": {\"id\": 0, \"name\": \"DemoTLSServerEECertificateProfile\"}}]}, {\"name\": \"certificationAuthority\", \"content\": [{\"reference\": \"DemoServerSubCA\", \"data\": {\"id\": 0, \"name\": \"DemoServerSubCA\"}}]}, {\"name\": \"sendNotifications\", \"content\": [{\"data\": false}]}, {\"name\": \"keyRecoverable\", \"content\": [{\"data\": true}]}]";
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.deserialize(attrData);
+        List<BaseAttribute> attrs = AttributeDefinitionUtils.deserialize(attrData, BaseAttribute.class);
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals(7, attrs.size());
 
@@ -83,13 +85,13 @@ public class JsonSerializationTest {
         CredentialDto credential = new CredentialDto();
         credential.setName("test");
 
-        List<AttributeDefinition> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("credential", credential));
+        List<DataAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("credential", List.of(new CredentialAttributeContent("test", credential))));
 
         String serialized = AttributeDefinitionUtils.serialize(attrs);
 
-        List<AttributeDefinition> deserialized = AttributeDefinitionUtils.deserialize(serialized);
+        List<DataAttribute> deserialized = AttributeDefinitionUtils.deserialize(serialized, DataAttribute.class);
 
-        Object value = AttributeDefinitionUtils.getAttributeContent("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
+        CredentialDto value = AttributeDefinitionUtils.getCredentialContent("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
         Assertions.assertNotNull(value);
 
         CredentialDto converted = MAPPER.convertValue(value, CredentialDto.class);

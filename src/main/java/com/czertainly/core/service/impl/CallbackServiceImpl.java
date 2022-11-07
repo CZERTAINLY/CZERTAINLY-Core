@@ -5,9 +5,10 @@ import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.attribute.AttributeCallback;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -50,7 +51,7 @@ public class CallbackServiceImpl implements CallbackService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
     public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
-        List<AttributeDefinition> definitions;
+        List<BaseAttribute> definitions;
         definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions).getAttributeCallback();
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
@@ -68,7 +69,7 @@ public class CallbackServiceImpl implements CallbackService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
     public Object raProfileCallback(String authorityUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
-        List<AttributeDefinition> definitions;
+        List<BaseAttribute> definitions;
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
         definitions = authorityInstanceApiClient.listRAProfileAttributes(authorityInstance.getConnector().mapToDto(), authorityInstance.getAuthorityInstanceUuid());
@@ -85,12 +86,12 @@ public class CallbackServiceImpl implements CallbackService {
         return attributeApiClient.attributeCallback(authorityInstance.getConnector().mapToDto(), attributeCallback, callback);
     }
 
-    private AttributeDefinition getAttributeByName(String name, List<AttributeDefinition> attributes) throws NotFoundException {
-        for (AttributeDefinition attributeDefinition : attributes) {
+    private DataAttribute getAttributeByName(String name, List<BaseAttribute> attributes) throws NotFoundException {
+        for (BaseAttribute attributeDefinition : attributes) {
             if (attributeDefinition.getName().equals(name)) {
-                return attributeDefinition;
+                return (DataAttribute) attributeDefinition;
             }
         }
-        throw new NotFoundException(AttributeDefinition.class, name);
+        throw new NotFoundException(BaseAttribute.class, name);
     }
 }

@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
+
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
@@ -117,11 +118,11 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
         this.kind = kind;
     }
 
-    public List<AttributeDefinition> getAttributes() {
-        return AttributeDefinitionUtils.deserialize(attributes);
+    public List<BaseAttribute> getAttributes() {
+        return AttributeDefinitionUtils.deserialize(attributes, BaseAttribute.class);
     }
 
-    public void setAttributes(List<AttributeDefinition> attributes) {
+    public void setAttributes(List<BaseAttribute> attributes) {
         this.attributes = AttributeDefinitionUtils.serialize(attributes);
     }
 
