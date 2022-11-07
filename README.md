@@ -23,6 +23,7 @@ There are 2 types of communication that the `Core` is responsible for:
 | `Group`              | Grouping of different certificates based on different requirements                                                                                     |
 | `Compliance Profile` | Matching rules for the certificate to assess compliance                                                                                                | 
 
+
 ## Access Control
 
 `Core` access control requires the following to run:
