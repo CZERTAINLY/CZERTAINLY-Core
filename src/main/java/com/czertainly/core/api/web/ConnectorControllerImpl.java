@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.ConnectorController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.connector.ConnectDto;
@@ -14,22 +11,26 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.util.converter.ConnectorStatusConverter;
+import com.czertainly.core.util.converter.FunctionGroupCodeConverter;
+import com.czertainly.core.util.converter.OptionalEnumConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.beans.PropertyEditorSupport;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,13 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Autowired
     private ConnectorService connectorService;
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(FunctionGroupCode.class, new FunctionGroupCodeConverter());
+        webdataBinder.registerCustomEditor(ConnectorStatusConverter.class, new ConnectorStatusConverter());
+        webdataBinder.registerCustomEditor(Optional.class, new OptionalEnumConverter());
+    }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CONNECTOR)
@@ -110,9 +118,9 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     public List<BaseAttribute> getAttributes(@PathVariable String uuid,
-                                             @PathVariable String functionGroup,
+                                             @PathVariable FunctionGroupCode functionGroup,
                                              @PathVariable String kind) throws NotFoundException, ConnectorException {
-        return connectorService.getAttributes(SecuredUUID.fromString(uuid), FunctionGroupCode.findByCode(functionGroup), kind);
+        return connectorService.getAttributes(SecuredUUID.fromString(uuid), functionGroup, kind);
     }
 
     @Override
