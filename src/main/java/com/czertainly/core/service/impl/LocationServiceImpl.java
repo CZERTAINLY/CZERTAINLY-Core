@@ -119,6 +119,11 @@ public class LocationServiceImpl implements LocationService {
         this.certificateEventHistoryService = certificateEventHistoryService;
     }
 
+    @Autowired
+    public void setMetadataService(MetadataService metadataService) {
+        this.metadataService = metadataService;
+    }
+
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST, parentResource = Resource.ENTITY, parentAction = ResourceAction.LIST)
