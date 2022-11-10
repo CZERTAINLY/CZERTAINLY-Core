@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -58,9 +59,6 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     @Column(name = "support_key_mgmt")
     private boolean supportKeyManagement;
-
-    @Column(name = "metadata")
-    private String metadata;
 
     public String getName() {
         return name;
@@ -136,14 +134,6 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         this.supportKeyManagement = supportKeyManagement;
     }
 
-    public Map<String, Object> getMetadata() {
-        return MetaDefinitions.deserialize(metadata);
-    }
-
-    public void setMetadata(Map<String, Object> metadata) {
-        this.metadata = MetaDefinitions.serialize(metadata);
-    }
-
     public UUID getEntityInstanceReferenceUuid() {
         return entityInstanceReferenceUuid;
     }
@@ -169,14 +159,11 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
         dto.setSupportKeyManagement(supportKeyManagement);
-        dto.setMetadata(MetaDefinitions.deserialize(metadata));
-
         List<CertificateInLocationDto> cilDtoList = new ArrayList<>();
 
         List<CertificateLocation> orderedList = certificates.stream().sorted(Comparator.comparing(CertificateLocation::getCreated).reversed()).collect(Collectors.toList());
         for (CertificateLocation certificateLocation : orderedList) {
             CertificateInLocationDto cilDto = new CertificateInLocationDto();
-            cilDto.setMetadata(certificateLocation.getMetadata());
             cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
             cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid().toString());
@@ -201,7 +188,6 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
         dto.setSupportKeyManagement(supportKeyManagement);
-        dto.setMetadata(MetaDefinitions.deserialize(metadata));
 
         return dto;
     }

@@ -8,6 +8,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
+import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.certificate.*;
@@ -116,6 +117,9 @@ public class CertificateServiceImpl implements CertificateService {
     @Lazy
     @Autowired
     private LocationService locationService;
+
+    @Autowired
+    private MetadataService metadataService;
 
 
     @Override
@@ -489,15 +493,16 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+    public Certificate checkCreateCertificateWithMeta(String certificate, List<InfoAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
-        entity.setMeta(meta);
         certificateRepository.save(entity);
+        metadataService.createMetadataDefinitions(null, meta);
+        metadataService.createMetadata(null, entity.getUuid(), null, meta, Resource.CERTIFICATE, null);
         certificateComplianceCheck(entity);
         return entity;
     }

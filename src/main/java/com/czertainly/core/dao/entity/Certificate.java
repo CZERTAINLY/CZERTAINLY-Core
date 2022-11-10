@@ -73,9 +73,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "basic_constraints")
     private String basicConstraints;
 
-    @Column(name = "meta")
-    private String meta;
-
     @Column(name = "status")
     @Enumerated(EnumType.STRING)
     private CertificateStatus status;
@@ -158,7 +155,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setUuid(uuid.toString());
         dto.setStatus(status);
         dto.setFingerprint(fingerprint);
-        dto.setMeta(MetaDefinitions.deserialize(meta));
         dto.setSubjectAlternativeNames(MetaDefinitions.deserialize(subjectAlternativeNames));
         dto.setOwner(owner);
         dto.setCertificateType(certificateType);
@@ -292,14 +288,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setFingerprint(String fingerprint) {
         this.fingerprint = fingerprint;
-    }
-
-    public String getMeta() {
-        return meta;
-    }
-
-    public void setMeta(String meta) {
-        this.meta = meta;
     }
 
     public CertificateStatus getStatus() {

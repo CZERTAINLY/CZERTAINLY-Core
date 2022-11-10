@@ -19,7 +19,6 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
@@ -37,7 +36,6 @@ import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.SecretMaskingUtil;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +43,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 

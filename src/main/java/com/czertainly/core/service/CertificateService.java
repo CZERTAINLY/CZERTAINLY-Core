@@ -5,6 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
+import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.certificate.CertificateValidationDto;
@@ -52,7 +53,7 @@ public interface CertificateService {
     Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException;
 
 	Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
-    Certificate checkCreateCertificateWithMeta(String certificate, String meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+    Certificate checkCreateCertificateWithMeta(String certificate, List<InfoAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 	CertificateDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?

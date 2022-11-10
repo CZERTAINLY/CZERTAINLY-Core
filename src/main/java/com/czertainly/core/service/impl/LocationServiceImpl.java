@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.connector.entity.*;
@@ -41,6 +42,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.LocationService;
+import com.czertainly.core.service.MetadataService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -70,6 +72,7 @@ public class LocationServiceImpl implements LocationService {
     private CertificateService certificateService;
     private ClientOperationService clientOperationService;
     private CertificateEventHistoryService certificateEventHistoryService;
+    private MetadataService metadataService;
 
     @Autowired
     public void setLocationRepository(LocationRepository locationRepository) {
@@ -713,7 +716,13 @@ public class LocationServiceImpl implements LocationService {
         CertificateLocation certificateLocation = new CertificateLocation();
         certificateLocation.setLocation(location);
         certificateLocation.setCertificate(certificate);
-        certificateLocation.setMetadata(pushCertificateResponseDto.getCertificateMetadata());
+        metadataService.createMetadataDefinitions(location.getEntityInstanceReference().getConnector().getUuid(), pushCertificateResponseDto.getCertificateMetadata());
+        metadataService.createMetadata(location.getEntityInstanceReference().getConnector().getUuid(),
+                location.getUuid(),
+                null,
+                pushCertificateResponseDto.getCertificateMetadata(),
+                Resource.LOCATION,
+                null);
         certificateLocation.setWithKey(pushCertificateResponseDto.isWithKey());
         certificateLocation.setPushAttributes(mergedPushAttributes);
         certificateLocation.setCsrAttributes(mergedCsrAttributes);
@@ -778,7 +787,9 @@ public class LocationServiceImpl implements LocationService {
     private void removeCertificateFromLocation(CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
-        removeCertificateRequestDto.setCertificateMetadata(certificateLocation.getMetadata());
+        List<InfoAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getUuid(),
+                Resource.LOCATION);
+        removeCertificateRequestDto.setCertificateMetadata(metadata);
 
         locationApiClient.removeCertificateFromLocation(
                 certificateLocation.getLocation().getEntityInstanceReference().getConnector().mapToDto(),
@@ -792,7 +803,9 @@ public class LocationServiceImpl implements LocationService {
     private void removeCertificateFromLocation(Location entity, CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(entity.getRequestAttributes());
-        removeCertificateRequestDto.setCertificateMetadata(certificateLocation.getMetadata());
+        List<InfoAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getUuid(),
+                Resource.LOCATION);
+        removeCertificateRequestDto.setCertificateMetadata(metadata);
 
         locationApiClient.removeCertificateFromLocation(
                 entity.getEntityInstanceReference().getConnector().mapToDto(),
@@ -865,17 +878,29 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private void updateContent(Location entity, boolean supportMultipleEntries, boolean supportKeyManagement,
-                               Map<String, Object> metadata, List<CertificateLocationDto> certificates) throws CertificateException {
+                               List<InfoAttribute> metadata, List<CertificateLocationDto> certificates) throws CertificateException {
         entity.setSupportMultipleEntries(supportMultipleEntries);
         entity.setSupportKeyManagement(supportKeyManagement);
-        entity.setMetadata(metadata);
+        metadataService.createMetadataDefinitions(entity.getEntityInstanceReference().getConnectorUuid(), metadata);
+        metadataService.createMetadata(entity.getEntityInstanceReference().getConnectorUuid(),
+                entity.getUuid(),
+                null,
+                metadata,
+                Resource.LOCATION,
+                null);
 
         Set<CertificateLocation> cls = new HashSet<>();
         for (CertificateLocationDto certificateLocationDto : certificates) {
             CertificateLocation cl = new CertificateLocation();
             cl.setWithKey(certificateLocationDto.isWithKey());
             cl.setCertificate(certificateService.createCertificate(certificateLocationDto.getCertificateData(), certificateLocationDto.getCertificateType()));
-            cl.setMetadata(certificateLocationDto.getMetadata());
+            metadataService.createMetadataDefinitions(entity.getEntityInstanceReference().getConnectorUuid(), certificateLocationDto.getMetadata());
+            metadataService.createMetadata(entity.getEntityInstanceReference().getConnectorUuid(),
+                    cl.getCertificate().getUuid(),
+                    entity.getUuid(),
+                    certificateLocationDto.getMetadata(),
+                    Resource.CERTIFICATE,
+                    Resource.LOCATION);
             cl.setLocation(entity);
             cl.setPushAttributes(certificateLocationDto.getPushAttributes());
             cl.setCsrAttributes(certificateLocationDto.getCsrAttributes());
@@ -892,7 +917,6 @@ public class LocationServiceImpl implements LocationService {
             } else {
                 CertificateLocation lc = cls.stream().filter(e -> e.getCertificate().getUuid().equals(cl.getCertificate().getUuid())).findFirst().orElse(null);
                 if (lc != null) {
-                    cl.setMetadata(lc.getMetadata());
                     cl.setCsrAttributes(lc.getCsrAttributes());
                     cl.setPushAttributes(lc.getPushAttributes());
                     cl.setWithKey(lc.isWithKey());
@@ -940,7 +964,7 @@ public class LocationServiceImpl implements LocationService {
 
     }
 
-    private void removeStash(Location location, Map<String, Object> metadata) throws ConnectorException, LocationException {
+    private void removeStash(Location location, List<InfoAttribute> metadata) throws ConnectorException, LocationException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(location.getRequestAttributes());
         removeCertificateRequestDto.setCertificateMetadata(metadata);

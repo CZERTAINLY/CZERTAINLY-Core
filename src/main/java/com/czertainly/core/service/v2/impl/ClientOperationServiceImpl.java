@@ -205,7 +205,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPkcs10(pkcs10);
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
-        caRequest.setMeta(oldCertificate.getMeta());
+        //TODO
+//        caRequest.setMeta(oldCertificate.getMeta());
 
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", pkcs10);
