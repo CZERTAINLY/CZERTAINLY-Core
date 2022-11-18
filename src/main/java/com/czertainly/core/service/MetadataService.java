@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.core.model.auth.Resource;
 
@@ -31,5 +32,15 @@ public interface MetadataService {
      * @param resource Resource for which the metadata has to be retrieved
      * @return List of Info attributes as metadata
      */
-    List<InfoAttribute> getMetadata(UUID uuid, Resource resource);
+    List<InfoAttribute> getMetadata(UUID connectorUuid, UUID uuid, Resource resource);
+
+    /**
+     * Method to get the metadata for the specified object
+     * @param uuid UUID of the Object
+     * @param resource Resource for which the metadata has to be retrieved
+     * @param sourceObjectUuid UUID of the source object
+     * @param sourceObjectResource Source Object Resource
+     * @return List of Info attributes as metadata
+     */
+    List<MetadataResponseDto> getFullMetadata(UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource);
 }

@@ -14,34 +14,34 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "metadata_content")
-public class MetadataContent extends UniquelyIdentifiedAndAudited {
+@Table(name = "attribute_content")
+public class AttributeContent extends UniquelyIdentified {
 
     @ManyToOne
-    @JoinColumn(name = "metadata_definition_uuid", nullable = false, insertable = false, updatable = false)
-    private MetadataDefinition metadataDefinition;
+    @JoinColumn(name = "attribute_definition_uuid", nullable = false, insertable = false, updatable = false)
+    private AttributeDefinition attributeDefinition;
 
-    @Column(name = "metadata_definition_uuid", nullable = false)
-    private UUID metadataDefinitionUuid;
+    @Column(name = "attribute_definition_uuid", nullable = false)
+    private UUID attributeDefinitionUuid;
 
     @Column(name = "attribute_content")
     private String attributeContent;
 
-    public MetadataDefinition getMetadataDefinition() {
-        return metadataDefinition;
+    public AttributeDefinition getAttributeDefinition() {
+        return attributeDefinition;
     }
 
-    public void setMetadataDefinition(MetadataDefinition metadataDefinition) {
-        this.metadataDefinition = metadataDefinition;
-        this.metadataDefinitionUuid = metadataDefinition.getUuid();
+    public void setAttributeDefinition(AttributeDefinition attributeDefinition) {
+        this.attributeDefinition = attributeDefinition;
+        this.attributeDefinitionUuid = attributeDefinition.getUuid();
     }
 
-    public UUID getMetadataDefinitionUuid() {
-        return metadataDefinitionUuid;
+    public UUID getAttributeDefinitionUuid() {
+        return attributeDefinitionUuid;
     }
 
-    public void setMetadataDefinitionUuid(UUID metadataDefinitionUuid) {
-        this.metadataDefinitionUuid = metadataDefinitionUuid;
+    public void setAttributeDefinitionUuid(UUID attributeDefinitionUuid) {
+        this.attributeDefinitionUuid = attributeDefinitionUuid;
     }
 
     public String getAttributeContentAsString() {
@@ -63,9 +63,9 @@ public class MetadataContent extends UniquelyIdentifiedAndAudited {
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("attribute_content", attributeContent)
+                .append("attributeContent", attributeContent)
                 .append("uuid", uuid)
-                .append("metadataDefinitionUuid", metadataDefinitionUuid)
+                .append("attributeDefinitionUuid", attributeDefinitionUuid)
                 .toString();
     }
 }

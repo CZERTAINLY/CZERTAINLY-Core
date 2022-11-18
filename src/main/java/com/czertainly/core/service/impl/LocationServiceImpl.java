@@ -19,6 +19,7 @@ import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
@@ -190,8 +191,12 @@ public class LocationServiceImpl implements LocationService {
     public LocationDto getLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
-
-        return maskSecret(location.mapToDto());
+        LocationDto dto = location.mapToDto();
+        dto.setMetadata(metadataService.getFullMetadata(location.getUuid(), Resource.LOCATION, null, null));
+        for(CertificateInLocationDto certificate: dto.getCertificates()){
+            certificate.setMetadata(metadataService.getFullMetadata(UUID.fromString(certificate.getCertificateUuid()), Resource.CERTIFICATE, UUID.fromString(dto.getUuid()), Resource.LOCATION));
+        }
+        return maskSecret(dto);
     }
 
     @Override
@@ -219,7 +224,7 @@ public class LocationServiceImpl implements LocationService {
 
         logger.info("Location {} with UUID {} updated", location.getName(), location.getUuid());
 
-        return maskSecret(location.mapToDto());
+        return maskSecret(getLocation(entityUuid, locationUuid));
     }
 
     @Override
@@ -792,7 +797,7 @@ public class LocationServiceImpl implements LocationService {
     private void removeCertificateFromLocation(CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
-        List<InfoAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getUuid(),
+        List<InfoAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(), certificateLocation.getLocation().getUuid(),
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
 
@@ -808,7 +813,7 @@ public class LocationServiceImpl implements LocationService {
     private void removeCertificateFromLocation(Location entity, CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(entity.getRequestAttributes());
-        List<InfoAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getUuid(),
+        List<InfoAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(), certificateLocation.getLocation().getUuid(),
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
 

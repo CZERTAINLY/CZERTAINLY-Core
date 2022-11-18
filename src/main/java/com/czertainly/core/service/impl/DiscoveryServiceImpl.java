@@ -100,7 +100,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
     public DiscoveryHistoryDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
-        return getDiscoveryEntity(uuid).mapToDto();
+        DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
+        DiscoveryHistoryDto dto = discoveryHistory.mapToDto();
+        dto.setMetadata(metadataService.getFullMetadata(discoveryHistory.getUuid(), Resource.DISCOVERY, null, null));
+        return dto;
     }
 
     public DiscoveryHistory getDiscoveryEntity(SecuredUUID uuid) throws NotFoundException {

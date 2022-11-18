@@ -1,22 +1,20 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToOne;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "metadata_definition")
-public class MetadataDefinition extends UniquelyIdentifiedAndAudited {
+@Table(name = "attribute_definition")
+public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
 
     @OneToOne
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
@@ -33,6 +31,14 @@ public class MetadataDefinition extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "attribute_definition")
     private String attributeDefinition;
+
+    @Column(name = "attribute_type")
+    @Enumerated(EnumType.STRING)
+    private AttributeType type;
+
+    @Column(name = "attribute_content_type")
+    @Enumerated(EnumType.STRING)
+    private AttributeContentType contentType;
 
     public Connector getConnector() {
         return connector;
@@ -83,10 +89,35 @@ public class MetadataDefinition extends UniquelyIdentifiedAndAudited {
         this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
     }
 
+    public AttributeType getType() {
+        return type;
+    }
+
+    public void setType(AttributeType type) {
+        this.type = type;
+    }
+
+    public AttributeContentType getContentType() {
+        return contentType;
+    }
+
+    public void setContentType(AttributeContentType contentType) {
+        this.contentType = contentType;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
+                .append("author", author)
+                .append("created", created)
+                .append("updated", updated)
+                .append("connector", connector)
+                .append("connectorUuid", connectorUuid)
+                .append("attributeUuid", attributeUuid)
+                .append("attributeName", attributeName)
                 .append("attributeDefinition", attributeDefinition)
+                .append("type", type)
+                .append("contentType", contentType)
                 .append("uuid", uuid)
                 .toString();
     }
