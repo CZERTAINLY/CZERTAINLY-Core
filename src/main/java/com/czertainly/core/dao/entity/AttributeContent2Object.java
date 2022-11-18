@@ -8,7 +8,7 @@ import javax.persistence.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "attribute_2_object")
+@Table(name = "attribute_content_2_object")
 public class AttributeContent2Object extends UniquelyIdentified {
 
     @ManyToOne
