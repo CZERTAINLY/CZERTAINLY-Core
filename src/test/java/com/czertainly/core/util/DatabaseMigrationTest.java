@@ -30,4 +30,11 @@ public class DatabaseMigrationTest {
 
         Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211031400__AttributeV2Changes.getChecksum(), checksum);
     }
+
+    @Test
+    public void testCalculateChecksum_V202211141030__MetadataToInfoAttributeMigration() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202211141030__MetadataToInfoAttributeMigration.java");
+
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211141030__MetadataToInfoAttributeMigration.getChecksum(), checksum);
+    }
 }

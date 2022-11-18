@@ -59,9 +59,6 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "total_certificates_discovered")
     private Integer totalCertificatesDiscovered;
 
-    @Column(name = "meta")
-    private String meta;
-
     @Column(name = "connector_uuid")
     private UUID connectorUuid;
     
@@ -150,14 +147,6 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         this.attributes = attributes;
     }
 
-    public String getMeta() {
-        return meta;
-    }
-
-    public void setMeta(String meta) {
-        this.meta = meta;
-    }
-
     public String getKind() {
         return kind;
     }
@@ -197,7 +186,6 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setName(name);
         dto.setEndTime(endTime);
         dto.setStartTime(startTime);
-        dto.setMeta(MetaDefinitions.deserialize(meta));
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
