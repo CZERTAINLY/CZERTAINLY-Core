@@ -89,6 +89,19 @@ public class MetadataServiceImplementation implements MetadataService {
     }
 
     @Override
+    public List<InfoAttribute> getMetadataWithSource(UUID connectorUuid, UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
+        List<InfoAttribute> metadata = new ArrayList<>();
+        for (Attribute2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
+            if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
+                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition();
+                attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
+                metadata.add(attribute);
+            }
+        }
+        return metadata;
+    }
+
+    @Override
     public List<MetadataResponseDto> getFullMetadata(UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
         List<MetadataResponseDto> metadataResponses = new ArrayList<>();
         Map<String, List<ResponseMetadataDto>> metadata = new HashMap<>();

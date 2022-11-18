@@ -38,6 +38,7 @@ import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.LocationService;
+import com.czertainly.core.service.MetadataService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -70,6 +71,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private ExtendedAttributeService extendedAttributeService;
     private CertValidationService certValidationService;
     private CertificateApiClient certificateApiClient;
+    private MetadataService metadataService;
 
     @Autowired
     public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
@@ -110,6 +112,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Autowired
     public void setCertificateApiClient(CertificateApiClient certificateApiClient) {
         this.certificateApiClient = certificateApiClient;
+    }
+
+    @Autowired
+    public void setMetadataService(MetadataService metadataService) {
+        this.metadataService = metadataService;
     }
 
     @Override
@@ -205,8 +212,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPkcs10(pkcs10);
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
-        //TODO
-//        caRequest.setMeta(oldCertificate.getMeta());
+        caRequest.setMeta(metadataService.getMetadataWithSource(null, oldCertificate.getUuid(), Resource.CERTIFICATE, null, null));
 
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", pkcs10);

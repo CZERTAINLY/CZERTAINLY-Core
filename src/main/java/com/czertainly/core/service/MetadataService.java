@@ -35,6 +35,14 @@ public interface MetadataService {
     List<InfoAttribute> getMetadata(UUID connectorUuid, UUID uuid, Resource resource);
 
     /**
+     * Method to get the full metadata for the specified object
+     * @param uuid UUID of the Object
+     * @param resource Resource for which the metadata has to be retrieved
+     * @return List of Info attributes as metadata
+     */
+    List<InfoAttribute> getMetadataWithSource(UUID connectorUuid, UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource);
+
+    /**
      * Method to get the metadata for the specified object
      * @param uuid UUID of the Object
      * @param resource Resource for which the metadata has to be retrieved
