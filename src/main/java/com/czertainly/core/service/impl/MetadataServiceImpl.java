@@ -5,11 +5,11 @@ import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.core.dao.entity.Attribute2Object;
+import com.czertainly.core.dao.entity.AttributeContent2Object;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.repository.Attribute2ObjectRepository;
+import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
 import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.model.auth.Resource;
@@ -27,11 +27,11 @@ import java.util.UUID;
 
 @Service
 @Transactional
-public class MetadataServiceImplementation implements MetadataService {
+public class MetadataServiceImpl implements MetadataService {
 
     private AttributeDefinitionRepository metadataDefinitionRepository;
     private AttributeContentRepository metadataContentRepository;
-    private Attribute2ObjectRepository metadata2ObjectRepository;
+    private AttributeContent2ObjectRepository metadata2ObjectRepository;
 
     @Autowired
     public void setMetadataDefinitionRepository(AttributeDefinitionRepository metadataDefinitionRepository) {
@@ -44,7 +44,7 @@ public class MetadataServiceImplementation implements MetadataService {
     }
 
     @Autowired
-    public void setMetadata2ObjectRepository(Attribute2ObjectRepository metadata2ObjectRepository) {
+    public void setMetadata2ObjectRepository(AttributeContent2ObjectRepository metadata2ObjectRepository) {
         this.metadata2ObjectRepository = metadata2ObjectRepository;
     }
 
@@ -78,7 +78,7 @@ public class MetadataServiceImplementation implements MetadataService {
     @Override
     public List<InfoAttribute> getMetadata(UUID connectorUuid, UUID uuid, Resource resource) {
         List<InfoAttribute> metadata = new ArrayList<>();
-        for (Attribute2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource)) {
+        for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource)) {
             if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
                 InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition();
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
@@ -91,7 +91,7 @@ public class MetadataServiceImplementation implements MetadataService {
     @Override
     public List<InfoAttribute> getMetadataWithSource(UUID connectorUuid, UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
         List<InfoAttribute> metadata = new ArrayList<>();
-        for (Attribute2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
+        for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
             if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
                 InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition();
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
@@ -105,7 +105,7 @@ public class MetadataServiceImplementation implements MetadataService {
     public List<MetadataResponseDto> getFullMetadata(UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
         List<MetadataResponseDto> metadataResponses = new ArrayList<>();
         Map<String, List<ResponseMetadataDto>> metadata = new HashMap<>();
-        for (Attribute2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
+        for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
             InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition();
             ResponseMetadataDto responseMetadataDto = new ResponseMetadataDto();
             responseMetadataDto.setType(AttributeType.META);
@@ -160,7 +160,7 @@ public class MetadataServiceImplementation implements MetadataService {
         AttributeDefinition definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorUuid, attributeUuid).orElse(null);
         AttributeContent existingContent = metadataContentRepository.findByAttributeContentAndAttributeDefinition(serializedContent, definition).orElse(null);
 
-        Attribute2Object metadata2Object = new Attribute2Object();
+        AttributeContent2Object metadata2Object = new AttributeContent2Object();
         metadata2Object.setObjectUuid(objectUuid);
         metadata2Object.setObjectType(resource);
         metadata2Object.setSourceObjectUuid(sourceObjectUuid);

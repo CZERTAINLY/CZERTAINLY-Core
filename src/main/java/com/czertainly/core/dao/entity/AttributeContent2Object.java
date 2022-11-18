@@ -9,7 +9,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "attribute_2_object")
-public class Attribute2Object extends UniquelyIdentified {
+public class AttributeContent2Object extends UniquelyIdentified {
 
     @ManyToOne
     @JoinColumn(name = "attribute_content_uuid", nullable = false, insertable = false, updatable = false)
