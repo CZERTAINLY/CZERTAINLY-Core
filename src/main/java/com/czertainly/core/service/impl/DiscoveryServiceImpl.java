@@ -8,6 +8,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
@@ -34,12 +35,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.CertValidationService;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.core.service.DiscoveryService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -56,6 +52,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -86,6 +83,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private CertificateContentRepository certificateContentRepository;
     @Autowired
     private CertValidationService certValidationService;
+    @Autowired
+    private MetadataService metadataService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
@@ -101,7 +100,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
     public DiscoveryHistoryDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
-        return getDiscoveryEntity(uuid).mapToDto();
+        DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
+        DiscoveryHistoryDto dto = discoveryHistory.mapToDto();
+        dto.setMetadata(metadataService.getFullMetadata(discoveryHistory.getUuid(), Resource.DISCOVERY, null, null));
+        return dto;
     }
 
     public DiscoveryHistory getDiscoveryEntity(SecuredUUID uuid) throws NotFoundException {
@@ -286,9 +288,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response) {
         modal.setStatus(response.getStatus());
         modal.setEndTime(new Date());
-        modal.setMeta(MetaDefinitions.serialize(response.getMeta()));
+        updateDiscoveryMeta(modal.getConnectorUuid(), response.getMeta(), modal);
         modal.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
         discoveryRepository.save(modal);
+    }
+
+    private void updateDiscoveryMeta(UUID connectorUuid, List<InfoAttribute> metaAttributes, DiscoveryHistory history) {
+        metadataService.createMetadataDefinitions(connectorUuid, metaAttributes);
+        metadataService.createMetadata(connectorUuid, history.getUuid(), null, metaAttributes, Resource.DISCOVERY, null);
+
     }
 
     private Boolean checkForCompletion(DiscoveryProviderDto response) {
@@ -307,13 +315,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             try {
                 X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getBase64Content());
                 Certificate entry = certificateService.createCertificateEntity(x509Cert);
-                updateMeta(entry, certificate, modal);
                 allCerts.add(entry);
                 createDiscoveryCertificate(entry, modal);
+                certificateService.updateCertificateEntity(entry);
+                updateMeta(entry, certificate, modal);
                 Map<String, Object> additionalInfo = new HashMap<>();
                 additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
                 additionalInfo.put("Discovery Kind", modal.getKind());
-                additionalInfo.putAll(certificate.getMeta());
                 certificateEventHistoryService.addEventHistory(CertificateEvent.DISCOVERY, CertificateEventStatus.SUCCESS, "Discovered from Connector: " + modal.getConnectorName(), MetaDefinitions.serialize(additionalInfo), entry);
             } catch (Exception e) {
                 logger.error(e.getMessage());
@@ -336,30 +344,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     private void updateMeta(Certificate modal, DiscoveryProviderCertificateDataDto certificate, DiscoveryHistory history) {
-        Map<String, Object> meta = new HashMap<>();
-        if (certificate.getMeta() != null) {
-            meta = certificate.getMeta();
-        }
-        try {
-            for (Map.Entry<String, Object> entry : MetaDefinitions.deserialize(modal.getMeta()).entrySet()) {
-                if (entry.getKey().equals("discoverySource")) {
-                    if (entry.getValue().equals(certificate.getMeta().getOrDefault("discoverySource", ""))) {
-                        meta.put("discoverySource", entry.getValue());
-                    } else {
-                        meta.put("discoverySource", entry.getValue() + "," + certificate.getMeta().getOrDefault("discoverySource", ""));
-                    }
-                }
-            }
-        } catch (NullPointerException | IllegalStateException e) {
-            logger.debug("Metadata is null for the certificate");
-        }
-
-        if (modal.getMeta() == null) {
-            meta.put("discoverySource", certificate.getMeta().getOrDefault("discoverySource", ""));
-        }
-        modal.setMeta(MetaDefinitions.serialize(meta));
-
-        certificateRepository.save(modal);
-
+        metadataService.createMetadataDefinitions(history.getConnectorUuid(), certificate.getMeta());
+        metadataService.createMetadata(history.getConnectorUuid(), modal.getUuid(), history.getUuid(), certificate.getMeta(), Resource.CERTIFICATE, Resource.DISCOVERY);
     }
 }

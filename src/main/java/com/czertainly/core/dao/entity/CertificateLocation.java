@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
 
@@ -26,9 +27,6 @@ public class CertificateLocation implements Serializable {
     @ManyToOne(fetch = FetchType.EAGER)
     @MapsId("certificateUuid")
     private Certificate certificate;
-
-    @Column(name = "metadata")
-    private String metadata;
 
     @Column(name = "push_attributes")
     private String pushAttributes;
@@ -63,14 +61,6 @@ public class CertificateLocation implements Serializable {
 
     public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
-    }
-
-    public Map<String, Object> getMetadata() {
-        return MetaDefinitions.deserialize(metadata);
-    }
-
-    public void setMetadata(Map<String, Object> metadata) {
-        this.metadata = MetaDefinitions.serialize(metadata);
     }
 
     public List<DataAttribute> getPushAttributes() {
@@ -122,7 +112,6 @@ public class CertificateLocation implements Serializable {
                 "id=" + id +
                 ", location=" + location +
                 ", certificate=" + certificate +
-                ", metadata='" + metadata + '\'' +
                 ", pushAttributes='" + pushAttributes + '\'' +
                 ", csrAttributes='" + csrAttributes + '\'' +
                 ", withKey=" + withKey +
