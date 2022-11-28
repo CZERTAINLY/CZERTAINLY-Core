@@ -171,8 +171,8 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
             cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid().toString());
             cilDto.setWithKey(certificateLocation.isWithKey());
-            cilDto.setPushAttributes(AttributeDefinitionUtils.getClientAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getPushAttributes()))));
-            cilDto.setCsrAttributes(AttributeDefinitionUtils.getClientAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getCsrAttributes()))));
+            cilDto.setPushAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getPushAttributes())));
+            cilDto.setCsrAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getCsrAttributes())));
 
             cilDtoList.add(cilDto);
         }
