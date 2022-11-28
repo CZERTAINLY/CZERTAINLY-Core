@@ -37,17 +37,17 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
 
     @Override
-    public List<AttributeDefinitionDto> listAttributes() {
+    public List<AttributeDefinitionDto> listCustomAttributes() {
         return attributeService.listAttributes(SecurityFilter.create(), AttributeType.CUSTOM);
     }
 
     @Override
-    public CustomAttributeDefinitionDetailDto getAttributes(String uuid) throws NotFoundException {
+    public CustomAttributeDefinitionDetailDto getCustomAttribute(String uuid) throws NotFoundException {
         return attributeService.getAttribute(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public ResponseEntity<CustomAttributeDefinitionDetailDto> createAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, NotFoundException {
+    public ResponseEntity<CustomAttributeDefinitionDetailDto> createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, NotFoundException {
         CustomAttributeDefinitionDetailDto definitionDetailDto = attributeService.createAttribute(request);
 
         URI location = ServletUriComponentsBuilder
@@ -59,47 +59,47 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
-    public CustomAttributeDefinitionDetailDto editAttribute(String uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException {
+    public CustomAttributeDefinitionDetailDto editCustomAttribute(String uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException {
         return attributeService.editAttribute(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    public void deleteAttribute(String uuid) throws NotFoundException {
+    public void deleteCustomAttribute(String uuid) throws NotFoundException {
         attributeService.deleteAttribute(SecuredUUID.fromString(uuid), AttributeType.CUSTOM);
     }
 
     @Override
-    public void enableAttribute(String uuid) throws NotFoundException {
+    public void enableCustomAttribute(String uuid) throws NotFoundException {
         attributeService.enableAttribute(SecuredUUID.fromString(uuid), AttributeType.CUSTOM);
     }
 
     @Override
-    public void disableAttribute(String uuid) throws NotFoundException {
+    public void disableCustomAttribute(String uuid) throws NotFoundException {
         attributeService.disableAttribute(SecuredUUID.fromString(uuid), AttributeType.CUSTOM);
     }
 
     @Override
-    public void bulkDeleteAttributes(List<String> attributeUuids) {
+    public void bulkDeleteCustomAttributes(List<String> attributeUuids) {
         attributeService.bulkDeleteAttributes(SecuredUUID.fromList(attributeUuids), AttributeType.CUSTOM);
     }
 
     @Override
-    public void bulkEnableAttributes(List<String> attributeUuids) {
+    public void bulkEnableCustomAttributes(List<String> attributeUuids) {
         attributeService.bulkEnableAttributes(SecuredUUID.fromList(attributeUuids), AttributeType.CUSTOM);
     }
 
     @Override
-    public void bulkDisableAttributes(List<String> attributeUuids) {
+    public void bulkDisableCustomAttributes(List<String> attributeUuids) {
         attributeService.bulkDisableAttributes(SecuredUUID.fromList(attributeUuids), AttributeType.CUSTOM);
     }
 
     @Override
-    public void updateResource(String uuid, List<Resource> resources) throws NotFoundException {
+    public void updateResources(String uuid, List<Resource> resources) throws NotFoundException {
         attributeService.updateResources(SecuredUUID.fromString(uuid), resources);
     }
 
     @Override
-    public List<BaseAttribute> getResourceAttributes(Resource resource) {
+    public List<BaseAttribute> getResourceCustomAttributes(Resource resource) {
         return attributeService.getResourceAttributes(resource);
     }
 
