@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.attribute.CustomAttributeDefinitionDetail
 import com.czertainly.api.model.client.attribute.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
