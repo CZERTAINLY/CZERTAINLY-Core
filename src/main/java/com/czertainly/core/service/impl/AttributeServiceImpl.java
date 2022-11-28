@@ -197,7 +197,6 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.ANY)
     public List<BaseAttribute> getResourceAttributes(Resource resource) {
         List<BaseAttribute> attributes = new ArrayList<>();
         for (AttributeRelation relation : attributeRelationRepository.findByResource(resource)) {
