@@ -12,7 +12,7 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeProfileService;

@@ -21,6 +21,7 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.BaseFunctionGroupDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -35,11 +36,11 @@ import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.ConnectorAuthService;
@@ -87,19 +88,21 @@ public class ConnectorServiceImpl implements ConnectorService {
     private ComplianceService complianceService;
     @Autowired
     private ComplianceProfileService complianceProfileService;
+    @Autowired
+    private AttributeService attributeService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) {
         List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDto).collect(Collectors.toList());
-        if(functionGroup != null && functionGroup.isPresent()){
+        if (functionGroup != null && functionGroup.isPresent()) {
             connectors = filterByFunctionGroup(connectors, functionGroup.get());
         }
-        if(kind != null && kind.isPresent()) {
+        if (kind != null && kind.isPresent()) {
             connectors = filterByKind(connectors, kind.get());
         }
-        if(status != null && status.isPresent()) {
+        if (status != null && status.isPresent()) {
             connectors = filterByStatus(connectors, status.get());
         }
         return connectors;
@@ -133,6 +136,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
             logger.error("Unable to fetch list of supported functions of connector " + dto.getName(), Exceptions.unwrap(e));
         }
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CONNECTOR));
         return dto;
     }
 
@@ -147,11 +151,13 @@ public class ConnectorServiceImpl implements ConnectorService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
     public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
         return createNewConnector(request, ConnectorStatus.CONNECTED);
     }
 
     //Internal and anonymous user only - Not exposed through service
     public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
         return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
     }
 
@@ -159,6 +165,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("name must not be empty");
         }
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
 
         List<DataAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
 
@@ -190,7 +197,10 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         complianceRuleGroupUpdate(connector, false);
 
-        return connector.mapToDto();
+        attributeService.createAttributeContent(connector.getUuid(), request.getCustomAttributes(), Resource.CONNECTOR);
+        ConnectorDto dto = connector.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(connector.getUuid(), Resource.CONNECTOR));
+        return dto;
     }
 
 
@@ -198,6 +208,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
     public ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException {
+
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException("name must not be empty");
         }
@@ -230,6 +241,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
     public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
         List<DataAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
                 AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
@@ -260,7 +272,11 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         complianceRuleGroupUpdate(connector, true);
 
-        return connector.mapToDto();
+        attributeService.updateAttributeContent(connector.getUuid(), request.getCustomAttributes(), Resource.CONNECTOR);
+        ConnectorDto dto = connector.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(connector.getUuid(), Resource.CONNECTOR));
+
+        return dto;
     }
 
     private Set<Connector2FunctionGroup> setFunctionGroups(List<FunctionGroupDto> functionGroups, Connector connector) throws NotFoundException {
@@ -668,6 +684,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
         connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
+        attributeService.deleteAttributeContent(connector.getUuid(), Resource.CONNECTOR);
         connectorRepository.delete(connector);
     }
 
@@ -754,7 +771,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private List<ConnectorDto> filterByFunctionGroup(List<ConnectorDto> connectors, FunctionGroupCode code) {
         List<ConnectorDto> connectorDtos = new ArrayList<>();
-        for(ConnectorDto connectorDto: connectors) {
+        for (ConnectorDto connectorDto : connectors) {
             for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
                 if (code == FunctionGroupCode.AUTHORITY_PROVIDER) {
                     if (Arrays.asList(FunctionGroupCode.AUTHORITY_PROVIDER, FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER).contains(fg.getFunctionGroupCode())) {
@@ -772,9 +789,9 @@ public class ConnectorServiceImpl implements ConnectorService {
         return connectorDtos;
     }
 
-    private List<ConnectorDto> filterByKind(List<ConnectorDto> connectors, String kind){
+    private List<ConnectorDto> filterByKind(List<ConnectorDto> connectors, String kind) {
         List<ConnectorDto> connectorDtos = new ArrayList<>();
-        for(ConnectorDto connectorDto: connectors) {
+        for (ConnectorDto connectorDto : connectors) {
             for (FunctionGroupDto fg : connectorDto.getFunctionGroups()) {
                 if (fg.getKinds().contains(kind)) {
                     connectorDtos.add(connectorDto);

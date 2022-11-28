@@ -30,7 +30,7 @@ import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -85,6 +85,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private CertValidationService certValidationService;
     @Autowired
     private MetadataService metadataService;
+    @Autowired
+    private AttributeService attributeService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
@@ -103,6 +105,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
         DiscoveryHistoryDto dto = discoveryHistory.mapToDto();
         dto.setMetadata(metadataService.getFullMetadata(discoveryHistory.getUuid(), Resource.DISCOVERY, null, null));
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.DISCOVERY));
         return dto;
     }
 
@@ -137,6 +140,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
+            attributeService.deleteAttributeContent(discovery.getUuid(), Resource.DISCOVERY);
             discoveryRepository.delete(discovery);
             Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
             discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
@@ -270,7 +274,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),
                 request.getKind());
-
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.DISCOVERY);
         DiscoveryHistory modal = new DiscoveryHistory();
         modal.setName(request.getName());
         modal.setConnectorName(connector.getName());
@@ -281,6 +285,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         modal.setKind(request.getKind());
 
         discoveryRepository.save(modal);
+
+        attributeService.createAttributeContent(modal.getUuid(), request.getCustomAttributes(), Resource.DISCOVERY);
 
         return modal;
     }

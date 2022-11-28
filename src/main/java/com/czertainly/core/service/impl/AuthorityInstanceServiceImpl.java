@@ -25,11 +25,12 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.AuthorityInstanceService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
@@ -63,6 +64,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     private EndEntityProfileApiClient endEntityProfileApiClient;
     @Autowired
     private RaProfileService raProfileService;
+    @Autowired
+    private AttributeService attributeService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
@@ -99,6 +102,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
         authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnector().getName());
         authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid().toString());
+        authorityInstanceDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.AUTHORITY));
         return authorityInstanceDto;
     }
 
@@ -120,7 +124,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                 break;
             }
         }
-
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.AUTHORITY);
         List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), request.getKind());
 
@@ -143,6 +147,10 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceRef.setConnectorName(connector.getName());
         authorityInstanceReferenceRepository.save(authorityInstanceRef);
 
+        attributeService.createAttributeContent(authorityInstanceRef.getUuid(), request.getCustomAttributes(), Resource.AUTHORITY);
+
+        AuthorityInstanceDto dto = authorityInstanceRef.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(authorityInstanceRef.getUuid(), Resource.AUTHORITY));
         return authorityInstanceRef.mapToDto();
     }
 
@@ -163,7 +171,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                 break;
             }
         }
-
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.AUTHORITY);
         List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), ref.getKind());
 
@@ -177,7 +185,13 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         authorityInstanceApiClient.updateAuthorityInstance(connector.mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid(), authorityInstanceDto);
         authorityInstanceReferenceRepository.save(authorityInstanceRef);
-        return authorityInstanceRef.mapToDto();
+
+        attributeService.updateAttributeContent(authorityInstanceRef.getUuid(), request.getCustomAttributes(), Resource.AUTHORITY);
+
+        AuthorityInstanceDto dto = authorityInstanceRef.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(authorityInstanceRef.getUuid(), Resource.AUTHORITY));
+
+        return dto;
     }
 
     @Override
@@ -312,6 +326,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         } else {
             logger.debug("Deleting authority without connector: {}", authorityInstanceRef);
         }
+        attributeService.deleteAttributeContent(authorityInstanceRef.getUuid(), Resource.AUTHORITY);
         authorityInstanceReferenceRepository.delete(authorityInstanceRef);
     }
 }

@@ -16,11 +16,12 @@ import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.EntityInstanceService;
@@ -45,6 +46,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     private ConnectorService connectorService;
     private CredentialService credentialService;
     private EntityInstanceApiClient entityInstanceApiClient;
+    private AttributeService attributeService;
 
     @Autowired
     public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
@@ -64,6 +66,11 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     @Autowired
     public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
         this.entityInstanceApiClient = entityInstanceApiClient;
+    }
+
+    @Autowired
+    public void setAttributeService(AttributeService attributeService) {
+        this.attributeService = attributeService;
     }
 
     @Override
@@ -97,7 +104,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         entityInstanceDto.setConnectorUuid(entityInstanceReference.getConnector().getUuid().toString());
         entityInstanceDto.setKind(entityInstanceReference.getKind());
         entityInstanceDto.setConnectorName(entityInstanceReference.getConnectorName());
-
+        entityInstanceDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(entityUuid.getValue(), Resource.ENTITY));
         return entityInstanceDto;
     }
 
@@ -116,7 +123,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
-
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.ENTITY);
         List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), codeToSearch,
                 request.getAttributes(), request.getKind());
 
@@ -139,9 +146,12 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         entityInstanceRef.setConnectorName(connector.getName());
         entityInstanceReferenceRepository.save(entityInstanceRef);
 
+        attributeService.createAttributeContent(entityInstanceRef.getUuid(), request.getCustomAttributes(), Resource.ENTITY);
         logger.info("Entity {} created with Kind {}", entityInstanceRef.getUuid(), entityInstanceRef.getKind());
 
-        return entityInstanceRef.mapToDto();
+        EntityInstanceDto dto = entityInstanceRef.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(entityInstanceRef.getUuid(), Resource.ENTITY));
+        return dto;
     }
 
     @Override
@@ -156,6 +166,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         FunctionGroupCode codeToSearch = FunctionGroupCode.ENTITY_PROVIDER;
 
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.ENTITY);
         List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch,
                 request.getAttributes(), ref.getKind());
 
@@ -170,9 +181,12 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
                 entityInstanceRef.getEntityInstanceUuid(), entityInstanceDto);
         entityInstanceReferenceRepository.save(entityInstanceRef);
 
-        logger.info("Entity {} with Kind {} updated", entityInstanceRef.getUuid(), entityInstanceRef.getKind());
+        attributeService.updateAttributeContent(entityInstanceRef.getUuid(), request.getCustomAttributes(), Resource.ENTITY);
+        logger.info("Entity {} updated with Kind {}", entityInstanceRef.getUuid(), entityInstanceRef.getKind());
 
-        return entityInstanceRef.mapToDto();
+        EntityInstanceDto dto = entityInstanceRef.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(entityInstanceRef.getUuid(), Resource.ENTITY));
+        return dto;
     }
 
     @Override
@@ -194,7 +208,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         }
 
         entityInstanceApiClient.removeEntityInstance(entityInstanceRef.getConnector().mapToDto(), entityInstanceRef.getEntityInstanceUuid());
-
+        attributeService.deleteAttributeContent(entityInstanceRef.getUuid(), Resource.ENTITY);
         entityInstanceReferenceRepository.delete(entityInstanceRef);
 
         logger.info("Entity instance {} was deleted", entityInstanceRef.getName());

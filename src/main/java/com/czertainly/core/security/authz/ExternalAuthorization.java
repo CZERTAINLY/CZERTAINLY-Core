@@ -1,6 +1,6 @@
 package com.czertainly.core.security.authz;
 
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 
 import java.lang.annotation.ElementType;

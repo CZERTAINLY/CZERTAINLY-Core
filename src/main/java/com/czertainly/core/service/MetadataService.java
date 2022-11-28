@@ -2,7 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 
 import java.util.List;
 import java.util.UUID;

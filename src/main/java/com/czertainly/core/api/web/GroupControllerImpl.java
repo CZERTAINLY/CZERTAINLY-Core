@@ -8,7 +8,7 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.impl.GroupServiceImpl;

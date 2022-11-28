@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -25,7 +26,6 @@ import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -121,6 +121,9 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private MetadataService metadataService;
 
+    @Autowired
+    private AttributeService attributeService;
+
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -143,6 +146,7 @@ public class CertificateServiceImpl implements CertificateService {
             dto.setComplianceStatus(ComplianceStatus.NA);
         }
         dto.setMetadata(metadataService.getFullMetadata(entity.getUuid(), Resource.CERTIFICATE, null, null));
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CERTIFICATE));
         return dto;
     }
 
@@ -225,6 +229,7 @@ public class CertificateServiceImpl implements CertificateService {
         } else {
             certificateRepository.delete(certificate);
         }
+        attributeService.deleteAttributeContent(uuid.getValue(), Resource.CERTIFICATE);
     }
 
     @Override
@@ -654,15 +659,18 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public void checkIssuePermissions() {}
+    public void checkIssuePermissions() {
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.RENEW)
-    public void checkRenewPermissions() {}
+    public void checkRenewPermissions() {
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
-    public void checkRevokePermissions() {}
+    public void checkRevokePermissions() {
+    }
 
     private String getExpiryTime(Date now, Date expiry) {
         long diffInMillies = now.getTime() - expiry.getTime();
@@ -756,8 +764,8 @@ public class CertificateServiceImpl implements CertificateService {
             certificateResponseDto.setTotalPages((int) Math.ceil((double) maxSize / request.getItemsPerPage()));
             certificateResponseDto.setTotalItems(maxSize);
             certificateResponseDto.setCertificates(certificateRepository.findUsingSecurityFilter(
-                    filter, null,
-                    p, (root, cb) -> cb.desc(root.get("created")))
+                            filter, null,
+                            p, (root, cb) -> cb.desc(root.get("created")))
                     .stream()
                     .map(Certificate::mapToDto)
                     .collect(Collectors.toList()
