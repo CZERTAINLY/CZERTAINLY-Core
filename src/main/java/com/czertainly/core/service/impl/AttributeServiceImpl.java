@@ -193,7 +193,9 @@ public class AttributeServiceImpl implements AttributeService {
     public List<BaseAttribute> getResourceAttributes(Resource resource) {
         List<BaseAttribute> attributes = new ArrayList<>();
         for (AttributeRelation relation : attributeRelationRepository.findByResource(resource)) {
-            attributes.add(relation.getAttributeDefinition().getAttributeDefinition(DataAttribute.class));
+            if (relation.getAttributeDefinition().isEnabled()) {
+                attributes.add(relation.getAttributeDefinition().getAttributeDefinition(DataAttribute.class));
+            }
         }
         return attributes;
     }
@@ -264,7 +266,7 @@ public class AttributeServiceImpl implements AttributeService {
         List<DataAttribute> attributes = new ArrayList<>();
         for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource)) {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
-            if (definition.getType().equals(AttributeType.CUSTOM) && definition.getEnabled()) {
+            if (definition.getType().equals(AttributeType.CUSTOM) && definition.isEnabled()) {
                 DataAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(DataAttribute.class);
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
                 attributes.add(attribute);
@@ -281,6 +283,9 @@ public class AttributeServiceImpl implements AttributeService {
     private void createAttributeContent(UUID objectUuid, String attributeName, List<BaseAttributeContent> value, Resource resource) {
         String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(value);
         AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndAttributeName(AttributeType.CUSTOM, attributeName).orElse(null);
+        if (!definition.isEnabled()) {
+            return;
+        }
         AttributeContent existingContent = attributeContentRepository.findByAttributeContentAndAttributeDefinition(serializedContent, definition).orElse(null);
 
         AttributeContent2Object metadata2Object = new AttributeContent2Object();

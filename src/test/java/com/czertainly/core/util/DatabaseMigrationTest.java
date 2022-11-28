@@ -32,9 +32,9 @@ public class DatabaseMigrationTest {
     }
 
     @Test
-    public void testCalculateChecksum_V202211141030__MetadataToInfoAttributeMigration() throws IOException {
-        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202211141030__MetadataToInfoAttributeMigration.java");
+    public void testCalculateChecksum_V202211141030__AttributeV2TablesAndMigration() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202211141030__AttributeV2TablesAndMigration.java");
 
-        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211141030__MetadataToInfoAttributeMigration.getChecksum(), checksum);
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211141030__AttributeV2TablesAndMigration.getChecksum(), checksum);
     }
 }

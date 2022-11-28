@@ -115,7 +115,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         this.contentType = contentType;
     }
 
-    public Boolean getEnabled() {
+    public Boolean isEnabled() {
         return enabled;
     }
 
