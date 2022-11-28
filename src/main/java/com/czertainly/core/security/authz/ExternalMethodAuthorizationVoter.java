@@ -1,6 +1,6 @@
 package com.czertainly.core.security.authz;
 
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.AnonymousPrincipal;

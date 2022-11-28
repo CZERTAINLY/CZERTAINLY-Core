@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,8 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
     List<T> findUsingSecurityFilter(SecurityFilter filter);
 
     List<T> findUsingSecurityFilter(SecurityFilter filter, boolean enabled);
+
+    List<T> findUsingSecurityFilterAndType(SecurityFilter filter, AttributeType type);
 
     List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause);
 

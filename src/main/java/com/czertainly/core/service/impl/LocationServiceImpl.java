@@ -15,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.connector.entity.*;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -34,12 +35,12 @@ import com.czertainly.core.dao.repository.CertificateLocationRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.LocationService;
@@ -74,6 +75,7 @@ public class LocationServiceImpl implements LocationService {
     private ClientOperationService clientOperationService;
     private CertificateEventHistoryService certificateEventHistoryService;
     private MetadataService metadataService;
+    private AttributeService attributeService;
 
     @Autowired
     public void setLocationRepository(LocationRepository locationRepository) {
@@ -125,6 +127,11 @@ public class LocationServiceImpl implements LocationService {
         this.metadataService = metadataService;
     }
 
+    @Autowired
+    public void setAttributeService(AttributeService attributeService) {
+        this.attributeService = attributeService;
+    }
+
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST, parentResource = Resource.ENTITY, parentAction = ResourceAction.LIST)
@@ -168,7 +175,7 @@ public class LocationServiceImpl implements LocationService {
 
         EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
-
+        attributeService.validateCustomAttributes(dto.getCustomAttributes(), Resource.LOCATION);
         List<DataAttribute> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), dto.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), dto.getName());
 
@@ -180,9 +187,14 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Failed to create Location " + dto.getName());
         }
 
+        attributeService.createAttributeContent(location.getUuid(), dto.getCustomAttributes(), Resource.LOCATION);
+
         logger.info("Location with name {} and UUID {} created", location.getName(), location.getUuid());
 
-        return maskSecret(location.mapToDto());
+        LocationDto locationDto = location.mapToDto();
+        locationDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(location.getUuid(), Resource.LOCATION));
+
+        return maskSecret(locationDto);
     }
 
     @Override
@@ -196,6 +208,7 @@ public class LocationServiceImpl implements LocationService {
         for(CertificateInLocationDto certificate: dto.getCertificates()){
             certificate.setMetadata(metadataService.getFullMetadata(UUID.fromString(certificate.getCertificateUuid()), Resource.CERTIFICATE, UUID.fromString(dto.getUuid()), Resource.LOCATION));
         }
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(location.getUuid(), Resource.LOCATION));
         return maskSecret(dto);
     }
 
@@ -209,7 +222,7 @@ public class LocationServiceImpl implements LocationService {
         EntityInstanceReference entityInstanceRef;
         entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
-
+        attributeService.validateCustomAttributes(dto.getCustomAttributes(), Resource.LOCATION);
         List<DataAttribute> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), location.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), location.getName());
 
@@ -221,10 +234,14 @@ public class LocationServiceImpl implements LocationService {
             logger.debug("Failed to update Location {}, {} content: {}", location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to update Location content: " + location.getName() + ", " + location.getUuid());
         }
+        attributeService.updateAttributeContent(location.getUuid(), dto.getCustomAttributes(), Resource.LOCATION);
 
-        logger.info("Location {} with UUID {} updated", location.getName(), location.getUuid());
+        logger.info("Location with name {} and UUID {} updated", location.getName(), location.getUuid());
 
-        return maskSecret(getLocation(entityUuid, locationUuid));
+        LocationDto locationDto = location.mapToDto();
+        locationDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(location.getUuid(), Resource.LOCATION));
+
+        return maskSecret(locationDto);
     }
 
     @Override
@@ -246,6 +263,7 @@ public class LocationServiceImpl implements LocationService {
         }
 
         certificateLocationRepository.deleteAll(location.getCertificates());
+        attributeService.deleteAttributeContent(location.getUuid(), Resource.LOCATION);
         locationRepository.delete(location);
 
         logger.info("Location {} was deleted", location.getName());

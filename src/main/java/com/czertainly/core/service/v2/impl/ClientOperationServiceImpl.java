@@ -16,6 +16,7 @@ import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateSignRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
@@ -29,11 +30,11 @@ import com.czertainly.core.dao.entity.CertificateLocation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
@@ -72,6 +73,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CertValidationService certValidationService;
     private CertificateApiClient certificateApiClient;
     private MetadataService metadataService;
+    private AttributeService attributeService;
 
     @Autowired
     public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
@@ -119,6 +121,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         this.metadataService = metadataService;
     }
 
+    @Autowired
+    public void setAttributeService(AttributeService attributeService) {
+        this.attributeService = attributeService;
+    }
+
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
@@ -159,7 +166,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPkcs10(pkcs10);
         caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
-
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CERTIFICATE);
         CertificateDataResponseDto caResponse = certificateApiClient.issueCertificate(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
@@ -167,6 +174,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         //Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         Certificate certificate = certificateService.checkCreateCertificateWithMeta(caResponse.getCertificateData(), caResponse.getMeta());
+
+        //Create Custom Attributes
+        attributeService.createAttributeContent(certificate.getUuid(), request.getCustomAttributes(), Resource.CERTIFICATE);
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", pkcs10);
         certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);

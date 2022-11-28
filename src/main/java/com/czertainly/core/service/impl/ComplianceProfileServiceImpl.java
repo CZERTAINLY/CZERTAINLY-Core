@@ -12,6 +12,7 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
@@ -27,11 +28,11 @@ import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
 import com.czertainly.core.dao.repository.ComplianceRuleRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
@@ -76,6 +77,9 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Autowired
     private CertificateService certificateService;
 
+    @Autowired
+    private AttributeService attributeService;
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
@@ -90,7 +94,9 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.info("Requesting Compliance Profile details for: {}", uuid);
         ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
         logger.debug("Compliance Profile: {}", complianceProfile);
-        return complianceProfile.mapToDto();
+        ComplianceProfileDto dto = complianceProfile.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.COMPLIANCE_PROFILE));
+        return dto;
     }
 
     @Override
@@ -109,13 +115,17 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             logger.error("Compliance Profile with same name already exists");
             throw new AlreadyExistException(ComplianceProfile.class, request.getName());
         }
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.COMPLIANCE_PROFILE);
         ComplianceProfile complianceProfile = addComplianceEntity(request);
+        attributeService.createAttributeContent(complianceProfile.getUuid(), request.getCustomAttributes(), Resource.COMPLIANCE_PROFILE);
         logger.debug("Compliance Entity: {}", complianceProfile);
         if (request.getRules() != null && !request.getRules().isEmpty()) {
             logger.info("Rules are not empty in the request. Adding them to the profile");
             addRulesForConnector(request.getRules(), complianceProfile);
         }
-        return complianceProfile.mapToDto();
+        ComplianceProfileDto dto = complianceProfile.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(complianceProfile.getUuid(), Resource.COMPLIANCE_PROFILE));
+        return dto;
     }
 
     @Override
@@ -613,6 +623,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 throw new ValidationException(error);
             }
         }
+        attributeService.deleteAttributeContent(complianceProfile.getUuid(), Resource.COMPLIANCE_PROFILE);
         complianceProfileRepository.delete(complianceProfile);
     }
 }

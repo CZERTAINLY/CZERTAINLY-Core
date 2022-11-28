@@ -5,14 +5,14 @@ import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.core.dao.entity.AttributeContent2Object;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeContent;
+import com.czertainly.core.dao.entity.AttributeContent2Object;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
 import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.service.MetadataService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,11 +55,11 @@ public class MetadataServiceImpl implements MetadataService {
         }
         for (InfoAttribute infoAttribute : metadataDefinitions) {
             if (!metadataDefinitionRepository.existsByConnectorUuidAndAttributeUuidAndTypeAndContentType(connectorUuid, UUID.fromString(infoAttribute.getUuid()), infoAttribute.getType(), infoAttribute.getContentType())) {
-                createMetadataDefinition(connectorUuid, infoAttribute);
-            } else {
                 AttributeDefinition definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeNameAndAttributeUuidAndTypeAndContentType(connectorUuid, infoAttribute.getName(), null, infoAttribute.getType(), infoAttribute.getContentType()).orElse(null);
                 if (definition != null) {
                     definition.setAttributeUuid(UUID.fromString(infoAttribute.getUuid()));
+                } else {
+                    createMetadataDefinition(connectorUuid, infoAttribute);
                 }
             }
         }
@@ -80,7 +80,7 @@ public class MetadataServiceImpl implements MetadataService {
         List<InfoAttribute> metadata = new ArrayList<>();
         for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource)) {
             if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
-                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition();
+                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(InfoAttribute.class);
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
                 metadata.add(attribute);
             }
@@ -93,7 +93,7 @@ public class MetadataServiceImpl implements MetadataService {
         List<InfoAttribute> metadata = new ArrayList<>();
         for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
             if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
-                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition();
+                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(InfoAttribute.class);
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
                 metadata.add(attribute);
             }
@@ -106,26 +106,28 @@ public class MetadataServiceImpl implements MetadataService {
         List<MetadataResponseDto> metadataResponses = new ArrayList<>();
         Map<String, List<ResponseMetadataDto>> metadata = new HashMap<>();
         for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
-            InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition();
-            ResponseMetadataDto responseMetadataDto = new ResponseMetadataDto();
-            responseMetadataDto.setType(AttributeType.META);
-            responseMetadataDto.setContentType(attribute.getContentType());
-            if (attribute.getProperties() != null) {
-                responseMetadataDto.setLabel(attribute.getProperties().getLabel());
+            if(object.getAttributeContent().getAttributeDefinition().getType().equals(AttributeType.META)) {
+                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(InfoAttribute.class);
+                ResponseMetadataDto responseMetadataDto = new ResponseMetadataDto();
+                responseMetadataDto.setType(AttributeType.META);
+                responseMetadataDto.setContentType(attribute.getContentType());
+                if (attribute.getProperties() != null) {
+                    responseMetadataDto.setLabel(attribute.getProperties().getLabel());
+                }
+                responseMetadataDto.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
+                responseMetadataDto.setName(attribute.getName());
+                responseMetadataDto.setUuid(attribute.getUuid());
+                responseMetadataDto.setSourceObjectType(object.getSourceObjectType() != null ? object.getSourceObjectType().getCode() : null);
+                responseMetadataDto.setSourceObjectUuid(object.getSourceObjectUuid() != null ? object.getSourceObjectUuid().toString() : null);
+                Connector connector = object.getAttributeContent().getAttributeDefinition().getConnector();
+                String key;
+                if (connector == null) {
+                    key = ":#";
+                } else {
+                    key = connector.getName() + ":#" + connector.getUuid().toString();
+                }
+                metadata.computeIfAbsent(key, k -> new ArrayList<>()).add(responseMetadataDto);
             }
-            responseMetadataDto.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
-            responseMetadataDto.setName(attribute.getName());
-            responseMetadataDto.setUuid(attribute.getUuid());
-            responseMetadataDto.setSourceObjectType(object.getSourceObjectType() != null ? object.getSourceObjectType().getCode() : null);
-            responseMetadataDto.setSourceObjectUuid(object.getSourceObjectUuid() != null ? object.getSourceObjectUuid().toString() : null);
-            Connector connector = object.getAttributeContent().getAttributeDefinition().getConnector();
-            String key;
-            if (connector == null) {
-                key = ":#";
-            } else {
-                key = connector.getName() + ":#" + connector.getUuid().toString();
-            }
-            metadata.computeIfAbsent(key, k -> new ArrayList<>()).add(responseMetadataDto);
         }
 
         for (Map.Entry<String, List<ResponseMetadataDto>> entry : metadata.entrySet()) {
