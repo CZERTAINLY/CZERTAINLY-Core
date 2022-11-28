@@ -2,15 +2,12 @@ package com.czertainly.core.dao.entity;
 
 
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.MetaDefinitions;
 
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 @Entity

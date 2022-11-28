@@ -1,8 +1,8 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
-import com.czertainly.api.model.core.auth.Resource;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
