@@ -23,4 +23,6 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     Optional<AttributeDefinition> findByTypeAndAttributeUuid(AttributeType type, UUID attributeUuid);
 
     Optional<AttributeDefinition> findByTypeAndAttributeName(AttributeType type, String attributeName);
+
+    Optional<AttributeDefinition> findByTypeAndAttributeNameAndGlobalAndContentType(AttributeType type, String attributeName, Boolean global, AttributeContentType contentType);
 }

@@ -1,13 +1,16 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -45,6 +48,9 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "enabled")
     private Boolean enabled;
+
+    @Column(name = "global")
+    private Boolean global;
 
     public Connector getConnector() {
         return connector;
@@ -95,6 +101,10 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
     }
 
+    public void setAttributeDefinition(MetadataAttribute attributeDefinition) {
+        this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
+    }
+
     public void setAttributeDefinition(DataAttribute attributeDefinition) {
         this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
     }
@@ -123,6 +133,14 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         this.enabled = enabled;
     }
 
+    public Boolean isGlobal() {
+        return global;
+    }
+
+    public void setGlobal(Boolean global) {
+        this.global = global;
+    }
+
     public AttributeDefinitionDto mapToListDto(AttributeType type) {
         AttributeDefinitionDto dto = new AttributeDefinitionDto();
         if (type.equals(AttributeType.CUSTOM)) {
@@ -132,16 +150,12 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
             dto.setDescription(attribute.getDescription());
             dto.setContentType(attribute.getContentType());
             dto.setEnabled(enabled);
-            if (attribute.getProperties() != null) {
-                dto.setRequired(attribute.getProperties().isRequired());
-            }
         } else if (type.equals(AttributeType.META)) {
-            InfoAttribute attribute = getAttributeDefinition(InfoAttribute.class);
+            MetadataAttribute attribute = getAttributeDefinition(MetadataAttribute.class);
             dto.setUuid(attribute.getUuid());
             dto.setName(attribute.getName());
             dto.setContentType(attribute.getContentType());
             dto.setDescription(attribute.getDescription());
-            dto.setEnabled(enabled);
         } else {
             return null;
         }
@@ -166,6 +180,24 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
             dto.setList(properties.isList());
             dto.setMultiSelect(properties.isMultiSelect());
             dto.setReadOnly(properties.isReadOnly());
+            dto.setVisible(dto.isVisible());
+        }
+        return dto;
+    }
+
+    public GlobalMetadataDefinitionDetailDto mapToGlobalMetadataDefinitionDetailDto() {
+        MetadataAttribute attribute = getAttributeDefinition(MetadataAttribute.class);
+        GlobalMetadataDefinitionDetailDto dto = new GlobalMetadataDefinitionDetailDto();
+        dto.setUuid(attribute.getUuid());
+        dto.setName(attribute.getName());
+        dto.setType(AttributeType.META);
+        dto.setContentType(attribute.getContentType());
+        dto.setDescription(attribute.getDescription());
+        dto.setEnabled(null);
+        if (attribute.getProperties() != null) {
+            MetadataAttributeProperties properties = attribute.getProperties();
+            dto.setGroup(properties.getGroup());
+            dto.setLabel(properties.getLabel());
             dto.setVisible(dto.isVisible());
         }
         return dto;

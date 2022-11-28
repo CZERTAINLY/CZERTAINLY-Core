@@ -3,8 +3,10 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
@@ -15,6 +17,8 @@ import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.service.MetadataService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +32,8 @@ import java.util.UUID;
 @Service
 @Transactional
 public class MetadataServiceImpl implements MetadataService {
+
+    private static final Logger logger = LoggerFactory.getLogger(MetadataServiceImpl.class);
 
     private AttributeDefinitionRepository metadataDefinitionRepository;
     private AttributeContentRepository metadataContentRepository;
@@ -49,38 +55,41 @@ public class MetadataServiceImpl implements MetadataService {
     }
 
     @Override
-    public void createMetadataDefinitions(UUID connectorUuid, List<InfoAttribute> metadataDefinitions) {
+    public void createMetadataDefinitions(UUID connectorUuid, List<MetadataAttribute> metadataDefinitions) {
         if (metadataDefinitions == null) {
             return;
         }
-        for (InfoAttribute infoAttribute : metadataDefinitions) {
-            if (!metadataDefinitionRepository.existsByConnectorUuidAndAttributeUuidAndTypeAndContentType(connectorUuid, UUID.fromString(infoAttribute.getUuid()), infoAttribute.getType(), infoAttribute.getContentType())) {
-                AttributeDefinition definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeNameAndAttributeUuidAndTypeAndContentType(connectorUuid, infoAttribute.getName(), null, infoAttribute.getType(), infoAttribute.getContentType()).orElse(null);
+        for (MetadataAttribute metadataAttribute : metadataDefinitions) {
+            if (metadataAttribute.getProperties() != null && metadataAttribute.getProperties().isGlobal()) {
+                continue;
+            }
+            if (!metadataDefinitionRepository.existsByConnectorUuidAndAttributeUuidAndTypeAndContentType(connectorUuid, UUID.fromString(metadataAttribute.getUuid()), metadataAttribute.getType(), metadataAttribute.getContentType())) {
+                AttributeDefinition definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeNameAndAttributeUuidAndTypeAndContentType(connectorUuid, metadataAttribute.getName(), null, metadataAttribute.getType(), metadataAttribute.getContentType()).orElse(null);
                 if (definition != null) {
-                    definition.setAttributeUuid(UUID.fromString(infoAttribute.getUuid()));
+                    definition.setAttributeUuid(UUID.fromString(metadataAttribute.getUuid()));
                 } else {
-                    createMetadataDefinition(connectorUuid, infoAttribute);
+                    createMetadataDefinition(connectorUuid, metadataAttribute);
                 }
             }
         }
     }
 
     @Override
-    public void createMetadata(UUID connectorUuid, UUID objectUuid, UUID sourceObjectUuid, List<InfoAttribute> metadata, Resource resource, Resource sourceObjectResource) {
+    public void createMetadata(UUID connectorUuid, UUID objectUuid, UUID sourceObjectUuid, List<MetadataAttribute> metadata, Resource resource, Resource sourceObjectResource) {
         if (metadata == null) {
             return;
         }
-        for (InfoAttribute infoAttribute : metadata) {
-            createMetadataContent(connectorUuid, objectUuid, UUID.fromString(infoAttribute.getUuid()), sourceObjectUuid, infoAttribute.getContent(), resource, sourceObjectResource);
+        for (MetadataAttribute metadataAttribute : metadata) {
+            createMetadataContent(metadataAttribute.getName(), metadataAttribute.getContentType(), connectorUuid, objectUuid, UUID.fromString(metadataAttribute.getUuid()), sourceObjectUuid, metadataAttribute.getContent(), resource, sourceObjectResource, metadataAttribute.getProperties());
         }
     }
 
     @Override
-    public List<InfoAttribute> getMetadata(UUID connectorUuid, UUID uuid, Resource resource) {
-        List<InfoAttribute> metadata = new ArrayList<>();
+    public List<MetadataAttribute> getMetadata(UUID connectorUuid, UUID uuid, Resource resource) {
+        List<MetadataAttribute> metadata = new ArrayList<>();
         for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource)) {
             if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
-                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(InfoAttribute.class);
+                MetadataAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(MetadataAttribute.class);
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
                 metadata.add(attribute);
             }
@@ -89,11 +98,11 @@ public class MetadataServiceImpl implements MetadataService {
     }
 
     @Override
-    public List<InfoAttribute> getMetadataWithSource(UUID connectorUuid, UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
-        List<InfoAttribute> metadata = new ArrayList<>();
+    public List<MetadataAttribute> getMetadataWithSource(UUID connectorUuid, UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
+        List<MetadataAttribute> metadata = new ArrayList<>();
         for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
             if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
-                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(InfoAttribute.class);
+                MetadataAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(MetadataAttribute.class);
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
                 metadata.add(attribute);
             }
@@ -103,11 +112,20 @@ public class MetadataServiceImpl implements MetadataService {
 
     @Override
     public List<MetadataResponseDto> getFullMetadata(UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
+        return getFullMetadata(metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource));
+    }
+
+    @Override
+    public List<MetadataResponseDto> getFullMetadata(UUID uuid, Resource resource) {
+        return getFullMetadata(metadata2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource));
+    }
+
+    private List<MetadataResponseDto> getFullMetadata(List<AttributeContent2Object> iterables) {
         List<MetadataResponseDto> metadataResponses = new ArrayList<>();
         Map<String, List<ResponseMetadataDto>> metadata = new HashMap<>();
-        for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
-            if(object.getAttributeContent().getAttributeDefinition().getType().equals(AttributeType.META)) {
-                InfoAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(InfoAttribute.class);
+        for (AttributeContent2Object object : iterables) {
+            if (object.getAttributeContent().getAttributeDefinition().getType().equals(AttributeType.META)) {
+                MetadataAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(MetadataAttribute.class);
                 ResponseMetadataDto responseMetadataDto = new ResponseMetadataDto();
                 responseMetadataDto.setType(AttributeType.META);
                 responseMetadataDto.setContentType(attribute.getContentType());
@@ -119,7 +137,7 @@ public class MetadataServiceImpl implements MetadataService {
                 responseMetadataDto.setUuid(attribute.getUuid());
                 responseMetadataDto.setSourceObjectType(object.getSourceObjectType() != null ? object.getSourceObjectType().getCode() : null);
                 responseMetadataDto.setSourceObjectUuid(object.getSourceObjectUuid() != null ? object.getSourceObjectUuid().toString() : null);
-                Connector connector = object.getAttributeContent().getAttributeDefinition().getConnector();
+                Connector connector = object.getConnector();
                 String key;
                 if (connector == null) {
                     key = ":#";
@@ -146,7 +164,7 @@ public class MetadataServiceImpl implements MetadataService {
         return metadataResponses;
     }
 
-    private void createMetadataDefinition(UUID connectorUuid, InfoAttribute attribute) {
+    private void createMetadataDefinition(UUID connectorUuid, MetadataAttribute attribute) {
         AttributeDefinition definition = new AttributeDefinition();
         definition.setAttributeDefinition(attribute);
         definition.setAttributeName(attribute.getName());
@@ -157,9 +175,18 @@ public class MetadataServiceImpl implements MetadataService {
         metadataDefinitionRepository.save(definition);
     }
 
-    private void createMetadataContent(UUID connectorUuid, UUID objectUuid, UUID attributeUuid, UUID sourceObjectUuid, List<BaseAttributeContent> metadata, Resource resource, Resource sourceObjectResource) {
+    private void createMetadataContent(String attributeName, AttributeContentType contentType, UUID connectorUuid, UUID objectUuid, UUID attributeUuid, UUID sourceObjectUuid, List<BaseAttributeContent> metadata, Resource resource, Resource sourceObjectResource, MetadataAttributeProperties properties) {
         String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(metadata);
-        AttributeDefinition definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorUuid, attributeUuid).orElse(null);
+        AttributeDefinition definition;
+        if (properties != null && properties.isGlobal()) {
+            definition = metadataDefinitionRepository.findByTypeAndAttributeNameAndGlobalAndContentType(AttributeType.META, attributeName, true, contentType).orElse(null);
+            if (definition == null) {
+                logger.warn("Attribute {} is given as global metadata. But not defined in the core. Hence ignoring the content", attributeName);
+                return;
+            }
+        } else {
+            definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorUuid, attributeUuid).orElse(null);
+        }
         AttributeContent existingContent = metadataContentRepository.findByAttributeContentAndAttributeDefinition(serializedContent, definition).orElse(null);
 
         AttributeContent2Object metadata2Object = new AttributeContent2Object();

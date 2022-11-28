@@ -4,16 +4,16 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeCreateRequestDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeDefinitionDetailDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
-import com.czertainly.api.model.common.attribute.v2.InfoAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
@@ -50,7 +50,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     private AttributeDefinition definition;
     private DataAttribute attribute;
-    private InfoAttribute metaAttribute;
+    private MetadataAttribute metaAttribute;
     private AttributeDefinition metaDefinition;
 
     @BeforeEach
@@ -70,13 +70,13 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         urlProperties.setMultiSelect(false);
         attribute.setProperties(urlProperties);
 
-        metaAttribute = new InfoAttribute();
+        metaAttribute = new MetadataAttribute();
         metaAttribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba07e");
         metaAttribute.setName("attribute1");
         metaAttribute.setDescription("Attribute1");
         metaAttribute.setType(AttributeType.META);
         metaAttribute.setContentType(AttributeContentType.STRING);
-        InfoAttributeProperties properties = new InfoAttributeProperties();
+        MetadataAttributeProperties properties = new MetadataAttributeProperties();
         urlProperties.setLabel("Attribute1");
         urlProperties.setVisible(true);
         metaAttribute.setProperties(properties);

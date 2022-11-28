@@ -8,7 +8,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
@@ -299,7 +299,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryRepository.save(modal);
     }
 
-    private void updateDiscoveryMeta(UUID connectorUuid, List<InfoAttribute> metaAttributes, DiscoveryHistory history) {
+    private void updateDiscoveryMeta(UUID connectorUuid, List<MetadataAttribute> metaAttributes, DiscoveryHistory history) {
         metadataService.createMetadataDefinitions(connectorUuid, metaAttributes);
         metadataService.createMetadata(connectorUuid, history.getUuid(), null, metaAttributes, Resource.DISCOVERY, null);
 

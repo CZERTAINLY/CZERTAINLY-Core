@@ -1,6 +1,6 @@
 package db.migration;
 
-import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DatabaseMigration;
 import com.czertainly.core.util.V2AttributeMigrationUtils;
@@ -54,11 +54,11 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT * FROM discovery_history ORDER BY uuid")) {
                 while (rows.next()) {
-                    List<InfoAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString(META_COLUMN_NAME));
+                    List<MetadataAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString(META_COLUMN_NAME));
                     if (attributes == null) {
                         continue;
                     }
-                    for (InfoAttribute metadata : attributes) {
+                    for (MetadataAttribute metadata : attributes) {
                         String attributeDefinition = AttributeDefinitionUtils.serialize(metadata);
                         String attributeContent = AttributeDefinitionUtils.serializeAttributeContent(metadata.getContent());
                         String uuid;
@@ -100,11 +100,11 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT uuid, meta FROM certificate ORDER BY uuid")) {
                 while (rows.next()) {
-                    List<InfoAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString(META_COLUMN_NAME));
+                    List<MetadataAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString(META_COLUMN_NAME));
                     if (attributes == null) {
                         continue;
                     }
-                    for (InfoAttribute metadata : attributes) {
+                    for (MetadataAttribute metadata : attributes) {
                         String attributeDefinition = AttributeDefinitionUtils.serialize(metadata);
                         String attributeContent = AttributeDefinitionUtils.serializeAttributeContent(metadata.getContent());
                         String uuid;
@@ -145,11 +145,11 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT l.uuid, l.metadata, l.entity_instance_ref_uuid, a.connector_uuid FROM location l JOIN \"entity_instance_reference\" a ON a.uuid = l.entity_instance_ref_uuid  ORDER BY uuid")) {
                 while (rows.next()) {
-                    List<InfoAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString("metadata"));
+                    List<MetadataAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString("metadata"));
                     if (attributes == null) {
                         continue;
                     }
-                    for (InfoAttribute metadata : attributes) {
+                    for (MetadataAttribute metadata : attributes) {
                         String attributeDefinition = AttributeDefinitionUtils.serialize(metadata);
                         String attributeContent = AttributeDefinitionUtils.serializeAttributeContent(metadata.getContent());
                         String uuid;
@@ -191,11 +191,11 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
         try (Statement select = context.getConnection().createStatement()) {
             try (ResultSet rows = select.executeQuery("SELECT cl.location_uuid, cl.certificate_uuid, cl.metadata, a.connector_uuid FROM certificate_location cl JOIN \"location\" l ON cl.location_uuid = l.uuid JOIN \"entity_instance_reference\" a ON a.uuid = l.entity_instance_ref_uuid")) {
                 while (rows.next()) {
-                    List<InfoAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString("metadata"));
+                    List<MetadataAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString("metadata"));
                     if (attributes == null) {
                         continue;
                     }
-                    for (InfoAttribute metadata : attributes) {
+                    for (MetadataAttribute metadata : attributes) {
                         String attributeDefinition = AttributeDefinitionUtils.serialize(metadata);
                         String attributeContent = AttributeDefinitionUtils.serializeAttributeContent(metadata.getContent());
                         String uuid;
