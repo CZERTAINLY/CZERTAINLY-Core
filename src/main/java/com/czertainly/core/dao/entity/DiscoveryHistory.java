@@ -5,7 +5,6 @@ import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.SecretMaskingUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;

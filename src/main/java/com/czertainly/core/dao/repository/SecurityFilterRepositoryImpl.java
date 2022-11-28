@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import org.springframework.data.domain.Pageable;
@@ -63,6 +64,11 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, boolean enabled) {
         return findUsingSecurityFilter(filter, (root, cb) -> cb.equal(root.get("enabled"), enabled));
+    }
+
+    @Override
+    public List<T> findUsingSecurityFilterAndType(SecurityFilter filter, AttributeType type) {
+        return findUsingSecurityFilter(filter, (root, cb) -> cb.equal(root.get("type"), type));
     }
 
     @Override

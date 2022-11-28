@@ -1,10 +1,13 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
+import com.czertainly.api.model.client.attribute.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -29,7 +32,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     @Column(name = "attribute_name")
     private String attributeName;
 
-    @Column(name = "attribute_definition")
+    @Column(name = "attribute_definition", columnDefinition="TEXT")
     private String attributeDefinition;
 
     @Column(name = "attribute_type")
@@ -39,6 +42,9 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     @Column(name = "attribute_content_type")
     @Enumerated(EnumType.STRING)
     private AttributeContentType contentType;
+
+    @Column(name = "enabled")
+    private Boolean enabled;
 
     public Connector getConnector() {
         return connector;
@@ -77,8 +83,8 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         return attributeDefinition;
     }
 
-    public InfoAttribute getAttributeDefinition() {
-        return AttributeDefinitionUtils.deserializeSingleAttribute(attributeDefinition, InfoAttribute.class);
+    public <T extends BaseAttribute> T getAttributeDefinition(Class<T> clazz) {
+        return AttributeDefinitionUtils.deserializeSingleAttribute(attributeDefinition, clazz);
     }
 
     public void setAttributeDefinition(String attributeDefinition) {
@@ -86,6 +92,10 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     }
 
     public void setAttributeDefinition(InfoAttribute attributeDefinition) {
+        this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
+    }
+
+    public void setAttributeDefinition(DataAttribute attributeDefinition) {
         this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
     }
 
@@ -105,6 +115,62 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         this.contentType = contentType;
     }
 
+    public Boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public AttributeDefinitionDto mapToListDto(AttributeType type) {
+        AttributeDefinitionDto dto = new AttributeDefinitionDto();
+        if (type.equals(AttributeType.CUSTOM)) {
+            DataAttribute attribute = getAttributeDefinition(DataAttribute.class);
+            dto.setUuid(attribute.getUuid());
+            dto.setName(attribute.getName());
+            dto.setDescription(attribute.getDescription());
+            dto.setContentType(attribute.getContentType());
+            dto.setEnabled(enabled);
+            if (attribute.getProperties() != null) {
+                dto.setRequired(attribute.getProperties().isRequired());
+            }
+        } else if (type.equals(AttributeType.META)) {
+            InfoAttribute attribute = getAttributeDefinition(InfoAttribute.class);
+            dto.setUuid(attribute.getUuid());
+            dto.setName(attribute.getName());
+            dto.setContentType(attribute.getContentType());
+            dto.setDescription(attribute.getDescription());
+            dto.setEnabled(enabled);
+        } else {
+            return null;
+        }
+        return dto;
+    }
+
+    public CustomAttributeDefinitionDetailDto mapToCustomAttributeDefinitionDetailDto() {
+        DataAttribute attribute = getAttributeDefinition(DataAttribute.class);
+        CustomAttributeDefinitionDetailDto dto = new CustomAttributeDefinitionDetailDto();
+        dto.setUuid(attribute.getUuid());
+        dto.setName(attribute.getName());
+        dto.setType(AttributeType.CUSTOM);
+        dto.setContentType(attribute.getContentType());
+        dto.setContent(attribute.getContent());
+        dto.setDescription(attribute.getDescription());
+        dto.setEnabled(enabled);
+        if (attribute.getProperties() != null) {
+            DataAttributeProperties properties = attribute.getProperties();
+            dto.setRequired(properties.isRequired());
+            dto.setGroup(properties.getGroup());
+            dto.setLabel(properties.getLabel());
+            dto.setList(properties.isList());
+            dto.setMultiSelect(properties.isMultiSelect());
+            dto.setReadOnly(properties.isReadOnly());
+            dto.setVisible(dto.isVisible());
+        }
+        return dto;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -119,6 +185,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
                 .append("type", type)
                 .append("contentType", contentType)
                 .append("uuid", uuid)
+                .append("enabled", enabled)
                 .toString();
     }
 }

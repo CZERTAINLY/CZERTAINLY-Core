@@ -35,10 +35,12 @@ public enum Resource {
 
     // ENTITIES
     ENTITY("entities"),
-    LOCATION("locations");
+    LOCATION("locations"),
+
+    ATTRIBUTE("attributes");
 
     @Schema(description = "Resource Name",
-            example = "client",
+            example = "certificates",
             required = true)
             
     private final String code;

@@ -15,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
@@ -27,12 +28,12 @@ import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
@@ -74,6 +75,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ComplianceService complianceService;
     @Autowired
     private ComplianceProfileRepository complianceProfileRepository;
+    @Autowired
+    private AttributeService attributeService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -107,7 +110,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         if (o.isPresent()) {
             throw new AlreadyExistException(RaProfile.class, dto.getName());
         }
-
+        attributeService.validateCustomAttributes(dto.getCustomAttributes(), Resource.RA_PROFILE);
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(authorityInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityInstanceUuid));
 
@@ -115,7 +118,12 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfile raProfile = createRaProfile(dto, attributes, authorityInstanceRef);
         raProfileRepository.save(raProfile);
 
-        return raProfile.mapToDto();
+        attributeService.createAttributeContent(raProfile.getUuid(), dto.getCustomAttributes(), Resource.RA_PROFILE);
+
+        RaProfileDto raProfileDto = raProfile.mapToDto();
+        raProfileDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(raProfile.getUuid(), Resource.RA_PROFILE));
+
+        return raProfileDto;
     }
 
     @Override
@@ -124,8 +132,9 @@ public class RaProfileServiceImpl implements RaProfileService {
     public RaProfileDto getRaProfile(SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
-
-        return raProfile.mapToDto();
+        RaProfileDto dto = raProfile.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(raProfile.getUuid(), Resource.RA_PROFILE));
+        return dto;
     }
 
     @Override
@@ -135,7 +144,9 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
 
-        return raProfile.mapToDto();
+        RaProfileDto dto = raProfile.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(raProfile.getUuid(), Resource.RA_PROFILE));
+        return dto;
     }
 
     @Override
@@ -148,12 +159,17 @@ public class RaProfileServiceImpl implements RaProfileService {
         AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(authorityInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityInstanceUuid));
 
+        attributeService.validateCustomAttributes(dto.getCustomAttributes(), Resource.RA_PROFILE);
         List<DataAttribute> attributes = mergeAndValidateAttributes(authorityInstanceRef, dto.getAttributes());
 
         updateRaProfile(raProfile, authorityInstanceRef, dto, attributes);
         raProfileRepository.save(raProfile);
 
-        return raProfile.mapToDto();
+        attributeService.updateAttributeContent(raProfile.getUuid(), dto.getCustomAttributes(), Resource.RA_PROFILE);
+
+        RaProfileDto raProfileDto = raProfile.mapToDto();
+        raProfileDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(raProfile.getUuid(), Resource.RA_PROFILE));
+        return raProfileDto;
     }
 
     @Override
@@ -403,7 +419,7 @@ public class RaProfileServiceImpl implements RaProfileService {
             certificate.setRaProfileUuid(null);
             certificateRepository.save(certificate);
         }
-
+        attributeService.deleteAttributeContent(raProfile.getUuid(), Resource.RA_PROFILE);
         raProfileRepository.delete(raProfile);
     }
 
