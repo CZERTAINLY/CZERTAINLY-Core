@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataResponseDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
@@ -45,6 +46,7 @@ import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -97,7 +99,17 @@ public class AttributeServiceImpl implements AttributeService {
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
     public List<AttributeDefinitionDto> listAttributes(SecurityFilter filter, AttributeType type) {
         logger.info("Fetching attributes for Type: {}", type.getCode());
-        return attributeDefinitionRepository.findUsingSecurityFilterAndType(filter, AttributeType.CUSTOM).stream().map(e -> e.mapToListDto(type)).collect(Collectors.toList());
+        if (type.equals(AttributeType.CUSTOM)) {
+            return attributeDefinitionRepository.findUsingSecurityFilterAndType(filter, type).stream().map(e -> e.mapToListDto(type)).collect(Collectors.toList());
+        } else if (type.equals(AttributeType.META)) {
+            return attributeDefinitionRepository.findUsingSecurityFilter(filter,
+                    (root, cb) -> cb.and(
+                            cb.equal(root.get("type"), type),
+                            cb.equal(root.get("global"), Boolean.TRUE))
+            ).stream().map(e -> e.mapToListDto(type)).collect(Collectors.toList());
+        } else {
+            throw new IllegalArgumentException("Invalid Attribute Type: " + type);
+        }
     }
 
     @Override
@@ -325,6 +337,46 @@ public class AttributeServiceImpl implements AttributeService {
         return CUSTOM_ATTRIBUTE_COMPLIANT_RESOURCES;
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
+    public List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid) {
+        List<AttributeDefinition> attributeDefinitions;
+        List<ConnectorMetadataResponseDto> response = new ArrayList<>();
+        if (connectorUuid != null && connectorUuid.isPresent()) {
+            attributeDefinitions = attributeDefinitionRepository.findByConnectorUuidAndGlobalAndType(UUID.fromString(connectorUuid.get()), false, AttributeType.META);
+            attributeDefinitions.addAll(attributeDefinitionRepository.findByConnectorUuidAndGlobalAndType(UUID.fromString(connectorUuid.get()), null, AttributeType.META));
+        } else {
+            attributeDefinitions = attributeDefinitionRepository.findByGlobalAndType(false, AttributeType.META);
+            attributeDefinitions.addAll(attributeDefinitionRepository.findByGlobalAndType(null, AttributeType.META));
+        }
+        for (AttributeDefinition definition : attributeDefinitions) {
+            if (definition.getAttributeName() == null || definition.getAttributeUuid() == null || definition.getConnectorUuid() == null) {
+                continue;
+            }
+            GlobalMetadataDefinitionDetailDto metadataAttribute = definition.mapToGlobalMetadataDefinitionDetailDto();
+            ConnectorMetadataResponseDto dto = new ConnectorMetadataResponseDto();
+            dto.setName(metadataAttribute.getName());
+            dto.setUuid(metadataAttribute.getUuid());
+            dto.setContentType(metadataAttribute.getContentType());
+            dto.setLabel(metadataAttribute.getLabel());
+            dto.setConnectorUuid(definition.getConnectorUuid().toString());
+            response.add(dto);
+        }
+        return response;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
+    public GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(SecuredUUID uuid, UUID connectorUUid) throws NotFoundException {
+        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(
+                connectorUUid,
+                uuid.getValue()
+        ).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
+        definition.setGlobal(true);
+        attributeDefinitionRepository.save(definition);
+        return getGlobalMetadata(uuid);
+    }
+
     private void createAttributeContent(UUID objectUuid, String attributeName, List<BaseAttributeContent> value, Resource resource) {
         logger.info("Creating the attribute content for: {} with UUID: {}", resource, objectUuid);
         String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(value);
@@ -456,7 +508,7 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     private AttributeDefinition editGlobalMetadataEntity(SecuredUUID uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException {
-        AttributeDefinition definition = getAttributeByUuid(uuid.getValue(), AttributeType.CUSTOM);
+        AttributeDefinition definition = getAttributeByUuid(uuid.getValue(), AttributeType.META);
         MetadataAttribute attribute = definition.getAttributeDefinition(MetadataAttribute.class);
         attribute.setDescription(request.getDescription());
 

@@ -6,6 +6,7 @@ import com.czertainly.core.dao.entity.AttributeDefinition;
 import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,4 +26,8 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     Optional<AttributeDefinition> findByTypeAndAttributeName(AttributeType type, String attributeName);
 
     Optional<AttributeDefinition> findByTypeAndAttributeNameAndGlobalAndContentType(AttributeType type, String attributeName, Boolean global, AttributeContentType contentType);
+
+    List<AttributeDefinition> findByConnectorUuidAndGlobalAndType(UUID connectorUuid, Boolean global, AttributeType type);
+
+    List<AttributeDefinition> findByGlobalAndType(Boolean global, AttributeType type);
 }

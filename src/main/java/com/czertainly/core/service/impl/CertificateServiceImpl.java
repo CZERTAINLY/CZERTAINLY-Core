@@ -145,7 +145,7 @@ public class CertificateServiceImpl implements CertificateService {
         } else {
             dto.setComplianceStatus(ComplianceStatus.NA);
         }
-        dto.setMetadata(metadataService.getFullMetadata(entity.getUuid(), Resource.CERTIFICATE));
+        dto.setMetadata(metadataService.getFullMetadataWithNullResource(entity.getUuid(), Resource.CERTIFICATE, List.of(Resource.DISCOVERY)));
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CERTIFICATE));
         return dto;
     }

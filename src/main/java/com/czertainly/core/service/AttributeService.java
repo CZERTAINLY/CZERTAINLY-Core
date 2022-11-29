@@ -9,6 +9,8 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataPromotionRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataResponseDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
@@ -19,6 +21,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface AttributeService {
@@ -210,4 +213,16 @@ public interface AttributeService {
      * @return
      */
     List<Resource> getResources();
+
+    /**
+     * Function to get the list of all the connector metadata that can be promoted as global metadata
+     * @param connectorUuid UUID of the connector for filtering
+     */
+    List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid);
+
+    /**
+     * Function to promote the metadata from connector to global metadata
+     * @return Details of the global metadata
+     */
+    GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(SecuredUUID uuid, UUID connectorUUid) throws NotFoundException;
 }
