@@ -4,11 +4,16 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeCreateRequestDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeDefinitionDetailDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataPromotionRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataResponseDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
@@ -16,17 +21,10 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface AttributeService {
-
-    /**
-     * Function to create the custom attribute based on the user provided information
-     *
-     * @param request: {@link CustomAttributeCreateRequestDto} request information
-     * @return UUID of the newly created attribute
-     */
-    CustomAttributeDefinitionDetailDto createAttribute(CustomAttributeCreateRequestDto request) throws ValidationException, AlreadyExistException;
 
     /**
      * Function to list the available custom attributes stored in the database
@@ -46,6 +44,31 @@ public interface AttributeService {
     CustomAttributeDefinitionDetailDto getAttribute(SecuredUUID uuid) throws NotFoundException;
 
     /**
+     * Function to get the details of the global metadata
+     *
+     * @param uuid of the global metadata
+     * @return Detail of the global metadata
+     */
+    GlobalMetadataDefinitionDetailDto getGlobalMetadata(SecuredUUID uuid) throws NotFoundException;
+
+    /**
+     * Function to create the custom attribute based on the user provided information
+     *
+     * @param request: {@link CustomAttributeCreateRequestDto} request information
+     * @return UUID of the newly created attribute
+     */
+    CustomAttributeDefinitionDetailDto createAttribute(CustomAttributeCreateRequestDto request) throws ValidationException, AlreadyExistException;
+
+    /**
+     * Function to create a global metadata
+     *
+     * @param request Request containing the details for creating a new global metadata
+     * @return Details of the newly created global metadata
+     */
+    GlobalMetadataDefinitionDetailDto createGlobalMetadata(GlobalMetadataCreateRequestDto request) throws AlreadyExistException;
+
+
+    /**
      * Function to update the custom attribute
      *
      * @param uuid    UUID of the attribute definition
@@ -53,6 +76,15 @@ public interface AttributeService {
      * @return
      */
     CustomAttributeDefinitionDetailDto editAttribute(SecuredUUID uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException;
+
+    /**
+     * Function to update the global metadata
+     *
+     * @param uuid    UUID of the global metadata
+     * @param request Details to Update the global metadata
+     * @return Details of the updated global metadata
+     */
+    GlobalMetadataDefinitionDetailDto editGlobalMetadata(SecuredUUID uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException;
 
     /**
      * Function to delete custom attribute
@@ -107,7 +139,8 @@ public interface AttributeService {
 
     /**
      * Update the resources to which the attributes can be used
-     * @param uuid UUID of the custom attribute
+     *
+     * @param uuid      UUID of the custom attribute
      * @param resources List of resources to which the attribute has to be associated
      * @throws NotFoundException
      */
@@ -115,6 +148,7 @@ public interface AttributeService {
 
     /**
      * Function to get the list of custom attributes that are applicable for the resource
+     *
      * @param resource Name of the resource to get the list of custom attributes
      * @return List of data attributes
      */
@@ -122,46 +156,52 @@ public interface AttributeService {
 
     /**
      * Function to validate if the custom attributes contains the correct information
+     *
      * @param attributes List of request attributes
-     * @param resource Resource to which the custom attributes should be validated for
+     * @param resource   Resource to which the custom attributes should be validated for
      * @throws ValidationException Thrown if the validation fails
      */
     void validateCustomAttributes(List<RequestAttributeDto> attributes, Resource resource) throws ValidationException;
 
     /**
      * Create the content for the attribute
+     *
      * @param objectUuid UUID of the object
      * @param attributes List of custom attributes
-     * @param resource Resource for the attribute and value
+     * @param resource   Resource for the attribute and value
      */
     void createAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource);
 
     /**
      * Update the content for the attribute
+     *
      * @param objectUuid UUID of the object
      * @param attributes List of custom attributes
-     * @param resource Resource for the attribute and value
+     * @param resource   Resource for the attribute and value
      */
     void updateAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource);
 
     /**
      * Function to delete the attribute content for an individual object
+     *
      * @param objectUuid UUID of the object
      * @param attributes List of custom attributes
-     * @param resource Resource type
+     * @param resource   Resource type
      */
     void deleteAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource);
 
     /**
      * Function to delete all the attribute content for an individual object. This method to be used when deleting the object
+     *
      * @param objectUuid UUID of the object
-     * @param resource Resource type
+     * @param resource   Resource type
      */
     void deleteAttributeContent(UUID objectUuid, Resource resource);
 
     /**
      * Function to get the list of custom attributes associated with a specific object
-     * @param uuid UUID of the object
+     *
+     * @param uuid     UUID of the object
      * @param resource Type of the object
      * @return List of the custo attributes with values
      */
@@ -169,7 +209,20 @@ public interface AttributeService {
 
     /**
      * Function to get the list of supported resources for which the custom attributes are supported
+     *
      * @return
      */
     List<Resource> getResources();
+
+    /**
+     * Function to get the list of all the connector metadata that can be promoted as global metadata
+     * @param connectorUuid UUID of the connector for filtering
+     */
+    List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid);
+
+    /**
+     * Function to promote the metadata from connector to global metadata
+     * @return Details of the global metadata
+     */
+    GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(SecuredUUID uuid, UUID connectorUUid) throws NotFoundException;
 }
