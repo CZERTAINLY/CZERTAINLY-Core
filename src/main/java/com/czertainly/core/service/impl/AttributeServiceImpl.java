@@ -5,16 +5,22 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeCreateRequestDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeDefinitionDetailDto;
-import com.czertainly.api.model.client.attribute.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataResponseDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
@@ -40,6 +46,7 @@ import javax.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -92,7 +99,17 @@ public class AttributeServiceImpl implements AttributeService {
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
     public List<AttributeDefinitionDto> listAttributes(SecurityFilter filter, AttributeType type) {
         logger.info("Fetching attributes for Type: {}", type.getCode());
-        return attributeDefinitionRepository.findUsingSecurityFilterAndType(filter, AttributeType.CUSTOM).stream().map(e -> e.mapToListDto(type)).collect(Collectors.toList());
+        if (type.equals(AttributeType.CUSTOM)) {
+            return attributeDefinitionRepository.findUsingSecurityFilterAndType(filter, type).stream().map(e -> e.mapToListDto(type)).collect(Collectors.toList());
+        } else if (type.equals(AttributeType.META)) {
+            return attributeDefinitionRepository.findUsingSecurityFilter(filter,
+                    (root, cb) -> cb.and(
+                            cb.equal(root.get("type"), type),
+                            cb.equal(root.get("global"), Boolean.TRUE))
+            ).stream().map(e -> e.mapToListDto(type)).collect(Collectors.toList());
+        } else {
+            throw new IllegalArgumentException("Invalid Attribute Type: " + type);
+        }
     }
 
     @Override
@@ -106,10 +123,26 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
+    public GlobalMetadataDefinitionDetailDto getGlobalMetadata(SecuredUUID uuid) throws NotFoundException {
+        logger.info("Fetching global metadata for UUID: {}", uuid.toString());
+        GlobalMetadataDefinitionDetailDto dto = getAttributeDefinition(uuid, AttributeType.META).mapToGlobalMetadataDefinitionDetailDto();
+        logger.debug("Attribute Definition Detail: {}", dto);
+        return dto;
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.CREATE)
     public CustomAttributeDefinitionDetailDto createAttribute(CustomAttributeCreateRequestDto request) throws ValidationException, AlreadyExistException {
         validateAttributeCreation(request, AttributeType.CUSTOM);
         return createAttributeEntity(request).mapToCustomAttributeDefinitionDetailDto();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.CREATE)
+    public GlobalMetadataDefinitionDetailDto createGlobalMetadata(GlobalMetadataCreateRequestDto request) throws AlreadyExistException {
+        validateGlobalMetadataCreation(request, AttributeType.META);
+        return createGlobalMetadataEntity(request).mapToGlobalMetadataDefinitionDetailDto();
     }
 
     @Override
@@ -119,6 +152,14 @@ public class AttributeServiceImpl implements AttributeService {
         CustomAttributeDefinitionDetailDto dto = editAttributeEntity(uuid, request).mapToCustomAttributeDefinitionDetailDto();
         dto.setResources(attributeRelationRepository.findByAttributeDefinitionUuid(uuid.getValue()).stream().map(AttributeRelation::getResource).collect(Collectors.toList()));
         logger.debug("Attribute Definition Updated: {}", dto);
+        return dto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
+    public GlobalMetadataDefinitionDetailDto editGlobalMetadata(SecuredUUID uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException {
+        logger.info("Update global metadata with uuid: {}, request: {}", uuid.toString(), request);
+        GlobalMetadataDefinitionDetailDto dto = editGlobalMetadataEntity(uuid, request).mapToGlobalMetadataDefinitionDetailDto();
         return dto;
     }
 
@@ -296,6 +337,46 @@ public class AttributeServiceImpl implements AttributeService {
         return CUSTOM_ATTRIBUTE_COMPLIANT_RESOURCES;
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
+    public List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid) {
+        List<AttributeDefinition> attributeDefinitions;
+        List<ConnectorMetadataResponseDto> response = new ArrayList<>();
+        if (connectorUuid != null && connectorUuid.isPresent()) {
+            attributeDefinitions = attributeDefinitionRepository.findByConnectorUuidAndGlobalAndType(UUID.fromString(connectorUuid.get()), false, AttributeType.META);
+            attributeDefinitions.addAll(attributeDefinitionRepository.findByConnectorUuidAndGlobalAndType(UUID.fromString(connectorUuid.get()), null, AttributeType.META));
+        } else {
+            attributeDefinitions = attributeDefinitionRepository.findByGlobalAndType(false, AttributeType.META);
+            attributeDefinitions.addAll(attributeDefinitionRepository.findByGlobalAndType(null, AttributeType.META));
+        }
+        for (AttributeDefinition definition : attributeDefinitions) {
+            if (definition.getAttributeName() == null || definition.getAttributeUuid() == null || definition.getConnectorUuid() == null) {
+                continue;
+            }
+            GlobalMetadataDefinitionDetailDto metadataAttribute = definition.mapToGlobalMetadataDefinitionDetailDto();
+            ConnectorMetadataResponseDto dto = new ConnectorMetadataResponseDto();
+            dto.setName(metadataAttribute.getName());
+            dto.setUuid(metadataAttribute.getUuid());
+            dto.setContentType(metadataAttribute.getContentType());
+            dto.setLabel(metadataAttribute.getLabel());
+            dto.setConnectorUuid(definition.getConnectorUuid().toString());
+            response.add(dto);
+        }
+        return response;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
+    public GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(SecuredUUID uuid, UUID connectorUUid) throws NotFoundException {
+        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(
+                connectorUUid,
+                uuid.getValue()
+        ).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
+        definition.setGlobal(true);
+        attributeDefinitionRepository.save(definition);
+        return getGlobalMetadata(uuid);
+    }
+
     private void createAttributeContent(UUID objectUuid, String attributeName, List<BaseAttributeContent> value, Resource resource) {
         logger.info("Creating the attribute content for: {} with UUID: {}", resource, objectUuid);
         String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(value);
@@ -366,6 +447,39 @@ public class AttributeServiceImpl implements AttributeService {
         return definition;
     }
 
+    private AttributeDefinition createGlobalMetadataEntity(GlobalMetadataCreateRequestDto request) {
+        //New Data Attribute creation
+        MetadataAttribute attribute = new MetadataAttribute();
+        attribute.setType(AttributeType.META);
+        attribute.setContentType(request.getContentType());
+        attribute.setName(request.getName());
+        attribute.setUuid(UUID.randomUUID().toString());
+        attribute.setDescription(request.getDescription());
+
+        //Setting the attribute properties based on the information from the request
+        MetadataAttributeProperties properties = new MetadataAttributeProperties();
+        properties.setGroup(request.getGroup());
+        properties.setLabel(request.getLabel());
+        properties.setVisible(request.isVisible());
+        properties.setGlobal(true);
+
+        attribute.setProperties(properties);
+
+        //Creating Attribute definition data
+        AttributeDefinition definition = new AttributeDefinition();
+        definition.setType(AttributeType.META);
+        definition.setAttributeName(attribute.getName());
+        definition.setAttributeUuid(UUID.fromString(attribute.getUuid()));
+        definition.setContentType(attribute.getContentType());
+        definition.setAttributeDefinition(attribute);
+        definition.setUuid(attribute.getUuid());
+        definition.setGlobal(true);
+
+        attributeDefinitionRepository.save(definition);
+
+        return definition;
+    }
+
 
     private AttributeDefinition editAttributeEntity(SecuredUUID uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException {
         AttributeDefinition definition = getAttributeByUuid(uuid.getValue(), AttributeType.CUSTOM);
@@ -382,6 +496,27 @@ public class AttributeServiceImpl implements AttributeService {
         properties.setMultiSelect(request.isMultiSelect());
         properties.setReadOnly(request.isReadOnly());
         properties.setRequired(request.isRequired());
+
+        attribute.setProperties(properties);
+
+        //Update Attribute definition data
+        definition.setAttributeDefinition(attribute);
+
+        attributeDefinitionRepository.save(definition);
+
+        return definition;
+    }
+
+    private AttributeDefinition editGlobalMetadataEntity(SecuredUUID uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException {
+        AttributeDefinition definition = getAttributeByUuid(uuid.getValue(), AttributeType.META);
+        MetadataAttribute attribute = definition.getAttributeDefinition(MetadataAttribute.class);
+        attribute.setDescription(request.getDescription());
+
+        //Setting the attribute properties based on the information from the request
+        MetadataAttributeProperties properties = new MetadataAttributeProperties();
+        properties.setGroup(request.getGroup());
+        properties.setLabel(request.getLabel());
+        properties.setVisible(request.isVisible());
 
         attribute.setProperties(properties);
 
@@ -410,6 +545,26 @@ public class AttributeServiceImpl implements AttributeService {
 
         if (request.getContentType() == null) {
             throw new ValidationException(ValidationError.create("Content Type is mandatory"));
+        }
+    }
+
+    private void validateGlobalMetadataCreation(GlobalMetadataCreateRequestDto request, AttributeType type) throws AlreadyExistException {
+        //Check if the Global Metadata name already exists
+        logger.info("Validating {} Attributes: {}", type, request);
+        if (attributeDefinitionRepository.existsByTypeAndAttributeName(type, request.getName())) {
+            throw new AlreadyExistException("Global Metadata with same name already exists");
+        }
+
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new ValidationException(ValidationError.create("Global Metadata Name cannot be empty"));
+        }
+
+        if (request.getLabel() == null || request.getLabel().trim().isEmpty()) {
+            throw new ValidationException(ValidationError.create("Global Metadata Label cannot be empty"));
+        }
+
+        if (request.getContentType() == null) {
+            throw new ValidationException(ValidationError.create("Global Metadata Type is mandatory"));
         }
     }
 
