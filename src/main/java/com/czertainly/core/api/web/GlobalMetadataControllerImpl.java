@@ -78,6 +78,6 @@ public class GlobalMetadataControllerImpl implements GlobalMetadataController {
 
     @Override
     public GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(ConnectorMetadataPromotionRequestDto request) throws NotFoundException {
-        return attributeService.promoteConnectorMetadata(SecuredUUID.fromString(request.getUuid()), UUID.fromString(request.getConnectorUuid()));
+        return attributeService.promoteConnectorMetadata(UUID.fromString(request.getUuid()), UUID.fromString(request.getConnectorUuid()));
     }
 }

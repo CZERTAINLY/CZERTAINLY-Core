@@ -148,7 +148,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetGlobalMetadata() throws NotFoundException {
-        GlobalMetadataDefinitionDetailDto dto = attributeService.getGlobalMetadata(SecuredUUID.fromString(metaAttribute.getUuid()));
+        GlobalMetadataDefinitionDetailDto dto = attributeService.getGlobalMetadata(SecuredUUID.fromUUID(metaDefinition.getUuid()));
         Assertions.assertNotNull(dto);
         Assertions.assertFalse(dto.getUuid().isEmpty());
         Assertions.assertEquals(metaAttribute.getUuid(), dto.getUuid());
@@ -204,7 +204,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         request.setLabel("Updated Attribute");
         request.setDescription("Desc");
 
-        GlobalMetadataDefinitionDetailDto response = attributeService.editGlobalMetadata(SecuredUUID.fromString(metaAttribute.getUuid()), request);
+        GlobalMetadataDefinitionDetailDto response = attributeService.editGlobalMetadata(SecuredUUID.fromUUID(metaDefinition.getUuid()), request);
         Assertions.assertEquals(request.getDescription(), response.getDescription());
         Assertions.assertEquals(request.getLabel(), response.getLabel());
     }
@@ -220,8 +220,8 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGlobalMetadataAttribute() throws NotFoundException {
-        attributeService.deleteAttribute(SecuredUUID.fromString(metaAttribute.getUuid()), AttributeType.META);
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getGlobalMetadata(SecuredUUID.fromString(metaAttribute.getUuid())));
+        attributeService.deleteAttribute(SecuredUUID.fromUUID(metaDefinition.getUuid()), AttributeType.META);
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getGlobalMetadata(SecuredUUID.fromUUID(metaDefinition.getUuid())));
     }
 
     @Test
@@ -231,8 +231,8 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testBulkDeleteGlobalMetadata() throws NotFoundException {
-        attributeService.bulkDeleteAttributes(List.of(SecuredUUID.fromString(metaAttribute.getUuid())), AttributeType.META);
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getAttribute(SecuredUUID.fromString(metaAttribute.getUuid())));
+        attributeService.bulkDeleteAttributes(List.of(SecuredUUID.fromUUID(metaDefinition.getUuid())), AttributeType.META);
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getAttribute(SecuredUUID.fromUUID(metaDefinition.getUuid())));
     }
 
     @Test
@@ -253,7 +253,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
 
     @Test
     public void promoteConnectorMetadata() throws NotFoundException {
-        attributeService.promoteConnectorMetadata(SecuredUUID.fromString(connectorMetaAttribute.getUuid()), connector.getUuid());
+        attributeService.promoteConnectorMetadata(UUID.fromString(connectorMetaAttribute.getUuid()), connector.getUuid());
         List<AttributeDefinitionDto> dto = attributeService.listAttributes(SecurityFilter.create(), AttributeType.META);
         Assertions.assertEquals(2, dto.size());
     }

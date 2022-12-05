@@ -224,5 +224,5 @@ public interface AttributeService {
      * Function to promote the metadata from connector to global metadata
      * @return Details of the global metadata
      */
-    GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(SecuredUUID uuid, UUID connectorUUid) throws NotFoundException;
+    GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(UUID uuid, UUID connectorUUid) throws NotFoundException;
 }
