@@ -141,9 +141,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
+            attributeService.deleteAttributeContent(discovery.getUuid(), Resource.DISCOVERY);
+            discoveryRepository.delete(discovery);
             if(referenceUuid != null && !referenceUuid.isEmpty()) {
-                attributeService.deleteAttributeContent(discovery.getUuid(), Resource.DISCOVERY);
-                discoveryRepository.delete(discovery);
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
                 discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
             }
