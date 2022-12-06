@@ -5,11 +5,12 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -105,6 +106,10 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
     }
 
+    public void setAttributeDefinition(CustomAttribute attributeDefinition) {
+        this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
+    }
+
     public void setAttributeDefinition(DataAttribute attributeDefinition) {
         this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
     }
@@ -144,7 +149,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     public AttributeDefinitionDto mapToListDto(AttributeType type) {
         AttributeDefinitionDto dto = new AttributeDefinitionDto();
         if (type.equals(AttributeType.CUSTOM)) {
-            DataAttribute attribute = getAttributeDefinition(DataAttribute.class);
+            CustomAttribute attribute = getAttributeDefinition(CustomAttribute.class);
             dto.setUuid(attribute.getUuid());
             dto.setName(attribute.getName());
             dto.setDescription(attribute.getDescription());
@@ -163,7 +168,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     }
 
     public CustomAttributeDefinitionDetailDto mapToCustomAttributeDefinitionDetailDto() {
-        DataAttribute attribute = getAttributeDefinition(DataAttribute.class);
+        CustomAttribute attribute = getAttributeDefinition(CustomAttribute.class);
         CustomAttributeDefinitionDetailDto dto = new CustomAttributeDefinitionDetailDto();
         dto.setUuid(attribute.getUuid());
         dto.setName(attribute.getName());
@@ -173,7 +178,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         dto.setDescription(attribute.getDescription());
         dto.setEnabled(enabled);
         if (attribute.getProperties() != null) {
-            DataAttributeProperties properties = attribute.getProperties();
+            CustomAttributeProperties properties = attribute.getProperties();
             dto.setRequired(properties.isRequired());
             dto.setGroup(properties.getGroup());
             dto.setLabel(properties.getLabel());
