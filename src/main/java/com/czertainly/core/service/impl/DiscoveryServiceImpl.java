@@ -309,7 +309,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private void updateDiscoveryMeta(UUID connectorUuid, List<MetadataAttribute> metaAttributes, DiscoveryHistory history) {
         metadataService.createMetadataDefinitions(connectorUuid, metaAttributes);
-        metadataService.createMetadata(connectorUuid, history.getUuid(), null, metaAttributes, Resource.DISCOVERY, null);
+        metadataService.createMetadata(connectorUuid, history.getUuid(), null, null, metaAttributes, Resource.DISCOVERY, null);
 
     }
 
@@ -359,6 +359,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private void updateMeta(Certificate modal, DiscoveryProviderCertificateDataDto certificate, DiscoveryHistory history) {
         metadataService.createMetadataDefinitions(history.getConnectorUuid(), certificate.getMeta());
-        metadataService.createMetadata(history.getConnectorUuid(), modal.getUuid(), history.getUuid(), certificate.getMeta(), Resource.CERTIFICATE, Resource.DISCOVERY);
+        metadataService.createMetadata(history.getConnectorUuid(), modal.getUuid(), history.getUuid(), history.getName(), certificate.getMeta(), Resource.CERTIFICATE, Resource.DISCOVERY);
     }
 }

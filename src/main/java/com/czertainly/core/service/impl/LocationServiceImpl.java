@@ -748,6 +748,7 @@ public class LocationServiceImpl implements LocationService {
         metadataService.createMetadata(location.getEntityInstanceReference().getConnector().getUuid(),
                 location.getUuid(),
                 null,
+                null,
                 pushCertificateResponseDto.getCertificateMetadata(),
                 Resource.LOCATION,
                 null);
@@ -913,6 +914,7 @@ public class LocationServiceImpl implements LocationService {
         metadataService.createMetadata(entity.getEntityInstanceReference().getConnectorUuid(),
                 entity.getUuid(),
                 null,
+                null,
                 metadata,
                 Resource.LOCATION,
                 null);
@@ -926,6 +928,7 @@ public class LocationServiceImpl implements LocationService {
             metadataService.createMetadata(entity.getEntityInstanceReference().getConnectorUuid(),
                     cl.getCertificate().getUuid(),
                     entity.getUuid(),
+                    entity.getName(),
                     certificateLocationDto.getMetadata(),
                     Resource.CERTIFICATE,
                     Resource.LOCATION);

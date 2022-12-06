@@ -508,7 +508,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate entity = createCertificateEntity(x509Cert);
         certificateRepository.save(entity);
         metadataService.createMetadataDefinitions(null, meta);
-        metadataService.createMetadata(null, entity.getUuid(), null, meta, Resource.CERTIFICATE, null);
+        metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
         certificateComplianceCheck(entity);
         return entity;
     }
