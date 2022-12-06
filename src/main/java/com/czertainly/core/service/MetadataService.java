@@ -24,7 +24,7 @@ public interface MetadataService {
      * @param  resource - Resource for the metadata
      * @param sourceObjectResource - Resource of the source object
      */
-    void createMetadata(UUID connectorUuid, UUID objectUuid, UUID sourceObjectUuid, List<MetadataAttribute> metadata, Resource resource, Resource sourceObjectResource);
+    void createMetadata(UUID connectorUuid, UUID objectUuid, UUID sourceObjectUuid, String sourceObjectName, List<MetadataAttribute> metadata, Resource resource, Resource sourceObjectResource);
 
     /**
      * Method to get the metadata for the specified object
