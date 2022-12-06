@@ -42,7 +42,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Enumerated(EnumType.STRING)
     private ConnectorStatus status;
 
-    @OneToMany(mappedBy = "connector")
+    @OneToMany(fetch = FetchType.EAGER, mappedBy = "connector")
     private Set<Connector2FunctionGroup> functionGroups = new HashSet<>();
 
     @OneToMany(mappedBy = "connectorUuid")

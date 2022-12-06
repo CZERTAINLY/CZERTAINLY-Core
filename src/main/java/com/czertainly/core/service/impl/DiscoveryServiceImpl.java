@@ -48,8 +48,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.transaction.Transactional;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Date;
@@ -135,9 +136,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
-            discoveryRepository.delete(discovery);
-            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
-            discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
+            if(referenceUuid != null && !referenceUuid.isEmpty()) {
+                discoveryRepository.delete(discovery);
+                Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
+                discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
+            }
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
             logger.warn(e.getMessage());
@@ -165,6 +168,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Async("threadPoolTaskExecutor")
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
             throws ConnectorException {
 
@@ -199,6 +203,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
             while (waitForCompletion) {
+                if(modal.getDiscoveryConnectorReference() != null && !modal.getDiscoveryConnectorReference().isEmpty()) {
+                    return;
+                }
                 logger.debug("Waiting {}ms.", SLEEP_TIME);
                 Thread.sleep(SLEEP_TIME);
 
@@ -295,6 +302,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         return response.getStatus() == DiscoveryStatus.IN_PROGRESS;
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     private List<Certificate> updateCertificates(List<DiscoveryProviderCertificateDataDto> certificatesDiscovered,
                                                  DiscoveryHistory modal) {
         List<Certificate> allCerts = new ArrayList<>();
