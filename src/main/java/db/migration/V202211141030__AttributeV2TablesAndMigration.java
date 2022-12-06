@@ -84,6 +84,7 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
                                 rows.getString("uuid"),
                                 null,
                                 null,
+                                null,
                                 connectorUuid)
                         );
                     }
@@ -127,6 +128,7 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
                                 contentUuid,
                                 "CERTIFICATE",
                                 rows.getString("uuid"),
+                                null,
                                 null,
                                 null,
                                 null)
@@ -175,6 +177,7 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
                                 rows.getString("uuid"),
                                 null,
                                 null,
+                                null,
                                 connectorUuid)
                         );
                     }
@@ -189,7 +192,7 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
         Map<String, String> definitionUuid = new HashMap<>();
         Map<String, String> contentUuids = new HashMap<>();
         try (Statement select = context.getConnection().createStatement()) {
-            try (ResultSet rows = select.executeQuery("SELECT cl.location_uuid, cl.certificate_uuid, cl.metadata, a.connector_uuid FROM certificate_location cl JOIN \"location\" l ON cl.location_uuid = l.uuid JOIN \"entity_instance_reference\" a ON a.uuid = l.entity_instance_ref_uuid")) {
+            try (ResultSet rows = select.executeQuery("SELECT cl.location_uuid, cl.certificate_uuid, cl.metadata, a.connector_uuid, l.name FROM certificate_location cl JOIN \"location\" l ON cl.location_uuid = l.uuid JOIN \"entity_instance_reference\" a ON a.uuid = l.entity_instance_ref_uuid")) {
                 while (rows.next()) {
                     List<MetadataAttribute> attributes = V2AttributeMigrationUtils.getMetadataMigrationAttributes(rows.getString("metadata"));
                     if (attributes == null) {
@@ -221,6 +224,7 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
                                 rows.getString("certificate_uuid"),
                                 "LOCATION",
                                 rows.getString("location_uuid"),
+                                rows.getString("name"),
                                 connectorUuid)
                         );
                     }
@@ -254,18 +258,18 @@ public class V202211141030__AttributeV2TablesAndMigration extends BaseJavaMigrat
         return "INSERT INTO \"attribute_content\" (\"uuid\", \"attribute_definition_uuid\", \"attribute_content\") VALUES ('" + uuid + "', '" + definitionUuid + "', '" + content + "');";
     }
 
-    private String attributeContent2ObjectCommandGenerator(String uuid, String contentUuid, String objectType, String objectUuid, String sourceObjectType, String sourceObjectUuid, String connectorUuid) {
+    private String attributeContent2ObjectCommandGenerator(String uuid, String contentUuid, String objectType, String objectUuid, String sourceObjectType, String sourceObjectUuid, String sourceObjectName, String connectorUuid) {
         if (connectorUuid != null) {
-            return "INSERT INTO \"attribute_content_2_object\" (\"uuid\", \"connector_uuid\", \"attribute_content_uuid\", \"object_type\", \"object_uuid\", \"source_object_type\", \"source_object_uuid\") VALUES ('" + uuid + "', '" + connectorUuid + "', '" + contentUuid + "', '" + objectType + "', '" + objectUuid + "', " + (sourceObjectType != null ? "'" + sourceObjectType + "', " : "NULL, ") + (sourceObjectUuid != null ? "'" + sourceObjectUuid + "'" : "NULL") + ");";
+            return "INSERT INTO \"attribute_content_2_object\" (\"uuid\", \"connector_uuid\", \"attribute_content_uuid\", \"object_type\", \"object_uuid\", \"source_object_type\", \"source_object_uuid\", \"source_object_name\") VALUES ('" + uuid + "', '" + connectorUuid + "', '" + contentUuid + "', '" + objectType + "', '" + objectUuid + "', " + (sourceObjectType != null ? "'" + sourceObjectType + "', " : "NULL, ") + (sourceObjectUuid != null ? "'" + sourceObjectUuid + "'," : "NULL, ") + (sourceObjectName != null ? "'" + sourceObjectName + "'" : "NULL") + ");";
         } else {
-            return "INSERT INTO \"attribute_content_2_object\" (\"uuid\", \"connector_uuid\", \"attribute_content_uuid\", \"object_type\", \"object_uuid\", \"source_object_type\", \"source_object_uuid\") VALUES ('" + uuid + "', NULL, '" + contentUuid + "', '" + objectType + "', '" + objectUuid + "', " + (sourceObjectType != null ? "'" + sourceObjectType + "', " : "NULL, ") + (sourceObjectUuid != null ? "'" + sourceObjectUuid + "'" : "NULL") + ");";
+            return "INSERT INTO \"attribute_content_2_object\" (\"uuid\", \"connector_uuid\", \"attribute_content_uuid\", \"object_type\", \"object_uuid\", \"source_object_type\", \"source_object_uuid\", \"source_object_name\") VALUES ('" + uuid + "', NULL, '" + contentUuid + "', '" + objectType + "', '" + objectUuid + "', " + (sourceObjectType != null ? "'" + sourceObjectType + "', " : "NULL, ") + (sourceObjectUuid != null ? "'" + sourceObjectUuid + "', " : "NULL, ")  + (sourceObjectName != null ? "'" + sourceObjectName + "'" : "NULL") + ");";
         }
     }
 
     private void createTables(Context context) throws Exception {
         String attributeDefinition = "CREATE TABLE \"attribute_definition\" ( \"uuid\" UUID NOT NULL, \"i_author\" VARCHAR NULL DEFAULT NULL, \"i_cre\" TIMESTAMP NULL DEFAULT NULL, \"i_upd\" TIMESTAMP NULL DEFAULT NULL, \"connector_uuid\" UUID NULL DEFAULT NULL, \"attribute_uuid\" UUID NULL DEFAULT NULL, \"attribute_name\" VARCHAR NOT NULL, \"attribute_type\" VARCHAR NOT NULL, \"attribute_content_type\" VARCHAR NOT NULL, \"attribute_definition\" TEXT NOT NULL, \"enabled\" BOOLEAN NULL DEFAULT NULL, \"global\" BOOLEAN NULL DEFAULT NULL, PRIMARY KEY (\"uuid\"), CONSTRAINT \"attribute_definition_to_connector_key\" FOREIGN KEY (\"connector_uuid\") REFERENCES \"connector\" (\"uuid\") ON UPDATE NO ACTION ON DELETE NO ACTION ) ;";
         String attributeContent = "CREATE TABLE \"attribute_content\" ( \"uuid\" UUID NOT NULL, \"attribute_definition_uuid\" UUID NOT NULL, \"attribute_content\" TEXT NOT NULL, PRIMARY KEY (\"uuid\"), CONSTRAINT \"attribute_content_to_attribute_definition_key\" FOREIGN KEY (\"attribute_definition_uuid\") REFERENCES \"attribute_definition\" (\"uuid\") ON UPDATE NO ACTION ON DELETE CASCADE ) ;";
-        String attribute2Object = "CREATE TABLE \"attribute_content_2_object\" ( \"uuid\" UUID NOT NULL, \"connector_uuid\" UUID NULL DEFAULT NULL, \"attribute_content_uuid\" UUID NOT NULL, \"object_type\" VARCHAR NOT NULL, \"object_uuid\" UUID NOT NULL, \"source_object_type\" VARCHAR NULL DEFAULT NULL, \"source_object_uuid\" UUID NULL DEFAULT NULL, PRIMARY KEY (\"uuid\"), CONSTRAINT \"attribute_definition_to_connector_key\" FOREIGN KEY (\"connector_uuid\") REFERENCES \"connector\" (\"uuid\") ON UPDATE NO ACTION ON DELETE NO ACTION , CONSTRAINT \"attribute_object_to_attribute_content_key\" FOREIGN KEY (\"attribute_content_uuid\") REFERENCES \"attribute_content\" (\"uuid\") ON UPDATE NO ACTION ON DELETE CASCADE ) ;";
+        String attribute2Object = "CREATE TABLE \"attribute_content_2_object\" ( \"uuid\" UUID NOT NULL, \"connector_uuid\" UUID NULL DEFAULT NULL, \"attribute_content_uuid\" UUID NOT NULL, \"object_type\" VARCHAR NOT NULL, \"object_uuid\" UUID NOT NULL, \"source_object_type\" VARCHAR NULL DEFAULT NULL, \"source_object_uuid\" UUID NULL DEFAULT NULL, \"source_object_name\" VARCHAR NULL DEFAULT NULL, PRIMARY KEY (\"uuid\"), CONSTRAINT \"attribute_definition_to_connector_key\" FOREIGN KEY (\"connector_uuid\") REFERENCES \"connector\" (\"uuid\") ON UPDATE NO ACTION ON DELETE NO ACTION , CONSTRAINT \"attribute_object_to_attribute_content_key\" FOREIGN KEY (\"attribute_content_uuid\") REFERENCES \"attribute_content\" (\"uuid\") ON UPDATE NO ACTION ON DELETE CASCADE ) ;";
         String attributeRelation = "CREATE TABLE \"attribute_relation\" ( \"resource\" VARCHAR NOT NULL, \"function_group_code\" VARCHAR NULL DEFAULT NULL, \"kind\" VARCHAR NULL DEFAULT NULL, \"uuid\" UUID NOT NULL, \"attribute_definition_uuid\" UUID NULL DEFAULT NULL, CONSTRAINT \"attribute_relation_to_attribute_definition_key\" FOREIGN KEY (\"attribute_definition_uuid\") REFERENCES \"core\".\"attribute_definition\" (\"uuid\") ON UPDATE NO ACTION ON DELETE CASCADE ) ;";
         try (Statement select = context.getConnection().createStatement()) {
             executeCommands(select, List.of(attributeDefinition, attributeContent, attribute2Object, attributeRelation));

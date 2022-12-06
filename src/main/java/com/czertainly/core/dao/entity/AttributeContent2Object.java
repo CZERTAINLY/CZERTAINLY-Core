@@ -32,6 +32,9 @@ public class AttributeContent2Object extends UniquelyIdentified {
     @Column(name = "source_object_uuid")
     private UUID sourceObjectUuid;
 
+    @Column(name = "source_object_name")
+    private String sourceObjectName;
+
     @OneToOne
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
@@ -105,6 +108,14 @@ public class AttributeContent2Object extends UniquelyIdentified {
         this.connectorUuid = connectorUuid;
     }
 
+    public String getSourceObjectName() {
+        return sourceObjectName;
+    }
+
+    public void setSourceObjectName(String sourceObjectName) {
+        this.sourceObjectName = sourceObjectName;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -116,6 +127,7 @@ public class AttributeContent2Object extends UniquelyIdentified {
                 .append("sourceObjectUuid", sourceObjectUuid)
                 .append("connector", connector)
                 .append("connectorUuid", connectorUuid)
+                .append("sourceObjectName", sourceObjectName)
                 .toString();
     }
 }

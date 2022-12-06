@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
-import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataPromotionRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataResponseDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
@@ -224,5 +223,5 @@ public interface AttributeService {
      * Function to promote the metadata from connector to global metadata
      * @return Details of the global metadata
      */
-    GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(SecuredUUID uuid, UUID connectorUUid) throws NotFoundException;
+    GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(UUID uuid, UUID connectorUUid) throws NotFoundException;
 }
