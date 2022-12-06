@@ -209,7 +209,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
             while (waitForCompletion) {
-                if(modal.getDiscoveryConnectorReference() != null && !modal.getDiscoveryConnectorReference().isEmpty()) {
+                if(modal.getDiscoveryConnectorReference() == null) {
                     return;
                 }
                 logger.debug("Waiting {}ms.", SLEEP_TIME);
