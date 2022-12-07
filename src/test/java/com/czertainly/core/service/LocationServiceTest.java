@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.LocationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
@@ -11,6 +12,7 @@ import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -248,7 +250,10 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName("testLocation2");
-        request.setAttributes(List.of());
+        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
+        requestAttributeDto.setName("sample");
+        requestAttributeDto.setContent(List.of(new StringAttributeContent("test")));
+        request.setAttributes(List.of(requestAttributeDto));
 
         LocationDto dto = locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()),request);
         Assertions.assertNotNull(dto);
