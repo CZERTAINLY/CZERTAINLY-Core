@@ -176,9 +176,9 @@ public class LocationServiceImpl implements LocationService {
         EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
         attributeService.validateCustomAttributes(dto.getCustomAttributes(), Resource.LOCATION);
+        validateLocationCreation(entityInstanceRef, dto.getAttributes());
         List<DataAttribute> attributes = validateAttributes(entityInstanceRef, dto.getAttributes(), dto.getName());
         LocationDetailResponseDto locationDetailResponseDto = getLocationDetail(entityInstanceRef, dto.getAttributes(), dto.getName());
-
         Location location;
         try {
             location = createLocation(dto, attributes, entityInstanceRef, locationDetailResponseDto);
@@ -205,7 +205,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
         LocationDto dto = location.mapToDto();
         dto.setMetadata(metadataService.getFullMetadata(location.getUuid(), Resource.LOCATION, null, null));
-        for(CertificateInLocationDto certificate: dto.getCertificates()){
+        for (CertificateInLocationDto certificate : dto.getCertificates()) {
             certificate.setMetadata(metadataService.getFullMetadata(UUID.fromString(certificate.getCertificateUuid()), Resource.CERTIFICATE, UUID.fromString(dto.getUuid()), Resource.LOCATION));
         }
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(location.getUuid(), Resource.LOCATION));
@@ -1002,5 +1002,13 @@ public class LocationServiceImpl implements LocationService {
         locationApiClient.removeCertificateFromLocation(location.getEntityInstanceReference().getConnector().mapToDto(),
                 location.getEntityInstanceReference().getEntityInstanceUuid(),
                 removeCertificateRequestDto);
+    }
+
+    private void validateLocationCreation(EntityInstanceReference entityInstance, List<RequestAttributeDto> requestDto) throws ValidationException {
+        for (Location location : locationRepository.findByEntityInstanceReference(entityInstance)) {
+            if (AttributeDefinitionUtils.checkAttributeEquality(requestDto, location.getAttributes())) {
+                throw new ValidationException(ValidationError.create("Location with same attributes already exists"));
+            }
+        }
     }
 }
