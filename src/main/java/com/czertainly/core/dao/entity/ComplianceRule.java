@@ -52,7 +52,7 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     @Column(name = "connector_uuid", nullable = false)
     private UUID connectorUuid;
 
-    @ManyToOne(cascade=CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "group_uuid")
     private ComplianceGroup group;
 
@@ -64,22 +64,22 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     private Set<ComplianceProfileRule> rules;
 
     @Override
-    public ComplianceRulesDto mapToDto(){
+    public ComplianceRulesDto mapToDto() {
         ComplianceRulesDto complianceRulesDto = new ComplianceRulesDto();
         complianceRulesDto.setName(name);
         complianceRulesDto.setUuid(uuid.toString());
         complianceRulesDto.setDescription(description);
         complianceRulesDto.setCertificateType(certificateType);
-        complianceRulesDto.setAttributes(AttributeDefinitionUtils.deserializeRequestAttributes(attributes));
+        complianceRulesDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(getAttributes()));
         return complianceRulesDto;
     }
 
-    public ComplianceRulesResponseDto mapToComplianceResponse(){
+    public ComplianceRulesResponseDto mapToComplianceResponse() {
         ComplianceRulesResponseDto dto = new ComplianceRulesResponseDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
-        if(group != null ) {
+        if (group != null) {
             dto.setGroupUuid(group.getUuid().toString());
         }
         dto.setCertificateType(certificateType);
@@ -157,7 +157,7 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
 
     public void setGroup(ComplianceGroup group) {
         this.group = group;
-        if(group != null) this.groupUuid = group.getUuid();
+        if (group != null) this.groupUuid = group.getUuid();
         else this.groupUuid = null;
     }
 
