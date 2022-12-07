@@ -135,6 +135,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         properties.setReadOnly(false);
         properties.setVisible(true);
         attribute.setProperties(properties);
+        attribute.setContent(List.of(new StringAttributeContent("location")));
 
         Location location = new Location();
         location.setName(LOCATION_NAME);
@@ -258,6 +259,19 @@ public class LocationServiceTest extends BaseSpringBootTest {
         LocationDto dto = locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()),request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
+    }
+
+    @Test
+    public void testAddLocation_DuplicateEntity() throws NotFoundException, AlreadyExistException, LocationException {
+
+        AddLocationRequestDto request = new AddLocationRequestDto();
+        request.setName("testLocation2");
+        RequestAttributeDto attribute = new RequestAttributeDto();
+        attribute.setName("attribute");
+        attribute.setContent(List.of(new StringAttributeContent("location")));
+        request.setAttributes(List.of(attribute));
+
+        Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()),request));
     }
 
     @Test
