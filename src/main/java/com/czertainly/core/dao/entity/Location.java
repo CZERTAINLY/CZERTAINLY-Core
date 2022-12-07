@@ -91,6 +91,10 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         return AttributeDefinitionUtils.deserializeRequestAttributes(this.attributes);
     }
 
+    public List<DataAttribute> getAttributes() {
+        return AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class);
+    }
+
     public void setAttributes(List<DataAttribute> attributes) {
         this.attributes = AttributeDefinitionUtils.serialize(attributes);
     }
