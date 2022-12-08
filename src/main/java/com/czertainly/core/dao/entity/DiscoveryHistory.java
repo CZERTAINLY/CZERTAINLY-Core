@@ -5,7 +5,6 @@ import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.SecretMaskingUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -190,7 +189,7 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
         dto.setConnectorUuid(connectorUuid.toString());
         List<DataAttribute> a = AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class);
-        dto.setAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(a)));
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(a));
         dto.setKind(kind);
         dto.setMessage(message);
         dto.setConnectorName(connectorName);

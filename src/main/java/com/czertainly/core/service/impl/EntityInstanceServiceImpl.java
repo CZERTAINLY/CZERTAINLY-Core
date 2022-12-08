@@ -26,7 +26,6 @@ import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.EntityInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.SecretMaskingUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -98,7 +97,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
                 entityInstanceReference.getEntityInstanceUuid());
 
         EntityInstanceDto entityInstanceDto = new EntityInstanceDto();
-        entityInstanceDto.setAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(entityProviderInstanceDto.getAttributes())));
+        entityInstanceDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(entityProviderInstanceDto.getAttributes()));
         entityInstanceDto.setName(entityProviderInstanceDto.getName());
         entityInstanceDto.setUuid(entityInstanceReference.getUuid().toString());
         entityInstanceDto.setConnectorUuid(entityInstanceReference.getConnector().getUuid().toString());
