@@ -7,7 +7,6 @@ import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.SecretMaskingUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -175,8 +174,8 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
             cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid().toString());
             cilDto.setWithKey(certificateLocation.isWithKey());
-            cilDto.setPushAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getPushAttributes())));
-            cilDto.setCsrAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getCsrAttributes())));
+            cilDto.setPushAttributes(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getPushAttributes()));
+            cilDto.setCsrAttributes(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getCsrAttributes()));
 
             cilDtoList.add(cilDto);
         }

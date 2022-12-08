@@ -102,8 +102,7 @@ public class CredentialServiceImpl implements CredentialService {
     public CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException {
         CredentialDto credentialDto = getCredentialEntity(uuid).mapToDto();
         credentialDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CREDENTIAL));
-        return maskSecret(credentialDto);
-
+        return credentialDto;
     }
 
     @Override
@@ -295,14 +294,5 @@ public class CredentialServiceImpl implements CredentialService {
     private Credential getCredentialEntity(SecuredUUID uuid) throws NotFoundException {
         return credentialRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Credential.class, uuid));
-    }
-
-    private CredentialDto maskSecret(CredentialDto credentialDto) {
-        for (ResponseAttributeDto responseAttributeDto : credentialDto.getAttributes()) {
-            if (TO_BE_MASKED.contains(responseAttributeDto.getType())) {
-                responseAttributeDto.setContent(List.of(new StringAttributeContent(null)));
-            }
-        }
-        return credentialDto;
     }
 }
