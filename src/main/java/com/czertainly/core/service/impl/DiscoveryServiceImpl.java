@@ -7,6 +7,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
@@ -19,7 +21,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
@@ -95,16 +96,16 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public List<DiscoveryHistoryDto> listDiscoveries(SecurityFilter filter) {
         return discoveryRepository.findUsingSecurityFilter(filter)
                 .stream()
-                .map(DiscoveryHistory::mapToDto)
+                .map(DiscoveryHistory::mapToListDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
-    public DiscoveryHistoryDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
+    public DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
-        DiscoveryHistoryDto dto = discoveryHistory.mapToDto();
+        DiscoveryHistoryDetailDto dto = discoveryHistory.mapToDto();
         dto.setMetadata(metadataService.getFullMetadata(discoveryHistory.getUuid(), Resource.DISCOVERY, null, null));
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.DISCOVERY));
         return dto;
@@ -143,14 +144,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             attributeService.deleteAttributeContent(discovery.getUuid(), Resource.DISCOVERY);
             discoveryRepository.delete(discovery);
-            if(referenceUuid != null && !referenceUuid.isEmpty()) {
+            if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
                 discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
             }
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
             logger.warn(e.getMessage());
-        }catch (Exception e) {
+        } catch (Exception e) {
             logger.warn(e.getMessage());
         }
     }
@@ -209,7 +210,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
             while (waitForCompletion) {
-                if(modal.getDiscoveryConnectorReference() == null) {
+                if (modal.getDiscoveryConnectorReference() == null) {
                     return;
                 }
                 logger.debug("Waiting {}ms.", SLEEP_TIME);
@@ -222,7 +223,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     isReachedMaxTime = true;
                     modal.setStatus(DiscoveryStatus.WARNING);
                     modal.setMessage(
-                            "Discovery exceeded maximum time of " + MAXIMUM_WAIT_TIME/(60*60) + " hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
+                            "Discovery exceeded maximum time of " + MAXIMUM_WAIT_TIME / (60 * 60) + " hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
                 }
                 discoveryRepository.save(modal);
                 oldCertificateCount = response.getTotalCertificatesDiscovered();
@@ -271,7 +272,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
         }
-        if(request.getConnectorUuid() == null){
+        if (request.getConnectorUuid() == null) {
             throw new ValidationException(ValidationError.create("Connector UUID is empty"));
         }
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
