@@ -1,7 +1,8 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "discovery_history")
-public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryHistoryDto> {
+public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryHistoryDetailDto> {
 
     /**
      *
@@ -178,8 +179,8 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
     }
 
     @Override
-    public DiscoveryHistoryDto mapToDto() {
-        DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
+    public DiscoveryHistoryDetailDto mapToDto() {
+        DiscoveryHistoryDetailDto dto = new DiscoveryHistoryDetailDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setEndTime(endTime);
@@ -192,6 +193,20 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(a));
         dto.setKind(kind);
         dto.setMessage(message);
+        dto.setConnectorName(connectorName);
+        return dto;
+    }
+
+    public DiscoveryHistoryDto mapToListDto() {
+        DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
+        dto.setUuid(uuid.toString());
+        dto.setName(name);
+        dto.setEndTime(endTime);
+        dto.setStartTime(startTime);
+        dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
+        dto.setStatus(status);
+        dto.setConnectorUuid(connectorUuid.toString());
+        dto.setKind(kind);
         dto.setConnectorName(connectorName);
         return dto;
     }

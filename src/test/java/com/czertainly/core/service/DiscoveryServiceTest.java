@@ -5,9 +5,10 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
@@ -102,7 +103,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetDiscovery() throws NotFoundException {
-        DiscoveryHistoryDto dto = discoveryService.getDiscovery(discovery.getSecuredUuid());
+        DiscoveryHistoryDetailDto dto = discoveryService.getDiscovery(discovery.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(discovery.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(discovery.getConnectorUuid().toString(), dto.getConnectorUuid());
