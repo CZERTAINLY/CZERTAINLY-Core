@@ -150,7 +150,7 @@ public class SearchServiceImpl implements SearchService {
             dynamicSearchInternalResponse.setResult(new ArrayList<>());
             entityManager.close();
         } else {
-            Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from").replace(" GROUP BY c.id ORDER BY c.id DESC", ""));
+            Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from").split(" GROUP BY ")[0]);
             Long totalItems = (Long) countQuery.getSingleResult();
             dynamicSearchInternalResponse.setTotalPages((int) Math.ceil((double) totalItems / searchRequestDto.getItemsPerPage()));
             dynamicSearchInternalResponse.setTotalItems(totalItems);
