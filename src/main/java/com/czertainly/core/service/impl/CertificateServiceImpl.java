@@ -771,6 +771,8 @@ public class CertificateServiceImpl implements CertificateService {
                     .collect(Collectors.toList()
                     )
             );
+            certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
+            certificateResponseDto.setPageNumber(request.getPageNumber());
         } else {
             DynamicSearchInternalResponse dynamicSearchInternalResponse = searchService.dynamicSearchQueryExecutor(request, "Certificate", getSearchableFieldInformation(), searchService.createCriteriaBuilderString(filter, true));
             certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
