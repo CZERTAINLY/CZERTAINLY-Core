@@ -26,6 +26,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Credential;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -289,6 +290,15 @@ public class CredentialServiceImpl implements CredentialService {
                 }
             }
         }
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return credentialRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(Credential::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     private Credential getCredentialEntity(SecuredUUID uuid) throws NotFoundException {

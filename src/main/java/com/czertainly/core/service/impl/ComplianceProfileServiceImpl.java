@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
@@ -23,6 +24,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.ComplianceGroupRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
@@ -479,6 +481,15 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 logger.error("Compliance check failed.", e);
             }
         }
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return complianceProfileRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(ComplianceProfile::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     private ComplianceProfile addComplianceEntity(ComplianceProfileRequestDto request) {

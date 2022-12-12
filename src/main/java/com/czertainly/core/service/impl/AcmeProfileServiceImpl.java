@@ -8,6 +8,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -322,6 +323,16 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         }
         return messages;
     }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return acmeProfileRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(AcmeProfile::mapToAccessControlObjects)
+                .collect(Collectors.toList());
+    }
+
 
     private RaProfile getRaProfile(String uuid) throws NotFoundException {
         return raProfileService.getRaProfileEntity(SecuredUUID.fromString(uuid));

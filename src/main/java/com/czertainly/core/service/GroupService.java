@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -26,4 +27,10 @@ public interface GroupService {
      * @return Number of groups
      */
     Long statisticsGroupCount(SecurityFilter filter);
+
+    /**
+     * Function to get the list of name and uuid dto for the objects available in the database.
+     * @return List of NameAndUuidDto
+     */
+    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter);
 }

@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -97,4 +98,10 @@ public interface RaProfileService {
      * @return Boolean of permission
      */
     Boolean evaluateNullableRaPermissions(SecurityFilter filter);
+
+    /**
+     * Function to get the list of name and uuid dto for the objects available in the database.
+     * @return List of NameAndUuidDto
+     */
+    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter);
 }

@@ -1,7 +1,9 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -21,7 +23,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "authority_instance_reference")
-public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AuthorityInstanceDto> {
+public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AuthorityInstanceDto>, ObjectAccessControlMapper<NameAndUuidDto> {
     private static final long serialVersionUID = -2377655450967447704L;
 
     @Column(name = "authority_instance_uuid")
@@ -112,6 +114,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
         this.connectorUuid = connectorUuid;
     }
 
+    @Override
     public AuthorityInstanceDto mapToDto() {
         AuthorityInstanceDto dto = new AuthorityInstanceDto();
         dto.setUuid(this.uuid.toString());
@@ -123,6 +126,11 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
             dto.setConnectorUuid(this.connector.getUuid().toString());
         }
         return dto;
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     @Override

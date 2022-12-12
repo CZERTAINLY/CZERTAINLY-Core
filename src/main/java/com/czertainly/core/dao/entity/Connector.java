@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -8,6 +9,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -22,7 +24,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "connector")
-public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ConnectorDto> {
+public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ConnectorDto>, ObjectAccessControlMapper<NameAndUuidDto> {
     private static final long serialVersionUID = -4057975339123024975L;
 
     @Column(name = "name")
@@ -141,6 +143,11 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
             return functionGroupDto;
         }).collect(Collectors.toList()));
         return dto;
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     @Override

@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
@@ -25,6 +26,7 @@ import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -304,6 +306,15 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             }
         }
         return messages;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return authorityInstanceReferenceRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(AuthorityInstanceReference::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     private void removeAuthorityInstance(AuthorityInstanceReference authorityInstanceRef) throws ValidationException {
