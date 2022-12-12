@@ -1,9 +1,11 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -19,7 +21,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "credential")
-public class Credential extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CredentialDto> {
+public class Credential extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CredentialDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name = "name")
     private String name;
@@ -113,6 +115,11 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         }
 
         return dto;
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     @Override

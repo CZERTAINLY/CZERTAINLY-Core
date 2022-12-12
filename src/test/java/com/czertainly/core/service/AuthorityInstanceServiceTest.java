@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -215,5 +216,11 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     public void testBulkRemove() throws NotFoundException, ConnectorException {
         authorityInstanceService.bulkDeleteAuthorityInstance(List.of(authorityInstance.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid()));
+    }
+
+    @Test
+    public void testGetObjectsForResource() {
+        List<NameAndUuidDto> dtos = authorityInstanceService.listResourceObjects(SecurityFilter.create());
+        Assertions.assertEquals(1, dtos.size());
     }
 }

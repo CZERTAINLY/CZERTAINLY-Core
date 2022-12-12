@@ -1,7 +1,9 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -14,7 +16,7 @@ import java.io.Serializable;
 
 @Entity
 @Table(name = "certificate_group")
-public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto> {
+public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     /**
      *
@@ -50,6 +52,11 @@ public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Se
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
         return dto;
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     @Override

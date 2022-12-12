@@ -42,4 +42,10 @@ public interface CredentialService {
 
     @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     void loadFullCredentialData(AttributeCallback callback, RequestAttributeCallback callbackRequest) throws NotFoundException;
+
+    /**
+     * Function to get the list of name and uuid dto for the objects available in the database.
+     * @return List of NameAndUuidDto
+     */
+    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter);
 }
