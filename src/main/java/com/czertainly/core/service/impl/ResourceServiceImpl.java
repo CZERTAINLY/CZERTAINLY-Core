@@ -17,7 +17,7 @@ import java.util.List;
 @Transactional
 public class ResourceServiceImpl implements ResourceService {
     private static final Logger logger = LoggerFactory.getLogger(ResourceServiceImpl.class);
-    protected LocationService locationService;
+    private LocationService locationService;
     private AcmeProfileService acmeProfileService;
     private AuthorityInstanceService authorityInstanceService;
     private ComplianceProfileService complianceProfileService;
