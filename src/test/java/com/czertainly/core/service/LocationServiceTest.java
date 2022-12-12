@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -409,5 +410,11 @@ public class LocationServiceTest extends BaseSpringBootTest {
                 locationNoMultiEntries.getSecuredUuid(),
                 request.getRaProfileUuid(), request)
         );
+    }
+
+    @Test
+    public void testGetObjectsForResource() {
+        List<NameAndUuidDto> dtos = locationService.listResourceObjects(SecurityFilter.create());
+        Assertions.assertEquals(3, dtos.size());
     }
 }

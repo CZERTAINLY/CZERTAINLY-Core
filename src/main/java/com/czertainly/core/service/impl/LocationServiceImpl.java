@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
@@ -31,6 +32,7 @@ import com.czertainly.core.dao.entity.CertificateLocationId;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.entity.Location;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.CertificateLocationRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
@@ -619,6 +621,15 @@ public class LocationServiceImpl implements LocationService {
         logger.info("Certificate {} successfully issued and pushed to Location {}", clientCertificateDataResponseDto.getUuid(), certificateLocation.getLocation().getName());
 
         return maskSecret(location.mapToDto());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return locationRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(Location::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     // PRIVATE METHODS

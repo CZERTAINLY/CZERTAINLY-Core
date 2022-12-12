@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -54,7 +55,7 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to delete Entity instance
      */
-    
+
     void deleteEntityInstance(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
 
     /**
@@ -74,4 +75,10 @@ public interface EntityInstanceService {
      * @throws ConnectorException when failed to validate Location Attributes
      */
     void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> locationAttributes) throws NotFoundException, ConnectorException;
+
+    /**
+     * Function to get the list of name and uuid dto for the objects available in the database.
+     * @return List of NameAndUuidDto
+     */
+    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter);
 }

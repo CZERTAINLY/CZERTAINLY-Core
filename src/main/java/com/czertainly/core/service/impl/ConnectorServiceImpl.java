@@ -17,6 +17,7 @@ import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -30,6 +31,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
@@ -657,6 +659,15 @@ public class ConnectorServiceImpl implements ConnectorService {
             }
         }
         return messages;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return connectorRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(Connector::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     private void deleteConnector(Connector connector) {

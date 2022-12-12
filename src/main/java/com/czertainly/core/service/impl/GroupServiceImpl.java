@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -11,6 +12,7 @@ import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -133,6 +135,15 @@ public class GroupServiceImpl implements GroupService {
         GroupDto dto = certificateGroup.mapToDto();
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(certificateGroup.getUuid(), Resource.CERTIFICATE_GROUP));
         return dto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE_GROUP, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return groupRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(CertificateGroup::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     private CertificateGroup getGroupEntity(SecuredUUID uuid) throws NotFoundException {

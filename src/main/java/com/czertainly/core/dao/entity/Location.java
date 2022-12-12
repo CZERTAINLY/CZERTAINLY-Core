@@ -2,11 +2,13 @@ package com.czertainly.core.dao.entity;
 
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -23,7 +25,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "location")
-public class Location extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<LocationDto> {
+public class Location extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<LocationDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name = "name")
     private String name;
@@ -104,7 +106,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     public void setEntityInstanceReference(EntityInstanceReference entityInstanceReference) {
         this.entityInstanceReference = entityInstanceReference;
-        if(entityInstanceReference != null) this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
+        if (entityInstanceReference != null) this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
         else this.entityInstanceReferenceUuid = null;
     }
 
@@ -182,6 +184,11 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setCertificates(cilDtoList);
 
         return dto;
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     public LocationDto mapToDtoSimple() {

@@ -8,6 +8,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
@@ -16,6 +17,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -236,5 +238,14 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         entityInstanceApiClient.validateLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid(),
                 attributes);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return entityInstanceReferenceRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(EntityInstanceReference::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 }

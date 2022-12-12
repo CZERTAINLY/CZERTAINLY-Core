@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity.acme;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
@@ -8,6 +9,7 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -23,7 +25,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "acme_profile")
-public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AcmeProfileDto> {
+public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AcmeProfileDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name="name")
     private String name;
@@ -135,6 +137,11 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
                 .append("issueCertificateAttributes", issueCertificateAttributes)
                 .append("revokeCertificateAttributes", revokeCertificateAttributes)
                 .toString();
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     public String getName() {

@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequest
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -357,6 +358,15 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
     public Boolean evaluateNullableRaPermissions(SecurityFilter filter) {
         return !filter.getResourceFilter().areOnlySpecificObjectsAllowed();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return raProfileRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(RaProfile::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)

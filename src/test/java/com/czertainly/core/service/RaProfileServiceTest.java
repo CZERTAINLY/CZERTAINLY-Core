@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
@@ -226,5 +227,11 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     public void testBulkDisable() {
         raProfileService.bulkDisableRaProfile(List.of(raProfile.getSecuredUuid()));
         Assertions.assertFalse(raProfile.getEnabled());
+    }
+
+    @Test
+    public void testGetObjectsForResource() {
+        List<NameAndUuidDto> dtos = raProfileService.listResourceObjects(SecurityFilter.create());
+        Assertions.assertEquals(1, dtos.size());
     }
 }

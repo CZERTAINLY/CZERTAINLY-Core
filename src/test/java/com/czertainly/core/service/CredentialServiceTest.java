@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
@@ -360,5 +361,11 @@ public class CredentialServiceTest extends BaseSpringBootTest {
         requestAttributeCallback.setBody(requestBodyMap);
 
         Assertions.assertThrows(ValidationException.class, () -> credentialService.loadFullCredentialData(callback, requestAttributeCallback));
+    }
+
+    @Test
+    public void testGetObjectsForResource() {
+        List<NameAndUuidDto> dtos = credentialService.listResourceObjects(SecurityFilter.create());
+        Assertions.assertEquals(1, dtos.size());
     }
 }
