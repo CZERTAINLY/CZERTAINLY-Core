@@ -7,6 +7,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.GroupAttribute;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -53,7 +54,7 @@ public class CallbackServiceImpl implements CallbackService {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
         List<BaseAttribute> definitions;
         definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions).getAttributeCallback();
+        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
         if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
@@ -73,7 +74,7 @@ public class CallbackServiceImpl implements CallbackService {
         AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
         definitions = authorityInstanceApiClient.listRAProfileAttributes(authorityInstance.getConnector().mapToDto(), authorityInstance.getAuthorityInstanceUuid());
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions).getAttributeCallback();
+        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
         if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
@@ -86,10 +87,15 @@ public class CallbackServiceImpl implements CallbackService {
         return attributeApiClient.attributeCallback(authorityInstance.getConnector().mapToDto(), attributeCallback, callback);
     }
 
-    private DataAttribute getAttributeByName(String name, List<BaseAttribute> attributes) throws NotFoundException {
+    private AttributeCallback getAttributeByName(String name, List<BaseAttribute> attributes) throws NotFoundException {
         for (BaseAttribute attributeDefinition : attributes) {
             if (attributeDefinition.getName().equals(name)) {
-                return (DataAttribute) attributeDefinition;
+                switch (attributeDefinition.getType()) {
+                    case DATA:
+                        return ((DataAttribute) attributeDefinition).getAttributeCallback();
+                    case GROUP:
+                        return ((GroupAttribute) attributeDefinition).getAttributeCallback();
+                }
             }
         }
         throw new NotFoundException(BaseAttribute.class, name);
