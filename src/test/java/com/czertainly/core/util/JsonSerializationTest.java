@@ -4,6 +4,7 @@ import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
 import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -82,7 +83,7 @@ public class JsonSerializationTest {
 
     @Test
     public void testSerializeCredential() {
-        CredentialDto credential = new CredentialDto();
+        CredentialAttributeContentData credential = new CredentialAttributeContentData();
         credential.setName("test");
 
         List<DataAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("credential", List.of(new CredentialAttributeContent("test", credential))));
@@ -91,12 +92,8 @@ public class JsonSerializationTest {
 
         List<DataAttribute> deserialized = AttributeDefinitionUtils.deserialize(serialized, DataAttribute.class);
 
-        CredentialDto value = AttributeDefinitionUtils.getCredentialContent("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
+        CredentialAttributeContentData value = AttributeDefinitionUtils.getCredentialContent("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
         Assertions.assertNotNull(value);
-
-        CredentialDto converted = MAPPER.convertValue(value, CredentialDto.class);
-
-        Assertions.assertEquals(CredentialDto.class, converted.getClass());
     }
 
 }

@@ -15,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.callback.AttributeValueTarge
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
@@ -229,7 +230,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testLoadFullData_attributes() throws NotFoundException {
-        CredentialDto dto = new CredentialDto();
+        CredentialAttributeContentData dto = new CredentialAttributeContentData();
         CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
         dto.setUuid(credential.getUuid().toString());
         dto.setName(credential.getName());
@@ -244,16 +245,16 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
         credentialService.loadFullCredentialData(attrs);
 
-        Assertions.assertTrue(attrs.get(0).getContent().get(0).getData() instanceof CredentialDto);
+        Assertions.assertTrue(attrs.get(0).getContent().get(0).getData() instanceof CredentialAttributeContentData);
 
-        CredentialDto credentialDto = ((CredentialAttributeContent) attrs.get(0).getContent().get(0)).getData();
+        CredentialAttributeContentData credentialDto = ((CredentialAttributeContent) attrs.get(0).getContent().get(0)).getData();
         Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
 
     @Test
     public void testLoadFullData_attributesNotFound() throws NotFoundException {
-        CredentialDto dto = new CredentialDto();
+        CredentialAttributeContentData dto = new CredentialAttributeContentData();
         CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
         dto.setUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         dto.setName("wrong-name");
@@ -278,7 +279,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     public void testLoadFullData_callback() throws NotFoundException {
         String credentialBodyKey = "testCredential";
 
-        CredentialDto dto = new CredentialDto();
+        CredentialAttributeContentData dto = new CredentialAttributeContentData();
         CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
         dto.setUuid(credential.getUuid().toString());
         dto.setName(credential.getName());
@@ -304,9 +305,9 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
         credentialService.loadFullCredentialData(callback, requestAttributeCallback);
 
-        Assertions.assertTrue(((List<CredentialAttributeContent>)requestAttributeCallback.getBody().get(credentialBodyKey)).get(0).getData() instanceof CredentialDto);
+        Assertions.assertTrue(((List<CredentialAttributeContent>)requestAttributeCallback.getBody().get(credentialBodyKey)).get(0).getData() instanceof CredentialAttributeContentData);
 
-        CredentialDto credentialDto = ((List<CredentialAttributeContent>) requestAttributeCallback.getBody().get(credentialBodyKey)).get(0).getData();
+        CredentialAttributeContentData credentialDto = ((List<CredentialAttributeContent>) requestAttributeCallback.getBody().get(credentialBodyKey)).get(0).getData();
         Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -315,7 +316,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     public void testLoadFullData_callbackValidation() {
         String credentialBodyKey = "testCredential";
 
-        CredentialDto dto = new CredentialDto();
+        CredentialAttributeContentData dto = new CredentialAttributeContentData();
         CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
         dto.setUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         dto.setName("wrong-name");
