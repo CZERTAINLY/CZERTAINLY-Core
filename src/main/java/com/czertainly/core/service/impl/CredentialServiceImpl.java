@@ -5,7 +5,6 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -17,7 +16,7 @@ import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCal
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -26,7 +25,6 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Credential;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -223,7 +221,7 @@ public class CredentialServiceImpl implements CredentialService {
 
             NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
             Credential credential = getCredentialEntity(SecuredUUID.fromString(credentialId.getUuid()));
-            attribute.setContent(List.of(new CredentialAttributeContent(credentialId.getName(), credential.mapToDto())));
+            attribute.setContent(List.of(new CredentialAttributeContent(credentialId.getName(), credential.mapToCredentialContent())));
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
         }
     }
@@ -280,7 +278,7 @@ public class CredentialServiceImpl implements CredentialService {
                                             "Invalid value {}. Instance of {} is expected.", bodyKeyValue, NameAndUuidDto.class));
                                 }
 
-                                CredentialDto credential = getCredentialEntity(SecuredUUID.fromString(credentialUuid)).mapToDto();
+                                CredentialAttributeContentData credential = getCredentialEntity(SecuredUUID.fromString(credentialUuid)).mapToCredentialContent();
                                 ArrayList<CredentialAttributeContent> credAttributes = new ArrayList<>();
                                 credAttributes.add(new CredentialAttributeContent(referenceName, credential));
                                 requestAttributeCallback.getBody().put(mapping.getTo(), credAttributes);
