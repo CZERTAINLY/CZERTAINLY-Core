@@ -36,8 +36,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "auth_type")
     @Enumerated(EnumType.STRING)
     private AuthType authType;
-
-    @Basic(fetch = FetchType.LAZY)
+    
     @Column(name = "auth_attributes")
     private String authAttributes;
 
