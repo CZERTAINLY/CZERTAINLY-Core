@@ -413,7 +413,7 @@ public class AttributeServiceImpl implements AttributeService {
     public DataAttribute getReferenceAttribute(UUID connectorUUid, String attributeName) {
         AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeNameAndReference(connectorUUid, attributeName, true).orElse(null);
         if (definition != null) {
-            definition.getAttributeDefinition(DataAttribute.class);
+            return definition.getAttributeDefinition(DataAttribute.class);
         }
         return null;
     }
