@@ -53,6 +53,11 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     @Column(name = "global")
     private Boolean global;
 
+    // This is the reference field. This field states that of the Attribute is stored just for the reference incase of the
+    // response from group attributes
+    @Column(name = "reference")
+    private Boolean reference;
+
     public Connector getConnector() {
         return connector;
     }
@@ -144,6 +149,14 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
 
     public void setGlobal(Boolean global) {
         this.global = global;
+    }
+
+    public Boolean isReference() {
+        return reference;
+    }
+
+    public void setReference(Boolean reference) {
+        this.reference = reference;
     }
 
     public AttributeDefinitionDto mapToListDto(AttributeType type) {

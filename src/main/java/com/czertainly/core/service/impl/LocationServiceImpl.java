@@ -863,6 +863,14 @@ public class LocationServiceImpl implements LocationService {
         List<BaseAttribute> definitions = entityInstanceApiClient.listLocationAttributes(
                 entityInstanceRef.getConnector().mapToDto(),
                 entityInstanceRef.getEntityInstanceUuid());
+
+        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
+        for(RequestAttributeDto requestAttributeDto: attributes) {
+            if(!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
+                definitions.add(attributeService.getReferenceAttribute(entityInstanceRef.getConnectorUuid(), requestAttributeDto.getName()));
+            }
+        }
+
         List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         entityInstanceApiClient.validateLocationAttributes(

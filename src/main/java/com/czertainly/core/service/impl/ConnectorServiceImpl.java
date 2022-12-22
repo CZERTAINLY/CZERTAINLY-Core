@@ -563,6 +563,12 @@ public class ConnectorServiceImpl implements ConnectorService {
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
+        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
+        for(RequestAttributeDto requestAttributeDto: attributes) {
+            if(!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
+                definitions.add(attributeService.getReferenceAttribute(connector.getUuid(), requestAttributeDto.getName()));
+            }
+        }
         List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         validateAttributes(connector, functionGroup, attributes, functionGroupType);

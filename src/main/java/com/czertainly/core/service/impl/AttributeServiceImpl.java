@@ -17,6 +17,7 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRe
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
@@ -375,6 +376,43 @@ public class AttributeServiceImpl implements AttributeService {
         definition.setGlobal(true);
         attributeDefinitionRepository.save(definition);
         return getGlobalMetadata(SecuredUUID.fromUUID(definition.getUuid()));
+    }
+
+    @Override
+    public AttributeDefinition createAttributeDefinition(UUID connectorUuid, BaseAttribute attribute) {
+        //If the attribute is of any other types than data, do not do anything
+        if(!attribute.getType().equals(AttributeType.DATA)) {
+            return null;
+        }
+        //If the connector has the same attribute already available, then remove it and create a new one.
+        AttributeDefinition existingDefinition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorUuid, UUID.fromString(attribute.getUuid())).orElse(null);
+        if(existingDefinition != null){
+            attributeDefinitionRepository.delete(existingDefinition);
+        }
+        String attributeDefinition = AttributeDefinitionUtils.serialize(attribute);
+        DataAttribute dataAttribute = AttributeDefinitionUtils.deserializeSingleAttribute(attributeDefinition, DataAttribute.class);
+
+        //Creating Attribute definition data
+        AttributeDefinition definition = new AttributeDefinition();
+        definition.setType(AttributeType.DATA);
+        definition.setAttributeName(attribute.getName());
+        definition.setAttributeUuid(UUID.fromString(attribute.getUuid()));
+        definition.setContentType(dataAttribute.getContentType());
+        definition.setAttributeDefinition(dataAttribute);
+        definition.setUuid(attribute.getUuid());
+        definition.setConnectorUuid(connectorUuid);
+        definition.setEnabled(false);
+        definition.setReference(true);
+        definition.setGlobal(false);
+
+        attributeDefinitionRepository.save(definition);
+        return definition;
+    }
+
+    @Override
+    public DataAttribute getReferenceAttribute(UUID connectorUUid, String attributeName) {
+        AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeNameAndReference(connectorUUid, attributeName, true).orElse(null);
+        return definition.getAttributeDefinition(DataAttribute.class);
     }
 
     private void createAttributeContent(UUID objectUuid, String attributeName, List<BaseAttributeContent> value, Resource resource) {
