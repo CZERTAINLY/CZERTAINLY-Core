@@ -381,12 +381,12 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     public AttributeDefinition createAttributeDefinition(UUID connectorUuid, BaseAttribute attribute) {
         //If the attribute is of any other types than data, do not do anything
-        if(!attribute.getType().equals(AttributeType.DATA)) {
+        if (!attribute.getType().equals(AttributeType.DATA)) {
             return null;
         }
         //If the connector has the same attribute already available, then remove it and create a new one.
         AttributeDefinition existingDefinition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorUuid, UUID.fromString(attribute.getUuid())).orElse(null);
-        if(existingDefinition != null){
+        if (existingDefinition != null) {
             attributeDefinitionRepository.delete(existingDefinition);
         }
         String attributeDefinition = AttributeDefinitionUtils.serialize(attribute);
@@ -412,7 +412,10 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     public DataAttribute getReferenceAttribute(UUID connectorUUid, String attributeName) {
         AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeNameAndReference(connectorUUid, attributeName, true).orElse(null);
-        return definition.getAttributeDefinition(DataAttribute.class);
+        if (definition != null) {
+            definition.getAttributeDefinition(DataAttribute.class);
+        }
+        return null;
     }
 
     private void createAttributeContent(UUID objectUuid, String attributeName, List<BaseAttributeContent> value, Resource resource) {

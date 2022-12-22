@@ -867,7 +867,10 @@ public class LocationServiceImpl implements LocationService {
         List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
         for(RequestAttributeDto requestAttributeDto: attributes) {
             if(!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
-                definitions.add(attributeService.getReferenceAttribute(entityInstanceRef.getConnectorUuid(), requestAttributeDto.getName()));
+                DataAttribute referencedAttribute = attributeService.getReferenceAttribute(entityInstanceRef.getConnectorUuid(), requestAttributeDto.getName());
+                if(referencedAttribute != null) {
+                    definitions.add(referencedAttribute);
+                }
             }
         }
 

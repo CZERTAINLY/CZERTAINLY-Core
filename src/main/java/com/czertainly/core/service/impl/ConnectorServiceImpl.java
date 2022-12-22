@@ -31,7 +31,6 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
@@ -564,9 +563,12 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
         List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
-        for(RequestAttributeDto requestAttributeDto: attributes) {
-            if(!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
-                definitions.add(attributeService.getReferenceAttribute(connector.getUuid(), requestAttributeDto.getName()));
+        for (RequestAttributeDto requestAttributeDto : attributes) {
+            if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
+                DataAttribute referencedAttribute = attributeService.getReferenceAttribute(connector.getUuid(), requestAttributeDto.getName());
+                if (referencedAttribute != null) {
+                    definitions.add(referencedAttribute);
+                }
             }
         }
         List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
