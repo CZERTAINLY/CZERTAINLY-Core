@@ -17,6 +17,8 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
 
     Optional<AttributeDefinition> findByConnectorUuidAndAttributeUuid(UUID connectorUuid, UUID attributeUuid);
 
+    Optional<AttributeDefinition> findByConnectorUuidAndAttributeNameAndReference(UUID connectorUuid, String attributeName, Boolean reference);
+
     Optional<AttributeDefinition> findByConnectorUuidAndAttributeNameAndAttributeUuidAndTypeAndContentType(UUID connectorUuid, String attributeName, UUID attributeUuid, AttributeType type, AttributeContentType contentType);
 
     Boolean existsByTypeAndAttributeName(AttributeType type, String attributeName);

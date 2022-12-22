@@ -15,7 +15,9 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefiniti
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -224,4 +226,15 @@ public interface AttributeService {
      * @return Details of the global metadata
      */
     GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(UUID uuid, UUID connectorUUid) throws NotFoundException;
+
+    /**
+     * Check and create the reference attributes in the database
+     */
+    AttributeDefinition createAttributeDefinition(UUID connectorUuid, BaseAttribute attribute);
+
+    /**
+     * Function to get the reference attributes. This function will check and return if there is a reference
+     * attribute available for the given attribute uuid and the connector UUID
+     */
+    DataAttribute getReferenceAttribute(UUID connectorUUid, String attributeName);
 }
