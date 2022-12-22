@@ -380,6 +380,17 @@ public class RaProfileServiceImpl implements RaProfileService {
         List<BaseAttribute> definitions = authorityInstanceApiClient.listRAProfileAttributes(
                 authorityInstanceRef.getConnector().mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid());
+
+        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
+        for (RequestAttributeDto requestAttributeDto : attributes) {
+            if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
+                DataAttribute referencedAttribute = attributeService.getReferenceAttribute(authorityInstanceRef.getConnectorUuid(), requestAttributeDto.getName());
+                if (referencedAttribute != null) {
+                    definitions.add(referencedAttribute);
+                }
+            }
+        }
+
         List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
         if (Boolean.FALSE.equals(authorityInstanceApiClient.validateRAProfileAttributes(
