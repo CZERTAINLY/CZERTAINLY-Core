@@ -265,13 +265,18 @@ public class CredentialServiceImpl implements CredentialService {
                                     credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
                                     referenceName = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getReference();
                                 } else if (bodyKeyValue instanceof Map) {
-                                    try {
-                                        credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("uuid");
-                                        referenceName = credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("name");
-                                    } catch (Exception e) {
-                                        logger.error(e.getMessage(), e);
-                                        throw new ValidationException(ValidationError.create(
-                                                "Invalid value {}, because of {}.", bodyKeyValue, e.getMessage()));
+                                    if(((Map) bodyKeyValue).containsKey("uuid")) {
+                                        credentialUuid = (String) ((Map) bodyKeyValue).get("uuid");
+                                        referenceName = (String) ((Map) bodyKeyValue).get("name");
+                                    } else {
+                                        try {
+                                            credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("uuid");
+                                            referenceName = credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("name");
+                                        } catch (Exception e) {
+                                            logger.error(e.getMessage(), e);
+                                            throw new ValidationException(ValidationError.create(
+                                                    "Invalid value {}, because of {}.", bodyKeyValue, e.getMessage()));
+                                        }
                                     }
                                 } else {
                                     throw new ValidationException(ValidationError.create(
@@ -279,9 +284,7 @@ public class CredentialServiceImpl implements CredentialService {
                                 }
 
                                 CredentialAttributeContentData credential = getCredentialEntity(SecuredUUID.fromString(credentialUuid)).mapToCredentialContent();
-                                ArrayList<CredentialAttributeContent> credAttributes = new ArrayList<>();
-                                credAttributes.add(new CredentialAttributeContent(referenceName, credential));
-                                requestAttributeCallback.getBody().put(mapping.getTo(), credAttributes);
+                                requestAttributeCallback.getBody().put(mapping.getTo(), credential);
                                 break;
                         }
                     }
