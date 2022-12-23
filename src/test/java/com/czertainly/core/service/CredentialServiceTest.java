@@ -305,9 +305,9 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
         credentialService.loadFullCredentialData(callback, requestAttributeCallback);
 
-        Assertions.assertTrue(((List<CredentialAttributeContent>)requestAttributeCallback.getBody().get(credentialBodyKey)).get(0).getData() instanceof CredentialAttributeContentData);
+        Assertions.assertTrue(requestAttributeCallback.getBody().get(credentialBodyKey) instanceof CredentialAttributeContentData);
 
-        CredentialAttributeContentData credentialDto = ((List<CredentialAttributeContent>) requestAttributeCallback.getBody().get(credentialBodyKey)).get(0).getData();
+        CredentialAttributeContentData credentialDto = (CredentialAttributeContentData) requestAttributeCallback.getBody().get(credentialBodyKey);
         Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
