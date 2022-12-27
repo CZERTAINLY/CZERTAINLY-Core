@@ -24,7 +24,6 @@ import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.ComplianceGroupRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;

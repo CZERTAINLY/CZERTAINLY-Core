@@ -1,13 +1,9 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
-import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
-import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.ObjectAccessControlMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -20,6 +16,9 @@ import java.util.UUID;
 public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<KeyDto> {
     @Column(name = "name")
     private String name;
+
+    @Column(name = "description")
+    private String description;
 
     @Column(name = "cryptographic_algorithm")
     @Enumerated(EnumType.STRING)
@@ -64,6 +63,14 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.tokenInstanceReferenceUuid = tokenInstanceReferenceUuid;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -75,15 +82,21 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
                 .toString();
     }
 
-    /**
-     * Map to detail dto alos uses the same function as the other parameters are set from the connector and custom attributes
-     * are set separately
-     */
     @Override
     public KeyDto mapToDto() {
         KeyDto dto = new KeyDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
+        dto.setDescription(description);
+        dto.setCryptographicAlgorithm(cryptographicAlgorithm);
+        return dto;
+    }
+
+    public KeyDetailDto mapToDetailDto() {
+        KeyDetailDto dto = new KeyDetailDto();
+        dto.setName(name);
+        dto.setUuid(uuid.toString());
+        dto.setDescription(description);
         dto.setCryptographicAlgorithm(cryptographicAlgorithm);
         return dto;
     }

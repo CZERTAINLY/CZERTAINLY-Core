@@ -32,7 +32,6 @@ import com.czertainly.core.dao.entity.CertificateLocationId;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.entity.Location;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.CertificateLocationRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;

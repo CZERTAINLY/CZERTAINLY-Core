@@ -9,6 +9,9 @@ import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfile
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.TokenProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -31,17 +34,17 @@ public class TokenProfileControllerImpl implements TokenProfileController {
 
     @Override
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled) {
-        return tokenProfileService.listTokenProfiles(enabled);
+        return tokenProfileService.listTokenProfiles(enabled, SecurityFilter.create());
     }
 
     @Override
     public TokenProfileDetailDto getTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
-        return tokenProfileService.getTokenProfile(tokenInstanceUuid, uuid);
+        return tokenProfileService.getTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
     public ResponseEntity<TokenProfileDetailDto> createTokenProfile(String tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
-        TokenProfileDetailDto tokenProfileDetailDto = tokenProfileService.createTokenProfile(tokenInstanceUuid, request);
+        TokenProfileDetailDto tokenProfileDetailDto = tokenProfileService.createTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/tokenInstances/{tokenInstanceUuid}/tokenProfiles/{uuid}")
                 .buildAndExpand(tokenInstanceUuid, tokenProfileDetailDto.getUuid()).toUri();
         return ResponseEntity.created(location).body(tokenProfileDetailDto);
@@ -49,41 +52,41 @@ public class TokenProfileControllerImpl implements TokenProfileController {
 
     @Override
     public TokenProfileDetailDto editTokenProfile(String tokenInstanceUuid, String uuid, EditTokenProfileRequestDto request) throws ConnectorException {
-        return tokenProfileService.editTokenProfile(tokenInstanceUuid, uuid, request);
+        return tokenProfileService.editTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     public void deleteTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
-        tokenProfileService.deleteTokenProfile(tokenInstanceUuid, uuid);
+        tokenProfileService.deleteTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void deleteTokenProfile(String tokenProfileUuid) throws NotFoundException {
-        tokenProfileService.deleteTokenProfile(tokenProfileUuid);
+    public void deleteTokenProfile(String uuid) throws NotFoundException {
+        tokenProfileService.deleteTokenProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void disableTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
-        tokenProfileService.disableTokenProfile(tokenInstanceUuid, uuid);
+        tokenProfileService.disableTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void enableTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
-        tokenProfileService.enableTokenProfile(tokenInstanceUuid, uuid);
+        tokenProfileService.enableTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void bulkDeleteTokenProfile(List<String> uuids) throws NotFoundException, ValidationException {
-        tokenProfileService.bulkDeleteTokenProfile(uuids);
+        tokenProfileService.bulkDeleteTokenProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public void bulkDisableRaProfile(List<String> uuids) throws NotFoundException {
-        tokenProfileService.bulkDisableRaProfile(uuids);
+        tokenProfileService.bulkDisableRaProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
     public void bulkEnableRaProfile(List<String> uuids) throws NotFoundException {
-        tokenProfileService.bulkEnableRaProfile(uuids);
+        tokenProfileService.bulkEnableRaProfile(SecuredUUID.fromList(uuids));
     }
 }

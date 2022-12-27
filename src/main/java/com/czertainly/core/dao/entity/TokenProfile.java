@@ -33,7 +33,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     @Column(name = "token_instance_name")
     private String tokenInstanceName;
 
-    @Column(name = "attributes", length = 4096)
+    @Column(name = "attributes", length = Integer.MAX_VALUE)
     private String attributes;
 
     @ManyToOne

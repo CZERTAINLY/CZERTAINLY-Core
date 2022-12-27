@@ -12,7 +12,6 @@ import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateGroup;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.model.auth.ResourceAction;

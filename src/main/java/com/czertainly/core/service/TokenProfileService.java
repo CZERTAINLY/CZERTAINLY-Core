@@ -8,6 +8,9 @@ import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfile
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,9 +20,10 @@ public interface TokenProfileService {
      * Get the list of token profiles
      *
      * @param enabled - Boolean state if the profile is enabled or not
+     * @param filter Security Filter for Access Control
      * @return List of Token Profiles {@Link TokenProfileDto}
      */
-    List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled);
+    List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled, SecurityFilter filter);
 
     /**
      * Get the details of a token profile which has Token Instance association
@@ -29,7 +33,7 @@ public interface TokenProfileService {
      * @return Details of the token Profile {@Link TokenProfileDetailDto}
      * @throws NotFoundException When the token instance or token profile is not found
      */
-    TokenProfileDetailDto getTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException;
+    TokenProfileDetailDto getTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Create a new token profile
@@ -41,7 +45,7 @@ public interface TokenProfileService {
      * @throws ValidationException   when there are issues with the attribute validation
      * @throws ConnectorException    when there are issues related with connector communication
      */
-    TokenProfileDetailDto createTokenProfile(String tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
+    TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
 
     /**
      * Update the token profile
@@ -52,7 +56,7 @@ public interface TokenProfileService {
      * @return Details of the updated token profile
      * @throws ConnectorException when there are issues with the connector communication
      */
-    TokenProfileDetailDto editTokenProfile(String tokenInstanceUuid, String uuid, EditTokenProfileRequestDto request) throws ConnectorException;
+    TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException;
 
     /**
      * Delete a token profile
@@ -61,45 +65,45 @@ public interface TokenProfileService {
      * @param uuid              UUID of the concerned token profile
      * @throws NotFoundException when the token profile is not found
      */
-    void deleteTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException;
+    void deleteTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
 
     /**
      * @param tokenProfileUuid UUID of the concerned token profile. Use this method when the profile is not associated with any instance
      * @throws NotFoundException when the token profile is not found
      */
-    void deleteTokenProfile(String tokenProfileUuid) throws NotFoundException;
+    void deleteTokenProfile(SecuredUUID tokenProfileUuid) throws NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance where the token profile is created
      * @param uuid              UUID of the concerned token profile
      * @throws NotFoundException when the token profile is not found
      */
-    void disableTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException;
+    void disableTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance where the token profile is created
      * @param uuid              UUID of the concerned token profile
      * @throws NotFoundException when the token profile is not found
      */
-    void enableTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException;
+    void enableTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
 
     /**
      * @param uuids UUIDs of the token profile
      * @throws NotFoundException   when the token profile is not found
      * @throws ValidationException
      */
-    void bulkDeleteTokenProfile(List<String> uuids) throws NotFoundException, ValidationException;
+    void bulkDeleteTokenProfile(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
 
     /**
      * @param uuids UUIDs of the token profile
      * @throws NotFoundException when the token profile is not found
      */
-    void bulkDisableRaProfile(List<String> uuids) throws NotFoundException;
+    void bulkDisableRaProfile(List<SecuredUUID> uuids) throws NotFoundException;
 
     /**
      * @param uuids UUIDs of the token profile
      * @throws NotFoundException when the token profile is not found
      */
-    void bulkEnableRaProfile(List<String> uuids) throws NotFoundException;
+    void bulkEnableRaProfile(List<SecuredUUID> uuids) throws NotFoundException;
 
 }
