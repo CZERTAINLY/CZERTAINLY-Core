@@ -13,11 +13,11 @@ import com.czertainly.api.model.connector.cryptography.key.KeyDataResponseDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -99,10 +99,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.LIST)
     public List<KeyDto> listKeys(Optional<String> tokenInstanceUuid, SecurityFilter filter) {
-        filter.setParentRefProperty("tokenProfileUuid");
-        return cryptographicKeyRepository.findUsingSecurityFilter(
-                        filter, null,
-                        null, (root, cb) -> cb.desc(root.get("created")))
+        filter.setParentRefProperty("tokenInstanceReferenceUuid");
+        return cryptographicKeyRepository.findUsingSecurityFilter(filter)
                 .stream()
                 .map(CryptographicKey::mapToDto)
                 .collect(Collectors.toList()
@@ -124,13 +122,19 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE)
     public KeyDetailDto createKey(SecuredParentUUID tokenInstanceUuid, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+        if (cryptographicKeyRepository.findByName(request.getName()).isPresent()) {
+            throw new AlreadyExistException("Existing Key with same already exists");
+        }
+        if (request.getName() == null) {
+            throw new ValidationException("Name is required for creating a new Key");
+        }
         TokenInstanceDetailDto dto = tokenInstanceService.getTokenInstance(tokenInstanceUuid);
-        ConnectorDto connectorDto = connectorService.getConnector(SecuredUUID.fromString(dto.getConnectorUuid()));
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(dto.getConnectorUuid()));
 
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         createKeyRequestDto.setCreateKeyAttributes(request.getCreateKeyAttributes());
         createKeyRequestDto.setTokenProfileAttributes(AttributeDefinitionUtils.getClientAttributes(dto.getAttributes()));
-        KeyDataResponseDto response = keyManagementApiClient.createKey(connectorDto, dto.getUuid(), createKeyRequestDto);
+        KeyDataResponseDto response = keyManagementApiClient.createKey(connector.mapToDto(), dto.getUuid(), createKeyRequestDto);
 
         CryptographicKey key = new CryptographicKey();
         key.setName(request.getName());
@@ -140,9 +144,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         cryptographicKeyRepository.save(key);
 
         attributeService.createAttributeContent(key.getUuid(), request.getCustomAttributes(), Resource.CRYPTOGRAPHIC_KEY);
-        metadataService.createMetadataDefinitions(UUID.fromString(connectorDto.getUuid()), response.getKeyAttributes());
+        metadataService.createMetadataDefinitions(connector.getUuid(), response.getKeyAttributes());
         metadataService.createMetadata(
-                UUID.fromString(connectorDto.getUuid()),
+                connector.getUuid(),
                 key.getUuid(),
                 null,
                 null,
@@ -179,8 +183,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE)
     public List<BaseAttribute> listCreateKeyAttributes(SecuredUUID tokenInstanceUuid) throws ConnectorException {
         TokenInstanceDetailDto dto = tokenInstanceService.getTokenInstance(tokenInstanceUuid);
-        ConnectorDto connectorDto = connectorService.getConnector(SecuredUUID.fromString(dto.getConnectorUuid()));
-        return keyManagementApiClient.listCreateKeyAttributes(connectorDto, dto.getUuid());
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(dto.getConnectorUuid()));
+        return keyManagementApiClient.listCreateKeyAttributes(connector.mapToDto(), dto.getUuid());
     }
 
     private CryptographicKey getCryptographicKeyEntity(UUID uuid) throws NotFoundException {

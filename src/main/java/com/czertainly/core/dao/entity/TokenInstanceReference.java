@@ -85,7 +85,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
 
     public void setConnector(Connector connector) {
         this.connector = connector;
-        this.connectorUuid = connector.getUuid();
+        if (connector != null) this.connectorUuid = connector.getUuid();
     }
 
     public UUID getConnectorUuid() {

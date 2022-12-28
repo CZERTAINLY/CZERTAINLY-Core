@@ -85,6 +85,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
 
     public void setTokenInstanceReference(TokenInstanceReference tokenInstanceReference) {
         this.tokenInstanceReference = tokenInstanceReference;
+        if (tokenInstanceReference != null) this.tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
     }
 
     public UUID getTokenInstanceReferenceUuid() {

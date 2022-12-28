@@ -9,6 +9,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -17,6 +18,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
@@ -86,9 +88,8 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled, SecurityFilter filter) {
-
+        filter.setParentRefProperty("tokenInstanceReferenceUuid");
         if (enabled == null || !enabled.isPresent()) {
-            filter.setParentRefProperty("tokenInstanceReferenceUuid");
             return tokenProfileRepository.findUsingSecurityFilter(filter)
                     .stream()
                     .map(TokenProfile::mapToDto)
@@ -194,7 +195,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
-    public void bulkDeleteTokenProfile(List<SecuredUUID> uuids) throws ValidationException {
+    public void deleteTokenProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
             try {
                 deleteProfileInternal(uuid, false);
@@ -207,7 +208,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
-    public void bulkDisableRaProfile(List<SecuredUUID> uuids) {
+    public void disableTokenProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
             try {
                 disableProfileInternal(uuid);
@@ -220,7 +221,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
-    public void bulkEnableRaProfile(List<SecuredUUID> uuids) {
+    public void enableTokenProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
             try {
                 enableProfileInternal(uuid);
@@ -228,6 +229,15 @@ public class TokenProfileServiceImpl implements TokenProfileService {
                 logger.warn("Unable to find Token Profile with uuid {}. It may have already been deleted", uuid);
             }
         }
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return tokenProfileRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(TokenProfile::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     private List<DataAttribute> mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
@@ -297,7 +307,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     private void enableProfileInternal(SecuredUUID uuid) throws NotFoundException {
         TokenProfile tokenProfile = tokenProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
-        tokenProfile.setEnabled(false);
+        tokenProfile.setEnabled(true);
         tokenProfileRepository.save(tokenProfile);
     }
 }

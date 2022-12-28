@@ -53,6 +53,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     public void setTokenInstanceReference(TokenInstanceReference tokenInstanceReference) {
         this.tokenInstanceReference = tokenInstanceReference;
+        if (tokenInstanceReference != null) this.tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
     }
 
     public UUID getTokenInstanceReferenceUuid() {

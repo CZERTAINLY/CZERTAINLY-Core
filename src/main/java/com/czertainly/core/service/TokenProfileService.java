@@ -15,7 +15,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import java.util.List;
 import java.util.Optional;
 
-public interface TokenProfileService {
+public interface TokenProfileService extends AccessControlExtensionService {
     /**
      * Get the list of token profiles
      *
@@ -89,21 +89,17 @@ public interface TokenProfileService {
 
     /**
      * @param uuids UUIDs of the token profile
-     * @throws NotFoundException   when the token profile is not found
-     * @throws ValidationException
      */
-    void bulkDeleteTokenProfile(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
+    void deleteTokenProfile(List<SecuredUUID> uuids);
 
     /**
      * @param uuids UUIDs of the token profile
-     * @throws NotFoundException when the token profile is not found
      */
-    void bulkDisableRaProfile(List<SecuredUUID> uuids) throws NotFoundException;
+    void disableTokenProfile(List<SecuredUUID> uuids);
 
     /**
      * @param uuids UUIDs of the token profile
-     * @throws NotFoundException when the token profile is not found
      */
-    void bulkEnableRaProfile(List<SecuredUUID> uuids) throws NotFoundException;
+    void enableTokenProfile(List<SecuredUUID> uuids);
 
 }

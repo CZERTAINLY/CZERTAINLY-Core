@@ -6,22 +6,15 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface TokenInstanceService {
+public interface TokenInstanceService extends AccessControlExtensionService {
     /**
      * List of all available token instance
      *
@@ -118,7 +111,8 @@ public interface TokenInstanceService {
 
     /**
      * Validate the token Profile attributes
-     * @param uuid UUID of the token instance
+     *
+     * @param uuid       UUID of the token instance
      * @param attributes attributes to be validated
      * @throws ConnectorException when there are issues with the communication
      */
@@ -131,10 +125,4 @@ public interface TokenInstanceService {
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
     List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException;
-
-    /**
-     * Function to get the list of name and uuid dto for the objects available in the database.
-     * @return List of NameAndUuidDto
-     */
-    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter);
 }

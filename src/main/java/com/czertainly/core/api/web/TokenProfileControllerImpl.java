@@ -76,17 +76,17 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     }
 
     @Override
-    public void bulkDeleteTokenProfile(List<String> uuids) throws NotFoundException, ValidationException {
-        tokenProfileService.bulkDeleteTokenProfile(SecuredUUID.fromList(uuids));
+    public void bulkDeleteTokenProfile(List<String> uuids){
+        tokenProfileService.deleteTokenProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public void bulkDisableRaProfile(List<String> uuids) throws NotFoundException {
-        tokenProfileService.bulkDisableRaProfile(SecuredUUID.fromList(uuids));
+    public void bulkDisableRaProfile(List<String> uuids) {
+        tokenProfileService.disableTokenProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public void bulkEnableRaProfile(List<String> uuids) throws NotFoundException {
-        tokenProfileService.bulkEnableRaProfile(SecuredUUID.fromList(uuids));
+    public void bulkEnableRaProfile(List<String> uuids) {
+        tokenProfileService.enableTokenProfile(SecuredUUID.fromList(uuids));
     }
 }
