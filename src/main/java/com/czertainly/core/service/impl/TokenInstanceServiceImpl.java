@@ -9,6 +9,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.cryptography.token.TokenInstanceStatusDto;
@@ -19,6 +20,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
@@ -298,6 +300,16 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
+    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.ANY)
+    public void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+        TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
+        Connector connector = tokenInstanceReference.getConnector();
+        tokenInstanceApiClient.validateTokenProfileAttributes(connector.mapToDto(), tokenInstanceReference.getTokenInstanceUuid(),
+                attributes);
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.DETAIL)
     public List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException {
@@ -306,6 +318,15 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceReference.getTokenInstanceUuid()
         );
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return tokenInstanceReferenceRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(TokenInstanceReference::mapToAccessControlObjects)
+                .collect(Collectors.toList());
     }
 
     private TokenInstanceReference getTokenInstanceReferenceEntity(SecuredUUID uuid) throws NotFoundException {

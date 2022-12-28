@@ -136,7 +136,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
         dto.setTokenProfiles(tokenProfiles.size());
         dto.setConnectorName(connectorName);
         dto.setConnectorUuid(connectorUuid.toString());
-        return null;
+        return dto;
     }
 
     public TokenInstanceDetailDto mapToDetailDto() {
