@@ -1,6 +1,9 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.clients.*;
+import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
+import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
+import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -106,14 +109,38 @@ public class ApplicationConfig {
     }
 
     @Bean
-    public ComplianceApiClient complianceApiClient(WebClient webClient) { return new ComplianceApiClient(webClient); }
+    public ComplianceApiClient complianceApiClient(WebClient webClient) {
+        return new ComplianceApiClient(webClient);
+    }
 
     @Bean
-    public UserManagementApiClient userManagementApiClient(){ return new UserManagementApiClient();};
+    public UserManagementApiClient userManagementApiClient() {
+        return new UserManagementApiClient();
+    }
 
     @Bean
-    public RoleManagementApiClient roleManagementApiClient(){ return new RoleManagementApiClient();};
+    public RoleManagementApiClient roleManagementApiClient() {
+        return new RoleManagementApiClient();
+    }
 
     @Bean
-    public ResourceApiClient endPointApiClient(){ return new ResourceApiClient();};
+    public ResourceApiClient endPointApiClient() {
+        return new ResourceApiClient();
+    }
+
+    //Cryptographic API Clients
+    @Bean
+    public TokenInstanceApiClient tokenInstanceApiClient(WebClient webClient) {
+        return new TokenInstanceApiClient(webClient);
+    }
+
+    @Bean
+    public KeyManagementApiClient keyManagementApiClient(WebClient webClient) {
+        return new KeyManagementApiClient(webClient);
+    }
+
+    @Bean
+    public CryptographicOperationsApiClient cryptographicOperationsApiClient(WebClient webClient) {
+        return new CryptographicOperationsApiClient(webClient);
+    }
 }
