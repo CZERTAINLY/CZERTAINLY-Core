@@ -1,15 +1,24 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.CryptographicOperationException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CryptographicOperationsController;
+import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.RandomDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.VerifyDataRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.operations.*;
+import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.EncryptDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.RandomDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto;
 import com.czertainly.core.service.CryptographicOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
+import java.util.UUID;
 
 public class CryptographicOperationControllerImpl implements CryptographicOperationsController {
 
@@ -21,42 +30,42 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
-    public List<BaseAttribute> listCipherAttributes(String tokenInstanceUuid, CryptographicAlgorithm algorithm) throws NotFoundException {
-        return cryptographicOperationService.listCipherAttributes(tokenInstanceUuid, algorithm);
+    public List<BaseAttribute> listCipherAttributes(String uuid, CryptographicAlgorithm algorithm) throws ConnectorException {
+        return cryptographicOperationService.listCipherAttributes(UUID.fromString(uuid), algorithm);
     }
 
     @Override
-    public EncryptDataResponseDto encryptData(String tokenInstanceUuid, CipherDataRequestDto request) throws NotFoundException, CryptographicOperationException {
-        return cryptographicOperationService.encryptData(tokenInstanceUuid, request);
+    public EncryptDataResponseDto encryptData(String uuid, CipherDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        return cryptographicOperationService.encryptData(UUID.fromString(uuid), request);
     }
 
     @Override
-    public DecryptDataResponseDto decryptData(String tokenInstanceUuid, CipherDataRequestDto request) throws NotFoundException, CryptographicOperationException {
-        return cryptographicOperationService.decryptData(tokenInstanceUuid, request);
+    public DecryptDataResponseDto decryptData(String uuid, CipherDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        return cryptographicOperationService.decryptData(UUID.fromString(uuid), request);
     }
 
     @Override
-    public List<BaseAttribute> listSignatureAttributes(String tokenInstanceUuid, CryptographicAlgorithm algorithm) throws NotFoundException {
-        return cryptographicOperationService.listSignatureAttributes(tokenInstanceUuid, algorithm);
+    public List<BaseAttribute> listSignatureAttributes(String uuid, CryptographicAlgorithm algorithm) throws ConnectorException {
+        return cryptographicOperationService.listSignatureAttributes(UUID.fromString(uuid), algorithm);
     }
 
     @Override
-    public SignDataResponseDto signData(String tokenInstanceUuid, SignDataRequestDto request) throws NotFoundException, CryptographicOperationException {
-        return cryptographicOperationService.signData(tokenInstanceUuid, request);
+    public SignDataResponseDto signData(String uuid, SignDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        return cryptographicOperationService.signData(UUID.fromString(uuid), request);
     }
 
     @Override
-    public VerifyDataResponseDto verifyData(String tokenInstanceUuid, VerifyDataRequestDto request) throws NotFoundException, CryptographicOperationException {
-        return cryptographicOperationService.verifyData(tokenInstanceUuid, request);
+    public VerifyDataResponseDto verifyData(String uuid, VerifyDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        return cryptographicOperationService.verifyData(UUID.fromString(uuid), request);
     }
 
     @Override
-    public List<BaseAttribute> listRandomAttributes(String tokenInstanceUuid) throws NotFoundException {
-        return cryptographicOperationService.listRandomAttributes(tokenInstanceUuid);
+    public List<BaseAttribute> listRandomAttributes(String uuid) throws ConnectorException {
+        return cryptographicOperationService.listRandomAttributes(UUID.fromString(uuid));
     }
 
     @Override
-    public RandomDataResponseDto randomData(String tokenInstanceUuid, RandomDataRequestDto request) throws NotFoundException, CryptographicOperationException {
-        return cryptographicOperationService.randomData(tokenInstanceUuid, request);
+    public RandomDataResponseDto randomData(String uuid, RandomDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        return cryptographicOperationService.randomData(UUID.fromString(uuid), request);
     }
 }
