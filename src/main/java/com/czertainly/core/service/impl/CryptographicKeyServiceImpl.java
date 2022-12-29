@@ -5,8 +5,10 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.czertainly.api.model.connector.cryptography.key.DestroyKeyRequestDto;
 import com.czertainly.api.model.connector.cryptography.key.KeyDataResponseDto;
@@ -19,7 +21,9 @@ import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.CryptographicKey;
+import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
+import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -60,6 +64,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     // Repositories
     // --------------------------------------------------------------------------------
     private CryptographicKeyRepository cryptographicKeyRepository;
+    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
 
     @Autowired
     public void setAttributeService(AttributeService attributeService) {
@@ -128,9 +133,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if (request.getName() == null) {
             throw new ValidationException("Name is required for creating a new Key");
         }
-        TokenInstanceDetailDto dto = tokenInstanceService.getTokenInstance(tokenInstanceUuid);
+        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid.getValue()).orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, tokenInstanceUuid));
+        TokenInstanceDetailDto dto = tokenInstanceReference.mapToDetailDto();
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(dto.getConnectorUuid()));
 
+        List<DataAttribute> attributes = mergeAndValidateAttributes(tokenInstanceReference, request.getCreateKeyAttributes());
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
         createKeyRequestDto.setCreateKeyAttributes(request.getCreateKeyAttributes());
         createKeyRequestDto.setTokenProfileAttributes(AttributeDefinitionUtils.getClientAttributes(dto.getAttributes()));
@@ -189,5 +196,30 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private CryptographicKey getCryptographicKeyEntity(UUID uuid) throws NotFoundException {
         return cryptographicKeyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
+    }
+
+    private List<DataAttribute> mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
+        List<BaseAttribute> definitions = keyManagementApiClient.listCreateKeyAttributes(
+                tokenInstanceRef.getConnector().mapToDto(),
+                tokenInstanceRef.getTokenInstanceUuid());
+
+        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
+        for (RequestAttributeDto requestAttributeDto : attributes) {
+            if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
+                DataAttribute referencedAttribute = attributeService.getReferenceAttribute(tokenInstanceRef.getConnectorUuid(), requestAttributeDto.getName());
+                if (referencedAttribute != null) {
+                    definitions.add(referencedAttribute);
+                }
+            }
+        }
+
+        List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+
+        keyManagementApiClient.validateCreateKeyAttributes(
+                tokenInstanceRef.getConnector().mapToDto(),
+                tokenInstanceRef.getTokenInstanceUuid(),
+                attributes);
+
+        return merged;
     }
 }
