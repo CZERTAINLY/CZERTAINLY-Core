@@ -54,3 +54,6 @@ alter table if exists cryptographic_key
     add constraint cryptographic_key_to_token_instance_key
     foreign key (token_instance_ref_uuid)
     references token_instance_reference;
+
+
+--TODO Add End points and function groups into the database for the Cryptographic Provider
