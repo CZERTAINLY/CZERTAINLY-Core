@@ -96,6 +96,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         this.cryptographicKeyRepository = cryptographicKeyRepository;
     }
 
+    @Autowired
+    public void setTokenInstanceReferenceRepository(TokenInstanceReferenceRepository tokenInstanceReferenceRepository) {
+        this.tokenInstanceReferenceRepository = tokenInstanceReferenceRepository;
+    }
+
     // ----------------------------------------------------------------------------------------------
     // Service Implementations
     // ----------------------------------------------------------------------------------------------
@@ -139,7 +144,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
         List<DataAttribute> attributes = mergeAndValidateAttributes(tokenInstanceReference, request.getCreateKeyAttributes());
         CreateKeyRequestDto createKeyRequestDto = new CreateKeyRequestDto();
-        createKeyRequestDto.setCreateKeyAttributes(request.getCreateKeyAttributes());
+        createKeyRequestDto.setCreateKeyAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
         createKeyRequestDto.setTokenProfileAttributes(AttributeDefinitionUtils.getClientAttributes(dto.getAttributes()));
         KeyDataResponseDto response = keyManagementApiClient.createKey(connector.mapToDto(), dto.getUuid(), createKeyRequestDto);
 

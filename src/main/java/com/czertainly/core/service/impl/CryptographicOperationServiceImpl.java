@@ -1,10 +1,11 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
-import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.CryptographicOperationException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
 import com.czertainly.api.model.client.cryptography.operations.RandomDataRequestDto;
 import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
@@ -19,13 +20,9 @@ import com.czertainly.api.model.connector.cryptography.operations.VerifyDataResp
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.connector.ConnectorDto;
-import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
-import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
-import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CryptographicKeyService;
@@ -39,7 +36,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 @Transactional
@@ -118,6 +117,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.ENCRYPT)
     public EncryptDataResponseDto encryptData(UUID uuid, CipherDataRequestDto request) throws ConnectorException, CryptographicOperationException {
         CryptographicKey key = getKeyEntity(uuid);
+        if (request.getCipherData() == null) {
+            throw new ValidationException(ValidationError.create("Cannot encrypt null data"));
+        }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
         requestDto.setCipherData(request.getCipherData());
         requestDto.setCipherAttributes(request.getCipherAttributes());
@@ -132,6 +134,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.DECRYPT)
     public DecryptDataResponseDto decryptData(UUID uuid, CipherDataRequestDto request) throws ConnectorException, CryptographicOperationException {
         CryptographicKey key = getKeyEntity(uuid);
+        if (request.getCipherData() == null) {
+            throw new ValidationException(ValidationError.create("Cannot decrypt null data"));
+        }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
         requestDto.setCipherData(request.getCipherData());
         requestDto.setCipherAttributes(request.getCipherAttributes());
@@ -156,6 +161,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.SIGN)
     public SignDataResponseDto signData(UUID uuid, SignDataRequestDto request) throws ConnectorException, CryptographicOperationException {
         CryptographicKey key = getKeyEntity(uuid);
+        if (Stream.of(request.getData(), request.getDigestedData()).allMatch(Objects::isNull)) {
+            throw new ValidationException(ValidationError.create("Cannot sign empty data"));
+        }
         com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto();
         requestDto.setDigestedData(request.getDigestedData());
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
@@ -176,6 +184,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.VERIFY)
     public VerifyDataResponseDto verifyData(UUID uuid, VerifyDataRequestDto request) throws ConnectorException, CryptographicOperationException {
         CryptographicKey key = getKeyEntity(uuid);
+        if (Stream.of(request.getData(), request.getDigestedData()).allMatch(Objects::isNull)) {
+            throw new ValidationException(ValidationError.create("Cannot verify empty data"));
+        }
         com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto();
         requestDto.setDigestedData(request.getDigestedData());
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
@@ -219,10 +230,10 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     private CryptographicKey getKeyEntity(UUID uuid) throws NotFoundException {
         CryptographicKey key = cryptographicKeyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
-        if(key.getTokenInstanceReference() == null ){
+        if (key.getTokenInstanceReference() == null) {
             throw new NotFoundException("Token Instance associated with the Key is not found");
         }
-        if(key.getTokenInstanceReference().getConnector() == null) {
+        if (key.getTokenInstanceReference().getConnector() == null) {
             throw new NotFoundException(("Connector associated to the Key is not found"));
         }
         return key;

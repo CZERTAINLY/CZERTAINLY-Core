@@ -111,7 +111,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     public void testAddKey() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/attributes"))
+                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/create/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
@@ -120,7 +120,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/status"))
                 .willReturn(WireMock.okJson("{}")));
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/attributes/validate"))
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/create/attributes/validate"))
                 .willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/create"))
@@ -129,7 +129,6 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testRaProfile2");
         request.setDescription("sampleDescription");
-        request.setTokenProfileAttributes(List.of());
         request.setCreateKeyAttributes(List.of());
 
         KeyDetailDto dto = cryptographicKeyService.createKey(
