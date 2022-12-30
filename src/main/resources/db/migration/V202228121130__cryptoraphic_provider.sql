@@ -10,6 +10,7 @@ CREATE TABLE token_instance_reference (
 	kind VARCHAR NOT NULL,
 	connector_uuid UUID NULL DEFAULT NULL,
 	connector_name VARCHAR NULL DEFAULT NULL,
+	attributes TEXT NULL DEFAULT NULL,
 	PRIMARY KEY (uuid)
 );
 

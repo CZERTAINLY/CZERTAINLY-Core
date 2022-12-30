@@ -20,7 +20,6 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
@@ -120,15 +119,13 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
             return tokenInstanceDetailDto;
         }
 
-        com.czertainly.api.model.connector.cryptography.token.TokenInstanceDto tokenInstanceDto = tokenInstanceApiClient.getTokenInstance(tokenInstanceReference.getConnector().mapToDto(),
-                tokenInstanceReference.getUuid().toString());
+
         TokenInstanceStatusDto status = tokenInstanceApiClient.getTokenInstanceStatus(tokenInstanceReference.getConnector().mapToDto(), tokenInstanceReference.getTokenInstanceUuid());
 
         tokenInstanceReference.setStatus(status.getStatus());
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
         tokenInstanceDetailDto.setStatus(status.getStatus());
-        tokenInstanceDetailDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(tokenInstanceDto.getAttributes()));
         tokenInstanceDetailDto.setConnectorName(tokenInstanceReference.getConnector().getName());
         tokenInstanceDetailDto.setConnectorUuid(tokenInstanceReference.getConnector().getUuid().toString());
         tokenInstanceDetailDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.TOKEN_INSTANCE));
@@ -172,6 +169,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         tokenInstanceReference.setKind(request.getKind());
         tokenInstanceReference.setConnectorName(connector.getName());
         tokenInstanceReference.setStatus(status.getStatus());
+        tokenInstanceReference.setAttributes(attributes);
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
         attributeService.createAttributeContent(tokenInstanceReference.getUuid(), request.getCustomAttributes(), Resource.TOKEN_INSTANCE);

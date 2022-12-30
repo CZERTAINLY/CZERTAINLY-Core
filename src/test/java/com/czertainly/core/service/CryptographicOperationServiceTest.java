@@ -354,6 +354,4 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
         );
     }
-
-
 }

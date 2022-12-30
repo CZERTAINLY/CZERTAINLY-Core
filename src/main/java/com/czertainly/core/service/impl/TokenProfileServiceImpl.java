@@ -18,7 +18,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
