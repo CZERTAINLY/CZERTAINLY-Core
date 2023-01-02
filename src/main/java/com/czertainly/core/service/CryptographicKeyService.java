@@ -19,48 +19,48 @@ public interface CryptographicKeyService {
     /**
      * List of all available keys
      *
-     * @param tokenInstanceUuid UUID of the token instance
+     * @param tokenProfileUuid UUID of the token profile
      * @param filter Security FIlter for Access Control
      * @return List of Key details {@Link KeyDto}
      */
-    List<KeyDto> listKeys(Optional<String> tokenInstanceUuid, SecurityFilter filter);
+    List<KeyDto> listKeys(Optional<String> tokenProfileUuid, SecurityFilter filter);
 
     /**
-     * @param tokenInstanceUuid UUID of the token instance
+     * @param tokenProfileUuid UUID of the token profile
      * @param uuid              UUID of the concerned Key
      * @return Detail of the key {@Link KeyDetailDto}
-     * @throws NotFoundException when the token instance or key is not found
+     * @throws NotFoundException when the token profile or key is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, String uuid) throws NotFoundException;
+    KeyDetailDto getKey(SecuredParentUUID tokenProfileUuid, String uuid) throws NotFoundException;
 
     /**
      * @param request DTO containing the information for creating a new key
-     * @param tokenInstanceUuid UUID of the token instance
+     * @param tokenProfileUuid UUID of the token profile
      * @return Details of the newly created key
      * @throws AlreadyExistException when the key with same data already exists
      * @throws ValidationException   when the validation of the data or attributes fails
      * @throws ConnectorException when there are issues with connector communication
      */
-    KeyDetailDto createKey(SecuredParentUUID tokenInstanceUuid, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
+    KeyDetailDto createKey(SecuredParentUUID tokenProfileUuid, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
 
     /**
      * Destroy a key
      *
-     * @param tokenInstanceUuid UUID of the Token Instance
+     * @param tokenProfileUuid UUID of the token profile
      * @param uuid              UUID of the concerned key
-     * @throws NotFoundException when the token instance or the key uuid is not found
+     * @throws NotFoundException when the token profile or the key uuid is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    void destroyKey(SecuredParentUUID tokenInstanceUuid, String uuid) throws ConnectorException;
+    void destroyKey(SecuredParentUUID tokenProfileUuid, String uuid) throws ConnectorException;
 
     /**
      * List attributes to create a new key
      *
-     * @param tokenInstanceUuid UUID of the token instance
+     * @param tokenProfileUuid UUID of the token profile
      * @return List of attributes to create a new key
-     * @throws NotFoundException when the token instance is not found
+     * @throws NotFoundException when the token profile is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    List<BaseAttribute> listCreateKeyAttributes(SecuredUUID tokenInstanceUuid) throws ConnectorException;
+    List<BaseAttribute> listCreateKeyAttributes(SecuredUUID tokenProfileUuid) throws ConnectorException;
 }

@@ -16,10 +16,12 @@ import com.czertainly.api.model.connector.cryptography.operations.SignDataRespon
 import com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto;
 import com.czertainly.core.service.CryptographicOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.UUID;
 
+@RestController
 public class CryptographicOperationControllerImpl implements CryptographicOperationsController {
 
     private CryptographicOperationService cryptographicOperationService;

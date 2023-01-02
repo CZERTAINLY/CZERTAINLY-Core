@@ -23,12 +23,8 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CryptographicKeyService;
 import com.czertainly.core.service.CryptographicOperationService;
 import com.czertainly.core.service.MetadataService;
-import com.czertainly.core.service.TokenInstanceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,11 +46,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
-    private AttributeService attributeService;
     private MetadataService metadataService;
-    private TokenInstanceService tokenInstanceService;
-    private CryptographicKeyService cryptographicKeyService;
-    private ConnectorService connectorService;
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
 
     // --------------------------------------------------------------------------------
@@ -63,30 +55,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyRepository cryptographicKeyRepository;
 
     // Setters
-
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
-    }
-
     @Autowired
     public void setMetadataService(MetadataService metadataService) {
         this.metadataService = metadataService;
-    }
-
-    @Autowired
-    public void setTokenInstanceService(TokenInstanceService tokenInstanceService) {
-        this.tokenInstanceService = tokenInstanceService;
-    }
-
-    @Autowired
-    public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
-        this.cryptographicKeyService = cryptographicKeyService;
-    }
-
-    @Autowired
-    public void setConnectorService(ConnectorService connectorService) {
-        this.connectorService = connectorService;
     }
 
     @Autowired
@@ -110,8 +81,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         CryptographicKey key = getKeyEntity(uuid);
         logger.debug("Key details: {}", key);
         return cryptographicOperationsApiClient.listCipherAttributes(
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                key.getTokenInstanceReferenceUuid().toString(),
+                key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                 algorithm);
     }
 
@@ -129,8 +100,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setCipherAttributes(request.getCipherAttributes());
         logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.encryptData(
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                key.getTokenInstanceReferenceUuid().toString(),
+                key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                 requestDto
         );
     }
@@ -149,8 +120,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setCipherAttributes(request.getCipherAttributes());
         logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.decryptData(
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                key.getTokenInstanceReferenceUuid().toString(),
+                key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                 requestDto);
     }
 
@@ -161,8 +132,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         CryptographicKey key = getKeyEntity(uuid);
         logger.debug("Key details: {}", key);
         return cryptographicOperationsApiClient.listSignatureAttributes(
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                key.getTokenInstanceReferenceUuid().toString(),
+                key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                 algorithm
         );
     }
@@ -181,14 +152,14 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         requestDto.setData(request.getData());
         requestDto.setKeyAttributes(metadataService.getMetadata(
-                key.getTokenInstanceReference().getConnectorUuid(),
+                key.getTokenProfile().getTokenInstanceReference().getConnectorUuid(),
                 uuid,
                 Resource.CRYPTOGRAPHIC_KEY
         ));
         logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.signData(
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                key.getTokenInstanceReferenceUuid().toString(),
+                key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                 requestDto
         );
     }
@@ -208,14 +179,14 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setData(request.getData());
         requestDto.setSignatures(request.getSignatures());
         requestDto.setKeyAttributes(metadataService.getMetadata(
-                key.getTokenInstanceReference().getConnectorUuid(),
+                key.getTokenProfile().getTokenInstanceReference().getConnectorUuid(),
                 uuid,
                 Resource.CRYPTOGRAPHIC_KEY
         ));
         logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.verifyData(
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                key.getTokenInstanceReferenceUuid().toString(),
+                key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                 requestDto
         );
     }
@@ -227,8 +198,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         CryptographicKey key = getKeyEntity(uuid);
         logger.debug("Key details: {}", key);
         return cryptographicOperationsApiClient.listRandomAttributes(
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                key.getTokenInstanceReferenceUuid().toString()
+                key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                key.getTokenProfile().getTokenInstanceReferenceUuid().toString()
         );
     }
 
@@ -243,8 +214,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setLength(request.getLength());
         logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.randomData(
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                key.getTokenInstanceReferenceUuid().toString(),
+                key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                 requestDto
         );
     }
@@ -252,10 +223,10 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKey getKeyEntity(UUID uuid) throws NotFoundException {
         logger.debug("UUID of the key to get the entity: {}", uuid);
         CryptographicKey key = cryptographicKeyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
-        if (key.getTokenInstanceReference() == null) {
+        if (key.getTokenProfile().getTokenInstanceReference() == null) {
             throw new NotFoundException("Token Instance associated with the Key is not found");
         }
-        if (key.getTokenInstanceReference().getConnector() == null) {
+        if (key.getTokenProfile().getTokenInstanceReference().getConnector() == null) {
             throw new NotFoundException(("Connector associated to the Key is not found"));
         }
         logger.debug("Key Instance: {}", key);

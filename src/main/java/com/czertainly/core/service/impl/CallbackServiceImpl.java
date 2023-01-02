@@ -18,12 +18,9 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.CallbackService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CoreCallbackService;
-import com.czertainly.core.service.CredentialService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,6 +53,10 @@ public class CallbackServiceImpl implements CallbackService {
     private AuthorityInstanceApiClient authorityInstanceApiClient;
     @Autowired
     private AttributeService attributeService;
+    @Autowired
+    private CryptographicKeyService cryptographicKeyService;
+    @Autowired
+    private TokenInstanceService tokenInstanceService;
 
 
     @Override
@@ -64,6 +65,29 @@ public class CallbackServiceImpl implements CallbackService {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
         List<BaseAttribute> definitions;
         definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
+        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
+        AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
+
+        if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
+            return coreCallbackService.coreGetCredentials(callback);
+        }
+
+        // Load complete credential data for mapping of type credential
+        credentialService.loadFullCredentialData(attributeCallback, callback);
+
+        Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
+        if(isGroupAttribute(callback.getName(), definitions)) {
+            processGroupAttributes(connector.getUuid(), response);
+        }
+        return response;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
+    public Object keyCallback(String tokenInstanceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(tokenInstanceService.getTokenInstance(SecuredUUID.fromString(tokenInstanceUuid)).getConnectorUuid()));
+        List<BaseAttribute> definitions;
+        definitions = cryptographicKeyService.listCreateKeyAttributes(SecuredParentUUID.fromString(tokenInstanceUuid));
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
@@ -105,6 +129,7 @@ public class CallbackServiceImpl implements CallbackService {
         }
         return response;
     }
+
 
     private AttributeCallback getAttributeByName(String name, List<BaseAttribute> attributes) throws NotFoundException {
         for (BaseAttribute attributeDefinition : attributes) {

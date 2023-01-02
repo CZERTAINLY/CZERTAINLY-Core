@@ -25,11 +25,11 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     private CryptographicAlgorithm cryptographicAlgorithm;
 
     @ManyToOne
-    @JoinColumn(name = "token_instance_ref_uuid", insertable = false, updatable = false)
-    private TokenInstanceReference tokenInstanceReference;
+    @JoinColumn(name = "token_profile_uuid", insertable = false, updatable = false)
+    private TokenProfile tokenProfile;
 
-    @Column(name = "token_instance_ref_uuid")
-    private UUID tokenInstanceReferenceUuid;
+    @Column(name = "token_profile_uuid")
+    private UUID tokenProfileUuid;
 
     public String getName() {
         return name;
@@ -47,21 +47,21 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.cryptographicAlgorithm = cryptographicAlgorithm;
     }
 
-    public TokenInstanceReference getTokenInstanceReference() {
-        return tokenInstanceReference;
+    public TokenProfile getTokenProfile() {
+        return tokenProfile;
     }
 
-    public void setTokenInstanceReference(TokenInstanceReference tokenInstanceReference) {
-        this.tokenInstanceReference = tokenInstanceReference;
-        if (tokenInstanceReference != null) this.tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
+    public void setTokenProfile(TokenProfile tokenProfile) {
+        this.tokenProfile = tokenProfile;
+        if (tokenProfile != null) this.tokenProfileUuid = tokenProfile.getUuid();
     }
 
-    public UUID getTokenInstanceReferenceUuid() {
-        return tokenInstanceReferenceUuid;
+    public UUID getTokenProfileUuid() {
+        return tokenProfileUuid;
     }
 
-    public void setTokenInstanceReferenceUuid(UUID tokenInstanceReferenceUuid) {
-        this.tokenInstanceReferenceUuid = tokenInstanceReferenceUuid;
+    public void setTokenProfileUuid(UUID tokenProfileUuid) {
+        this.tokenProfileUuid = tokenProfileUuid;
     }
 
     public String getDescription() {
@@ -77,8 +77,8 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("name", name)
                 .append("cryptographicAlgorithm", cryptographicAlgorithm)
-                .append("tokenInstanceReference", tokenInstanceReference)
-                .append("tokenInstanceReferenceUuid", tokenInstanceReferenceUuid)
+                .append("tokenProfile", tokenProfile)
+                .append("tokenProfileUuid", tokenProfileUuid)
                 .append("uuid", uuid)
                 .toString();
     }

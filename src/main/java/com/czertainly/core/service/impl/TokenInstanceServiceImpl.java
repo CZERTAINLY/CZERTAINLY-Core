@@ -35,8 +35,6 @@ import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.MetadataService;
 import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-
-import org.hibernate.annotations.common.util.impl.Log_.logger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

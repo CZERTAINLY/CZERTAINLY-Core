@@ -12,9 +12,11 @@ import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
+import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.TokenProfileRepository;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -40,8 +42,11 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
+    @Autowired
+    private TokenProfileRepository tokenProfileRepository;
 
     private TokenInstanceReference tokenInstanceReference;
+    private TokenProfile tokenProfile;
     private Connector connector;
     private CryptographicKey key;
     private WireMockServer mockServer;
@@ -63,10 +68,18 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         tokenInstanceReference.setConnector(connector);
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
+        tokenProfile = new TokenProfile();
+        tokenProfile.setName("profile1");
+        tokenProfile.setTokenInstanceReference(tokenInstanceReference);
+        tokenProfile.setDescription("sample description");
+        tokenProfile.setEnabled(true);
+        tokenProfile.setTokenInstanceName("testInstance");
+        tokenProfileRepository.save(tokenProfile);
+
         key = new CryptographicKey();
         key.setName(KEY_NAME);
         key.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
-        key.setTokenInstanceReference(tokenInstanceReference);
+        key.setTokenProfile(tokenProfile);
         key.setDescription("initial description");
         cryptographicKeyRepository.save(key);
     }
@@ -129,7 +142,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testRaProfile2");
         request.setDescription("sampleDescription");
-        request.setCreateKeyAttributes(List.of());
+        request.setAttributes(List.of());
 
         KeyDetailDto dto = cryptographicKeyService.createKey(
                 tokenInstanceReference.getSecuredParentUuid(),

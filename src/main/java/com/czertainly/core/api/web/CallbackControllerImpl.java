@@ -24,6 +24,11 @@ public class CallbackControllerImpl implements CallbackController {
     }
 
     @Override
+    public Object keyCallback(String tokenInstanceUuid, RequestAttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException {
+        return callbackService.keyCallback(tokenInstanceUuid, callback);
+    }
+
+    @Override
     public Object raProfileCallback(String authorityUuid, @RequestBody RequestAttributeCallback callback) throws NotFoundException, ConnectorException, ValidationException {
         return callbackService.raProfileCallback(authorityUuid, callback);
     }

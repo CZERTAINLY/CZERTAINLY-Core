@@ -161,7 +161,9 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
     public TokenInstanceDetailDto mapToDetailDto() {
         TokenInstanceDetailDto dto = new TokenInstanceDetailDto();
         dto.setName(name);
-        dto.setStatus(new TokenInstanceStatusDetailDto(status));
+        TokenInstanceStatusDetailDto statusDetailDto = new TokenInstanceStatusDetailDto();
+        statusDetailDto.setStatus(status);
+        dto.setStatus(statusDetailDto);
         // Status of the Token Instances will be set from the details of the connector
         dto.setUuid(uuid.toString());
         dto.setTokenProfiles(tokenProfiles.size());

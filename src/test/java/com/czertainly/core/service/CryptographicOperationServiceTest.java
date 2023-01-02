@@ -17,11 +17,13 @@ import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
+import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.TokenProfileRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -46,6 +48,9 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
 
     @Autowired
+    private TokenProfileRepository tokenProfileRepository;
+
+    @Autowired
     private CryptographicKeyRepository cryptographicKeyRepository;
 
     @Autowired
@@ -58,6 +63,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
     private TokenInstanceReference tokenInstanceReference;
+    private TokenProfile tokenProfile;
     private Connector connector;
     private CryptographicKey key;
     private WireMockServer mockServer;
@@ -92,18 +98,26 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         connectorRepository.save(connector);
 
         tokenInstanceReference = new TokenInstanceReference();
-        tokenInstanceReference.setName("testAuthority");
+        tokenInstanceReference.setName("testInstance");
         tokenInstanceReference.setConnector(connector);
         tokenInstanceReference.setConnectorUuid(connector.getUuid());
         tokenInstanceReference.setKind("sample");
         tokenInstanceReference.setTokenInstanceUuid("1l");
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
+        tokenProfile = new TokenProfile();
+        tokenProfile.setName("profile1");
+        tokenProfile.setTokenInstanceReference(tokenInstanceReference);
+        tokenProfile.setDescription("sample description");
+        tokenProfile.setEnabled(true);
+        tokenProfile.setTokenInstanceName("testInstance");
+        tokenProfileRepository.save(tokenProfile);
+
         key = new CryptographicKey();
         key.setName("testKey1");
         key.setDescription("sampleDescription");
         key.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
-        key.setTokenInstanceReference(tokenInstanceReference);
+        key.setTokenProfile(tokenProfile);
         cryptographicKeyRepository.save(key);
     }
 
