@@ -318,7 +318,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public List<ResponseAttributeDto> getCustomAttributesWithValues(UUID uuid, Resource resource) {
-        logger.info("Getting the custom attributes for {} with UUID: {}", resource, uuid);
+        logger.info("Getting the custom attributes for {} with UUID: {}", resource.getCode(), uuid);
         List<CustomAttribute> attributes = new ArrayList<>();
         for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource)) {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
