@@ -106,7 +106,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     public List<BaseAttribute> listCipherAttributes(UUID uuid, CryptographicAlgorithm algorithm) throws ConnectorException {
+        logger.info("Requesting to list cipher attributes for Key: {} and Algorithm {}", uuid, algorithm);
         CryptographicKey key = getKeyEntity(uuid);
+        logger.debug("Key details: {}", key);
         return cryptographicOperationsApiClient.listCipherAttributes(
                 key.getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenInstanceReferenceUuid().toString(),
@@ -116,13 +118,16 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.ENCRYPT)
     public EncryptDataResponseDto encryptData(UUID uuid, CipherDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        logger.info("Request to encrypt the data using the key: {} and data: {}", uuid, request);
         CryptographicKey key = getKeyEntity(uuid);
+        logger.debug("Key details: {}", key);
         if (request.getCipherData() == null) {
             throw new ValidationException(ValidationError.create("Cannot encrypt null data"));
         }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
         requestDto.setCipherData(request.getCipherData());
         requestDto.setCipherAttributes(request.getCipherAttributes());
+        logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.encryptData(
                 key.getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenInstanceReferenceUuid().toString(),
@@ -133,13 +138,16 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.DECRYPT)
     public DecryptDataResponseDto decryptData(UUID uuid, CipherDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        logger.info("Decrypting using the key: {} and data: {}", uuid, request);
         CryptographicKey key = getKeyEntity(uuid);
+        logger.debug("Key details: {}", key);
         if (request.getCipherData() == null) {
             throw new ValidationException(ValidationError.create("Cannot decrypt null data"));
         }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
         requestDto.setCipherData(request.getCipherData());
         requestDto.setCipherAttributes(request.getCipherAttributes());
+        logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.decryptData(
                 key.getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenInstanceReferenceUuid().toString(),
@@ -149,7 +157,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     public List<BaseAttribute> listSignatureAttributes(UUID uuid, CryptographicAlgorithm algorithm) throws ConnectorException {
+        logger.info("Requesting to list the Signature Attributes for key: {} and Algorithm: {}", uuid, algorithm);
         CryptographicKey key = getKeyEntity(uuid);
+        logger.debug("Key details: {}", key);
         return cryptographicOperationsApiClient.listSignatureAttributes(
                 key.getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenInstanceReferenceUuid().toString(),
@@ -160,7 +170,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.SIGN)
     public SignDataResponseDto signData(UUID uuid, SignDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        logger.info("Signing the data: {} using the key: {}", request, uuid);
         CryptographicKey key = getKeyEntity(uuid);
+        logger.debug("Key details: {}", key);
         if (Stream.of(request.getData(), request.getDigestedData()).allMatch(Objects::isNull)) {
             throw new ValidationException(ValidationError.create("Cannot sign empty data"));
         }
@@ -173,6 +185,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 uuid,
                 Resource.CRYPTOGRAPHIC_KEY
         ));
+        logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.signData(
                 key.getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenInstanceReferenceUuid().toString(),
@@ -183,7 +196,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.VERIFY)
     public VerifyDataResponseDto verifyData(UUID uuid, VerifyDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        logger.info("Request to verify data: {} for the key: {}", request, uuid);
         CryptographicKey key = getKeyEntity(uuid);
+        logger.debug("Key details: {}", key);
         if (Stream.of(request.getData(), request.getDigestedData()).allMatch(Objects::isNull)) {
             throw new ValidationException(ValidationError.create("Cannot verify empty data"));
         }
@@ -197,6 +212,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 uuid,
                 Resource.CRYPTOGRAPHIC_KEY
         ));
+        logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.verifyData(
                 key.getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenInstanceReferenceUuid().toString(),
@@ -207,7 +223,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     public List<BaseAttribute> listRandomAttributes(UUID uuid) throws ConnectorException {
+        logger.info("Requesting attributes for random generation for key: {}", uuid);
         CryptographicKey key = getKeyEntity(uuid);
+        logger.debug("Key details: {}", key);
         return cryptographicOperationsApiClient.listRandomAttributes(
                 key.getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenInstanceReferenceUuid().toString()
@@ -217,10 +235,13 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     public RandomDataResponseDto randomData(UUID uuid, RandomDataRequestDto request) throws ConnectorException, CryptographicOperationException {
+        logger.info("Request for random data generation: {} and data: {}", uuid, request);
         CryptographicKey key = getKeyEntity(uuid);
+        logger.debug("Key details: {}", key);
         com.czertainly.api.model.connector.cryptography.operations.RandomDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.RandomDataRequestDto();
         requestDto.setAttributes(request.getAttributes());
         requestDto.setLength(request.getLength());
+        logger.debug("Request to the connector: {}", requestDto);
         return cryptographicOperationsApiClient.randomData(
                 key.getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenInstanceReferenceUuid().toString(),
@@ -229,6 +250,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
     private CryptographicKey getKeyEntity(UUID uuid) throws NotFoundException {
+        logger.debug("UUID of the key to get the entity: {}", uuid);
         CryptographicKey key = cryptographicKeyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
         if (key.getTokenInstanceReference() == null) {
             throw new NotFoundException("Token Instance associated with the Key is not found");
@@ -236,6 +258,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (key.getTokenInstanceReference().getConnector() == null) {
             throw new NotFoundException(("Connector associated to the Key is not found"));
         }
+        logger.debug("Key Instance: {}", key);
         return key;
     }
 }

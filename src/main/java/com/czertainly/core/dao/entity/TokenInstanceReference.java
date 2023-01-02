@@ -5,6 +5,7 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
+import com.czertainly.api.model.core.cryptography.token.TokenInstanceStatusDetailDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
@@ -160,7 +161,8 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
     public TokenInstanceDetailDto mapToDetailDto() {
         TokenInstanceDetailDto dto = new TokenInstanceDetailDto();
         dto.setName(name);
-        dto.setStatus(status);
+        dto.setStatus(new TokenInstanceStatusDetailDto(status));
+        // Status of the Token Instances will be set from the details of the connector
         dto.setUuid(uuid.toString());
         dto.setTokenProfiles(tokenProfiles.size());
         dto.setConnectorName(connectorName);
