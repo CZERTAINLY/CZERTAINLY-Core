@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDt
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
+import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -32,6 +33,16 @@ public interface TokenInstanceService extends AccessControlExtensionService {
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
     TokenInstanceDetailDto getTokenInstance(SecuredUUID uuid) throws ConnectorException;
+
+    /**
+     * Get the token instance entity
+     *
+     * @param uuid UUID of the token instance
+     * @return Details of the token instance {@Link TokenInstanceDetailDto}
+     * @throws NotFoundException  when the token instance is not found
+     * @throws ConnectorException when there are issues with connector communication or error from connector
+     */
+    TokenInstanceReference getTokenInstanceEntity(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Create a new token instance on the connector

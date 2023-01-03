@@ -1,14 +1,21 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
 import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -20,10 +27,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "description")
     private String description;
 
-    @Column(name = "cryptographic_algorithm")
-    @Enumerated(EnumType.STRING)
-    private CryptographicAlgorithm cryptographicAlgorithm;
-
     @ManyToOne
     @JoinColumn(name = "token_profile_uuid", insertable = false, updatable = false)
     private TokenProfile tokenProfile;
@@ -31,20 +34,16 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "token_profile_uuid")
     private UUID tokenProfileUuid;
 
+    @OneToMany(mappedBy = "cryptographicKey")
+    @JsonIgnore
+    private Set<CryptographicKeyContent> contents = new HashSet<>();
+
     public String getName() {
         return name;
     }
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public CryptographicAlgorithm getCryptographicAlgorithm() {
-        return cryptographicAlgorithm;
-    }
-
-    public void setCryptographicAlgorithm(CryptographicAlgorithm cryptographicAlgorithm) {
-        this.cryptographicAlgorithm = cryptographicAlgorithm;
     }
 
     public TokenProfile getTokenProfile() {
@@ -72,11 +71,18 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.description = description;
     }
 
+    public Set<CryptographicKeyContent> getContents() {
+        return contents;
+    }
+
+    public void setContents(Set<CryptographicKeyContent> contents) {
+        this.contents = contents;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("name", name)
-                .append("cryptographicAlgorithm", cryptographicAlgorithm)
                 .append("tokenProfile", tokenProfile)
                 .append("tokenProfileUuid", tokenProfileUuid)
                 .append("uuid", uuid)
@@ -89,7 +95,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
-        dto.setCryptographicAlgorithm(cryptographicAlgorithm);
         return dto;
     }
 
@@ -98,7 +103,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
-        dto.setCryptographicAlgorithm(cryptographicAlgorithm);
         return dto;
     }
 }

@@ -151,6 +151,12 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    // Internal Use Only. Not exposed in controller
+    public TokenInstanceReference getTokenInstanceEntity(SecuredUUID uuid) throws NotFoundException {
+        return getTokenInstanceReferenceEntity(uuid);
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.CREATE)
     public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {

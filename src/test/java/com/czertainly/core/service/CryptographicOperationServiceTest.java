@@ -116,7 +116,6 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         key = new CryptographicKey();
         key.setName("testKey1");
         key.setDescription("sampleDescription");
-        key.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
         key.setTokenProfile(tokenProfile);
         cryptographicKeyRepository.save(key);
     }

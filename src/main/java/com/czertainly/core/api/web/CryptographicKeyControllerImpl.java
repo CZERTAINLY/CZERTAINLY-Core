@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CryptographicKeyController;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
+import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
@@ -40,17 +41,17 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public KeyDetailDto createKey(String tokenProfileUuid, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
-        return cryptographicKeyService.createKey(SecuredParentUUID.fromString(tokenProfileUuid), request);
+    public KeyDetailDto createKey(String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+        return cryptographicKeyService.createKey(SecuredParentUUID.fromString(tokenProfileUuid), type, request);
     }
 
     @Override
-    public void destroyKey(String tokenProfileUuid, String uuid) throws ConnectorException {
-        cryptographicKeyService.destroyKey(SecuredParentUUID.fromString(tokenProfileUuid), uuid);
+    public void destroyKey(String tokenProfileUuid, String uuid, List<String> keyUuids) throws ConnectorException {
+        cryptographicKeyService.destroyKey(SecuredParentUUID.fromString(tokenProfileUuid), uuid, keyUuids);
     }
 
     @Override
-    public List<BaseAttribute> listCreateKeyAttributes(String tokenProfileUuid) throws ConnectorException {
-        return cryptographicKeyService.listCreateKeyAttributes(SecuredUUID.fromString(tokenProfileUuid));
+    public List<BaseAttribute> listCreateKeyAttributes(String tokenProfileUuid, KeyRequestType type) throws ConnectorException {
+        return cryptographicKeyService.listCreateKeyAttributes(SecuredUUID.fromString(tokenProfileUuid), type);
     }
 }

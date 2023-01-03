@@ -34,9 +34,19 @@ CREATE TABLE cryptographic_key (
 	i_cre TIMESTAMP NOT NULL,
 	i_upd TIMESTAMP NOT NULL,
 	name VARCHAR NOT NULL,
-	token_profile_uuid UUID NOT NULL,
+	token_profile_uuid UUID NULL,
 	description VARCHAR NULL DEFAULT NULL,
-	cryptographic_algorithm VARCHAR NOT NULL,
+	PRIMARY KEY (uuid)
+);
+
+CREATE TABLE cryptographic_key_content (
+	uuid UUID NOT NULL,
+	type VARCHAR NOT NULL,
+	key_reference_uuid UUID NOT NULL,
+	cryptographicAlgorithm VARCHAR NULL DEFAULT NULL,
+	format VARCHAR NULL,
+	keyData VARCHAR NOT NULL,
+	length INTEGER NULL,
 	PRIMARY KEY (uuid)
 );
 
@@ -54,6 +64,11 @@ alter table if exists cryptographic_key
     add constraint cryptographic_key_to_token_profile_key
     foreign key (token_profile_uuid)
     references token_profile;
+
+alter table if exists cryptographic_key_content
+    add constraint cryptographic_key_to_key_content_key
+    foreign key (key_reference_uuid)
+    references cryptographic_key;
 
 
 --TODO Add End points and function groups into the database for the Cryptographic Provider

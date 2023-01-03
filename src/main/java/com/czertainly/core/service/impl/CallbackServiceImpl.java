@@ -5,6 +5,7 @@ import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
@@ -76,7 +77,7 @@ public class CallbackServiceImpl implements CallbackService {
         credentialService.loadFullCredentialData(attributeCallback, callback);
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
-        if(isGroupAttribute(callback.getName(), definitions)) {
+        if (isGroupAttribute(callback.getName(), definitions)) {
             processGroupAttributes(connector.getUuid(), response);
         }
         return response;
@@ -87,7 +88,8 @@ public class CallbackServiceImpl implements CallbackService {
     public Object keyCallback(String tokenInstanceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(tokenInstanceService.getTokenInstance(SecuredUUID.fromString(tokenInstanceUuid)).getConnectorUuid()));
         List<BaseAttribute> definitions;
-        definitions = cryptographicKeyService.listCreateKeyAttributes(SecuredParentUUID.fromString(tokenInstanceUuid));
+        //TODO - FInd a logic to replace the hardcoding
+        definitions = cryptographicKeyService.listCreateKeyAttributes(SecuredParentUUID.fromString(tokenInstanceUuid), KeyRequestType.KEY_PAIR);
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
@@ -99,7 +101,7 @@ public class CallbackServiceImpl implements CallbackService {
         credentialService.loadFullCredentialData(attributeCallback, callback);
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
-        if(isGroupAttribute(callback.getName(), definitions)) {
+        if (isGroupAttribute(callback.getName(), definitions)) {
             processGroupAttributes(connector.getUuid(), response);
         }
         return response;
@@ -124,7 +126,7 @@ public class CallbackServiceImpl implements CallbackService {
 
         Object response = attributeApiClient.attributeCallback(authorityInstance.getConnector().mapToDto(), attributeCallback, callback);
 
-        if(isGroupAttribute(callback.getName(), definitions)) {
+        if (isGroupAttribute(callback.getName(), definitions)) {
             processGroupAttributes(authorityInstance.getConnector().getUuid(), response);
         }
         return response;
@@ -147,6 +149,7 @@ public class CallbackServiceImpl implements CallbackService {
 
     /**
      * Function to check the response for callback and store the data in the database.
+     *
      * @param callbackResponse
      */
     private void processGroupAttributes(UUID connectorUuid, Object callbackResponse) {
@@ -160,18 +163,19 @@ public class CallbackServiceImpl implements CallbackService {
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
             List<BaseAttribute> responseAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttribute.class));
-            for(BaseAttribute attribute: responseAttributes) {
+            for (BaseAttribute attribute : responseAttributes) {
                 logger.debug("Creating reference attribute: {}", attribute);
                 attributeService.createAttributeDefinition(connectorUuid, attribute);
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.debug("Failed to create the reference attributes. Exception is {}", e.getMessage());
         }
     }
 
     /**
      * Function to check if the attribute is of type group
-     * @param name Name of the attribute
+     *
+     * @param name       Name of the attribute
      * @param attributes List of the attribute definitions
      * @return If the attribute is group or not
      */

@@ -83,7 +83,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return cryptographicOperationsApiClient.listCipherAttributes(
                 key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
-                algorithm);
+                key.getUuid().toString());
     }
 
     @Override
@@ -102,6 +102,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return cryptographicOperationsApiClient.encryptData(
                 key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                key.getUuid().toString(),
                 requestDto
         );
     }
@@ -122,6 +123,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return cryptographicOperationsApiClient.decryptData(
                 key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                key.getUuid().toString(),
                 requestDto);
     }
 
@@ -134,7 +136,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return cryptographicOperationsApiClient.listSignatureAttributes(
                 key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
-                algorithm
+                key.getUuid().toString()
         );
     }
 
@@ -151,7 +153,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setDigestedData(request.getDigestedData());
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         requestDto.setData(request.getData());
-        requestDto.setKeyAttributes(metadataService.getMetadata(
+        requestDto.setKeyMetadata(metadataService.getMetadata(
                 key.getTokenProfile().getTokenInstanceReference().getConnectorUuid(),
                 uuid,
                 Resource.CRYPTOGRAPHIC_KEY
@@ -160,6 +162,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return cryptographicOperationsApiClient.signData(
                 key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                key.getUuid().toString(),
                 requestDto
         );
     }
@@ -178,7 +181,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         requestDto.setData(request.getData());
         requestDto.setSignatures(request.getSignatures());
-        requestDto.setKeyAttributes(metadataService.getMetadata(
+        requestDto.setKeyMetadata(metadataService.getMetadata(
                 key.getTokenProfile().getTokenInstanceReference().getConnectorUuid(),
                 uuid,
                 Resource.CRYPTOGRAPHIC_KEY
@@ -187,6 +190,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return cryptographicOperationsApiClient.verifyData(
                 key.getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                 key.getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                key.getUuid().toString(),
                 requestDto
         );
     }

@@ -16,6 +16,4 @@ public interface CryptographicKeyRepository extends SecurityFilterRepository<Cry
     Optional<CryptographicKey> findByUuid(UUID uuid);
 
     Optional<CryptographicKey> findByName(String name);
-
-    List<CryptographicKey> findByCryptographicAlgorithm(CryptographicAlgorithm cryptographicAlgorithm);
 }
