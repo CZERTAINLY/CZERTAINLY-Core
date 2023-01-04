@@ -1,7 +1,6 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.CryptographicOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
@@ -130,12 +129,16 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock
                 .get(WireMock.
                         urlPathMatching(
-                                "/v1/cryptographyProvider/tokens/[^/]+/keys/cipher/[^/]+/attributes"
+                                "/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/cipher/attributes"
                         )
                 )
                 .willReturn(WireMock.ok()));
 
-        cryptographicOperationService.listCipherAttributes(key.getUuid(), CryptographicAlgorithm.RSA);
+        cryptographicOperationService.listCipherAttributes(
+                tokenInstanceReference.getSecuredParentUuid(),
+                tokenProfile.getSecuredUuid(),
+                key.getUuid(),
+                CryptographicAlgorithm.RSA);
     }
 
     @Test
@@ -143,6 +146,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.listCipherAttributes(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
                         CryptographicAlgorithm.RSA
                 )
@@ -154,12 +159,14 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock
                 .get(WireMock
                         .urlPathMatching(
-                                "/v1/cryptographyProvider/tokens/[^/]+/keys/signature/[^/]+/attributes"
+                                "/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/signature/attributes"
                         )
                 )
                 .willReturn(WireMock.ok()));
 
         cryptographicOperationService.listSignatureAttributes(
+                tokenInstanceReference.getSecuredParentUuid(),
+                tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 CryptographicAlgorithm.RSA
         );
@@ -170,6 +177,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.listSignatureAttributes(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
                         CryptographicAlgorithm.RSA
                 )
@@ -187,6 +196,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.ok()));
 
         cryptographicOperationService.listRandomAttributes(
+                tokenInstanceReference.getSecuredParentUuid(),
+                tokenProfile.getSecuredUuid(),
                 key.getUuid()
         );
     }
@@ -196,13 +207,15 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.listRandomAttributes(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid()
                 )
         );
     }
 
     @Test
-    public void testEncrypt() throws ConnectorException, CryptographicOperationException {
+    public void testEncrypt() throws ConnectorException {
         CipherRequestData data = new CipherRequestData();
         data.setIdentifier("identifier");
         data.setData("Hello World!".getBytes());
@@ -214,12 +227,14 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock
                 .post(WireMock
                         .urlPathMatching(
-                                "/v1/cryptographyProvider/tokens/[^/]+/keys/encrypt"
+                                "/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/encrypt"
                         )
                 )
                 .willReturn(WireMock.ok()));
 
         cryptographicOperationService.encryptData(
+                tokenInstanceReference.getSecuredParentUuid(),
+                tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 requestDto);
     }
@@ -229,6 +244,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.encryptData(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
                         new CipherDataRequestDto()
                 )
@@ -240,6 +257,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.encryptData(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         key.getUuid(),
                         new CipherDataRequestDto()
                 )
@@ -247,7 +266,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDecrypt() throws ConnectorException, CryptographicOperationException {
+    public void testDecrypt() throws ConnectorException {
         CipherRequestData data = new CipherRequestData();
         data.setIdentifier("identifier");
         data.setData("Hello World!".getBytes());
@@ -259,12 +278,17 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock
                 .post(WireMock
                         .urlPathMatching(
-                                "/v1/cryptographyProvider/tokens/[^/]+/keys/decrypt"
+                                "/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/decrypt"
                         )
                 )
                 .willReturn(WireMock.ok()));
 
-        cryptographicOperationService.decryptData(key.getUuid(), requestDto);
+        cryptographicOperationService.decryptData(
+                tokenInstanceReference.getSecuredParentUuid(),
+                tokenProfile.getSecuredUuid(),
+                key.getUuid(),
+                requestDto
+        );
     }
 
     @Test
@@ -272,6 +296,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.decryptData(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
                         new CipherDataRequestDto()
                 )
@@ -283,6 +309,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.decryptData(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         key.getUuid(),
                         new CipherDataRequestDto()
                 )
@@ -290,7 +318,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSign() throws ConnectorException, CryptographicOperationException {
+    public void testSign() throws ConnectorException {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
         data.setData("Hello World!".getBytes());
@@ -300,10 +328,15 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         requestDto.setSignatureAttributes(List.of());
 
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/sign"))
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
                 .willReturn(WireMock.ok()));
 
-        cryptographicOperationService.signData(key.getUuid(), requestDto);
+        cryptographicOperationService.signData(
+                tokenInstanceReference.getSecuredParentUuid(),
+                tokenProfile.getSecuredUuid(),
+                key.getUuid(),
+                requestDto
+        );
     }
 
     @Test
@@ -311,6 +344,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.signData(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
                         new SignDataRequestDto()
                 )
@@ -322,6 +357,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.signData(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         key.getUuid(),
                         new SignDataRequestDto()
                 )
@@ -329,7 +366,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testVerify() throws ConnectorException, CryptographicOperationException {
+    public void testVerify() throws ConnectorException {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
         data.setData("Hello World!".getBytes());
@@ -340,10 +377,15 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         requestDto.setSignatures(List.of(data));
 
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/verify"))
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
                 .willReturn(WireMock.ok()));
 
-        cryptographicOperationService.verifyData(key.getUuid(), requestDto);
+        cryptographicOperationService.verifyData(
+                tokenInstanceReference.getSecuredParentUuid(),
+                tokenProfile.getSecuredUuid(),
+                key.getUuid(),
+                requestDto
+        );
     }
 
     @Test
@@ -351,6 +393,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.verifyData(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
                         new VerifyDataRequestDto()
                 )
@@ -362,6 +406,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.verifyData(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
                         key.getUuid(),
                         new VerifyDataRequestDto()
                 )

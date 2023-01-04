@@ -4,6 +4,7 @@ import com.czertainly.api.clients.AttributeApiClient;
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
@@ -14,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
@@ -85,49 +87,65 @@ public class CallbackServiceImpl implements CallbackService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
-    public Object keyCallback(String tokenInstanceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(tokenInstanceService.getTokenInstance(SecuredUUID.fromString(tokenInstanceUuid)).getConnectorUuid()));
-        List<BaseAttribute> definitions;
-        //TODO - FInd a logic to replace the hardcoding
-        definitions = cryptographicKeyService.listCreateKeyAttributes(SecuredParentUUID.fromString(tokenInstanceUuid), KeyRequestType.KEY_PAIR);
+    public Object resourceCallback(Resource resource, String resourceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
+        List<BaseAttribute> definitions = null;
+        Connector connector = null;
+        switch (resource) {
+            case RA_PROFILE:
+                AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(
+                                UUID.fromString(resourceUuid))
+                        .orElseThrow(
+                                () -> new NotFoundException(
+                                        AuthorityInstanceReference.class,
+                                        resourceUuid
+                                )
+                        );
+                connector = authorityInstance.getConnector();
+                definitions = authorityInstanceApiClient.listRAProfileAttributes(
+                        connector.mapToDto(),
+                        authorityInstance.getAuthorityInstanceUuid()
+                );
+                break;
+
+            case CRYPTOGRAPHIC_KEY:
+                connector = connectorService.getConnectorEntity(
+                        SecuredUUID.fromString(
+                                tokenInstanceService.getTokenInstance(
+                                        SecuredUUID.fromString(
+                                                resourceUuid
+                                        )
+                                ).getConnectorUuid()
+                        )
+                );
+                definitions = cryptographicKeyService.listCreateKeyAttributes(
+                        SecuredParentUUID.fromString(
+                                resourceUuid
+                        ),
+                        KeyRequestType.KEY_PAIR
+                );
+                break;
+
+            default:
+                throw new ValidationException(
+                        ValidationError.create(
+                                "Call for the requested resource is not supported"
+                        )
+                );
+        }
+
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
         if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
             return coreCallbackService.coreGetCredentials(callback);
         }
-
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
+
         if (isGroupAttribute(callback.getName(), definitions)) {
             processGroupAttributes(connector.getUuid(), response);
-        }
-        return response;
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
-    public Object raProfileCallback(String authorityUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
-        List<BaseAttribute> definitions;
-        AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
-        definitions = authorityInstanceApiClient.listRAProfileAttributes(authorityInstance.getConnector().mapToDto(), authorityInstance.getAuthorityInstanceUuid());
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
-        AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
-
-        if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
-            return coreCallbackService.coreGetCredentials(callback);
-        }
-
-        // Load complete credential data for mapping of type credential
-        credentialService.loadFullCredentialData(attributeCallback, callback);
-
-        Object response = attributeApiClient.attributeCallback(authorityInstance.getConnector().mapToDto(), attributeCallback, callback);
-
-        if (isGroupAttribute(callback.getName(), definitions)) {
-            processGroupAttributes(authorityInstance.getConnector().getUuid(), response);
         }
         return response;
     }
@@ -149,8 +167,6 @@ public class CallbackServiceImpl implements CallbackService {
 
     /**
      * Function to check the response for callback and store the data in the database.
-     *
-     * @param callbackResponse
      */
     private void processGroupAttributes(UUID connectorUuid, Object callbackResponse) {
         // When the callback is retrieved from the connector, and of the type of the attribute triggering the

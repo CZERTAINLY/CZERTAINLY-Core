@@ -34,6 +34,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
@@ -54,6 +55,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
     private TokenInstanceReference tokenInstanceReference;
     private CryptographicKeyContent content;
+    private CryptographicKeyContent content1;
     private TokenProfile tokenProfile;
     private Connector connector;
     private CryptographicKey key;
@@ -99,14 +101,14 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
         cryptographicKeyContentRepository.save(content);
 
-        content = new CryptographicKeyContent();
-        content.setLength(1024);
-        content.setCryptographicKey(key);
-        content.setType(KeyType.PUBLIC_KEY);
-        content.setKeyData("some/encrypted/data");
-        content.setFormat(KeyFormat.SPKI);
-        content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
-        cryptographicKeyContentRepository.save(content);
+        content1 = new CryptographicKeyContent();
+        content1.setLength(1024);
+        content1.setCryptographicKey(key);
+        content1.setType(KeyType.PUBLIC_KEY);
+        content1.setKeyData("some/encrypted/data");
+        content1.setFormat(KeyFormat.SPKI);
+        content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        cryptographicKeyContentRepository.save(content1);
     }
 
     @AfterEach
@@ -162,11 +164,12 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair"))
-                .willReturn(WireMock.okJson("{}")));
+                .willReturn(WireMock.okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\", \"keyData\":{}}}")));
 
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testRaProfile2");
         request.setDescription("sampleDescription");
+        request.setTokenProfileUuid(tokenProfile.getUuid().toString());
         request.setAttributes(List.of());
 
         KeyDetailDto dto = cryptographicKeyService.createKey(
@@ -209,13 +212,16 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     public void testDestroyKey() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
+                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
                 .willReturn(WireMock.ok()));
 
         cryptographicKeyService.destroyKey(
                 tokenInstanceReference.getSecuredParentUuid(),
                 key.getUuid().toString(),
-                List.of()
+                List.of(
+                        content.getUuid().toString(),
+                        content1.getUuid().toString()
+                )
         );
         Assertions.assertThrows(
                 NotFoundException.class,

@@ -7,12 +7,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
@@ -34,8 +29,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "token_profile_uuid")
     private UUID tokenProfileUuid;
 
-    @OneToMany(mappedBy = "cryptographicKey")
-    @JsonIgnore
+    @OneToMany(orphanRemoval = true, mappedBy = "cryptographicKey", cascade = {CascadeType.ALL})
     private Set<CryptographicKeyContent> contents = new HashSet<>();
 
     public String getName() {

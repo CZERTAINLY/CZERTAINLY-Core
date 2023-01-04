@@ -36,22 +36,40 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public KeyDetailDto getKey(String tokenProfileUuid, String uuid) throws NotFoundException {
-        return cryptographicKeyService.getKey(SecuredParentUUID.fromString(tokenProfileUuid), uuid);
+    public KeyDetailDto getKey(String tokenInstanceUuid, String uuid) throws NotFoundException {
+        return cryptographicKeyService.getKey(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                uuid
+        );
     }
 
     @Override
-    public KeyDetailDto createKey(String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
-        return cryptographicKeyService.createKey(SecuredParentUUID.fromString(tokenProfileUuid), type, request);
+    public KeyDetailDto createKey(
+            String tokenInstanceUuid,
+            KeyRequestType type,
+            KeyRequestDto request
+    ) throws AlreadyExistException, ValidationException, ConnectorException {
+        return cryptographicKeyService.createKey(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                type,
+                request
+        );
     }
 
     @Override
-    public void destroyKey(String tokenProfileUuid, String uuid, List<String> keyUuids) throws ConnectorException {
-        cryptographicKeyService.destroyKey(SecuredParentUUID.fromString(tokenProfileUuid), uuid, keyUuids);
+    public void destroyKey(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException {
+        cryptographicKeyService.destroyKey(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                uuid,
+                keyUuids
+        );
     }
 
     @Override
-    public List<BaseAttribute> listCreateKeyAttributes(String tokenProfileUuid, KeyRequestType type) throws ConnectorException {
-        return cryptographicKeyService.listCreateKeyAttributes(SecuredUUID.fromString(tokenProfileUuid), type);
+    public List<BaseAttribute> listCreateKeyAttributes(String tokenInstanceUuid, KeyRequestType type) throws ConnectorException {
+        return cryptographicKeyService.listCreateKeyAttributes(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                type
+        );
     }
 }
