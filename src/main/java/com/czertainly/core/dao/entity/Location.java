@@ -201,7 +201,9 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
         dto.setSupportKeyManagement(supportKeyManagement);
-
+        //TODO - Create a new DTO for the list location operation. Has to be done when creating the objects for other
+        // similar operation
+        dto.setCertificates(List.of());
         return dto;
     }
 
