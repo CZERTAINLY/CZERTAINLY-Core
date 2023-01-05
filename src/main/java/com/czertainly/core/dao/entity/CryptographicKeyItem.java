@@ -3,6 +3,8 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
+import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -11,11 +13,14 @@ import java.io.Serializable;
 import java.util.UUID;
 
 @Entity
-@Table(name = "cryptographic_key_content")
-public class CryptographicKeyContent extends UniquelyIdentified implements Serializable {
+@Table(name = "cryptographic_key_items")
+public class CryptographicKeyItem extends UniquelyIdentified implements Serializable, DtoMapper<KeyItemDto> {
 
-    @ManyToOne
-    @JoinColumn(name = "cryptographic_key_uuid", insertable = false, updatable = false)
+    @Column(name = "name")
+    private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cryptographic_key_uuid", insertable = false, updatable = false, nullable = false)
     private CryptographicKey cryptographicKey;
 
     @Column(name = "cryptographic_key_uuid")
@@ -41,6 +46,14 @@ public class CryptographicKeyContent extends UniquelyIdentified implements Seria
 
     @Column(name = "length")
     private int length;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
 
     public CryptographicKey getCryptographicKey() {
         return cryptographicKey;
@@ -110,6 +123,7 @@ public class CryptographicKeyContent extends UniquelyIdentified implements Seria
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
+                .append("name", name)
                 .append("cryptographicKey", cryptographicKey)
                 .append("cryptographicKeyUuid", cryptographicKeyUuid)
                 .append("type", type)
@@ -119,5 +133,18 @@ public class CryptographicKeyContent extends UniquelyIdentified implements Seria
                 .append("keyReferenceUuid", keyReferenceUuid)
                 .append("uuid", uuid)
                 .toString();
+    }
+
+    @Override
+    public KeyItemDto mapToDto() {
+        KeyItemDto dto = new KeyItemDto();
+        dto.setName(name);
+        dto.setUuid(uuid.toString());
+        dto.setKeyReferenceUuid(keyReferenceUuid.toString());
+        dto.setCryptographicAlgorithm(cryptographicAlgorithm);
+        dto.setType(type);
+        dto.setLength(length);
+        dto.setFormat(format);
+        return dto;
     }
 }

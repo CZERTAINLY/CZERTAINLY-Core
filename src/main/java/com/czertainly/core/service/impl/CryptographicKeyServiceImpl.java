@@ -23,10 +23,10 @@ import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetai
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.CryptographicKey;
-import com.czertainly.core.dao.entity.CryptographicKeyContent;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
-import com.czertainly.core.dao.repository.CryptographicKeyContentRepository;
+import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.dao.repository.TokenProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -45,10 +45,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -68,7 +65,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     // Repositories
     // --------------------------------------------------------------------------------
     private CryptographicKeyRepository cryptographicKeyRepository;
-    private CryptographicKeyContentRepository cryptographicKeyContentRepository;
+    private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     private TokenProfileRepository tokenProfileRepository;
 
     @Autowired
@@ -97,8 +94,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Autowired
-    public void setCryptographicKeyContentRepository(CryptographicKeyContentRepository cryptographicKeyContentRepository) {
-        this.cryptographicKeyContentRepository = cryptographicKeyContentRepository;
+    public void setCryptographicKeyContentRepository(CryptographicKeyItemRepository cryptographicKeyItemRepository) {
+        this.cryptographicKeyItemRepository = cryptographicKeyItemRepository;
     }
 
     @Autowired
@@ -137,13 +134,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                         Resource.CRYPTOGRAPHIC_KEY
                 )
         );
-        dto.setKeyAttributes(
-                metadataService.getMetadata(
-                        key.getTokenProfile().getTokenInstanceReference().getUuid(),
-                        key.getUuid(),
+        dto.getItems().forEach(k -> k.setMetadata(
+                metadataService.getFullMetadata(
+                        key.getTokenInstanceReference().getConnectorUuid(),
                         Resource.CRYPTOGRAPHIC_KEY
                 )
-        );
+        ));
         logger.debug("Key details with attributes {}", dto);
         return dto;
     }
@@ -198,14 +194,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     connector,
                     tokenProfile,
                     request,
-                    createKeyRequestDto
+                    createKeyRequestDto,
+                    attributes
             );
         } else {
             key = createKeyTypeOfSecret(
                     connector,
                     tokenProfile,
                     request,
-                    createKeyRequestDto
+                    createKeyRequestDto,
+                    attributes
             );
         }
 
@@ -241,12 +239,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
 
         for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
-            CryptographicKeyContent content = cryptographicKeyContentRepository
+            CryptographicKeyItem content = cryptographicKeyItemRepository
                     .findByUuid(UUID.fromString(keyUuid))
                     .orElseThrow(
                             () -> new NotFoundException(
                                     "Sub key with the UUID " + keyUuid + " is not found",
-                                    CryptographicKeyContent.class
+                                    CryptographicKeyItem.class
                             )
                     );
 
@@ -260,9 +258,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     key.getUuid(),
                     Resource.CRYPTOGRAPHIC_KEY
             );
-            cryptographicKeyContentRepository.delete(content);
+            cryptographicKeyItemRepository.delete(content);
         }
-        if (key.getContents().size() == 0) {
+        if (key.getItems().size() == 0) {
             cryptographicKeyRepository.delete(key);
         }
         logger.info("Key destroyed: {}", uuid);
@@ -305,39 +303,102 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(
                 tokenInstanceUuid
         );
+        //Create a map to hold the key and its objects. The association key will be used as the name for the parent key object
+        Map<String, List<KeyDataResponseDto>> associations = new HashMap<>();
+        // Get the list of keys from the connector
         List<KeyDataResponseDto> keys = keyManagementApiClient.listKeys(
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceUuid.toString()
         );
-        // Iterate and check if Key is already available
-        // TODO
-//        for (KeyDataResponseDto response : keys) {
-//
-//            if (!cryptographicKeyRepository.findByKeyReferenceUuidAndName(response.getUuid(), response.getName()).isPresent()) {
-//                logger.debug("Requesting the details of the Key with UUID {} from connector", response.getUuid());
-//                createKeyEntity(
-//                        response.getName(),
-//                        "",
-//                        null
-//                );
-//            }
-//        }
+
+        // Iterate and add the keys with the same associations to the map
+        for (KeyDataResponseDto key : keys) {
+            associations.computeIfAbsent(
+                    (key.getAssociation() == null || key.getAssociation().isEmpty()) ? "" : key.getAssociation(),
+                    k -> new ArrayList<>()
+            ).add(key);
+        }
+        logger.debug("Total number of keys from the connector: {}", keys.size());
+
+        // Iterate through the created map and store the items in the database
+        for (Map.Entry<String, List<KeyDataResponseDto>> entry : associations.entrySet()) {
+            // If the key is empty then it is individual entity. Probably only private or public key or Secret Key
+            if (entry.getKey().equals("")) {
+                for (KeyDataResponseDto soleEntity : entry.getValue()) {
+                    createKeyAndItems(
+                            tokenInstanceReference.getConnectorUuid(),
+                            tokenInstanceReference,
+                            soleEntity.getName(),
+                            List.of(soleEntity)
+                    );
+                }
+            } else {
+                createKeyAndItems(
+                        tokenInstanceReference.getConnectorUuid(),
+                        tokenInstanceReference,
+                        entry.getKey(),
+                        entry.getValue()
+                );
+            }
+        }
         logger.info("Sync Key Completed");
     }
 
-    private CryptographicKey createKeyEntity(String name, String description, UUID tokenProfileUuid) {
+    private void createKeyAndItems(UUID connectorUuid, TokenInstanceReference tokenInstanceReference, String key, List<KeyDataResponseDto> items) {
+        //Iterate through the items for a specific key
+        if (checkKeyAlreadyExists(tokenInstanceReference.getUuid(), items)) {
+            return;
+        }
+        // Create the cryptographic Key
+        CryptographicKey cryptographicKey = createKeyEntity(
+                key,
+                "Discovered from " + tokenInstanceReference.getName(),
+                null,
+                tokenInstanceReference,
+                List.of()
+        );
+        // Create the items for each key
+        for (KeyDataResponseDto item : items) {
+            createKeyContent(
+                    item.getUuid(),
+                    item.getName(),
+                    item.getKeyData(),
+                    cryptographicKey,
+                    connectorUuid
+            );
+        }
+    }
+
+    private boolean checkKeyAlreadyExists(UUID tokenInstanceUuid, List<KeyDataResponseDto> items) {
+        //Iterate through the items for a specific key
+        for (KeyDataResponseDto item : items) {
+            //check if the item with the reference uuid already exists in the database
+            // Assumption - Content of the key from earlier does not change
+            for (CryptographicKeyItem keyItem : cryptographicKeyItemRepository.findByKeyReferenceUuid(UUID.fromString(item.getUuid()))) {
+                if (keyItem.getCryptographicKey().getTokenInstanceReferenceUuid().equals(tokenInstanceUuid)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private CryptographicKey createKeyEntity(String name, String description, TokenProfile tokenProfile, TokenInstanceReference tokenInstanceReference, List<DataAttribute> attributes) {
         CryptographicKey key = new CryptographicKey();
         key.setName(name);
         key.setDescription(description);
-        key.setTokenProfileUuid(tokenProfileUuid);
+        key.setTokenProfile(tokenProfile);
+        key.setTokenInstanceReference(tokenInstanceReference);
+        key.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         logger.debug("Cryptographic Key: {}", key);
         cryptographicKeyRepository.save(key);
         return key;
     }
 
-    private void createKeyContent(String referenceUuid, KeyData keyData, CryptographicKey cryptographicKey) {
+    private void createKeyContent(String referenceUuid, String referenceName, KeyData keyData, CryptographicKey cryptographicKey, UUID connectorUuid) {
         logger.info("Creating the Key Content for {}", cryptographicKey);
-        CryptographicKeyContent content = new CryptographicKeyContent();
+        CryptographicKeyItem content = new CryptographicKeyItem();
+        content.setName(referenceName);
         content.setCryptographicKey(cryptographicKey);
         content.setType(keyData.getType());
         content.setCryptographicAlgorithm(keyData.getAlgorithm());
@@ -345,7 +406,21 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setFormat(keyData.getFormat());
         content.setLength(keyData.getLength());
         content.setKeyReferenceUuid(UUID.fromString(referenceUuid));
-        cryptographicKeyContentRepository.save(content);
+        cryptographicKeyItemRepository.save(content);
+
+        metadataService.createMetadataDefinitions(
+                connectorUuid,
+                keyData.getMetadata()
+        );
+        metadataService.createMetadata(
+                connectorUuid,
+                UUID.fromString(referenceUuid),
+                cryptographicKey.getUuid(),
+                referenceName,
+                keyData.getMetadata(),
+                Resource.CRYPTOGRAPHIC_KEY,
+                Resource.CRYPTOGRAPHIC_KEY
+        );
     }
 
     private CryptographicKey getCryptographicKeyEntity(UUID uuid) throws NotFoundException {
@@ -414,7 +489,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         return merged;
     }
 
-    private CryptographicKey createKeyTypeOfKeyPair(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto) throws ConnectorException {
+    private CryptographicKey createKeyTypeOfKeyPair(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto, List<DataAttribute> attributes) throws ConnectorException {
         KeyPairDataResponseDto response = keyManagementApiClient.createKeyPair(
                 connector.mapToDto(),
                 tokenProfile.getTokenInstanceReference().getTokenInstanceUuid(),
@@ -424,42 +499,29 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         CryptographicKey key = createKeyEntity(
                 request.getName(),
                 request.getDescription(),
-                tokenProfile.getUuid()
+                tokenProfile,
+                tokenProfile.getTokenInstanceReference(),
+                attributes
         );
-        createKeyContent(response.getPrivateKeyData().getUuid(), response.getPrivateKeyData().getKeyData(), key);
-        createKeyContent(response.getPublicKeyData().getUuid(), response.getPublicKeyData().getKeyData(), key);
+        createKeyContent(
+                response.getPrivateKeyData().getUuid(),
+                response.getPrivateKeyData().getUuid(),
+                response.getPrivateKeyData().getKeyData(),
+                key,
+                connector.getUuid()
+        );
+        createKeyContent(
+                response.getPublicKeyData().getUuid(),
+                response.getPrivateKeyData().getUuid(),
+                response.getPublicKeyData().getKeyData(),
+                key,
+                connector.getUuid()
+        );
 
-        metadataService.createMetadataDefinitions(
-                connector.getUuid(),
-                response.getPrivateKeyData().getKeyData().getMetadata()
-        );
-        metadataService.createMetadata(
-                connector.getUuid(),
-                key.getUuid(),
-                key.getUuid(),
-                request.getName(),
-                response.getPrivateKeyData().getKeyData().getMetadata(),
-                Resource.CRYPTOGRAPHIC_KEY,
-                Resource.CRYPTOGRAPHIC_KEY
-        );
-
-        metadataService.createMetadataDefinitions(
-                connector.getUuid(),
-                response.getPublicKeyData().getKeyData().getMetadata()
-        );
-        metadataService.createMetadata(
-                connector.getUuid(),
-                key.getUuid(),
-                key.getUuid(),
-                request.getName(),
-                response.getPublicKeyData().getKeyData().getMetadata(),
-                Resource.CRYPTOGRAPHIC_KEY,
-                Resource.CRYPTOGRAPHIC_KEY
-        );
         return key;
     }
 
-    private CryptographicKey createKeyTypeOfSecret(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto) throws ConnectorException {
+    private CryptographicKey createKeyTypeOfSecret(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto, List<DataAttribute> attributes) throws ConnectorException {
         KeyDataResponseDto response = keyManagementApiClient.createSecretKey(
                 connector.mapToDto(),
                 tokenProfile.getTokenInstanceReference().getTokenInstanceUuid(),
@@ -469,22 +531,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         CryptographicKey key = createKeyEntity(
                 request.getName(),
                 request.getDescription(),
-                tokenProfile.getUuid()
+                tokenProfile,
+                tokenProfile.getTokenInstanceReference(),
+                attributes
         );
-        createKeyContent(response.getUuid(), response.getKeyData(), key);
-
-        metadataService.createMetadataDefinitions(
-                connector.getUuid(),
-                response.getKeyData().getMetadata()
-        );
-        metadataService.createMetadata(
-                connector.getUuid(),
-                key.getUuid(),
-                key.getUuid(),
-                request.getName(),
-                response.getKeyData().getMetadata(),
-                Resource.CRYPTOGRAPHIC_KEY,
-                Resource.CRYPTOGRAPHIC_KEY
+        createKeyContent(
+                response.getUuid(),
+                response.getUuid(),
+                response.getKeyData(),
+                key,
+                connector.getUuid()
         );
         return key;
     }

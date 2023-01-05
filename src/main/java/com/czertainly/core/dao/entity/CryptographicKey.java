@@ -2,20 +2,28 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
+import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.core.util.DtoMapper;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
+import javax.persistence.OneToMany;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "cryptographic_key")
 public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<KeyDto> {
+
     @Column(name = "name")
     private String name;
 
@@ -29,8 +37,18 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "token_profile_uuid")
     private UUID tokenProfileUuid;
 
-    @OneToMany(orphanRemoval = true, mappedBy = "cryptographicKey", cascade = {CascadeType.ALL})
-    private Set<CryptographicKeyContent> contents = new HashSet<>();
+    @ManyToOne
+    @JoinColumn(name = "token_instance_uuid", insertable = false, updatable = false)
+    private TokenInstanceReference tokenInstanceReference;
+
+    @Column(name = "token_instance_uuid")
+    private UUID tokenInstanceReferenceUuid;
+
+    @Column(name = "attributes")
+    private String attributes;
+
+    @OneToMany(mappedBy = "cryptographicKey")
+    private Set<CryptographicKeyItem> items = new HashSet<>();
 
     public String getName() {
         return name;
@@ -65,12 +83,42 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.description = description;
     }
 
-    public Set<CryptographicKeyContent> getContents() {
-        return contents;
+    public Set<CryptographicKeyItem> getItems() {
+        return items;
     }
 
-    public void setContents(Set<CryptographicKeyContent> contents) {
-        this.contents = contents;
+    public void setItems(Set<CryptographicKeyItem> items) {
+        this.items = items;
+    }
+
+    public TokenInstanceReference getTokenInstanceReference() {
+        return tokenInstanceReference;
+    }
+
+    public void setTokenInstanceReference(TokenInstanceReference tokenInstanceReference) {
+        this.tokenInstanceReference = tokenInstanceReference;
+        if (tokenInstanceReference != null) this.tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
+    }
+
+    public UUID getTokenInstanceReferenceUuid() {
+        return tokenInstanceReferenceUuid;
+    }
+
+    public void setTokenInstanceReferenceUuid(UUID tokenInstanceReferenceUuid) {
+        this.tokenInstanceReferenceUuid = tokenInstanceReferenceUuid;
+    }
+
+    // Get the list of items for the key
+    public List<KeyItemDto> getKeyItems() {
+        return items.stream().map(CryptographicKeyItem::mapToDto).collect(Collectors.toList());
+    }
+
+    public String getAttributes() {
+        return attributes;
+    }
+
+    public void setAttributes(String attributes) {
+        this.attributes = attributes;
     }
 
     @Override
@@ -89,6 +137,12 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
+        if (tokenProfile != null) {
+            dto.setTokenProfileName(tokenProfile.getName());
+            dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
+        }
+        dto.setTokenInstanceName(tokenInstanceReference.getName());
+        dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         return dto;
     }
 
@@ -97,6 +151,13 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
+        if (tokenProfile != null) {
+            dto.setTokenProfileName(tokenProfile.getName());
+            dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
+        }
+        dto.setTokenInstanceName(tokenInstanceReference.getName());
+        dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        dto.setItems(getKeyItems());
         return dto;
     }
 }
