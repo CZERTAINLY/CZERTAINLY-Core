@@ -4,13 +4,18 @@ import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgori
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "cryptographic_key_items")
@@ -46,6 +51,13 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
 
     @Column(name = "length")
     private int length;
+
+    @Column(name = "state")
+    @Enumerated(EnumType.STRING)
+    private KeyState state;
+
+    @Column(name = "usage")
+    private String usage;
 
     public String getName() {
         return name;
@@ -120,6 +132,37 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         this.keyReferenceUuid = keyReferenceUuid;
     }
 
+    public KeyState getState() {
+        return state;
+    }
+
+    public void setState(KeyState state) {
+        this.state = state;
+    }
+
+    public List<KeyUsage> getUsage() {
+        return Arrays.stream(
+                usage.split(",")
+        ).map(
+                i -> KeyUsage.valueOf(
+                        Integer.valueOf(i)
+                )
+        ).collect(Collectors.toList());
+    }
+
+    public void setUsage(List<KeyUsage> usage) {
+        this.usage = String.join(
+                ",",
+                usage.stream().map(
+                        i -> String.valueOf(
+                                i.getId()
+                        )
+                ).collect(
+                        Collectors.toList()
+                )
+        );
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -145,6 +188,8 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setType(type);
         dto.setLength(length);
         dto.setFormat(format);
+        dto.setState(state);
+        dto.setUsage(getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
         return dto;
     }
 }

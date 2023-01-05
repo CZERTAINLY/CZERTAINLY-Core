@@ -47,6 +47,19 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "attributes")
     private String attributes;
 
+    @Column(name = "owner")
+    private String owner;
+
+    @Column(name = "enabled")
+    private boolean enabled;
+
+    @ManyToOne
+    @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
+    private CertificateGroup group;
+
+    @Column(name = "group_uuid")
+    private UUID groupUuid;
+
     @OneToMany(mappedBy = "cryptographicKey")
     private Set<CryptographicKeyItem> items = new HashSet<>();
 
@@ -108,17 +121,50 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.tokenInstanceReferenceUuid = tokenInstanceReferenceUuid;
     }
 
-    // Get the list of items for the key
-    public List<KeyItemDto> getKeyItems() {
-        return items.stream().map(CryptographicKeyItem::mapToDto).collect(Collectors.toList());
-    }
-
     public String getAttributes() {
         return attributes;
     }
 
     public void setAttributes(String attributes) {
         this.attributes = attributes;
+    }
+
+    public String getOwner() {
+        return owner;
+    }
+
+    public void setOwner(String owner) {
+        this.owner = owner;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public CertificateGroup getGroup() {
+        return group;
+    }
+
+    public void setGroup(CertificateGroup group) {
+        this.group = group;
+        if (group != null) this.groupUuid = group.getUuid();
+    }
+
+    public UUID getGroupUuid() {
+        return groupUuid;
+    }
+
+    public void setGroupUuid(UUID groupUuid) {
+        this.groupUuid = groupUuid;
+    }
+
+    // Get the list of items for the key
+    public List<KeyItemDto> getKeyItems() {
+        return items.stream().map(CryptographicKeyItem::mapToDto).collect(Collectors.toList());
     }
 
     @Override
@@ -143,6 +189,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         }
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        dto.setEnabled(enabled);
         return dto;
     }
 
@@ -158,6 +205,9 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setItems(getKeyItems());
+        dto.setEnabled(enabled);
+        dto.setOwner(owner);
+        dto.setGroup(group.mapToDto());
         return dto;
     }
 }
