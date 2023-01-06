@@ -4,13 +4,14 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.key.EditKeyRequestDto;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
+import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
-import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -76,7 +77,8 @@ public interface CryptographicKeyService {
      */
     void disableKey(
             SecuredParentUUID tokenInstanceUuid,
-            UUID uuid
+            UUID uuid,
+            List<String> keyUuids
     ) throws NotFoundException, ValidationException;
 
     /**
@@ -89,7 +91,8 @@ public interface CryptographicKeyService {
      */
     void enableKey(
             SecuredParentUUID tokenInstanceUuid,
-            UUID uuid
+            UUID uuid,
+            List<String> keyUuids
     ) throws NotFoundException, ValidationException;
 
     /**
@@ -98,7 +101,7 @@ public interface CryptographicKeyService {
      * @param uuids UUIDs of the keys
      */
     void disableKey(
-            List<SecuredUUID> uuids
+            List<String> uuids
     );
 
     /**
@@ -107,7 +110,7 @@ public interface CryptographicKeyService {
      * @param uuids UUIDs of the keys
      */
     void enableKey(
-            List<SecuredUUID> uuids
+            List<String> uuids
     );
 
     /**
@@ -125,6 +128,16 @@ public interface CryptographicKeyService {
     ) throws NotFoundException;
 
     /**
+     * Function to delete multiple key
+     *
+     * @param uuids Key UUIDs
+     * @throws NotFoundException
+     */
+    void deleteKey(
+            List<String> uuids
+    ) throws NotFoundException;
+
+    /**
      * Destroy a key
      *
      * @param tokenInstanceUuid UUID of the token instance
@@ -134,6 +147,15 @@ public interface CryptographicKeyService {
      * @throws ConnectorException when there are issues with connector communication
      */
     void destroyKey(SecuredParentUUID tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException;
+
+    /**
+     * Destroy multiple keys
+     *
+     * @param uuids UUID of the concerned keys
+     * @throws NotFoundException  when the token profile or the key uuid is not found
+     * @throws ConnectorException when there are issues with connector communication
+     */
+    void destroyKey(List<String> uuids) throws ConnectorException;
 
     /**
      * List attributes to create a new key
@@ -161,10 +183,29 @@ public interface CryptographicKeyService {
      *
      * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
-     * @param keyUuids          UUIDs of the sub items inside the key. If empty list is provided then all the items inside the key
-     *                          will be marked as compromised
+     * @param keyUuids          UUIDs of the sub items inside the key. If empty list is provided
+     *                          then all the items inside the key will be marked as compromised
      */
-    void compromiseKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids);
+    void compromiseKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException;
 
+    /**
+     * Function to mark the keys as compromised
+     *
+     * @param uuids UUIDs of the key
+     */
+    void compromiseKey(List<String> uuids);
 
+    /**
+     * Function to update the usages for the key
+     * @param request Request containing the details for updating the usages
+     */
+    void updateKeyUsages(BulkKeyUsageRequestDto request);
+
+    /**
+     * Update the key usages for multiple keys and its items
+     * @param tokenInstanceUuid UUID of the token instance
+     * @param uuid UUID of the key
+     * @param request Request containing the details for the key usage updates
+     */
+    void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, UUID uuid, UpdateKeyUsageRequestDto request) throws NotFoundException;
 }

@@ -7,12 +7,7 @@ import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
+import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.List;
@@ -50,9 +45,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "owner")
     private String owner;
 
-    @Column(name = "enabled")
-    private boolean enabled;
-
     @ManyToOne
     @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private CertificateGroup group;
@@ -60,7 +52,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "group_uuid")
     private UUID groupUuid;
 
-    @OneToMany(mappedBy = "cryptographicKey")
+    @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL)
     private Set<CryptographicKeyItem> items = new HashSet<>();
 
     public String getName() {
@@ -137,14 +129,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.owner = owner;
     }
 
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
     public CertificateGroup getGroup() {
         return group;
     }
@@ -189,7 +173,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         }
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
-        dto.setEnabled(enabled);
         return dto;
     }
 
@@ -205,9 +188,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setItems(getKeyItems());
-        dto.setEnabled(enabled);
         dto.setOwner(owner);
-        dto.setGroup(group.mapToDto());
+        if (group != null) {
+            dto.setGroup(group.mapToDto());
+        }
         return dto;
     }
 }

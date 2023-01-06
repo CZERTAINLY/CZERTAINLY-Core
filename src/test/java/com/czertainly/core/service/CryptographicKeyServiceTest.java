@@ -4,14 +4,18 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.cryptography.key.EditKeyRequestDto;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
+import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -32,8 +36,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
@@ -99,6 +105,8 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         content.setType(KeyType.PRIVATE_KEY);
         content.setKeyData("some/encrypted/data");
         content.setFormat(KeyFormat.PRKI);
+        content.setState(KeyState.ACTIVE);
+        content.setEnabled(true);
         content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
         cryptographicKeyItemRepository.save(content);
 
@@ -109,6 +117,8 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         content1.setType(KeyType.PUBLIC_KEY);
         content1.setKeyData("some/encrypted/data");
         content1.setFormat(KeyFormat.SPKI);
+        content1.setState(KeyState.ACTIVE);
+        content1.setEnabled(true);
         content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
         cryptographicKeyItemRepository.save(content1);
 
@@ -116,6 +126,12 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         content1.setKeyReferenceUuid(content1.getUuid());
         cryptographicKeyItemRepository.save(content);
         cryptographicKeyItemRepository.save(content1);
+
+        Set<CryptographicKeyItem> items = new HashSet<>();
+        items.add(content1);
+        items.add(content);
+        key.setItems(items);
+        cryptographicKeyRepository.save(key);
     }
 
     @AfterEach
@@ -143,6 +159,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(key.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals(2, dto.getItems().size());
     }
 
     @Test
@@ -176,6 +193,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testRaProfile2");
         request.setDescription("sampleDescription");
+        request.setOwner("owner");
         request.setTokenProfileUuid(tokenProfile.getUuid().toString());
         request.setAttributes(List.of());
 
@@ -186,6 +204,8 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
+        Assertions.assertEquals(dto.getOwner(), request.getOwner());
+        Assertions.assertEquals(2, dto.getItems().size());
     }
 
     @Test
@@ -230,12 +250,9 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         content1.getUuid().toString()
                 )
         );
-        Assertions.assertThrows(
-                NotFoundException.class,
-                () -> cryptographicKeyService.getKey(
-                        tokenInstanceReference.getSecuredParentUuid(),
-                        key.getUuid().toString()
-                )
+        Assertions.assertEquals(
+                KeyState.DESTROYED,
+                content.getState()
         );
     }
 
@@ -248,6 +265,134 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "abfbc322-29e1-11ed-a261-0242ac120002"
                 )
         );
+    }
+
+    @Test
+    public void testDestroyKey_validationError() throws ConnectorException {
+        mockServer.stubFor(WireMock
+                        .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+")));
+        cryptographicKeyService.destroyKey(
+                tokenInstanceReference.getSecuredParentUuid(),
+                key.getUuid().toString(),
+                List.of(
+                        content.getUuid().toString(),
+                        content1.getUuid().toString()
+                )
+        );
+        Assertions.assertThrows(
+                ValidationException.class,
+                () -> cryptographicKeyService.destroyKey(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        key.getUuid().toString(),
+                        List.of(
+                                content.getUuid().toString(),
+                                content1.getUuid().toString()
+                        )
+                )
+        );
+    }
+
+    @Test
+    public void testDestroyKey_parentKeyObject() throws ConnectorException {
+        mockServer.stubFor(WireMock
+                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
+                .willReturn(WireMock.ok()));
+
+        cryptographicKeyService.destroyKey(List.of(key.getUuid().toString()));
+        Assertions.assertEquals(KeyState.DESTROYED, content.getState());
+        Assertions.assertEquals(null, content.getKeyData());
+    }
+
+    @Test
+    public void testCompromiseKey() throws ConnectorException {
+        cryptographicKeyService.compromiseKey(
+                tokenInstanceReference.getSecuredParentUuid(),
+                key.getUuid(),
+                List.of(
+                        content.getUuid().toString(),
+                        content1.getUuid().toString()
+                )
+        );
+        Assertions.assertEquals(
+                KeyState.COMPROMISED,
+                content.getState()
+        );
+    }
+
+    @Test
+    public void testCompromisedKey_notFound() {
+        Assertions.assertThrows(
+                NotFoundException.class,
+                () -> cryptographicKeyService.getKey(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        "abfbc322-29e1-11ed-a261-0242ac120002"
+                )
+        );
+    }
+
+    @Test
+    public void testCompromiseKey_validationError() throws ConnectorException {
+        cryptographicKeyService.compromiseKey(
+                tokenInstanceReference.getSecuredParentUuid(),
+                key.getUuid(),
+                List.of(
+                        content.getUuid().toString(),
+                        content1.getUuid().toString()
+                )
+        );
+        Assertions.assertThrows(
+                ValidationException.class,
+                () -> cryptographicKeyService.compromiseKey(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        key.getUuid(),
+                        List.of(
+                                content.getUuid().toString(),
+                                content1.getUuid().toString()
+                        )
+                )
+        );
+    }
+
+    @Test
+    public void testCompromisedKey_parentKeyObject() {
+        cryptographicKeyService.compromiseKey(List.of(key.getUuid().toString()));
+        Assertions.assertEquals(KeyState.COMPROMISED, content.getState());
+        Assertions.assertNotEquals(null, content.getKeyData());
+        Assertions.assertEquals(KeyState.COMPROMISED, content1.getState());
+        Assertions.assertNotEquals(null, content1.getKeyData());
+    }
+
+    @Test
+    public void testUpdateKeyUsage() throws ConnectorException {
+        UpdateKeyUsageRequestDto request = new UpdateKeyUsageRequestDto();
+        request.setUuids(List.of(content.getUuid(), content1.uuid));
+        request.setUsage(List.of(KeyUsage.ENCRYPT, KeyUsage.DECRYPT));
+        cryptographicKeyService.updateKeyUsages(
+                tokenInstanceReference.getSecuredParentUuid(),
+                key.getUuid(),
+                request
+        );
+        Assertions.assertEquals(
+                2,
+                content.getUsage().size()
+        );
+    }
+
+    @Test
+    public void testUpdateKey() throws NotFoundException {
+        EditKeyRequestDto request = new EditKeyRequestDto();
+        request.setOwner("updated");
+        request.setName("updatedName");
+        request.setDescription("updatedDescription");
+
+        KeyDetailDto dto = cryptographicKeyService.editKey(
+                tokenInstanceReference.getSecuredParentUuid(),
+                key.getUuid(),
+                request
+        );
+        Assertions.assertEquals(request.getName(), key.getName());
+        Assertions.assertEquals(request.getDescription(), key.getDescription());
+        Assertions.assertEquals(request.getOwner(), key.getOwner());
     }
 
     @Test

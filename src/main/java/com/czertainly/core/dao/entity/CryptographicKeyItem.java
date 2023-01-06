@@ -12,6 +12,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -58,6 +59,9 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
 
     @Column(name = "usage")
     private String usage;
+
+    @Column(name = "enabled")
+    private boolean enabled;
 
     public String getName() {
         return name;
@@ -141,6 +145,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public List<KeyUsage> getUsage() {
+        if(usage == null) return new ArrayList<>();
         return Arrays.stream(
                 usage.split(",")
         ).map(
@@ -161,6 +166,14 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
                         Collectors.toList()
                 )
         );
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 
     @Override
@@ -189,6 +202,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setLength(length);
         dto.setFormat(format);
         dto.setState(state);
+        dto.setEnabled(enabled);
         dto.setUsage(getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
         return dto;
     }
