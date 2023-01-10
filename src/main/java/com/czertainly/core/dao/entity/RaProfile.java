@@ -36,7 +36,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     //    @Lob
     @Basic(fetch = FetchType.LAZY)
-    @Column(name = "attributes", length = 4096)
+    @Column(name = "attributes", length = Integer.MAX_VALUE)
     private String attributes;
 
     @ManyToOne
