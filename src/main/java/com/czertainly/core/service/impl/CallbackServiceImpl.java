@@ -118,6 +118,7 @@ public class CallbackServiceImpl implements CallbackService {
                         )
                 );
                 definitions = cryptographicKeyService.listCreateKeyAttributes(
+                        null,
                         SecuredParentUUID.fromString(
                                 resourceUuid
                         ),

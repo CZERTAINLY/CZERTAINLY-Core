@@ -38,6 +38,10 @@ public class SecuredUUID {
         return values.stream().map(SecuredUUID::fromString).collect(Collectors.toList());
     }
 
+    public static List<SecuredUUID> fromUuidList(List<UUID> values) {
+        return values.stream().map(SecuredUUID::fromUUID).collect(Collectors.toList());
+    }
+
     public UUID getValue() {
         return value;
     }

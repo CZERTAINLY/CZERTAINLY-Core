@@ -194,11 +194,11 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         request.setName("testRaProfile2");
         request.setDescription("sampleDescription");
         request.setOwner("owner");
-        request.setTokenProfileUuid(tokenProfile.getUuid().toString());
         request.setAttributes(List.of());
 
         KeyDetailDto dto = cryptographicKeyService.createKey(
-                tokenInstanceReference.getSecuredParentUuid(),
+                tokenInstanceReference.getUuid(),
+                tokenProfile.getSecuredParentUuid(),
                 KeyRequestType.KEY_PAIR,
                 request
         );
@@ -214,7 +214,8 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicKeyService.createKey(
-                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenInstanceReference.getUuid(),
+                        tokenProfile.getSecuredParentUuid(),
                         KeyRequestType.KEY_PAIR,
                         request
                 )
@@ -229,7 +230,8 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 AlreadyExistException.class,
                 () -> cryptographicKeyService.createKey(
-                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenInstanceReference.getUuid(),
+                        tokenProfile.getSecuredParentUuid(),
                         KeyRequestType.KEY_PAIR,
                         request
                 )
@@ -270,7 +272,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     public void testDestroyKey_validationError() throws ConnectorException {
         mockServer.stubFor(WireMock
-                        .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+")));
+                .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+")));
         cryptographicKeyService.destroyKey(
                 tokenInstanceReference.getSecuredParentUuid(),
                 key.getUuid().toString(),

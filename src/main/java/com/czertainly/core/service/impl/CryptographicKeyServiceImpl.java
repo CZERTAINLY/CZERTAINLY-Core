@@ -154,8 +154,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
-    public KeyDetailDto createKey(SecuredParentUUID tokenInstanceUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
-        logger.error("Creating a new key for Token profile {}. Input: {}", request.getTokenProfileUuid(), request);
+    public KeyDetailDto createKey(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+        logger.error("Creating a new key for Token profile {}. Input: {}", tokenProfileUuid, request);
         if (cryptographicKeyRepository.findByName(request.getName()).isPresent()) {
             logger.error("Key with same name already exists");
             throw new AlreadyExistException("Existing Key with same already exists");
@@ -164,13 +164,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             logger.error("Name is empty. Cannot create key without name");
             throw new ValidationException("Name is required for creating a new Key");
         }
-        TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(tokenInstanceUuid);
+        TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(SecuredUUID.fromUUID(tokenInstanceUuid));
         TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
-                        SecuredUUID.fromString(request.getTokenProfileUuid()))
+                        tokenProfileUuid)
                 .orElseThrow(
                         () -> new NotFoundException(
                                 TokenInstanceReference.class,
-                                request.getTokenProfileUuid()
+                                tokenProfileUuid
                         )
                 );
         TokenProfileDetailDto dto = tokenProfile.mapToDetailDto();
@@ -239,6 +239,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public KeyDetailDto editKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, EditKeyRequestDto request) throws NotFoundException {
         logger.info("Updating the key with uuid {}. Request: {}", uuid, request);
         CryptographicKey key = getCryptographicKeyEntity(uuid);
@@ -270,26 +272,40 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.DISABLE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void disableKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException, ValidationException {
         logger.info("Request to disable the key with UUID {} on token instance {}", uuid, tokenInstanceUuid);
 
-        for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
-            disableKeyItem(UUID.fromString(keyUuid));
+        if (keyUuids != null && !keyUuids.isEmpty()) {
+            for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
+                disableKeyItem(UUID.fromString(keyUuid));
+            }
+        } else {
+            disableKey(List.of(uuid.toString()));
         }
         logger.info("Key disabled: {}", uuid);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.ENABLE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void enableKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException, ValidationException {
         logger.info("Request to enable the key with UUID {} on token instance {}", uuid, tokenInstanceUuid);
 
-        for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
-            enableKeyItem(UUID.fromString(keyUuid));
+        if (keyUuids != null && !keyUuids.isEmpty()) {
+            for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
+                enableKeyItem(UUID.fromString(keyUuid));
+            }
+        } else {
+            enableKey(List.of(uuid.toString()));
         }
         logger.info("Key disabled: {}", uuid);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.DISABLE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void disableKey(List<String> uuids) {
         logger.info("Request to disable the key with UUID {} ", uuids);
         for (String keyUuid : new LinkedHashSet<>(uuids)) {
@@ -306,6 +322,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.ENABLE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void enableKey(List<String> uuids) {
         logger.info("Request to enable the key with UUID {} ", uuids);
         for (String keyUuid : new LinkedHashSet<>(uuids)) {
@@ -322,32 +340,39 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void deleteKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException {
         logger.info("Request to deleted the key with UUID {} on token instance {}", uuid, tokenInstanceUuid);
         CryptographicKey key = getCryptographicKeyEntity(uuid);
-
-        for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
-            CryptographicKeyItem content = cryptographicKeyItemRepository
-                    .findByUuid(UUID.fromString(keyUuid))
-                    .orElseThrow(
-                            () -> new NotFoundException(
-                                    "Sub key with the UUID " + keyUuid + " is not found",
-                                    CryptographicKeyItem.class
-                            )
-                    );
-            attributeService.deleteAttributeContent(
-                    key.getUuid(),
-                    Resource.CRYPTOGRAPHIC_KEY
-            );
-            cryptographicKeyItemRepository.delete(content);
-        }
-        if (key.getItems().size() == 0) {
-            cryptographicKeyRepository.delete(key);
+        if (keyUuids != null && !keyUuids.isEmpty()) {
+            for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
+                CryptographicKeyItem content = cryptographicKeyItemRepository
+                        .findByUuid(UUID.fromString(keyUuid))
+                        .orElseThrow(
+                                () -> new NotFoundException(
+                                        "Sub key with the UUID " + keyUuid + " is not found",
+                                        CryptographicKeyItem.class
+                                )
+                        );
+                attributeService.deleteAttributeContent(
+                        key.getUuid(),
+                        Resource.CRYPTOGRAPHIC_KEY
+                );
+                cryptographicKeyItemRepository.delete(content);
+            }
+            if (key.getItems().size() == 0) {
+                cryptographicKeyRepository.delete(key);
+            }
+        } else {
+            deleteKey(List.of(uuid.toString()));
         }
         logger.info("Key deleted: {}", uuid);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void deleteKey(List<String> uuids) {
         logger.info("Request to deleted the keys with UUIDs {}", uuids);
         for (String uuid : uuids) {
@@ -361,9 +386,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     );
                     cryptographicKeyItemRepository.delete(content);
                 }
-                if (key.getItems().size() == 0) {
-                    cryptographicKeyRepository.delete(key);
-                }
+                cryptographicKeyRepository.delete(key);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }
@@ -377,17 +400,23 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     public void destroyKey(SecuredParentUUID tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException {
         logger.info("Request to destroy the key with UUID {} on token profile {}", uuid, tokenInstanceUuid);
         CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
-        for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
-            destroyKeyItem(
-                    UUID.fromString(keyUuid),
-                    key.getTokenInstanceReference().getTokenInstanceUuid(),
-                    key.getTokenInstanceReference().getConnector().mapToDto()
-            );
+        if (keyUuids != null && !keyUuids.isEmpty()) {
+            for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
+                destroyKeyItem(
+                        UUID.fromString(keyUuid),
+                        key.getTokenInstanceReference().getTokenInstanceUuid(),
+                        key.getTokenInstanceReference().getConnector().mapToDto()
+                );
+            }
+        } else {
+            destroyKey(List.of(uuid));
         }
         logger.info("Key destroyed: {}", uuid);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void destroyKey(List<String> uuids) throws ConnectorException {
         logger.info("Request to destroy the key with UUIDs {}", uuids);
         // Iterate through the keys
@@ -395,20 +424,25 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
 
             for (CryptographicKeyItem content : key.getItems()) {
-                destroyKeyItem(
-                        content.getUuid(),
-                        key.getTokenInstanceReference().getTokenInstanceUuid(),
-                        key.getTokenInstanceReference().getConnector().mapToDto()
-                );
+                try {
+                    destroyKeyItem(
+                            content.getUuid(),
+                            key.getTokenInstanceReference().getTokenInstanceUuid(),
+                            key.getTokenInstanceReference().getConnector().mapToDto()
+                    );
+                } catch (Exception e) {
+                    logger.warn(e.getLocalizedMessage());
+                }
             }
+
         }
         logger.info("Key destroyed: {}", uuids);
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listCreateKeyAttributes(SecuredUUID tokenProfileUuid, KeyRequestType type) throws ConnectorException {
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.DETAIL)
+    public List<BaseAttribute> listCreateKeyAttributes(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type) throws ConnectorException {
         logger.info("Request to list the attributes for creating a new key on Token profile: {}", tokenProfileUuid);
         TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
                         tokenProfileUuid.getValue())
@@ -484,16 +518,24 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void compromiseKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException {
         logger.info("Request to compromise the key with UUID {} on token instance {}", uuid, tokenInstanceUuid);
 
-        for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
-            compromiseKeyItem(UUID.fromString(keyUuid));
+        if (keyUuids != null && !keyUuids.isEmpty()) {
+            for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
+                compromiseKeyItem(UUID.fromString(keyUuid));
+            }
+        } else {
+            compromiseKey(List.of(uuid.toString()));
         }
         logger.info("Key marked as compromised: {}", uuid);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void compromiseKey(List<String> uuids) {
         logger.info("Request to mark the key as compromised with UUIDs {}", uuids);
         // Iterate through the keys
@@ -512,6 +554,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void updateKeyUsages(BulkKeyUsageRequestDto request) {
         logger.info("Request to mark the key as compromised with UUIDs {}", request.getUuids());
         // Iterate through the keys
@@ -520,7 +564,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 CryptographicKey key = getCryptographicKeyEntity(uuid);
 
                 for (CryptographicKeyItem content : key.getItems()) {
-                    compromiseKeyItem(content.getUuid());
+                    updateKeyUsages(content.getUuid(), request.getUsage());
                 }
             } catch (Exception e) {
                 logger.warn(e.getMessage());
@@ -530,11 +574,19 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, UUID uuid, UpdateKeyUsageRequestDto request) throws NotFoundException {
         logger.info("Request to update the key usages with UUID {} on token instance {}", uuid, tokenInstanceUuid);
-
-        for (UUID keyUuid : new LinkedHashSet<>(request.getUuids())) {
-            updateKeyUsages(keyUuid, request.getUsage());
+        if (request.getUuids() != null && !request.getUuids().isEmpty()) {
+            for (UUID keyUuid : new LinkedHashSet<>(request.getUuids())) {
+                updateKeyUsages(keyUuid, request.getUsage());
+            }
+        } else {
+            BulkKeyUsageRequestDto requestDto = new BulkKeyUsageRequestDto();
+            requestDto.setUsage(request.getUsage());
+            requestDto.setUuids(List.of(uuid));
+            updateKeyUsages(requestDto);
         }
         logger.info("Key disabled: {}", uuid);
     }
@@ -607,7 +659,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setCryptographicKey(cryptographicKey);
         content.setType(keyData.getType());
         content.setCryptographicAlgorithm(keyData.getAlgorithm());
-        content.setKeyData(content.getKeyData());
+        content.setKeyData(keyData.getFormat(), keyData.getValue());
         content.setFormat(keyData.getFormat());
         content.setLength(keyData.getLength());
         content.setKeyReferenceUuid(UUID.fromString(referenceUuid));
@@ -713,14 +765,14 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         );
         children.add(createKeyContent(
                 response.getPrivateKeyData().getUuid(),
-                response.getPrivateKeyData().getUuid(),
+                response.getPrivateKeyData().getName(),
                 response.getPrivateKeyData().getKeyData(),
                 key,
                 connector.getUuid()
         ));
         children.add(createKeyContent(
                 response.getPublicKeyData().getUuid(),
-                response.getPrivateKeyData().getUuid(),
+                response.getPrivateKeyData().getName(),
                 response.getPublicKeyData().getKeyData(),
                 key,
                 connector.getUuid()
@@ -747,7 +799,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 Set.of(
                         createKeyContent(
                                 response.getUuid(),
-                                response.getUuid(),
+                                response.getName(),
                                 response.getKeyData(),
                                 key,
                                 connector.getUuid()
@@ -833,7 +885,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if (content.getState().equals(KeyState.DESTROYED)) {
             throw new ValidationException(
                     ValidationError.create(
-                            "Key is already destroyed"
+                            "Key " + uuid.toString() + " is already destroyed"
                     )
             );
         }

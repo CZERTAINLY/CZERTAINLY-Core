@@ -4,16 +4,22 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
+import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
+import com.czertainly.api.model.client.cryptography.tokenprofile.BulkTokenProfileKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import org.springframework.security.access.annotation.Secured;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface TokenProfileService extends AccessControlExtensionService {
     /**
@@ -101,5 +107,20 @@ public interface TokenProfileService extends AccessControlExtensionService {
      * @param uuids UUIDs of the token profile
      */
     void enableTokenProfile(List<SecuredUUID> uuids);
+
+    /**
+     * Function to update the usages for the key
+     * @param uuids UUIDs of the token profiles for the key updates
+     * @param usages Usages of the keys in the token profile
+     */
+    void updateKeyUsages(List<SecuredUUID> uuids, List<KeyUsage> usages);
+
+    /**
+     * Update the key usages for multiple keys and its items
+     * @param tokenInstanceUuid UUID of the token instance
+     * @param tokenProfileUuid Token Profile UUID
+     * @param usages Usages of the key
+     */
+    void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, List<KeyUsage> usages) throws NotFoundException;
 
 }

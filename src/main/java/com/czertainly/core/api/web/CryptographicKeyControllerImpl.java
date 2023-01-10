@@ -13,12 +13,13 @@ import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
-import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
-import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CryptographicKeyService;
+import com.czertainly.core.util.converter.KeyRequestTypeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -33,6 +34,11 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     @Autowired
     public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
         this.cryptographicKeyService = cryptographicKeyService;
+    }
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(KeyRequestType.class, new KeyRequestTypeConverter());
     }
 
 
@@ -50,9 +56,10 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public KeyDetailDto createKey(String tokenInstanceUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public KeyDetailDto createKey(String tokenInstanceUuid, String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         return cryptographicKeyService.createKey(
-                SecuredParentUUID.fromString(tokenInstanceUuid),
+                UUID.fromString(tokenInstanceUuid),
+                SecuredParentUUID.fromString(tokenProfileUuid),
                 type,
                 request
         );
@@ -157,16 +164,17 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void updateKeysUsages(BulkKeyUsageRequestDto request){
+    public void updateKeysUsages(BulkKeyUsageRequestDto request) {
         cryptographicKeyService.updateKeyUsages(
                 request
         );
     }
 
     @Override
-    public List<BaseAttribute> listCreateKeyAttributes(String tokenInstanceUuid, KeyRequestType type) throws ConnectorException {
+    public List<BaseAttribute> listCreateKeyAttributes(String tokenInstanceUuid, String tokenProfileUuid, KeyRequestType type) throws ConnectorException {
         return cryptographicKeyService.listCreateKeyAttributes(
-                SecuredParentUUID.fromString(tokenInstanceUuid),
+                UUID.fromString(tokenInstanceUuid),
+                SecuredParentUUID.fromString(tokenProfileUuid),
                 type
         );
     }

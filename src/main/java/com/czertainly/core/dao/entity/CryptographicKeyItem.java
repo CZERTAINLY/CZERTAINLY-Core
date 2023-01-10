@@ -3,9 +3,11 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.connector.cryptography.key.value.KeyValue;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
+import com.czertainly.core.util.CryptographicHelper;
 import com.czertainly.core.util.DtoMapper;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -19,7 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
-@Table(name = "cryptographic_key_items")
+@Table(name = "cryptographic_key_item")
 public class CryptographicKeyItem extends UniquelyIdentified implements Serializable, DtoMapper<KeyItemDto> {
 
     @Column(name = "name")
@@ -39,7 +41,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Enumerated(EnumType.STRING)
     private KeyType type;
 
-    @Column(name = "cryptographicAlgorithm")
+    @Column(name = "cryptographic_algorithm")
     @Enumerated(EnumType.STRING)
     private CryptographicAlgorithm cryptographicAlgorithm;
 
@@ -120,6 +122,10 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         this.keyData = keyData;
     }
 
+    public void setKeyData(KeyFormat keyFormat, KeyValue value) {
+        this.keyData = CryptographicHelper.serializeKeyValue(keyFormat, value);
+    }
+
     public int getLength() {
         return length;
     }
@@ -145,7 +151,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public List<KeyUsage> getUsage() {
-        if(usage == null) return new ArrayList<>();
+        if (usage == null) return new ArrayList<>();
         return Arrays.stream(
                 usage.split(",")
         ).map(

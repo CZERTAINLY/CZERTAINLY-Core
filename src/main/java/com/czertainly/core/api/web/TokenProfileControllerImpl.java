@@ -5,8 +5,12 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.TokenProfileController;
+import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
+import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
+import com.czertainly.api.model.client.cryptography.tokenprofile.BulkTokenProfileKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
+import com.czertainly.api.model.client.cryptography.tokenprofile.TokenProfileKeyUsageRequestDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -21,6 +25,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 public class TokenProfileControllerImpl implements TokenProfileController {
@@ -88,5 +93,22 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     @Override
     public void bulkEnableRaProfile(List<String> uuids) {
         tokenProfileService.enableTokenProfile(SecuredUUID.fromList(uuids));
+    }
+
+    @Override
+    public void updateKeyUsages(String tokenInstanceUuid, String tokenProfileUuid, TokenProfileKeyUsageRequestDto request) throws NotFoundException, ValidationException {
+        tokenProfileService.updateKeyUsages(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                SecuredUUID.fromString(tokenProfileUuid),
+                request.getUsage()
+        );
+    }
+
+    @Override
+    public void updateKeysUsages(BulkTokenProfileKeyUsageRequestDto request){
+        tokenProfileService.updateKeyUsages(
+                SecuredUUID.fromUuidList(request.getUuids()),
+                request.getUsage()
+        );
     }
 }

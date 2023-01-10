@@ -15,9 +15,12 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.dao.entity.CryptographicKey;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
@@ -39,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -107,9 +111,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public TokenProfileDetailDto getTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
         logger.info("Getting token profile with uuid: {}", uuid);
-        TokenProfile tokenProfile = tokenProfileRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
-
+        TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         TokenProfileDetailDto dto = tokenProfile.mapToDetailDto();
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(tokenProfile.getUuid(), Resource.TOKEN_PROFILE));
         logger.debug("Token profile detail: {}", dto);
@@ -150,8 +152,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
     public TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException {
         logger.info("Editing token profile with uuid: {}", uuid);
-        TokenProfile tokenProfile = tokenProfileRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
+        TokenProfile tokenProfile = getTokenProfileEntity(uuid);
 
         TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, tokenInstanceUuid));
@@ -246,6 +247,33 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    public void updateKeyUsages(List<SecuredUUID> uuids, List<KeyUsage> usages) {
+        logger.info("Request to update the key usages for {} with usages {}", uuids, usages);
+        // Iterate through the keys
+        for (SecuredUUID uuid : uuids) {
+            try {
+                TokenProfile tokenProfile = getTokenProfileEntity(uuid);
+                tokenProfile.setUsage(usages);
+                tokenProfileRepository.save(tokenProfile);
+            } catch (Exception e) {
+                logger.warn(e.getMessage());
+            }
+        }
+        logger.info("Key Usages Updated: {}", uuids);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    public void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, List<KeyUsage> usages) throws NotFoundException {
+        TokenProfile tokenProfile = getTokenProfileEntity(tokenProfileUuid);
+        tokenProfile.setUsage(usages);
+        tokenProfileRepository.save(tokenProfile);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         logger.info("Listing token profiles with filter: {}", filter);
@@ -306,8 +334,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     //TODO - Check and delete the other associated objects
     private void deleteProfileInternal(SecuredUUID uuid, boolean throwWhenAssociated) throws NotFoundException {
-        TokenProfile tokenProfile = tokenProfileRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
+        TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() == null) {
             throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use other API"));
         }
@@ -316,16 +343,19 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     }
 
     private void disableProfileInternal(SecuredUUID uuid) throws NotFoundException {
-        TokenProfile tokenProfile = tokenProfileRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
+        TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         tokenProfile.setEnabled(false);
         tokenProfileRepository.save(tokenProfile);
     }
 
     private void enableProfileInternal(SecuredUUID uuid) throws NotFoundException {
-        TokenProfile tokenProfile = tokenProfileRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
+        TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         tokenProfile.setEnabled(true);
         tokenProfileRepository.save(tokenProfile);
+    }
+
+    private TokenProfile getTokenProfileEntity(SecuredUUID uuid) throws NotFoundException {
+        return tokenProfileRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
     }
 }

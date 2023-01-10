@@ -25,6 +25,7 @@ CREATE TABLE token_profile (
 	token_instance_ref_uuid UUID NOT NULL,
 	attributes TEXT NULL DEFAULT NULL,
 	enabled BOOLEAN NULL DEFAULT NULL,
+	usage VARCHAR NULL DEFAULT NULL,
 	PRIMARY KEY (uuid)
 );
 
@@ -39,20 +40,21 @@ CREATE TABLE cryptographic_key (
 	description VARCHAR NULL DEFAULT NULL,
 	attributes TEXT NULL DEFAULT NULL,
 	owner VARCHAR NULL,
-	group_uuid UUID NOT NULL,
+	group_uuid UUID NULL DEFAULT NULL,
 	PRIMARY KEY (uuid)
 );
 
-CREATE TABLE cryptographic_key_items (
+CREATE TABLE cryptographic_key_item (
 	uuid UUID NOT NULL,
 	name VARCHAR NOT NULL,
 	type VARCHAR NOT NULL,
 	key_reference_uuid UUID NOT NULL,
-	cryptographicAlgorithm VARCHAR NULL DEFAULT NULL,
+	cryptographic_key_uuid UUID NOT NULL,
+	cryptographic_algorithm VARCHAR NULL DEFAULT NULL,
 	format VARCHAR NULL,
-	keyData VARCHAR NULL,
+	key_data VARCHAR NULL,
 	state VARCHAR NOT NULL,
-	usage VARCHAR NOT NULL,
+	usage VARCHAR NULL DEFAULT NULL,
 	enabled BOOLEAN NOT NULL,
 	length INTEGER NULL,
 	PRIMARY KEY (uuid)
@@ -83,9 +85,9 @@ alter table if exists cryptographic_key
     foreign key (group_uuid)
     references certificate_group;
 
-alter table if exists cryptographic_key_content
+alter table if exists cryptographic_key_item
     add constraint cryptographic_key_to_key_content_key
-    foreign key (key_reference_uuid)
+    foreign key (cryptographic_key_uuid)
     references cryptographic_key;
 
 

@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.service.model.Securable;
@@ -17,7 +18,11 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 
 @Entity
@@ -46,7 +51,9 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     @Column(name = "enabled")
     private Boolean enabled;
 
-    @Override
+    @Column(name = "usage")
+    private String usage;
+
     public String getName() {
         return name;
     }
@@ -104,6 +111,30 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
         this.enabled = enabled;
     }
 
+    public List<KeyUsage> getUsage() {
+        if(usage == null) return new ArrayList<>();
+        return Arrays.stream(
+                usage.split(",")
+        ).map(
+                i -> KeyUsage.valueOf(
+                        Integer.valueOf(i)
+                )
+        ).collect(Collectors.toList());
+    }
+
+    public void setUsage(List<KeyUsage> usage) {
+        this.usage = String.join(
+                ",",
+                usage.stream().map(
+                        i -> String.valueOf(
+                                i.getId()
+                        )
+                ).collect(
+                        Collectors.toList()
+                )
+        );
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -141,6 +172,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setTokenInstanceStatus(tokenInstanceReference.getStatus());
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class)));
+        dto.setUsages(getUsage());
         // Custom Attributes and Metadata should be set in the service
         return dto;
     }

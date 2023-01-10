@@ -49,7 +49,8 @@ public interface CryptographicKeyService {
      * @throws ConnectorException    when there are issues with connector communication
      */
     KeyDetailDto createKey(
-            SecuredParentUUID tokenInstanceUuid,
+            UUID tokenInstanceUuid,
+            SecuredParentUUID tokenProfileUuid,
             KeyRequestType type,
             KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
 
@@ -167,7 +168,8 @@ public interface CryptographicKeyService {
      * @throws ConnectorException when there are issues with connector communication
      */
     List<BaseAttribute> listCreateKeyAttributes(
-            SecuredUUID tokenInstanceUuid,
+            UUID tokenInstanceUuid,
+            SecuredParentUUID tokenProfileUuid,
             KeyRequestType type) throws ConnectorException;
 
     /**
