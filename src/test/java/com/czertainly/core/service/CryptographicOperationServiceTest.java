@@ -7,22 +7,15 @@ import com.czertainly.api.model.client.cryptography.operations.CipherDataRequest
 import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
 import com.czertainly.api.model.client.cryptography.operations.VerifyDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
+import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
 import com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.Connector2FunctionGroup;
-import com.czertainly.core.dao.entity.CryptographicKey;
-import com.czertainly.core.dao.entity.FunctionGroup;
-import com.czertainly.core.dao.entity.TokenInstanceReference;
-import com.czertainly.core.dao.entity.TokenProfile;
-import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.CryptographicKeyRepository;
-import com.czertainly.core.dao.repository.FunctionGroupRepository;
-import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.TokenProfileRepository;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -33,7 +26,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
@@ -61,8 +56,13 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     @Autowired
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
+    @Autowired
+    private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+
     private TokenInstanceReference tokenInstanceReference;
     private TokenProfile tokenProfile;
+    private CryptographicKeyItem content;
+    private CryptographicKeyItem content1;
     private Connector connector;
     private CryptographicKey key;
     private WireMockServer mockServer;
@@ -118,6 +118,41 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         key.setTokenProfile(tokenProfile);
         key.setTokenInstanceReference(tokenInstanceReference);
         cryptographicKeyRepository.save(key);
+
+        content = new CryptographicKeyItem();
+        content.setLength(1024);
+        content.setCryptographicKey(key);
+        content.setCryptographicKeyUuid(key.getUuid());
+        content.setType(KeyType.PRIVATE_KEY);
+        content.setKeyData("some/encrypted/data");
+        content.setFormat(KeyFormat.PRKI);
+        content.setState(KeyState.ACTIVE);
+        content.setEnabled(true);
+        content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        cryptographicKeyItemRepository.save(content);
+
+        content1 = new CryptographicKeyItem();
+        content1.setLength(1024);
+        content1.setCryptographicKey(key);
+        content1.setCryptographicKeyUuid(key.getUuid());
+        content1.setType(KeyType.PUBLIC_KEY);
+        content1.setKeyData("some/encrypted/data");
+        content1.setFormat(KeyFormat.SPKI);
+        content1.setState(KeyState.ACTIVE);
+        content1.setEnabled(true);
+        content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        cryptographicKeyItemRepository.save(content1);
+
+        content.setKeyReferenceUuid(content.getUuid());
+        content1.setKeyReferenceUuid(content1.getUuid());
+        cryptographicKeyItemRepository.save(content);
+        cryptographicKeyItemRepository.save(content1);
+
+        Set<CryptographicKeyItem> items = new HashSet<>();
+        items.add(content1);
+        items.add(content);
+        key.setItems(items);
+        cryptographicKeyRepository.save(key);
     }
 
     @AfterEach
@@ -139,6 +174,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
+                content1.getUuid(),
                 CryptographicAlgorithm.RSA);
     }
 
@@ -150,6 +186,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
+                        content1.getUuid(),
                         CryptographicAlgorithm.RSA
                 )
         );
@@ -169,6 +206,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
+                content1.getUuid(),
                 CryptographicAlgorithm.RSA
         );
     }
@@ -181,6 +219,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
+                        content1.getUuid(),
                         CryptographicAlgorithm.RSA
                 )
         );
@@ -199,7 +238,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         cryptographicOperationService.listRandomAttributes(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
-                key.getUuid()
+                key.getUuid(),
+                content1.getUuid()
         );
     }
 
@@ -210,7 +250,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 () -> cryptographicOperationService.listRandomAttributes(
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
-                        tokenInstanceReference.getUuid()
+                        key.getUuid(),
+                        content1.getUuid()
                 )
         );
     }
@@ -237,7 +278,9 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
-                requestDto);
+                content1.getUuid(),
+                requestDto
+        );
     }
 
     @Test
@@ -248,6 +291,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
+                        content1.getUuid(),
                         new CipherDataRequestDto()
                 )
         );
@@ -261,6 +305,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         key.getUuid(),
+                        content1.getUuid(),
                         new CipherDataRequestDto()
                 )
         );
@@ -288,6 +333,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
+                content1.getUuid(),
                 requestDto
         );
     }
@@ -300,6 +346,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
+                        content1.getUuid(),
                         new CipherDataRequestDto()
                 )
         );
@@ -313,6 +360,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         key.getUuid(),
+                        content1.getUuid(),
                         new CipherDataRequestDto()
                 )
         );
@@ -336,6 +384,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
+                content1.getUuid(),
                 requestDto
         );
     }
@@ -348,6 +397,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
+                        content1.getUuid(),
                         new SignDataRequestDto()
                 )
         );
@@ -361,6 +411,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         key.getUuid(),
+                        content1.getUuid(),
                         new SignDataRequestDto()
                 )
         );
@@ -385,6 +436,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
+                content1.getUuid(),
                 requestDto
         );
     }
@@ -396,7 +448,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 () -> cryptographicOperationService.verifyData(
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
-                        tokenInstanceReference.getUuid(),
+                        key.getUuid(),
+                        content1.getUuid(),
                         new VerifyDataRequestDto()
                 )
         );
@@ -410,6 +463,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         key.getUuid(),
+                        content1.getUuid(),
                         new VerifyDataRequestDto()
                 )
         );

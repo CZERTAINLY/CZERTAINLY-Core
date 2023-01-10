@@ -58,7 +58,7 @@ public class AttributeServiceImpl implements AttributeService {
     private static final Logger logger = LoggerFactory.getLogger(AttributeServiceImpl.class);
     private final List<Resource> CUSTOM_ATTRIBUTE_COMPLIANT_RESOURCES = List.of(
             Resource.CERTIFICATE,
-            Resource.CERTIFICATE_GROUP,
+            Resource.GROUP,
             Resource.RA_PROFILE,
             Resource.ACME_PROFILE,
             Resource.COMPLIANCE_PROFILE,

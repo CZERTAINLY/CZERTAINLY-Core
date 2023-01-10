@@ -24,6 +24,8 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
+import com.czertainly.api.model.core.cryptography.key.KeyEvent;
+import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
@@ -42,6 +44,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.CryptographicKeyEventHistoryService;
 import com.czertainly.core.service.CryptographicKeyService;
 import com.czertainly.core.service.MetadataService;
 import com.czertainly.core.service.TokenInstanceService;
@@ -68,6 +71,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private MetadataService metadataService;
     private KeyManagementApiClient keyManagementApiClient;
     private TokenInstanceService tokenInstanceService;
+    private CryptographicKeyEventHistoryService keyEventHistoryService;
     // --------------------------------------------------------------------------------
     // Repositories
     // --------------------------------------------------------------------------------
@@ -93,6 +97,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Autowired
     public void setTokenInstanceService(TokenInstanceService tokenInstanceService) {
         this.tokenInstanceService = tokenInstanceService;
+    }
+
+    @Autowired
+    public void setKeyEventHistoryService(CryptographicKeyEventHistoryService keyEventHistoryService) {
+        this.keyEventHistoryService = keyEventHistoryService;
+    }
+
+    @Autowired
+    public void setCryptographicKeyItemRepository(CryptographicKeyItemRepository cryptographicKeyItemRepository) {
+        this.cryptographicKeyItemRepository = cryptographicKeyItemRepository;
     }
 
     @Autowired
@@ -667,6 +681,17 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setEnabled(false);
         cryptographicKeyItemRepository.save(content);
 
+        keyEventHistoryService.addEventHistory(
+                KeyEvent.CREATE,
+                KeyEventStatus.SUCCESS,
+                "Key Created from Token Profile "
+                        + cryptographicKey.getTokenProfile().getName()
+                        + " on Token Instance "
+                        + cryptographicKey.getTokenInstanceReference().getName(),
+                null,
+                content.getUuid()
+        );
+
         metadataService.createMetadataDefinitions(
                 connectorUuid,
                 keyData.getMetadata()
@@ -680,6 +705,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 Resource.CRYPTOGRAPHIC_KEY,
                 Resource.CRYPTOGRAPHIC_KEY
         );
+
         return content;
     }
 
@@ -818,6 +844,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private void enableKeyItem(UUID uuid) throws NotFoundException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
         if (content.isEnabled()) {
+            keyEventHistoryService.addEventHistory(KeyEvent.ENABLE, KeyEventStatus.FAILED,
+                    "Key is already enabled", null, content);
             throw new ValidationException(
                     ValidationError.create(
                             "Key is already enabled"
@@ -826,6 +854,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         }
         content.setEnabled(true);
         cryptographicKeyItemRepository.save(content);
+        keyEventHistoryService.addEventHistory(KeyEvent.ENABLE, KeyEventStatus.SUCCESS,
+                "Enable Key", null, content);
     }
 
     /**
@@ -836,6 +866,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private void disableKeyItem(UUID uuid) throws NotFoundException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
         if (!content.isEnabled()) {
+            keyEventHistoryService.addEventHistory(KeyEvent.DISABLE, KeyEventStatus.FAILED,
+                    "Key is already disabled", null, content);
             throw new ValidationException(
                     ValidationError.create(
                             "Key is already disabled"
@@ -844,6 +876,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         }
         content.setEnabled(false);
         cryptographicKeyItemRepository.save(content);
+        keyEventHistoryService.addEventHistory(KeyEvent.DISABLE, KeyEventStatus.SUCCESS,
+                "Disable Key", null, content);
     }
 
     /**
@@ -854,14 +888,18 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private void compromiseKeyItem(UUID uuid) throws NotFoundException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
         if (content.getState().equals(KeyState.COMPROMISED) || content.getState().equals(KeyState.DESTROYED)) {
+            keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.FAILED,
+                    "Key is already " + content.getState() , null, content);
             throw new ValidationException(
                     ValidationError.create(
-                            "Invalid Key state. Cannot compromise key since it is already {}" + content.getState()
+                            "Invalid Key state. Cannot compromise key since it is already " + content.getState()
                     )
             );
         }
         content.setState(KeyState.COMPROMISED);
         cryptographicKeyItemRepository.save(content);
+        keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.SUCCESS,
+                "Compromised Key", null, content);
     }
 
     /**
@@ -871,8 +909,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      */
     private void updateKeyUsages(UUID uuid, List<KeyUsage> usages) throws NotFoundException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
+        String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
         content.setUsage(usages);
         cryptographicKeyItemRepository.save(content);
+        String newUsage = String.join(", ", usages.stream().map(KeyUsage::getName).collect(Collectors.toList()));
+        keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
+                "Update Key Usage from" + oldUsage + " to " + newUsage, null, content);
     }
 
     /**
@@ -883,6 +925,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private void destroyKeyItem(UUID uuid, String tokenInstanceUuid, ConnectorDto connectorDto) throws ConnectorException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
         if (content.getState().equals(KeyState.DESTROYED)) {
+            keyEventHistoryService.addEventHistory(KeyEvent.DESTROY, KeyEventStatus.FAILED,
+                    "Key is already destroyed", null, content);
             throw new ValidationException(
                     ValidationError.create(
                             "Key " + uuid.toString() + " is already destroyed"
@@ -898,6 +942,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setKeyData(null);
         content.setState(KeyState.DESTROYED);
         cryptographicKeyItemRepository.save(content);
+        keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.SUCCESS,
+                "Destroy Key", null, content);
     }
 
     private CryptographicKeyItem getCryptographicKeyItem(UUID uuid) throws NotFoundException {

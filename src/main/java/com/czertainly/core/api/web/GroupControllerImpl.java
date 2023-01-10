@@ -29,7 +29,7 @@ public class GroupControllerImpl implements GroupController {
     private GroupServiceImpl groupService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.CERTIFICATE_GROUP)
+    @AuthEndpoint(resourceName = Resource.GROUP)
     public List<GroupDto> listGroups() {
         return groupService.listGroups(SecurityFilter.create());
     }

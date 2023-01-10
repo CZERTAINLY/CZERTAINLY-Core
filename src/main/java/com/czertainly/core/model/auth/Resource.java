@@ -29,7 +29,7 @@ public enum Resource {
     AUTHORITY("authorities"),
     RA_PROFILE("raProfiles"),
     CERTIFICATE("certificates"),
-    CERTIFICATE_GROUP("certificateGroups"),
+    GROUP("groups"),
     COMPLIANCE_PROFILE("complianceProfiles"),
     DISCOVERY("discoveries"),
 

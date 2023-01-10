@@ -60,6 +60,26 @@ CREATE TABLE cryptographic_key_item (
 	PRIMARY KEY (uuid)
 );
 
+CREATE TABLE key_event_history (
+	"uuid" UUID NOT NULL,
+	"i_cre" TIMESTAMP NOT NULL,
+	"i_upd" TIMESTAMP NOT NULL,
+	"i_author" VARCHAR NOT NULL,
+	"event" VARCHAR NOT NULL,
+	"status" VARCHAR NOT NULL,
+	"message" VARCHAR NOT NULL,
+	"additional_information" VARCHAR NULL DEFAULT NULL,
+	"key_uuid" UUID NOT NULL,
+	PRIMARY KEY ("uuid")
+)
+;
+
+alter table if exists key_event_history
+    add constraint key_history_to_cryptographic_key_item
+    foreign key (key_uuid)
+    references cryptographic_key_item
+    ON UPDATE NO ACTION ON DELETE CASCADE;
+
 alter table if exists token_instance_reference
     add constraint token_instance_reference_to_connector_key
     foreign key (connector_uuid)
@@ -90,7 +110,6 @@ alter table if exists cryptographic_key_item
     foreign key (cryptographic_key_uuid)
     references cryptographic_key;
 
-
-
+alter table certificate_group rename to certificate_key_group;
 
 --TODO Add End points and function groups into the database for the Cryptographic Provider

@@ -37,12 +37,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
+            String keyItemUuid,
             CryptographicAlgorithm algorithm
     ) throws ConnectorException {
         return cryptographicOperationService.listCipherAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
                 algorithm
         );
     }
@@ -52,12 +54,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
+            String keyItemUuid,
             CipherDataRequestDto request
     ) throws ConnectorException {
         return cryptographicOperationService.encryptData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
                 request);
     }
 
@@ -66,12 +70,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
+            String keyItemUuid,
             CipherDataRequestDto request)
             throws ConnectorException {
         return cryptographicOperationService.decryptData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
                 request);
     }
 
@@ -80,12 +86,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
+            String keyItemUuid,
             CryptographicAlgorithm algorithm
     ) throws ConnectorException {
         return cryptographicOperationService.listSignatureAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
                 algorithm
         );
     }
@@ -95,12 +103,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
+            String keyItemUuid,
             SignDataRequestDto request
     ) throws ConnectorException {
         return cryptographicOperationService.signData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
                 request
         );
     }
@@ -110,12 +120,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
+            String keyItemUuid,
             VerifyDataRequestDto request
     ) throws ConnectorException {
         return cryptographicOperationService.verifyData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
                 request
         );
     }
@@ -124,12 +136,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     public List<BaseAttribute> listRandomAttributes(
             String tokenInstanceUuid,
             String tokenProfileUuid,
-            String uuid
+            String uuid,
+            String keyItemUuid
     ) throws ConnectorException {
         return cryptographicOperationService.listRandomAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredParentUUID.fromString(tokenProfileUuid),
-                UUID.fromString(uuid)
+                UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid)
         );
     }
 
@@ -138,12 +152,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
+            String keyItemUuid,
             RandomDataRequestDto request
     ) throws ConnectorException {
         return cryptographicOperationService.randomData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
                 request
         );
     }

@@ -26,6 +26,7 @@ public interface CryptographicOperationService {
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
      * @param algorithm         Algorithm for which the attributes have to be fetched {@Link CryptographicAlgorithm}
      * @return List of attributes for Cipher Attributes
      * @throws NotFoundException when the token instance with the specified UUID is not found
@@ -34,6 +35,7 @@ public interface CryptographicOperationService {
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
             UUID uuid,
+            UUID keyItemUuid,
             CryptographicAlgorithm algorithm
     ) throws ConnectorException;
 
@@ -41,6 +43,7 @@ public interface CryptographicOperationService {
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
      * @param request           DTO containing the data to encrypt the data
      * @return Encrypted data response {@Link EncryptDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
@@ -49,6 +52,7 @@ public interface CryptographicOperationService {
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
             UUID uuid,
+            UUID keyItemUuid,
             CipherDataRequestDto request
     ) throws ConnectorException;
 
@@ -56,6 +60,7 @@ public interface CryptographicOperationService {
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
      * @param request           DTO containing the data to decrypt the data
      * @return Decrypted data response {@Link DecryptDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
@@ -64,6 +69,7 @@ public interface CryptographicOperationService {
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
             UUID uuid,
+            UUID keyItemUuid,
             CipherDataRequestDto request
     ) throws ConnectorException;
 
@@ -71,6 +77,7 @@ public interface CryptographicOperationService {
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
      * @param algorithm         Algorithm for which the Signature Attributes has to be fetched {@Link CryptographicAlgorithm}
      * @return List of attributes for the Signature Algorithm
      * @throws NotFoundException when the token instance with the specified UUID is not found
@@ -79,6 +86,7 @@ public interface CryptographicOperationService {
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
             UUID uuid,
+            UUID keyItemUuid,
             CryptographicAlgorithm algorithm
     ) throws ConnectorException;
 
@@ -86,6 +94,7 @@ public interface CryptographicOperationService {
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
      * @param request           DTO containing the data to sign a request {@Link SignDataRequestDto}
      * @return Signed Data {@Link SignDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
@@ -93,13 +102,15 @@ public interface CryptographicOperationService {
     SignDataResponseDto signData(
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
-            UUID uuid, SignDataRequestDto request
+            UUID uuid, UUID keyItemUuid,
+            SignDataRequestDto request
     ) throws ConnectorException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
      * @param request           DTO Containing the data to verify the signature {@Link VerifyDataRequestDto}
      * @return Verification result {@Link VerifyDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
@@ -107,26 +118,30 @@ public interface CryptographicOperationService {
     VerifyDataResponseDto verifyData(
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
-            UUID uuid, VerifyDataRequestDto request
+            UUID uuid, UUID keyItemUuid,
+            VerifyDataRequestDto request
     ) throws ConnectorException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
      * @return List of attributes for random data generation
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
     List<BaseAttribute> listRandomAttributes(
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
-            UUID uuid
+            UUID uuid,
+            UUID keyItemUuid
     ) throws ConnectorException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
+     * @param keyItemUuid       UUID of the Item inside the key Object
      * @param request           DTO containing the information for generating a strong random data {@Link RandomDataRequestDto}
      * @return Random generated data {@Link RandomDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
@@ -135,6 +150,7 @@ public interface CryptographicOperationService {
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
             UUID uuid,
+            UUID keyItemUuid,
             RandomDataRequestDto request
     ) throws ConnectorException;
 }
