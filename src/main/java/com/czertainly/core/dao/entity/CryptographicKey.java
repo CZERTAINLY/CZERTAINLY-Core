@@ -167,6 +167,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
+        dto.setCreationTime(created);
         if (tokenProfile != null) {
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
@@ -181,6 +182,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
+        dto.setCreationTime(created);
         if (tokenProfile != null) {
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());

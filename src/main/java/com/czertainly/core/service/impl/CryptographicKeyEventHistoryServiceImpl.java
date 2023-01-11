@@ -17,8 +17,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -65,7 +65,7 @@ public class CryptographicKeyEventHistoryServiceImpl implements CryptographicKey
 
 
     @Override
-    public void addEventHistory(KeyEvent event, KeyEventStatus status, String message, HashMap<String, Object> additionalInformation, CryptographicKeyItem key) {
+    public void addEventHistory(KeyEvent event, KeyEventStatus status, String message, Map<String, Object> additionalInformation, CryptographicKeyItem key) {
         CryptographicKeyEventHistory history = new CryptographicKeyEventHistory();
         history.setEvent(event);
         history.setKey(key);
@@ -76,7 +76,7 @@ public class CryptographicKeyEventHistoryServiceImpl implements CryptographicKey
     }
 
     @Override
-    public void addEventHistory(KeyEvent event, KeyEventStatus status, String message, HashMap<String, Object> additionalInformation, UUID keyUuid) {
+    public void addEventHistory(KeyEvent event, KeyEventStatus status, String message, Map<String, Object> additionalInformation, UUID keyUuid) {
         CryptographicKeyEventHistory history = new CryptographicKeyEventHistory();
         history.setEvent(event);
         history.setKeyUuid(keyUuid);

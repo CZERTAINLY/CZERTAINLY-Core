@@ -134,32 +134,20 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
 
     @Override
     public List<BaseAttribute> listRandomAttributes(
-            String tokenInstanceUuid,
-            String tokenProfileUuid,
-            String uuid,
-            String keyItemUuid
+            String tokenInstanceUuid
     ) throws ConnectorException {
         return cryptographicOperationService.listRandomAttributes(
-                SecuredParentUUID.fromString(tokenInstanceUuid),
-                SecuredParentUUID.fromString(tokenProfileUuid),
-                UUID.fromString(uuid),
-                UUID.fromString(keyItemUuid)
+                SecuredUUID.fromString(tokenInstanceUuid)
         );
     }
 
     @Override
     public RandomDataResponseDto randomData(
             String tokenInstanceUuid,
-            String tokenProfileUuid,
-            String uuid,
-            String keyItemUuid,
             RandomDataRequestDto request
     ) throws ConnectorException {
         return cryptographicOperationService.randomData(
-                SecuredParentUUID.fromString(tokenInstanceUuid),
-                SecuredUUID.fromString(tokenProfileUuid),
-                UUID.fromString(uuid),
-                UUID.fromString(keyItemUuid),
+                SecuredUUID.fromString(tokenInstanceUuid),
                 request
         );
     }

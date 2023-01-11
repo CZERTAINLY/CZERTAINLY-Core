@@ -236,10 +236,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.ok()));
 
         cryptographicOperationService.listRandomAttributes(
-                tokenInstanceReference.getSecuredParentUuid(),
-                tokenProfile.getSecuredUuid(),
-                key.getUuid(),
-                content1.getUuid()
+                tokenInstanceReference.getSecuredParentUuid()
         );
     }
 
@@ -248,10 +245,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.listRandomAttributes(
-                        tokenInstanceReference.getSecuredParentUuid(),
-                        tokenProfile.getSecuredUuid(),
-                        key.getUuid(),
-                        content1.getUuid()
+                        tokenInstanceReference.getSecuredParentUuid()
                 )
         );
     }
@@ -290,8 +284,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 () -> cryptographicOperationService.encryptData(
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
-                        tokenInstanceReference.getUuid(),
-                        content1.getUuid(),
+                        key.getUuid(),
+                        key.getUuid(),
                         new CipherDataRequestDto()
                 )
         );
@@ -346,7 +340,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
-                        content1.getUuid(),
+                        key.getUuid(),
                         new CipherDataRequestDto()
                 )
         );
@@ -397,7 +391,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
-                        content1.getUuid(),
+                        key.getUuid(),
                         new SignDataRequestDto()
                 )
         );
@@ -449,7 +443,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         key.getUuid(),
-                        content1.getUuid(),
+                        key.getUuid(),
                         new VerifyDataRequestDto()
                 )
         );

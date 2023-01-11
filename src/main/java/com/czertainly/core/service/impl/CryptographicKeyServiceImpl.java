@@ -22,12 +22,7 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
-import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
-import com.czertainly.api.model.core.cryptography.key.KeyDto;
-import com.czertainly.api.model.core.cryptography.key.KeyEvent;
-import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
-import com.czertainly.api.model.core.cryptography.key.KeyState;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
+import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
@@ -605,6 +600,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         logger.info("Key disabled: {}", uuid);
     }
 
+    @Override
+    public List<KeyEventHistoryDto> getEventHistory(SecuredParentUUID tokenInstanceUuid, UUID uuid, UUID keyItemUuid) throws NotFoundException {
+        logger.info("Request to get the list of events for the key item");
+        return keyEventHistoryService.getKeyEventHistory(keyItemUuid);
+    }
+
     private void createKeyAndItems(UUID connectorUuid, TokenInstanceReference tokenInstanceReference, String key, List<KeyDataResponseDto> items) {
         //Iterate through the items for a specific key
         if (checkKeyAlreadyExists(tokenInstanceReference.getUuid(), items)) {
@@ -629,7 +630,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                             item.getName(),
                             item.getKeyData(),
                             cryptographicKey,
-                            connectorUuid
+                            connectorUuid,
+                            true
                     )
             );
         }
@@ -659,14 +661,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         key.setTokenInstanceReference(tokenInstanceReference);
         key.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         key.setOwner(request.getOwner());
-        //TODO Group Access Control
         if (request.getGroupUuid() != null) key.setGroupUuid(UUID.fromString(request.getGroupUuid()));
         logger.debug("Cryptographic Key: {}", key);
         cryptographicKeyRepository.save(key);
         return key;
     }
 
-    private CryptographicKeyItem createKeyContent(String referenceUuid, String referenceName, KeyData keyData, CryptographicKey cryptographicKey, UUID connectorUuid) {
+    private CryptographicKeyItem createKeyContent(String referenceUuid, String referenceName, KeyData keyData, CryptographicKey cryptographicKey, UUID connectorUuid, boolean isDiscovered) {
         logger.info("Creating the Key Content for {}", cryptographicKey);
         CryptographicKeyItem content = new CryptographicKeyItem();
         content.setName(referenceName);
@@ -680,14 +681,20 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setState(KeyState.ACTIVE);
         content.setEnabled(false);
         cryptographicKeyItemRepository.save(content);
-
+        String message;
+        if (isDiscovered) {
+            message = "Key Discovered from Token Instance "
+                    + cryptographicKey.getTokenInstanceReference().getName();
+        } else {
+            message = "Key Created from Token Profile "
+                    + cryptographicKey.getTokenProfile().getName()
+                    + " on Token Instance "
+                    + cryptographicKey.getTokenInstanceReference().getName();
+        }
         keyEventHistoryService.addEventHistory(
                 KeyEvent.CREATE,
                 KeyEventStatus.SUCCESS,
-                "Key Created from Token Profile "
-                        + cryptographicKey.getTokenProfile().getName()
-                        + " on Token Instance "
-                        + cryptographicKey.getTokenInstanceReference().getName(),
+                message,
                 null,
                 content.getUuid()
         );
@@ -794,14 +801,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 response.getPrivateKeyData().getName(),
                 response.getPrivateKeyData().getKeyData(),
                 key,
-                connector.getUuid()
+                connector.getUuid(),
+                false
         ));
         children.add(createKeyContent(
                 response.getPublicKeyData().getUuid(),
                 response.getPrivateKeyData().getName(),
                 response.getPublicKeyData().getKeyData(),
                 key,
-                connector.getUuid()
+                connector.getUuid(),
+                false
         ));
         key.setItems(children);
         cryptographicKeyRepository.save(key);
@@ -828,7 +837,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                                 response.getName(),
                                 response.getKeyData(),
                                 key,
-                                connector.getUuid()
+                                connector.getUuid(),
+                                false
                         )
                 )
         );
@@ -889,7 +899,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
         if (content.getState().equals(KeyState.COMPROMISED) || content.getState().equals(KeyState.DESTROYED)) {
             keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.FAILED,
-                    "Key is already " + content.getState() , null, content);
+                    "Key is already " + content.getState(), null, content);
             throw new ValidationException(
                     ValidationError.create(
                             "Invalid Key state. Cannot compromise key since it is already " + content.getState()

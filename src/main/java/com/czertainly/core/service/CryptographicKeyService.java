@@ -12,8 +12,8 @@ import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
+import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
-import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
@@ -199,15 +199,28 @@ public interface CryptographicKeyService {
 
     /**
      * Function to update the usages for the key
+     *
      * @param request Request containing the details for updating the usages
      */
     void updateKeyUsages(BulkKeyUsageRequestDto request);
 
     /**
      * Update the key usages for multiple keys and its items
+     *
      * @param tokenInstanceUuid UUID of the token instance
-     * @param uuid UUID of the key
-     * @param request Request containing the details for the key usage updates
+     * @param uuid              UUID of the key
+     * @param request           Request containing the details for the key usage updates
      */
     void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, UUID uuid, UpdateKeyUsageRequestDto request) throws NotFoundException;
+
+    /**
+     * Get the list of actions and events done of the provided key item
+     *
+     * @param tokenInstanceUuid UUID of the token Instance
+     * @param uuid              Key UUID
+     * @param keyItemUuid       UUID of the key Item
+     * @return
+     */
+
+    List<KeyEventHistoryDto> getEventHistory(SecuredParentUUID tokenInstanceUuid, UUID uuid, UUID keyItemUuid) throws NotFoundException;
 }

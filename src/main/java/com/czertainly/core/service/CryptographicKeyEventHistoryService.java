@@ -7,8 +7,8 @@ import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.core.dao.entity.CryptographicKeyEventHistory;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface CryptographicKeyEventHistoryService {
@@ -49,7 +49,7 @@ public interface CryptographicKeyEventHistoryService {
      * @param additionalInformation Additional information as key-value pairs
      * @param key                   key entity that should record the event
      */
-    void addEventHistory(KeyEvent event, KeyEventStatus status, String message, HashMap<String, Object> additionalInformation, CryptographicKeyItem key);
+    void addEventHistory(KeyEvent event, KeyEventStatus status, String message, Map<String, Object> additionalInformation, CryptographicKeyItem key);
 
     /**
      * Method to add event into the Certificate history.
@@ -60,5 +60,5 @@ public interface CryptographicKeyEventHistoryService {
      * @param additionalInformation Additional information as key-value pairs
      * @param keyUuid               key entity that should record the event
      */
-    void addEventHistory(KeyEvent event, KeyEventStatus status, String message, HashMap<String, Object> additionalInformation, UUID keyUuid);
+    void addEventHistory(KeyEvent event, KeyEventStatus status, String message, Map<String, Object> additionalInformation, UUID keyUuid);
 }

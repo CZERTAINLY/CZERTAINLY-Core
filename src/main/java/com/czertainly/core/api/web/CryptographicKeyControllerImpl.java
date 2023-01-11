@@ -13,6 +13,7 @@ import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
+import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CryptographicKeyService;
@@ -176,6 +177,15 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
                 UUID.fromString(tokenInstanceUuid),
                 SecuredParentUUID.fromString(tokenProfileUuid),
                 type
+        );
+    }
+
+    @Override
+    public List<KeyEventHistoryDto> getEventHistory(String tokenInstanceUuid, String uuid, String keyItemUuid) throws NotFoundException {
+        return cryptographicKeyService.getEventHistory(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid)
         );
     }
 }

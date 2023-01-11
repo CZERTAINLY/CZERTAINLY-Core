@@ -124,33 +124,21 @@ public interface CryptographicOperationService {
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
-     * @param tokenProfileUUID  UUID of the token profile
-     * @param uuid              UUID of the cryptographic key
-     * @param keyItemUuid       UUID of the Item inside the key Object
      * @return List of attributes for random data generation
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
     List<BaseAttribute> listRandomAttributes(
-            SecuredParentUUID tokenInstanceUuid,
-            SecuredUUID tokenProfileUUID,
-            UUID uuid,
-            UUID keyItemUuid
+            SecuredUUID tokenInstanceUuid
     ) throws ConnectorException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
-     * @param tokenProfileUUID  UUID of the token profile
-     * @param uuid              UUID of the cryptographic key
-     * @param keyItemUuid       UUID of the Item inside the key Object
      * @param request           DTO containing the information for generating a strong random data {@Link RandomDataRequestDto}
      * @return Random generated data {@Link RandomDataResponseDto}
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
     RandomDataResponseDto randomData(
-            SecuredParentUUID tokenInstanceUuid,
-            SecuredUUID tokenProfileUUID,
-            UUID uuid,
-            UUID keyItemUuid,
+            SecuredUUID tokenInstanceUuid,
             RandomDataRequestDto request
     ) throws ConnectorException;
 }
