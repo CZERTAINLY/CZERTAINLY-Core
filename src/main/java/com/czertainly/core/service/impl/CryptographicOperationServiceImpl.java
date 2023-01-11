@@ -133,7 +133,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
-            eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
+            eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
                     "Encryption of data success ", null, key);
             return response;
         } catch (Exception e) {
@@ -163,7 +163,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto);
-            eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
+            eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
                     "Decryption of data success ", null, key);
             return response;
         } catch (Exception e) {
@@ -208,7 +208,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
-            eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
+            eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
                     "Signing data success ", null, key);
             return response;
         } catch (Exception e) {
@@ -240,7 +240,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
-            eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
+            eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
                     "Verification of data completed ", null, key);
             return response;
         } catch (Exception e) {
