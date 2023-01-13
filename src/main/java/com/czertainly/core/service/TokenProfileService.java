@@ -12,6 +12,7 @@ import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfil
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
+import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -40,6 +41,15 @@ public interface TokenProfileService extends AccessControlExtensionService {
      * @throws NotFoundException When the token instance or token profile is not found
      */
     TokenProfileDetailDto getTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
+
+    /**
+     * Get the details of a token profile which has Token Instance association. Internal Method only without authorization
+     *
+     * @param uuid              - UUID of the Token Profile
+     * @return Details of the token Profile {@Link TokenProfileDetailDto}
+     * @throws NotFoundException When the token instance or token profile is not found
+     */
+    TokenProfile getTokenProfileEntity(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Create a new token profile

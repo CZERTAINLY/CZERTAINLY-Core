@@ -39,8 +39,8 @@ public enum Resource {
 
     //CRYPTOGRAPHY
     TOKEN_PROFILE("tokenProfiles"),
-    TOKEN_INSTANCE("tokenInstances"),
-    CRYPTOGRAPHIC_KEY("cryptographicKeys"),
+    TOKEN("tokens"),
+    CRYPTOGRAPHIC_KEY("keys"),
 
     ATTRIBUTE("attributes");
 

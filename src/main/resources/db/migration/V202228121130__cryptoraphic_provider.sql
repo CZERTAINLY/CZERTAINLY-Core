@@ -61,16 +61,16 @@ CREATE TABLE cryptographic_key_item (
 );
 
 CREATE TABLE key_event_history (
-	"uuid" UUID NOT NULL,
-	"i_cre" TIMESTAMP NOT NULL,
-	"i_upd" TIMESTAMP NOT NULL,
-	"i_author" VARCHAR NOT NULL,
-	"event" VARCHAR NOT NULL,
-	"status" VARCHAR NOT NULL,
-	"message" VARCHAR NOT NULL,
-	"additional_information" VARCHAR NULL DEFAULT NULL,
-	"key_uuid" UUID NOT NULL,
-	PRIMARY KEY ("uuid")
+	uuid UUID NOT NULL,
+	i_cre TIMESTAMP NOT NULL,
+	i_upd TIMESTAMP NOT NULL,
+	i_author VARCHAR NOT NULL,
+	event VARCHAR NOT NULL,
+	status VARCHAR NOT NULL,
+	message VARCHAR NOT NULL,
+	additional_information VARCHAR NULL DEFAULT NULL,
+	key_uuid UUID NOT NULL,
+	PRIMARY KEY (uuid)
 )
 ;
 

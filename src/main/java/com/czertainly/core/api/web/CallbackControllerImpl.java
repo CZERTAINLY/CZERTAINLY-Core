@@ -8,7 +8,10 @@ import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCal
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.service.CallbackService;
+import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,6 +21,11 @@ public class CallbackControllerImpl implements CallbackController {
 
     @Autowired
     private CallbackService callbackService;
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
+    }
 
     @Override
     public Object callback(

@@ -19,8 +19,6 @@ import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.CryptographicKey;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
@@ -42,7 +40,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -89,7 +86,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     //-------------------------------------------------------------------------------------
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled, SecurityFilter filter) {
         logger.info("Listing token profiles");
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
@@ -108,7 +105,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public TokenProfileDetailDto getTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
         logger.info("Getting token profile with uuid: {}", uuid);
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
@@ -149,7 +146,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException {
         logger.info("Editing token profile with uuid: {}", uuid);
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
@@ -173,7 +170,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void deleteTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
         logger.info("Deleting token profile with uuid: {}", uuid);
         deleteProfileInternal(uuid, false);
@@ -190,7 +187,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void disableTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
         logger.info("Disabling token profile with uuid: {}", uuid);
         disableProfileInternal(uuid);
@@ -198,7 +195,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.ENABLE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void enableTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
         logger.info("Enabling token profile with uuid: {}", uuid);
         enableProfileInternal(uuid);
@@ -206,7 +203,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void deleteTokenProfile(List<SecuredUUID> uuids) {
         logger.info("Deleting token profiles with uuids: {}", uuids);
         for (SecuredUUID uuid : uuids) {
@@ -220,7 +217,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.DISABLE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void disableTokenProfile(List<SecuredUUID> uuids) {
         logger.info("Disabling token profiles with uuids: {}", uuids);
         for (SecuredUUID uuid : uuids) {
@@ -234,7 +231,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.ENABLE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void enableTokenProfile(List<SecuredUUID> uuids) {
         logger.info("Enabling token profiles with uuids: {}", uuids);
         for (SecuredUUID uuid : uuids) {
@@ -248,7 +245,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void updateKeyUsages(List<SecuredUUID> uuids, List<KeyUsage> usages) {
         logger.info("Request to update the key usages for {} with usages {}", uuids, usages);
         // Iterate through the keys
@@ -266,7 +263,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN_INSTANCE, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, List<KeyUsage> usages) throws NotFoundException {
         TokenProfile tokenProfile = getTokenProfileEntity(tokenProfileUuid);
         tokenProfile.setUsage(usages);
@@ -354,7 +351,8 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         tokenProfileRepository.save(tokenProfile);
     }
 
-    private TokenProfile getTokenProfileEntity(SecuredUUID uuid) throws NotFoundException {
+    @Override
+    public TokenProfile getTokenProfileEntity(SecuredUUID uuid) throws NotFoundException {
         return tokenProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenProfile.class, uuid));
     }

@@ -60,6 +60,8 @@ public class CallbackServiceImpl implements CallbackService {
     private CryptographicKeyService cryptographicKeyService;
     @Autowired
     private TokenInstanceService tokenInstanceService;
+    @Autowired
+    private TokenProfileService tokenProfileService;
 
 
     @Override
@@ -108,15 +110,12 @@ public class CallbackServiceImpl implements CallbackService {
                 break;
 
             case CRYPTOGRAPHIC_KEY:
-                connector = connectorService.getConnectorEntity(
-                        SecuredUUID.fromString(
-                                tokenInstanceService.getTokenInstance(
-                                        SecuredUUID.fromString(
-                                                resourceUuid
-                                        )
-                                ).getConnectorUuid()
-                        )
-                );
+                connector =
+                        tokenProfileService.getTokenProfileEntity(
+                                SecuredUUID.fromString(
+                                        resourceUuid
+                                )
+                        ).getTokenInstanceReference().getConnector();
                 definitions = cryptographicKeyService.listCreateKeyAttributes(
                         null,
                         SecuredParentUUID.fromString(
@@ -129,7 +128,7 @@ public class CallbackServiceImpl implements CallbackService {
             default:
                 throw new ValidationException(
                         ValidationError.create(
-                                "Call for the requested resource is not supported"
+                                "Callback for the requested resource is not supported"
                         )
                 );
         }

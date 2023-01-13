@@ -100,7 +100,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.LIST)
     public List<TokenInstanceDto> listTokenInstances(SecurityFilter filter) {
         logger.info("Listing token instances");
         return tokenInstanceReferenceRepository.findUsingSecurityFilter(filter)
@@ -111,7 +111,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
     public TokenInstanceDetailDto getTokenInstance(SecuredUUID uuid) throws ConnectorException {
         logger.info("Getting token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -144,8 +144,8 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         tokenInstanceDetailDto.setStatus(statusDetail);
         tokenInstanceDetailDto.setConnectorName(tokenInstanceReference.getConnector().getName());
         tokenInstanceDetailDto.setConnectorUuid(tokenInstanceReference.getConnector().getUuid().toString());
-        tokenInstanceDetailDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.TOKEN_INSTANCE));
-        tokenInstanceDetailDto.setMetadata(metadataService.getFullMetadata(tokenInstanceReference.getUuid(), Resource.TOKEN_INSTANCE));
+        tokenInstanceDetailDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.TOKEN));
+        tokenInstanceDetailDto.setMetadata(metadataService.getFullMetadata(tokenInstanceReference.getUuid(), Resource.TOKEN));
         logger.debug("Token Instance detail: {}", tokenInstanceDetailDto);
         return tokenInstanceDetailDto;
     }
@@ -158,7 +158,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CREATE)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.CREATE)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.CREATE)
     public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         logger.info("Creating token instance with name: {}", request.getName());
         if (tokenInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
@@ -168,7 +168,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
         logger.debug("Connector: {}", connector);
 
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.TOKEN_INSTANCE);
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.TOKEN);
         List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(),
                 FunctionGroupCode.CRYPTOGRAPHY_PROVIDER,
                 request.getAttributes(),
@@ -198,20 +198,20 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         logger.debug("Token Instance Reference: {}", tokenInstanceReference);
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
-        attributeService.createAttributeContent(tokenInstanceReference.getUuid(), request.getCustomAttributes(), Resource.TOKEN_INSTANCE);
+        attributeService.createAttributeContent(tokenInstanceReference.getUuid(), request.getCustomAttributes(), Resource.TOKEN);
         metadataService.createMetadataDefinitions(connector.getUuid(), response.getMetadata());
-        metadataService.createMetadata(connector.getUuid(), tokenInstanceReference.getUuid(), null, null, response.getMetadata(), Resource.TOKEN_INSTANCE, null);
+        metadataService.createMetadata(connector.getUuid(), tokenInstanceReference.getUuid(), null, null, response.getMetadata(), Resource.TOKEN, null);
         logger.debug("Metadata and Custom attributes created");
         TokenInstanceDetailDto dto = tokenInstanceReference.mapToDetailDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(tokenInstanceReference.getUuid(), Resource.TOKEN_INSTANCE));
-        dto.setMetadata(metadataService.getFullMetadata(tokenInstanceReference.getUuid(), Resource.TOKEN_INSTANCE));
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(tokenInstanceReference.getUuid(), Resource.TOKEN));
+        dto.setMetadata(metadataService.getFullMetadata(tokenInstanceReference.getUuid(), Resource.TOKEN));
         logger.debug("Token Instance detail: {}", dto);
         return dto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.UPDATE)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.UPDATE)
     public TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException {
         logger.info("Updating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -219,7 +219,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         logger.debug("Token Instance Reference: {}", tokenInstanceReference);
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
 
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.TOKEN_INSTANCE);
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.TOKEN);
         List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(),
                 FunctionGroupCode.CRYPTOGRAPHY_PROVIDER,
                 request.getAttributes(),
@@ -238,20 +238,20 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceDto response =
                 tokenInstanceApiClient.updateTokenInstance(connector.mapToDto(), tokenInstanceReference.getTokenInstanceUuid(), tokenInstanceRequestDto);
 
-        attributeService.updateAttributeContent(tokenInstanceReference.getUuid(), request.getCustomAttributes(), Resource.TOKEN_INSTANCE);
+        attributeService.updateAttributeContent(tokenInstanceReference.getUuid(), request.getCustomAttributes(), Resource.TOKEN);
         metadataService.createMetadataDefinitions(connector.getUuid(), response.getMetadata());
-        metadataService.createMetadata(connector.getUuid(), tokenInstanceReference.getUuid(), null, null, response.getMetadata(), Resource.TOKEN_INSTANCE, null);
+        metadataService.createMetadata(connector.getUuid(), tokenInstanceReference.getUuid(), null, null, response.getMetadata(), Resource.TOKEN, null);
         logger.debug("Metadata and Custom attributes updated");
         TokenInstanceDetailDto dto = tokenInstanceReference.mapToDetailDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(tokenInstanceReference.getUuid(), Resource.TOKEN_INSTANCE));
-        dto.setMetadata(metadataService.getFullMetadata(tokenInstanceReference.getUuid(), Resource.TOKEN_INSTANCE));
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(tokenInstanceReference.getUuid(), Resource.TOKEN));
+        dto.setMetadata(metadataService.getFullMetadata(tokenInstanceReference.getUuid(), Resource.TOKEN));
         logger.debug("Token Instance detail: {}", dto);
         return dto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.DELETE)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DELETE)
     public void deleteTokenInstance(SecuredUUID uuid) throws NotFoundException {
         logger.info("Deleting token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -260,7 +260,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.ACTIVATE)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ACTIVATE)
     public void activateTokenInstance(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         logger.info("Activating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -274,7 +274,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.ACTIVATE)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ACTIVATE)
     public void deactivateTokenInstance(SecuredUUID uuid) throws ConnectorException {
         logger.info("Deactivating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -287,7 +287,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.DELETE)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DELETE)
     //TODO - Force delete?
     public void deleteTokenInstance(List<SecuredUUID> uuids) {
         logger.info("Deleting token instances with uuids: {}", uuids);
@@ -309,7 +309,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
     public TokenInstanceDetailDto reloadStatus(SecuredUUID uuid) throws ConnectorException {
         logger.info("Reloading status of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -327,7 +327,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
     public List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException {
         logger.info("Listing token profile attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -340,7 +340,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.ANY)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
     public void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         logger.info("Validating token profile attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -352,7 +352,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN_INSTANCE, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
     public List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException {
         logger.info("Listing token instance activation attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -410,7 +410,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
             logger.debug("Deleting token instance without connector: {}", tokenInstanceReference);
         }
         logger.debug("Deleting token instance attributes");
-        attributeService.deleteAttributeContent(tokenInstanceReference.getUuid(), Resource.TOKEN_INSTANCE);
+        attributeService.deleteAttributeContent(tokenInstanceReference.getUuid(), Resource.TOKEN);
         tokenInstanceReferenceRepository.delete(tokenInstanceReference);
         logger.info("Token instance removed: {}", tokenInstanceReference);
     }
