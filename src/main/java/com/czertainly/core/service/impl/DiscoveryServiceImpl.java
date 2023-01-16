@@ -336,7 +336,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 Map<String, Object> additionalInfo = new HashMap<>();
                 additionalInfo.put("Discovery Name", modal.getName());
                 additionalInfo.put("Discovery UUID", modal.getUuid());
-                additionalInfo.put("Discovery Kind", modal.getKind());
                 additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
                 additionalInfo.put("Discovery Kind", modal.getKind());
                 certificateEventHistoryService.addEventHistory(
