@@ -165,12 +165,6 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testUpdateIssuer() {
-        // TODO: improve test for non self-signed certificates
-        certificateService.updateIssuer();
-    }
-
-    @Test
     public void testUpdateRaProfile() throws NotFoundException {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setRaProfileUuid(raProfile.getUuid().toString());

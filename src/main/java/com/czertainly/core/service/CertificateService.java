@@ -27,8 +27,9 @@ import java.util.UUID;
 public interface CertificateService {
 
     CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException;
-    
+
     CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
+
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
 
     // TODO AUTH - unable to check access based on certificate content. Make private? Special permission? Call opa in method?
@@ -40,30 +41,36 @@ public interface CertificateService {
     Boolean checkCertificateExistsByFingerprint(String fingerprint);
 
     void deleteCertificate(SecuredUUID uuid) throws NotFoundException;
-	void updateIssuer();
-	Certificate createCertificateEntity(X509Certificate certificate);
+
+    Certificate createCertificateEntity(X509Certificate certificate);
+
+    void updateCertificateIssuer(Certificate certificate) throws NotFoundException;
 
     /**
      * Creates the Certificate entity
      *
-     * @param certificateData  Base64-encoded data of the certificate
-     * @param certificateType  Type of the certificate
+     * @param certificateData Base64-encoded data of the certificate
+     * @param certificateType Type of the certificate
      * @return Certificate entity
      */
     Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException;
 
-	Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+    Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+
     Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
-	CertificateDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+
+    CertificateDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     void revokeCertificate(String serialNumber);
 
     List<SearchFieldDataDto> getSearchableFieldInformation();
+
     void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException;
 
     /**
      * List all locations associated with the certificate
+     *
      * @param certificateUuid
      * @return List of locations
      * @throws NotFoundException
@@ -72,6 +79,7 @@ public interface CertificateService {
 
     /**
      * List the available certificates that are associated with the RA Profile
+     *
      * @param raProfile Ra Profile entity to search for the certificates
      * @return List of Certificates
      */
@@ -79,30 +87,36 @@ public interface CertificateService {
 
     /**
      * Initiates the compliance check for the certificates in the request
+     *
      * @param request List of uuids of the certificate
      */
     void checkCompliance(CertificateComplianceCheckDto request);
 
     /**
      * Update the Certificate Entity
+     *
      * @param certificate Certificate entity to be updated
      */
     void updateCertificateEntity(Certificate certificate);
 
     /**
      * Update the Certificate Objects contents
-     * @param uuid UUID of the certificate
+     *
+     * @param uuid    UUID of the certificate
      * @param request Request for the certificate objects update
      */
     void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException;
 
     /**
      * Method to update the Objects of multiple certificates
+     *
      * @param request Request to update multiple objects
      */
     void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException;
 
-    /** Function to get the validation result of the certificate
+    /**
+     * Function to get the validation result of the certificate
+     *
      * @param uuid UUID of the certificate
      * @return Certificate Validation result
      * @throws NotFoundException
@@ -111,26 +125,30 @@ public interface CertificateService {
 
     /**
      * Update the user uuid of the certificate in the core database
+     *
      * @param certificateUuid UUID of the certificate
-     * @param userUuid UUID of the User
+     * @param userUuid        UUID of the User
      * @throws NotFoundException
      */
     void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException;
 
     /**
      * Remove the user uuid of the certificate in the core database
+     *
      * @param userUuid UUID of the User
      */
     void removeCertificateUser(UUID userUuid);
 
     /**
      * Get the number of certificates per user for dashboard
+     *
      * @return Number of certificates
      */
     Long statisticsCertificateCount(SecurityFilter filter);
 
     /**
      * Add statistics information based on the permission with the logged in user
+     *
      * @param dto Statistics DTO with predefined records
      * @return Statistics DTO
      */

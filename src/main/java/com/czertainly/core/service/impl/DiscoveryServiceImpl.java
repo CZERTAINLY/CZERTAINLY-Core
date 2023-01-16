@@ -249,7 +249,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             updateDiscovery(modal, response);
             List<Certificate> certificates = updateCertificates(certificatesDiscovered, modal);
-            certificateService.updateIssuer();
             certValidationService.validateCertificates(certificates);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -335,15 +334,33 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 certificateService.updateCertificateEntity(entry);
                 updateMeta(entry, certificate, modal);
                 Map<String, Object> additionalInfo = new HashMap<>();
+                additionalInfo.put("Discovery Name", modal.getName());
+                additionalInfo.put("Discovery UUID", modal.getUuid());
                 additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
                 additionalInfo.put("Discovery Kind", modal.getKind());
-                certificateEventHistoryService.addEventHistory(CertificateEvent.DISCOVERY, CertificateEventStatus.SUCCESS, "Discovered from Connector: " + modal.getConnectorName(), MetaDefinitions.serialize(additionalInfo), entry);
+                certificateEventHistoryService.addEventHistory(
+                        CertificateEvent.DISCOVERY,
+                        CertificateEventStatus.SUCCESS,
+                        "Discovered from Connector: " + modal.getConnectorName() + " via discovery: " + modal.getName(),
+                        MetaDefinitions.serialize(additionalInfo),
+                        entry
+                );
             } catch (Exception e) {
                 logger.error(e.getMessage());
                 logger.error("Unable to create certificate for " + modal.toString());
             }
         }
         return allCerts;
+    }
+
+    private void updateCertificateIssuers(List<Certificate> certificates) {
+        for(Certificate certificate: certificates) {
+            try {
+                certificateService.updateCertificateIssuer(certificate);
+            } catch (NotFoundException e) {
+                logger.warn("Unable to update the issuer for certificate {}", certificate.getSerialNumber());
+            }
+        }
     }
 
     private void createDiscoveryCertificate(Certificate entry, DiscoveryHistory modal) {

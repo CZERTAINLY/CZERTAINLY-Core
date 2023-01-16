@@ -864,10 +864,10 @@ public class LocationServiceImpl implements LocationService {
                 entityInstanceRef.getEntityInstanceUuid());
 
         List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
-        for(RequestAttributeDto requestAttributeDto: attributes) {
-            if(!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
+        for (RequestAttributeDto requestAttributeDto : attributes) {
+            if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
                 DataAttribute referencedAttribute = attributeService.getReferenceAttribute(entityInstanceRef.getConnectorUuid(), requestAttributeDto.getName());
-                if(referencedAttribute != null) {
+                if (referencedAttribute != null) {
                     definitions.add(referencedAttribute);
                 }
             }
@@ -892,7 +892,7 @@ public class LocationServiceImpl implements LocationService {
         entity.setEntityInstanceReference(entityInstanceRef);
         entity.setEnabled(dto.isEnabled() != null && dto.isEnabled());
         entity.setEntityInstanceName(entityInstanceRef.getName());
-
+        locationRepository.save(entity);
         updateContent(entity,
                 locationDetailResponseDto.isMultipleEntries(),
                 locationDetailResponseDto.isSupportKeyManagement(),
@@ -939,7 +939,6 @@ public class LocationServiceImpl implements LocationService {
                 metadata,
                 Resource.LOCATION,
                 null);
-
         Set<CertificateLocation> cls = new HashSet<>();
         for (CertificateLocationDto certificateLocationDto : certificates) {
             CertificateLocation cl = new CertificateLocation();

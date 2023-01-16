@@ -270,7 +270,6 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     public void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException {
         filter.setParentRefProperty("raProfileUuid");
-        List<String> failedDeleteCerts = new ArrayList<>();
         Integer totalItems;
         BulkOperationResponse bulkOperationResponse = new BulkOperationResponse();
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
@@ -315,38 +314,40 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    //Auth is not required for this methods. It is only internally used by other services to update the issuers of the certificate
-    public void updateIssuer() {
-        for (Certificate certificate : certificateRepository.findAllByIssuerSerialNumber(null)) {
-            if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
-                for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
-                    X509Certificate subCert;
-                    X509Certificate issCert;
+    //Auth is not required for methods. It is only internally used by other services to update the issuers of the certificate
+    public void updateCertificateIssuer(Certificate certificate) throws NotFoundException {
+        if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
+            for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
+                X509Certificate subCert;
+                X509Certificate issCert;
+                try {
+                    subCert = getX509(certificate.getCertificateContent().getContent());
+                    issCert = getX509(issuer.getCertificateContent().getContent());
+                } catch (Exception e) {
+                    continue;
+                }
+
+                if (issuer.getIssuerSerialNumber() == null) {
+                    updateCertificateIssuer(issuer);
+                }
+
+                if (verifySignature(subCert, issCert)) {
                     try {
-                        subCert = getX509(certificate.getCertificateContent().getContent());
-                        issCert = getX509(issuer.getCertificateContent().getContent());
-                    } catch (Exception e) {
-                        continue;
-                    }
+                        X509Certificate issuerCert = CertificateUtil
+                                .parseCertificate(issuer.getCertificateContent().getContent());
+                        X509Certificate subjectCert = CertificateUtil
+                                .parseCertificate(certificate.getCertificateContent().getContent());
 
-                    if (verifySignature(subCert, issCert)) {
                         try {
-                            X509Certificate issuerCert = CertificateUtil
-                                    .parseCertificate(issuer.getCertificateContent().getContent());
-                            X509Certificate subjectCert = CertificateUtil
-                                    .parseCertificate(certificate.getCertificateContent().getContent());
-
-                            try {
-                                subjectCert.verify(issuerCert.getPublicKey());
-                                certificate.setIssuerSerialNumber(issuer.getSerialNumber());
-                                certificateRepository.save(certificate);
-                            } catch (Exception e) {
-                                logger.debug("Error when getting the issuer");
-                            }
-
-                        } catch (CertificateException e) {
-                            logger.warn("Unable to parse the issuer with subject {}", certificate.getIssuerDn());
+                            subjectCert.verify(issuerCert.getPublicKey());
+                            certificate.setIssuerSerialNumber(issuer.getSerialNumber());
+                            certificateRepository.save(certificate);
+                        } catch (Exception e) {
+                            logger.debug("Error when getting the issuer");
                         }
+
+                    } catch (CertificateException e) {
+                        logger.warn("Unable to parse the issuer with subject {}", certificate.getIssuerDn());
                     }
                 }
             }
@@ -789,17 +790,12 @@ public class CertificateServiceImpl implements CertificateService {
         List<CertificateComplianceResultDto> result = new ArrayList<>();
         List<ComplianceProfileRule> rules = complianceService.getComplianceProfileRuleEntityForIds(storageDto.getNok());
         List<ComplianceRule> rulesWithoutAttributes = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
-        // List<ComplianceRule> naRules = complianceService.getComplianceRuleEntityForIds(storageDto.getNa());
         for (ComplianceProfileRule complianceRule : rules) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
         for (ComplianceRule complianceRule : rulesWithoutAttributes) {
             result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
         }
-        // NA Rules are not required to be displayed in the UI
-        // for (ComplianceRule complianceRule : naRules) {
-        //     result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NA));
-        // }
         logger.debug("Compliance Result: {}", result);
         return result;
     }
@@ -885,7 +881,11 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         if (!uploadedCertificate.isEmpty()) {
-            updateIssuer();
+            try {
+                updateCertificateIssuer(certificate);
+            } catch (Exception e) {
+                logger.warn("Unable to update the issuer of the certificate {}", certificate.getSerialNumber());
+            }
             return true;
         } else {
             return false;
