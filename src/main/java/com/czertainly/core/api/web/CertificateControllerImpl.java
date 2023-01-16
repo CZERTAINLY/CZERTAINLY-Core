@@ -130,7 +130,7 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException, CertificateException, IOException {
 		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
-		certificateService.updateIssuer();
+		certificateService.updateCertificateIssuer(crt);
 		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
 			certValidationService.validate(crt);
 		}
