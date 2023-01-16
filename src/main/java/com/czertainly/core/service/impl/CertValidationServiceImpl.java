@@ -319,11 +319,23 @@ public class CertValidationServiceImpl implements CertValidationService {
                 } catch (TimeoutException | SocketTimeoutException e) {
                     logger.error(e.getMessage());
                     isCRLFailed = true;
-                    validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.WARNING, "Unable to connect to CRL. Connection timed out"));
+                    validationOutput.put(
+                            "CRL Verification",
+                            new CertificateValidationDto(
+                                    CertificateValidationStatus.WARNING,
+                                    "Connection timeout to CRL URL: " + crlUrl
+                            )
+                    );
                 } catch (Exception e) {
                     isCRLFailed = true;
                     logger.error(e.getMessage());
-                    validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Failed connecting to CRL. " + e.getMessage()));
+                    validationOutput.put(
+                            "CRL Verification",
+                            new CertificateValidationDto(
+                                    CertificateValidationStatus.FAILED,
+                                    "Failed connecting to CRL URL: " + crlUrl + ". Error Message: " + e.getMessage()
+                            )
+                    );
                 }
             }
             if (isRevoked) {
