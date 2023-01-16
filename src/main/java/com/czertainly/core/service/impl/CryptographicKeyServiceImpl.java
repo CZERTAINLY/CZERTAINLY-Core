@@ -42,6 +42,7 @@ import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.CryptographicKeyEventHistoryService;
 import com.czertainly.core.service.CryptographicKeyService;
 import com.czertainly.core.service.MetadataService;
+import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
@@ -67,6 +68,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private KeyManagementApiClient keyManagementApiClient;
     private TokenInstanceService tokenInstanceService;
     private CryptographicKeyEventHistoryService keyEventHistoryService;
+    private PermissionEvaluator permissionEvaluator;
     // --------------------------------------------------------------------------------
     // Repositories
     // --------------------------------------------------------------------------------
@@ -97,6 +99,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Autowired
     public void setKeyEventHistoryService(CryptographicKeyEventHistoryService keyEventHistoryService) {
         this.keyEventHistoryService = keyEventHistoryService;
+    }
+
+    @Autowired
+    public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
+        this.permissionEvaluator = permissionEvaluator;
     }
 
     @Autowired
@@ -285,7 +292,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENABLE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public void disableKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException, ValidationException {
         logger.info("Request to disable the key with UUID {} on token instance {}", uuid, tokenInstanceUuid);
-
         if (keyUuids != null && !keyUuids.isEmpty()) {
             for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
                 disableKeyItem(UUID.fromString(keyUuid));
@@ -354,6 +360,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     public void deleteKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException {
         logger.info("Request to deleted the key with UUID {} on token instance {}", uuid, tokenInstanceUuid);
         CryptographicKey key = getCryptographicKeyEntity(uuid);
+        if (key.getTokenProfile() != null) {
+            permissionEvaluator.tokenProfile(key.getTokenProfile().getSecuredUuid());
+        }
         if (keyUuids != null && !keyUuids.isEmpty()) {
             for (String keyUuid : new LinkedHashSet<>(keyUuids)) {
                 CryptographicKeyItem content = cryptographicKeyItemRepository
@@ -387,7 +396,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         for (String uuid : uuids) {
             try {
                 CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
-
+                if (key.getTokenProfile() != null) {
+                    permissionEvaluator.tokenProfile(key.getTokenProfile().getSecuredUuid());
+                }
                 for (CryptographicKeyItem content : key.getItems()) {
                     attributeService.deleteAttributeContent(
                             key.getUuid(),
@@ -853,6 +864,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      */
     private void enableKeyItem(UUID uuid) throws NotFoundException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
+        if (content.getCryptographicKey().getTokenProfile() != null) {
+            permissionEvaluator.tokenProfile(content.getCryptographicKey().getTokenProfile().getSecuredUuid());
+        }
         if (content.isEnabled()) {
             keyEventHistoryService.addEventHistory(KeyEvent.ENABLE, KeyEventStatus.FAILED,
                     "Key is already enabled", null, content);
@@ -875,6 +889,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      */
     private void disableKeyItem(UUID uuid) throws NotFoundException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
+        if (content.getCryptographicKey().getTokenProfile() != null) {
+            permissionEvaluator.tokenProfile(content.getCryptographicKey().getTokenProfile().getSecuredUuid());
+        }
         if (!content.isEnabled()) {
             keyEventHistoryService.addEventHistory(KeyEvent.DISABLE, KeyEventStatus.FAILED,
                     "Key is already disabled", null, content);
@@ -897,6 +914,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      */
     private void compromiseKeyItem(UUID uuid) throws NotFoundException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
+        if (content.getCryptographicKey().getTokenProfile() != null) {
+            permissionEvaluator.tokenProfile(content.getCryptographicKey().getTokenProfile().getSecuredUuid());
+        }
         if (content.getState().equals(KeyState.COMPROMISED) || content.getState().equals(KeyState.DESTROYED)) {
             keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.FAILED,
                     "Key is already " + content.getState(), null, content);
@@ -919,6 +939,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      */
     private void updateKeyUsages(UUID uuid, List<KeyUsage> usages) throws NotFoundException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
+        if (content.getCryptographicKey().getTokenProfile() != null) {
+            permissionEvaluator.tokenProfile(content.getCryptographicKey().getTokenProfile().getSecuredUuid());
+        }
         String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
         content.setUsage(usages);
         cryptographicKeyItemRepository.save(content);
@@ -934,6 +957,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      */
     private void destroyKeyItem(UUID uuid, String tokenInstanceUuid, ConnectorDto connectorDto) throws ConnectorException {
         CryptographicKeyItem content = getCryptographicKeyItem(uuid);
+        if (content.getCryptographicKey().getTokenProfile() != null) {
+            permissionEvaluator.tokenProfile(content.getCryptographicKey().getTokenProfile().getSecuredUuid());
+        }
         if (content.getState().equals(KeyState.DESTROYED)) {
             keyEventHistoryService.addEventHistory(KeyEvent.DESTROY, KeyEventStatus.FAILED,
                     "Key is already destroyed", null, content);
