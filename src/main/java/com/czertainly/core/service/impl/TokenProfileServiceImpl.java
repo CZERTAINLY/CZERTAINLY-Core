@@ -116,6 +116,8 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
     public TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         logger.info("Creating token profile with name: {}", request.getName());
         if (StringUtils.isBlank(request.getName())) {
@@ -329,7 +331,6 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         return entity;
     }
 
-    //TODO - Check and delete the other associated objects
     private void deleteProfileInternal(SecuredUUID uuid, boolean throwWhenAssociated) throws NotFoundException {
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() == null) {

@@ -288,7 +288,6 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DELETE)
-    //TODO - Force delete?
     public void deleteTokenInstance(List<SecuredUUID> uuids) {
         logger.info("Deleting token instances with uuids: {}", uuids);
         List<BulkActionMessageDto> messages = new ArrayList<>();
@@ -320,14 +319,13 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         tokenInstanceReference.setStatus(status.getStatus());
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
         logger.info("Token instance status reloaded. Status of the token instance: {}", status);
-        //TODO - Token Instance Status Components
         return getTokenInstance(uuid);
 
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
     public List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException {
         logger.info("Listing token profile attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -352,7 +350,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
     public List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException {
         logger.info("Listing token instance activation attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
@@ -364,7 +362,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         logger.info("Listing resource objects with filter: {}", filter);
         return tokenInstanceReferenceRepository.findUsingSecurityFilter(filter)
