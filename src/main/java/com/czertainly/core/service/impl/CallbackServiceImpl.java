@@ -4,7 +4,9 @@ import com.czertainly.api.clients.AttributeApiClient;
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
@@ -13,17 +15,15 @@ import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.CallbackService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CoreCallbackService;
-import com.czertainly.core.service.CredentialService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -56,6 +56,12 @@ public class CallbackServiceImpl implements CallbackService {
     private AuthorityInstanceApiClient authorityInstanceApiClient;
     @Autowired
     private AttributeService attributeService;
+    @Autowired
+    private CryptographicKeyService cryptographicKeyService;
+    @Autowired
+    private TokenInstanceService tokenInstanceService;
+    @Autowired
+    private TokenProfileService tokenProfileService;
 
 
     @Override
@@ -75,7 +81,7 @@ public class CallbackServiceImpl implements CallbackService {
         credentialService.loadFullCredentialData(attributeCallback, callback);
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
-        if(isGroupAttribute(callback.getName(), definitions)) {
+        if (isGroupAttribute(callback.getName(), definitions)) {
             processGroupAttributes(connector.getUuid(), response);
         }
         return response;
@@ -83,28 +89,67 @@ public class CallbackServiceImpl implements CallbackService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
-    public Object raProfileCallback(String authorityUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
-        List<BaseAttribute> definitions;
-        AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
-        definitions = authorityInstanceApiClient.listRAProfileAttributes(authorityInstance.getConnector().mapToDto(), authorityInstance.getAuthorityInstanceUuid());
+    public Object resourceCallback(Resource resource, String resourceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
+        List<BaseAttribute> definitions = null;
+        Connector connector = null;
+        switch (resource) {
+            case RA_PROFILE:
+                AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(
+                                UUID.fromString(resourceUuid))
+                        .orElseThrow(
+                                () -> new NotFoundException(
+                                        AuthorityInstanceReference.class,
+                                        resourceUuid
+                                )
+                        );
+                connector = authorityInstance.getConnector();
+                definitions = authorityInstanceApiClient.listRAProfileAttributes(
+                        connector.mapToDto(),
+                        authorityInstance.getAuthorityInstanceUuid()
+                );
+                break;
+
+            case CRYPTOGRAPHIC_KEY:
+                connector =
+                        tokenProfileService.getTokenProfileEntity(
+                                SecuredUUID.fromString(
+                                        resourceUuid
+                                )
+                        ).getTokenInstanceReference().getConnector();
+                definitions = cryptographicKeyService.listCreateKeyAttributes(
+                        null,
+                        SecuredParentUUID.fromString(
+                                resourceUuid
+                        ),
+                        KeyRequestType.KEY_PAIR
+                );
+                break;
+
+            default:
+                throw new ValidationException(
+                        ValidationError.create(
+                                "Callback for the requested resource is not supported"
+                        )
+                );
+        }
+
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
         if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
             return coreCallbackService.coreGetCredentials(callback);
         }
-
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
 
-        Object response = attributeApiClient.attributeCallback(authorityInstance.getConnector().mapToDto(), attributeCallback, callback);
+        Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
 
-        if(isGroupAttribute(callback.getName(), definitions)) {
-            processGroupAttributes(authorityInstance.getConnector().getUuid(), response);
+        if (isGroupAttribute(callback.getName(), definitions)) {
+            processGroupAttributes(connector.getUuid(), response);
         }
         return response;
     }
+
 
     private AttributeCallback getAttributeByName(String name, List<BaseAttribute> attributes) throws NotFoundException {
         for (BaseAttribute attributeDefinition : attributes) {
@@ -122,7 +167,6 @@ public class CallbackServiceImpl implements CallbackService {
 
     /**
      * Function to check the response for callback and store the data in the database.
-     * @param callbackResponse
      */
     private void processGroupAttributes(UUID connectorUuid, Object callbackResponse) {
         // When the callback is retrieved from the connector, and of the type of the attribute triggering the
@@ -135,18 +179,19 @@ public class CallbackServiceImpl implements CallbackService {
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
             List<BaseAttribute> responseAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttribute.class));
-            for(BaseAttribute attribute: responseAttributes) {
+            for (BaseAttribute attribute : responseAttributes) {
                 logger.debug("Creating reference attribute: {}", attribute);
                 attributeService.createAttributeDefinition(connectorUuid, attribute);
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             logger.debug("Failed to create the reference attributes. Exception is {}", e.getMessage());
         }
     }
 
     /**
      * Function to check if the attribute is of type group
-     * @param name Name of the attribute
+     *
+     * @param name       Name of the attribute
      * @param attributes List of the attribute definitions
      * @return If the attribute is group or not
      */

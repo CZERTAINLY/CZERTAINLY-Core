@@ -92,7 +92,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @ManyToOne
     @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
-    private CertificateGroup group;
+    private Group group;
 
     @Column(name = "group_uuid")
     private UUID groupUuid;
@@ -364,11 +364,11 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         else this.raProfileUuid = null;
     }
 
-    public CertificateGroup getGroup() {
+    public Group getGroup() {
         return group;
     }
 
-    public void setGroup(CertificateGroup group) {
+    public void setGroup(Group group) {
         this.group = group;
         if(group != null) this.groupUuid = group.getUuid();
         else this.groupUuid = null;

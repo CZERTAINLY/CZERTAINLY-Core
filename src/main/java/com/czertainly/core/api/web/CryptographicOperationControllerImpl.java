@@ -1,0 +1,154 @@
+package com.czertainly.core.api.web;
+
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.interfaces.core.web.CryptographicOperationsController;
+import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.RandomDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.VerifyDataRequestDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.EncryptDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.RandomDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.service.CryptographicOperationService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+public class CryptographicOperationControllerImpl implements CryptographicOperationsController {
+
+    private CryptographicOperationService cryptographicOperationService;
+
+    @Autowired
+    public void setCryptographicOperationService(CryptographicOperationService cryptographicOperationService) {
+        this.cryptographicOperationService = cryptographicOperationService;
+    }
+
+    @Override
+    public List<BaseAttribute> listCipherAttributes(
+            String tokenInstanceUuid,
+            String tokenProfileUuid,
+            String uuid,
+            String keyItemUuid,
+            CryptographicAlgorithm algorithm
+    ) throws ConnectorException {
+        return cryptographicOperationService.listCipherAttributes(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                SecuredUUID.fromString(tokenProfileUuid),
+                UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
+                algorithm
+        );
+    }
+
+    @Override
+    public EncryptDataResponseDto encryptData(
+            String tokenInstanceUuid,
+            String tokenProfileUuid,
+            String uuid,
+            String keyItemUuid,
+            CipherDataRequestDto request
+    ) throws ConnectorException {
+        return cryptographicOperationService.encryptData(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                SecuredUUID.fromString(tokenProfileUuid),
+                UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
+                request);
+    }
+
+    @Override
+    public DecryptDataResponseDto decryptData(
+            String tokenInstanceUuid,
+            String tokenProfileUuid,
+            String uuid,
+            String keyItemUuid,
+            CipherDataRequestDto request)
+            throws ConnectorException {
+        return cryptographicOperationService.decryptData(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                SecuredUUID.fromString(tokenProfileUuid),
+                UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
+                request);
+    }
+
+    @Override
+    public List<BaseAttribute> listSignatureAttributes(
+            String tokenInstanceUuid,
+            String tokenProfileUuid,
+            String uuid,
+            String keyItemUuid,
+            CryptographicAlgorithm algorithm
+    ) throws ConnectorException {
+        return cryptographicOperationService.listSignatureAttributes(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                SecuredUUID.fromString(tokenProfileUuid),
+                UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
+                algorithm
+        );
+    }
+
+    @Override
+    public SignDataResponseDto signData(
+            String tokenInstanceUuid,
+            String tokenProfileUuid,
+            String uuid,
+            String keyItemUuid,
+            SignDataRequestDto request
+    ) throws ConnectorException {
+        return cryptographicOperationService.signData(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                SecuredUUID.fromString(tokenProfileUuid),
+                UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
+                request
+        );
+    }
+
+    @Override
+    public VerifyDataResponseDto verifyData(
+            String tokenInstanceUuid,
+            String tokenProfileUuid,
+            String uuid,
+            String keyItemUuid,
+            VerifyDataRequestDto request
+    ) throws ConnectorException {
+        return cryptographicOperationService.verifyData(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                SecuredUUID.fromString(tokenProfileUuid),
+                UUID.fromString(uuid),
+                UUID.fromString(keyItemUuid),
+                request
+        );
+    }
+
+    @Override
+    public List<BaseAttribute> listRandomAttributes(
+            String tokenInstanceUuid
+    ) throws ConnectorException {
+        return cryptographicOperationService.listRandomAttributes(
+                SecuredUUID.fromString(tokenInstanceUuid)
+        );
+    }
+
+    @Override
+    public RandomDataResponseDto randomData(
+            String tokenInstanceUuid,
+            RandomDataRequestDto request
+    ) throws ConnectorException {
+        return cryptographicOperationService.randomData(
+                SecuredUUID.fromString(tokenInstanceUuid),
+                request
+        );
+    }
+}

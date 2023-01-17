@@ -87,7 +87,7 @@ public class ResourceServiceImpl implements ResourceService {
                 return credentialService.listResourceObjects(SecurityFilter.create());
             case ENTITY:
                 return entityInstanceService.listResourceObjects(SecurityFilter.create());
-            case CERTIFICATE_GROUP:
+            case GROUP:
                 return groupService.listResourceObjects(SecurityFilter.create());
             case LOCATION:
                 return locationService.listResourceObjects(SecurityFilter.create());

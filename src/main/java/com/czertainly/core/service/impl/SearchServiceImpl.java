@@ -9,7 +9,7 @@ import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchableFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
-import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
@@ -212,7 +212,7 @@ public class SearchServiceImpl implements SearchService {
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
                     whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
                 } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
-                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
+                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(Group::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
                 } else {
                     whereObjects.addAll(((List<Object>) filter.getValue()).stream().map(i -> "'" + i.toString() + "'").collect(Collectors.toList()));
                 }

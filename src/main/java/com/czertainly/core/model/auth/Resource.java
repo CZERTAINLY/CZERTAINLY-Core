@@ -29,7 +29,7 @@ public enum Resource {
     AUTHORITY("authorities"),
     RA_PROFILE("raProfiles"),
     CERTIFICATE("certificates"),
-    CERTIFICATE_GROUP("certificateGroups"),
+    GROUP("groups"),
     COMPLIANCE_PROFILE("complianceProfiles"),
     DISCOVERY("discoveries"),
 
@@ -37,7 +37,13 @@ public enum Resource {
     ENTITY("entities"),
     LOCATION("locations"),
 
+    //CRYPTOGRAPHY
+    TOKEN_PROFILE("tokenProfiles"),
+    TOKEN("tokens"),
+    CRYPTOGRAPHIC_KEY("keys"),
+
     ATTRIBUTE("attributes");
+
 
     @Schema(description = "Resource Name",
             example = "certificates",
