@@ -45,12 +45,12 @@ public class CallbackControllerImpl implements CallbackController {
     @Override
     public Object resourceCallback(
             Resource resource,
-            String resourceUuid,
+            String parentObjectUuid,
             RequestAttributeCallback callback
     ) throws NotFoundException, ConnectorException, ValidationException {
         return callbackService.resourceCallback(
                 resource,
-                resourceUuid,
+                parentObjectUuid,
                 callback
         );
     }
