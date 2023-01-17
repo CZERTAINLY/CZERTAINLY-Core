@@ -3,7 +3,7 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -30,7 +30,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Certificate> findByStatus(CertificateStatus status);
 
     List<Certificate> findByRaProfile(RaProfile raProfile);
-    List<Certificate> findByGroup(CertificateGroup group);
+    List<Certificate> findByGroup(Group group);
 
     @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
     List<String> findDistinctSignatureAlgorithm();

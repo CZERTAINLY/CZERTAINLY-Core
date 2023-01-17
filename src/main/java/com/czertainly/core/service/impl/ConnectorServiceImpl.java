@@ -31,12 +31,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.CredentialRepository;
-import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -82,6 +77,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+    @Autowired
+    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     @Autowired
     private ConnectorAuthService connectorAuthService;
 
@@ -655,6 +652,17 @@ public class ConnectorServiceImpl implements ConnectorService {
                     connectorRepository.save(connector);
                 }
 
+                if (!connector.getTokenInstanceReferences().isEmpty()) {
+                    for (TokenInstanceReference ref : connector.getTokenInstanceReferences()) {
+                        ref.setConnector(null);
+                        ref.setConnectorUuid(null);
+                        tokenInstanceReferenceRepository.save(ref);
+                    }
+                    connector.getEntityInstanceReferences().removeAll(connector.getEntityInstanceReferences());
+                    connectorRepository.save(connector);
+                }
+
+
                 Set<String> compProfiles = complianceProfileService.isComplianceProviderAssociated(connector);
                 if (!compProfiles.isEmpty()) {
                     complianceProfileService.nullifyComplianceProviderAssociation(connector);
@@ -692,10 +700,15 @@ public class ConnectorServiceImpl implements ConnectorService {
             errors.add("Dependent Entity Instances: " + String.join(", ", connector.getEntityInstanceReferences().stream().map(EntityInstanceReference::getName).collect(Collectors.toSet())));
         }
 
+        if (!connector.getTokenInstanceReferences().isEmpty()) {
+            errors.add("Dependent Token Instances: " + String.join(", ", connector.getTokenInstanceReferences().stream().map(TokenInstanceReference::getName).collect(Collectors.toSet())));
+        }
+
         Set<String> complianceProfiles = complianceProfileService.isComplianceProviderAssociated(connector);
         if (!complianceProfiles.isEmpty()) {
             errors.add("Dependent Compliance Profiles: " + String.join(", ", complianceProfiles));
         }
+
 
         if (!errors.isEmpty()) {
             throw new ValidationException(ValidationError.create(String.join("\n", errors)));

@@ -37,7 +37,6 @@ import java.util.Optional;
 public class RaProfileServiceTest extends BaseSpringBootTest {
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";
-    private static final String CLIENT_NAME = "testClient1";
 
     @Autowired
     private com.czertainly.core.service.RaProfileService raProfileService;

@@ -6,7 +6,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
-import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -18,7 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
-public class CertificateGroupServiceTest extends BaseSpringBootTest {
+public class GroupServiceTest extends BaseSpringBootTest {
 
     private static final String CERTIFICATE_GROUP_NAME = "testCertificateGroup1";
 
@@ -28,13 +28,13 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
     @Autowired
     private GroupRepository groupRepository;
 
-    private CertificateGroup certificateGroup;
+    private Group group;
 
     @BeforeEach
     public void setUp() {
-        certificateGroup = new CertificateGroup();
-        certificateGroup.setName(CERTIFICATE_GROUP_NAME);
-        certificateGroup = groupRepository.save(certificateGroup);
+        group = new Group();
+        group.setName(CERTIFICATE_GROUP_NAME);
+        group = groupRepository.save(group);
     }
 
     @Test
@@ -43,15 +43,15 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(certificateGroups);
         Assertions.assertFalse(certificateGroups.isEmpty());
         Assertions.assertEquals(1, certificateGroups.size());
-        Assertions.assertEquals(certificateGroup.getUuid().toString(), certificateGroups.get(0).getUuid());
+        Assertions.assertEquals(group.getUuid().toString(), certificateGroups.get(0).getUuid());
     }
 
     @Test
     public void testGetCertificateGroup() throws NotFoundException {
-        GroupDto dto = groupService.getGroup(certificateGroup.getSecuredUuid());
+        GroupDto dto = groupService.getGroup(group.getSecuredUuid());
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(certificateGroup.getUuid().toString(), dto.getUuid());
-        Assertions.assertEquals(certificateGroup.getName(), dto.getName());
+        Assertions.assertEquals(group.getUuid().toString(), dto.getUuid());
+        Assertions.assertEquals(group.getName(), dto.getName());
     }
 
     @Test
@@ -89,7 +89,7 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
         request.setName("Test");
         request.setDescription("some description");
 
-        GroupDto dto = groupService.editGroup(certificateGroup.getSecuredUuid(), request);
+        GroupDto dto = groupService.editGroup(group.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
     }
@@ -105,10 +105,10 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testRemoveCertificateGroup() throws NotFoundException {
-        groupService.deleteGroup(certificateGroup.getSecuredUuid());
+        groupService.deleteGroup(group.getSecuredUuid());
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> groupService.getGroup(certificateGroup.getSecuredUuid())
+                () -> groupService.getGroup(group.getSecuredUuid())
         );
     }
 
@@ -122,10 +122,10 @@ public class CertificateGroupServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testBulkRemove() {
-        groupService.bulkDeleteGroup(List.of(certificateGroup.getSecuredUuid()));
+        groupService.bulkDeleteGroup(List.of(group.getSecuredUuid()));
         Assertions.assertThrows(
                 NotFoundException.class,
-                () -> groupService.getGroup(certificateGroup.getSecuredUuid())
+                () -> groupService.getGroup(group.getSecuredUuid())
         );
     }
 

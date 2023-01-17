@@ -1,7 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
-import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -32,7 +32,7 @@ public class StatisticsServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetStatistics_oneGroup() {
-        groupRepository.save(new CertificateGroup());
+        groupRepository.save(new Group());
 
         StatisticsDto result = statisticsService.getStatistics();
         Assertions.assertNotNull(result);
