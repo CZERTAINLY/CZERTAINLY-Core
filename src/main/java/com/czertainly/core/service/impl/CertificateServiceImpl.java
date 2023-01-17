@@ -699,7 +699,7 @@ public class CertificateServiceImpl implements CertificateService {
         raProfileFilter.setValue(raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()));
 
         SearchFieldDataDto groupFilter = SearchLabelConstants.GROUP_NAME_FILTER;
-        groupFilter.setValue(groupRepository.findAll().stream().map(CertificateGroup::getName).collect(Collectors.toList()));
+        groupFilter.setValue(groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList()));
 
         SearchFieldDataDto signatureAlgorithmFilter = SearchLabelConstants.SIGNATURE_ALGORITHM_FILTER;
         signatureAlgorithmFilter.setValue(new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm()));
@@ -976,15 +976,15 @@ public class CertificateServiceImpl implements CertificateService {
     private void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
-        CertificateGroup certificateGroup = groupRepository.findByUuid(groupUuid)
-                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, groupUuid));
+        Group group = groupRepository.findByUuid(groupUuid)
+                .orElseThrow(() -> new NotFoundException(Group.class, groupUuid));
         String originalGroup = "undefined";
         if (certificate.getGroup() != null) {
             originalGroup = certificate.getGroup().getName();
         }
-        certificate.setGroup(certificateGroup);
+        certificate.setGroup(group);
         certificateRepository.save(certificate);
-        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + certificateGroup.getName(), "", certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + group.getName(), "", certificate);
     }
 
     private void updateOwner(SecuredUUID uuid, String owner) throws NotFoundException {
@@ -1025,16 +1025,16 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private void bulkUpdateCertificateGroup(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
-        CertificateGroup certificateGroup = groupRepository.findByUuid(SecuredUUID.fromString(request.getGroupUuid()))
-                .orElseThrow(() -> new NotFoundException(CertificateGroup.class, request.getGroupUuid()));
+        Group group = groupRepository.findByUuid(SecuredUUID.fromString(request.getGroupUuid()))
+                .orElseThrow(() -> new NotFoundException(Group.class, request.getGroupUuid()));
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null) {
             List<Certificate> batchOperationList = new ArrayList<>();
 
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = ((CertificateService) AopContext.currentProxy()).getCertificateEntity(SecuredUUID.fromString(certificateUuid));
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + certificateGroup.getName(), "", certificate));
-                certificate.setGroup(certificateGroup);
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + group.getName(), "", certificate));
+                certificate.setGroup(group);
                 batchOperationList.add(certificate);
             }
             certificateRepository.saveAll(batchOperationList);
@@ -1044,9 +1044,9 @@ public class CertificateServiceImpl implements CertificateService {
             if (!data.equals("")) {
                 data = "WHERE " + data;
             }
-            String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + certificateGroup.getUuid() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            String groupUpdateQuery = "UPDATE Certificate c SET c.group = " + group.getUuid() + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(groupUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + certificateGroup.getName());
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, "Group Name: " + group.getName());
         }
     }
 

@@ -26,7 +26,6 @@ import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;

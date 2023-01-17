@@ -59,6 +59,10 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @JsonIgnore
     private Set<EntityInstanceReference> entityInstanceReferences = new HashSet<>();
 
+    @OneToMany(mappedBy = "connectorUuid")
+    @JsonIgnore
+    private Set<TokenInstanceReference> tokenInstanceReferences = new HashSet<>();
+
     public String getName() {
         return name;
     }
@@ -125,6 +129,10 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
 
     public Set<EntityInstanceReference> getEntityInstanceReferences() {
         return entityInstanceReferences;
+    }
+
+    public Set<TokenInstanceReference> getTokenInstanceReferences() {
+        return tokenInstanceReferences;
     }
 
     @Override

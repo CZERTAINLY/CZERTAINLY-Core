@@ -39,7 +39,12 @@ public enum ResourceAction {
 
     // RA Profile actions
     ACTIVATE_ACME("activateAcme"),
-    ;
+
+    //CRYPTOGRAPHY OPERATION
+    ENCRYPT("encrypt"),
+    DECRYPT("decrypt"),
+    VERIFY("verify"),
+    SIGN("sign");
 
     @Schema(description = "Resource Action Name",
             example = "create",

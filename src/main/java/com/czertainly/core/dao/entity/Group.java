@@ -15,8 +15,8 @@ import javax.persistence.Table;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "certificate_group")
-public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+@Table(name = "certificate_key_group")
+public class Group extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     /**
      *
@@ -72,7 +72,7 @@ public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Se
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        CertificateGroup that = (CertificateGroup) o;
+        Group that = (Group) o;
         return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }
 

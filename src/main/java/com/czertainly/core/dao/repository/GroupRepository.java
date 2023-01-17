@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.repository;
 
-import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.Group;
 import org.springframework.stereotype.Repository;
 
 import javax.transaction.Transactional;
@@ -9,9 +9,9 @@ import java.util.UUID;
 
 @Repository
 @Transactional
-public interface GroupRepository extends SecurityFilterRepository<CertificateGroup, Long> {
+public interface GroupRepository extends SecurityFilterRepository<Group, Long> {
 
-    Optional<CertificateGroup> findByName(String name);
+    Optional<Group> findByName(String name);
 
-    Optional<CertificateGroup> findByUuid(UUID uuid);
+    Optional<Group> findByUuid(UUID uuid);
 }
