@@ -92,7 +92,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void destroyKey(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException {
+    public void destroyKeys(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException {
         cryptographicKeyService.destroyKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 uuid,
@@ -101,7 +101,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void destroyKey(List<String> keyUuids) throws ConnectorException {
+    public void destroyKeys(List<String> keyUuids) throws ConnectorException {
         cryptographicKeyService.destroyKey(
                 keyUuids
         );
@@ -133,7 +133,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void bulkEnableKeys(List<String> uuids) {
+    public void enableKeys(List<String> uuids) {
         cryptographicKeyService.enableKey(
                 uuids
         );
@@ -149,7 +149,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void bulkDisableKeys(List<String> uuids) {
+    public void disableKeys(List<String> uuids) {
         cryptographicKeyService.disableKey(
                 uuids
         );
