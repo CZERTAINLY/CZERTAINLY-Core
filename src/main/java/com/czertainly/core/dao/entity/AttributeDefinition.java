@@ -198,7 +198,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
             dto.setList(properties.isList());
             dto.setMultiSelect(properties.isMultiSelect());
             dto.setReadOnly(properties.isReadOnly());
-            dto.setVisible(dto.isVisible());
+            dto.setVisible(properties.isVisible());
         }
         return dto;
     }
@@ -216,7 +216,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
             MetadataAttributeProperties properties = attribute.getProperties();
             dto.setGroup(properties.getGroup());
             dto.setLabel(properties.getLabel());
-            dto.setVisible(dto.isVisible());
+            dto.setVisible(properties.isVisible());
         }
         return dto;
     }
