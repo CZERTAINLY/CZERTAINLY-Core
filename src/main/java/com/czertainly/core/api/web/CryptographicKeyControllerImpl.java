@@ -92,11 +92,11 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void destroyKey(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException {
+    public void destroyKey(String tokenInstanceUuid, String uuid, List<String> keyItemUuids) throws ConnectorException {
         cryptographicKeyService.destroyKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 uuid,
-                keyUuids
+                keyItemUuids
         );
     }
 
@@ -108,11 +108,11 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void deleteKey(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException {
+    public void deleteKey(String tokenInstanceUuid, String uuid, List<String> keyItemUuids) throws ConnectorException {
         cryptographicKeyService.deleteKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 UUID.fromString(uuid),
-                keyUuids
+                keyItemUuids
         );
     }
 
@@ -124,11 +124,11 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void enableKey(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws NotFoundException {
+    public void enableKey(String tokenInstanceUuid, String uuid, List<String> keyItemUuids) throws NotFoundException {
         cryptographicKeyService.enableKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 UUID.fromString(uuid),
-                keyUuids
+                keyItemUuids
         );
     }
 
@@ -140,11 +140,11 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void disableKey(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws NotFoundException {
+    public void disableKey(String tokenInstanceUuid, String uuid, List<String> keyItemUuids) throws NotFoundException {
         cryptographicKeyService.disableKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 UUID.fromString(uuid),
-                keyUuids
+                keyItemUuids
         );
     }
 
