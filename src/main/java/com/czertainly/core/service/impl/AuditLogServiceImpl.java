@@ -25,14 +25,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.transaction.Transactional;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.transaction.Transactional;
+
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -171,6 +169,8 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
         if (filter.getCreatedTo() != null) {
             predicate.and(QAuditLog.auditLog.created.before(filter.getCreatedTo().atTime(LocalTime.MAX)));
+        } else {
+            predicate.and(QAuditLog.auditLog.created.isNotNull());
         }
 
         if (filter.getOperation() != null) {

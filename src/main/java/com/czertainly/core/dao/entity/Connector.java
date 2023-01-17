@@ -11,12 +11,12 @@ import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;

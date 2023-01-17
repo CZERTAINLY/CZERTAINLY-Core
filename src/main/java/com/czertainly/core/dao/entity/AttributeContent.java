@@ -2,14 +2,10 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
 import java.util.List;
 import java.util.UUID;
 

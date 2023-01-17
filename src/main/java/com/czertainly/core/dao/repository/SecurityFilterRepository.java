@@ -3,14 +3,14 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.NoRepositoryBean;
 
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;

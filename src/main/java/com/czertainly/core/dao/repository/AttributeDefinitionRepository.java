@@ -3,9 +3,9 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.core.dao.entity.AttributeDefinition;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Repository;
 
-import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

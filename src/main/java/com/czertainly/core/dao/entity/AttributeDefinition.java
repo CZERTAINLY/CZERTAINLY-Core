@@ -13,10 +13,10 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
 import java.util.UUID;
 
 @Entity

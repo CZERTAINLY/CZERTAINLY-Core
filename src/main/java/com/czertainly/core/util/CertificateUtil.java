@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory;
 import javax.naming.InvalidNameException;
 import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
-import javax.xml.bind.DatatypeConverter;
+import jakarta.xml.bind.DatatypeConverter;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;

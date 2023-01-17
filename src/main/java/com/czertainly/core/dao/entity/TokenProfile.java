@@ -9,14 +9,10 @@ import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;

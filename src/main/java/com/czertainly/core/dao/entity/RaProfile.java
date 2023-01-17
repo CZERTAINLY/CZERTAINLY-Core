@@ -10,11 +10,11 @@ import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Set;

@@ -4,10 +4,10 @@ import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.core.util.DtoMapper;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.List;
