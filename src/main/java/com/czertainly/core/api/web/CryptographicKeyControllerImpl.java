@@ -92,7 +92,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void destroyKeys(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException {
+    public void destroyKey(String tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException {
         cryptographicKeyService.destroyKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 uuid,

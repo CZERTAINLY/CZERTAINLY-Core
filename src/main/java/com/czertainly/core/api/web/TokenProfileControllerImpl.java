@@ -71,7 +71,7 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     }
 
     @Override
-    public void disableTokenProfiles(String tokenInstanceUuid, String uuid) throws NotFoundException {
+    public void disableTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
         tokenProfileService.disableTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
@@ -86,7 +86,7 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     }
 
     @Override
-    public void disableTokenProfiles(List<String> uuids) {
+    public void disableTokenProfile(List<String> uuids) {
         tokenProfileService.disableTokenProfile(SecuredUUID.fromList(uuids));
     }
 
