@@ -481,10 +481,16 @@ public class AttributeServiceImpl implements AttributeService {
         definition.setContentType(attribute.getContentType());
         definition.setAttributeDefinition(attribute);
         definition.setUuid(attribute.getUuid());
-        definition.setEnabled(false);
+        // Default state of the attribute will always be enabled
+        definition.setEnabled(true);
 
         attributeDefinitionRepository.save(definition);
-
+        try {
+            updateResources(definition.getSecuredUuid(), request.getResources());
+        } catch (NotFoundException e) {
+            // This method will not throw error since the object will always be created before the resource assignment
+            logger.error(e.getMessage());
+        }
         return definition;
     }
 
@@ -544,6 +550,8 @@ public class AttributeServiceImpl implements AttributeService {
         definition.setAttributeDefinition(attribute);
 
         attributeDefinitionRepository.save(definition);
+
+        updateResources(uuid, request.getResources());
 
         return definition;
     }
