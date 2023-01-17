@@ -86,7 +86,7 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     }
 
     @Override
-    public void disableTokenProfile(List<String> uuids) {
+    public void disableTokenProfiles(List<String> uuids) {
         tokenProfileService.disableTokenProfile(SecuredUUID.fromList(uuids));
     }
 
