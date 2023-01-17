@@ -134,6 +134,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         request.setContentType(AttributeContentType.STRING);
         request.setRequired(true);
         request.setVisible(true);
+        request.setResources(List.of(Resource.USER, Resource.ROLE));
 
         CustomAttributeDefinitionDetailDto response = attributeService.createAttribute(request);
         Assertions.assertNotNull(response);
@@ -141,6 +142,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getName(), response.getName());
         Assertions.assertEquals(response.getType(), AttributeType.CUSTOM);
         Assertions.assertEquals(request.getContentType(), AttributeContentType.STRING);
+        Assertions.assertEquals(2, request.getResources().size());
     }
 
     @Test
@@ -168,10 +170,12 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         CustomAttributeUpdateRequestDto request = new CustomAttributeUpdateRequestDto();
         request.setLabel("Updated Attribute");
         request.setDescription("Desc");
+        request.setResources(List.of(Resource.RA_PROFILE));
 
         CustomAttributeDefinitionDetailDto response = attributeService.editAttribute(SecuredUUID.fromUUID(definition.getUuid()), request);
         Assertions.assertEquals(request.getDescription(), response.getDescription());
         Assertions.assertEquals(request.getLabel(), response.getLabel());
+        Assertions.assertEquals(1, response.getResources().size());
     }
 
     @Test
