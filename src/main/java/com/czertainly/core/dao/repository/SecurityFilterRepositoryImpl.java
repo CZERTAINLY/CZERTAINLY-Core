@@ -4,17 +4,13 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.criteria.*;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 
-import javax.persistence.EntityManager;
-import javax.persistence.NoResultException;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Order;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -87,29 +83,32 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     @Override
     public Long countUsingSecurityFilter(SecurityFilter filter) {
         CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, null);
-        return entityManager.createQuery(cr).getSingleResult();
+        List<Long> crlist = entityManager.createQuery(cr).getResultList();
+        return crlist.get(0);
     }
 
 
-    private CriteriaQuery<T> createCriteriaBuilder(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, BiFunction<Root<T>, CriteriaBuilder, Order> order) {
-        Class<T> entity = this.entityInformation.getJavaType();
-        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        CriteriaQuery<T> cr = cb.createQuery(entity);
-        Root<T> root = cr.from(entity);
+    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        final CriteriaQuery<T> cr = cb.createQuery(entity);
+        final Root<T> root = cr.from(entity);
         cr.select(root);
         if(order != null){
             cr.orderBy(order.apply(root, cb));
         }
-        return cr.where(getPredicates(filter, additionalWhereClause, root, cb).toArray(new Predicate[]{}));
+        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
+        return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
 
-    private CriteriaQuery<Long> createCountCriteriaBuilder(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
-        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
-        Class<T> entity = this.entityInformation.getJavaType();
-        CriteriaQuery<Long> cr = cb.createQuery(Long.class);
-        Root<T> root = cr.from(entity);
+    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaQuery<Long> cr = cb.createQuery(Long.class);
+        final Root<T> root = cr.from(entity);
         cr.select(cb.count(root));
-        return cr.where(getPredicates(filter, additionalWhereClause, root, cb).toArray(new Predicate[]{}));
+        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
+        return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
 
     private List<Predicate> getPredicates(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb) {

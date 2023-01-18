@@ -20,14 +20,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import javax.transaction.Transactional;
+import jakarta.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.security.KeyStore;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static com.czertainly.api.clients.BaseApiClient.*;
 

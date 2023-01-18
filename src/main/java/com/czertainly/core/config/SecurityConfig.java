@@ -5,27 +5,29 @@ import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDecisionManager;
 import org.springframework.security.access.AccessDecisionVoter;
 import org.springframework.security.access.vote.AffirmativeBased;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionVoter;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig extends WebSecurityConfigurerAdapter {
+public class SecurityConfig  {
 
     @Autowired
     CzertainlyAuthenticationProvider czertainlyAuthenticationProvider;
@@ -36,8 +38,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Autowired
     AcmeValidationFilter acmeValidationFilter;
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
+    @Bean
+    protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
                 .authorizeRequests()
                 .anyRequest().authenticated()
@@ -57,14 +60,15 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .formLogin().disable()
                 .x509().disable()
                 .addFilterBefore(acmeValidationFilter, X509AuthenticationFilter.class)
-                .addFilterBefore(this.createCzertainlyAuthenticationFilter(), BasicAuthenticationFilter.class)
+                .addFilterBefore(createCzertainlyAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+
+        return http.build();
     }
 
-    @Override
-    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        super.configure(auth);
-        auth.authenticationProvider(czertainlyAuthenticationProvider);
+    @Bean
+    public AuthenticationManager authenticationManager() {
+        return new ProviderManager(czertainlyAuthenticationProvider);
     }
 
     protected AccessDecisionManager accessDecisionManager() {
@@ -97,7 +101,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         return filterAuthorizationVoter;
     }
 
-    protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() throws Exception {
-        return new CzertainlyAuthenticationFilter(this.authenticationManager(), new CzertainlyAuthenticationConverter());
+    protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
+        return new CzertainlyAuthenticationFilter(authenticationManager(), new CzertainlyAuthenticationConverter());
     }
 }

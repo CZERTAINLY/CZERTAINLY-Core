@@ -1,9 +1,9 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.core.dao.entity.TokenProfile;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Repository;
 
-import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.6.6</version>
+        <version>3.0.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -16,7 +16,9 @@
     <name>CZERTAINLY-Core</name>
 
     <properties>
-        <java.version>11</java.version>
+        <java.version>17</java.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
         <querydsl.version>5.0.0</querydsl.version>
         <sonar.projectKey>3KeyCompany_CZERTAINLY-Core</sonar.projectKey>
     </properties>
@@ -43,6 +45,7 @@
             <version>1.5.1-SNAPSHOT</version>
         </dependency>
 
+
         <!-- Spring  -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -65,15 +68,21 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>42.4.1</version>
+            <version>42.5.1</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+            <version>4.0.0</version>
         </dependency>
 
         <dependency>
             <groupId>com.querydsl</groupId>
             <artifactId>querydsl-apt</artifactId>
             <version>${querydsl.version}</version>
-            <classifier>jpa</classifier>
+            <classifier>jakarta</classifier>
             <scope>provided</scope>
         </dependency>
 
@@ -81,6 +90,7 @@
             <groupId>com.querydsl</groupId>
             <artifactId>querydsl-jpa</artifactId>
             <version>${querydsl.version}</version>
+            <classifier>jakarta</classifier>
         </dependency>
 
         <dependency>
@@ -101,12 +111,12 @@
         <dependency>
             <groupId>no.difi.commons</groupId>
             <artifactId>commons-certvalidator</artifactId>
-            <version>2.1.1</version>
+            <version>2.2.1</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk15on</artifactId>
-            <version>1.67</version>
+            <version>1.70</version>
         </dependency>
 
         <!-- Tests -->
@@ -130,7 +140,7 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
-            <version>5.1.5.RELEASE</version>
+            <version>6.0.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -181,31 +191,12 @@
                 <version>2.22.2</version>
                 <configuration>
                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    <argLine>
+                        --add-opens java.base/java.lang=ALL-UNNAMED
+                        --add-opens java.base/sun.security.rsa=ALL-UNNAMED
+                        --add-opens java.base/sun.security.x509=ALL-UNNAMED
+                    </argLine>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>de.jpdigital</groupId>
-                <artifactId>hibernate52-ddl-maven-plugin</artifactId>
-                <version>2.3.0</version>
-                <configuration>
-                    <outputFileNamePrefix>schema-</outputFileNamePrefix>
-                    <packages>
-                        <param>com.czertainly.core.dao.entity</param>
-                    </packages>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>create-schema</id>
-                        <goals>
-                            <goal>gen-ddl</goal>
-                        </goals>
-                        <configuration>
-                            <dialects>
-                                <param>POSTGRESQL92</param>
-                            </dialects>
-                        </configuration>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -217,7 +208,7 @@
             <plugin>
                 <groupId>org.hibernate.orm.tooling</groupId>
                 <artifactId>hibernate-enhance-maven-plugin</artifactId>
-                <version>5.5.6.Final</version>
+                <version>6.1.6.Final</version>
                 <executions>
                     <execution>
                         <phase>compile</phase>

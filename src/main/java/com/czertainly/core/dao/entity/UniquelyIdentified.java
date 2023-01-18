@@ -1,11 +1,11 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.core.security.authz.SecuredUUID;
+import jakarta.persistence.Column;
+import jakarta.persistence.Id;
+import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.PrePersist;
 
-import javax.persistence.Column;
-import javax.persistence.Id;
-import javax.persistence.MappedSuperclass;
-import javax.persistence.PrePersist;
 import java.util.UUID;
 
 @MappedSuperclass
