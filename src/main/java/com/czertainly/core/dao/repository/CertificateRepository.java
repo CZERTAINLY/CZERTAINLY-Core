@@ -6,11 +6,11 @@ import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import javax.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

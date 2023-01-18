@@ -3,8 +3,8 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.persistence.*;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;

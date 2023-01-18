@@ -43,6 +43,7 @@ import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +51,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 
-import javax.transaction.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 

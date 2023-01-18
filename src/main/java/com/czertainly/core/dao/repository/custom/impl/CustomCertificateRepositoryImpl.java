@@ -1,9 +1,8 @@
 package com.czertainly.core.dao.repository.custom.impl;
 
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
-
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 public class CustomCertificateRepositoryImpl implements CustomCertificateRepository {
 

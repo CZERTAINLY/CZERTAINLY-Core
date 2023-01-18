@@ -5,7 +5,7 @@ import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import org.springframework.stereotype.Repository;
 
-import javax.transaction.Transactional;
+import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
