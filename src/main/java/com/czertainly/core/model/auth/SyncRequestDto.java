@@ -6,22 +6,22 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 public class SyncRequestDto {
-    @Schema(description = "Name of the method", required = true, example = "listClient")
+    @Schema(description = "Name of the method", requiredMode = Schema.RequiredMode.REQUIRED, example = "listClient")
     private String name;
 
-    @Schema(description = "Request Method", required = true, example = "GET")
+    @Schema(description = "Request Method", requiredMode = Schema.RequiredMode.REQUIRED, example = "GET")
     private String method;
 
-    @Schema(description = "Context of the request", required = true, example = "/v1/clients")
+    @Schema(description = "Context of the request", requiredMode = Schema.RequiredMode.REQUIRED, example = "/v1/clients")
     private String routeTemplate;
 
-    @Schema(description = "Name of the resource", required = true, example = "client")
+    @Schema(description = "Name of the resource", requiredMode = Schema.RequiredMode.REQUIRED, example = "client")
     private Resource resourceName;
 
-    @Schema(description = "Action Name", required = true, example = "list")
+    @Schema(description = "Action Name", requiredMode = Schema.RequiredMode.REQUIRED, example = "list")
     private ResourceAction actionName;
 
-    @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No", required = true, example = "false", defaultValue = "false")
+    @Schema(description = "Is endpoint for listing objects flag - true = Yes; false = No", requiredMode = Schema.RequiredMode.REQUIRED, example = "false", defaultValue = "false")
     private boolean isListingEndpoint;
 
     public String getName() {

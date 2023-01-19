@@ -20,22 +20,29 @@ import java.util.UUID;
 public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
     Optional<Certificate> findByUuid(UUID uuid);
+
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
 
     Certificate findByCertificateContent(CertificateContent certificateContent);
-	Optional<Certificate> findByFingerprint(String fingerprint);
+
+    Optional<Certificate> findByFingerprint(String fingerprint);
+
     List<Certificate> findBySubjectDn(String subjectDn);
-	List<Certificate> findAllByIssuerSerialNumber(String issuerSerialNumber);
+
+    List<Certificate> findAllByIssuerSerialNumber(String issuerSerialNumber);
 
     List<Certificate> findByStatus(CertificateStatus status);
 
     List<Certificate> findByRaProfile(RaProfile raProfile);
+
     List<Certificate> findByGroup(Group group);
+
+    List<Certificate> findByKeyUuid(UUID keyUuid);
 
     @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
     List<String> findDistinctSignatureAlgorithm();
 
-    
+
     @Query("SELECT DISTINCT keySize FROM Certificate")
     List<Integer> findDistinctKeySize();
 

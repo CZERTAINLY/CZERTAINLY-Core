@@ -1,17 +1,9 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
-import com.czertainly.api.model.client.cryptography.key.EditKeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
-import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
+import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.cryptography.key.CreateKeyRequestDto;
@@ -25,11 +17,7 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.CryptographicKey;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
-import com.czertainly.core.dao.entity.TokenInstanceReference;
-import com.czertainly.core.dao.entity.TokenProfile;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.dao.repository.TokenProfileRepository;
@@ -38,12 +26,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.CryptographicKeyEventHistoryService;
-import com.czertainly.core.service.CryptographicKeyService;
-import com.czertainly.core.service.MetadataService;
-import com.czertainly.core.service.PermissionEvaluator;
-import com.czertainly.core.service.TokenInstanceService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,6 +52,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private TokenInstanceService tokenInstanceService;
     private CryptographicKeyEventHistoryService keyEventHistoryService;
     private PermissionEvaluator permissionEvaluator;
+    private CertificateService certificateService;
     // --------------------------------------------------------------------------------
     // Repositories
     // --------------------------------------------------------------------------------
@@ -381,6 +365,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             }
             if (key.getItems().size() == 0) {
                 cryptographicKeyRepository.delete(key);
+                certificateService.clearKeyAssociations(key.getUuid());
             }
         } else {
             deleteKey(List.of(uuid.toString()));
@@ -407,6 +392,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     cryptographicKeyItemRepository.delete(content);
                 }
                 cryptographicKeyRepository.delete(key);
+                certificateService.clearKeyAssociations(UUID.fromString(uuid));
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }

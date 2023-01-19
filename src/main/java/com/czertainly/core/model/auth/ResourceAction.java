@@ -48,7 +48,7 @@ public enum ResourceAction {
 
     @Schema(description = "Resource Action Name",
             example = "create",
-            required = true)
+            requiredMode = Schema.RequiredMode.REQUIRED)
             
     private final String code;
 

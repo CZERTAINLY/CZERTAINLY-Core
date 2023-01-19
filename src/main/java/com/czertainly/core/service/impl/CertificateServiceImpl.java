@@ -1,13 +1,12 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
@@ -21,22 +20,14 @@ import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
-import com.czertainly.core.dao.repository.GroupRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.OcspUtil;
-import com.czertainly.core.util.X509ObjectToString;
+import com.czertainly.core.util.*;
 import com.google.common.collect.Lists;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.slf4j.Logger;
@@ -51,11 +42,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringWriter;
+import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -500,13 +487,17 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
+        entity.setCsr(csr);
+        entity.setKeyUuid(keyUuid);
+        entity.setCsrAttributes(csrAttributes);
+        entity.setSignatureAttributes(signatureAttributes);
         certificateRepository.save(entity);
         metadataService.createMetadataDefinitions(null, meta);
         metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
@@ -671,6 +662,23 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void checkRevokePermissions() {
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ANY)
+    public List<BaseAttribute> getCsrGenerationAttributes() {
+        return CsrAttributesUtil.csrAttributes();
+    }
+
+    @Override
+    public void clearKeyAssociations(UUID keyUuid) {
+        certificateRepository.findByKeyUuid(keyUuid)
+                .forEach(
+                        e ->
+                        {
+                            e.setKey(null);
+                            certificateRepository.save(e);
+                        });
     }
 
     private String getExpiryTime(Date now, Date expiry) {
@@ -1071,6 +1079,5 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.bulkUpdateQuery(ownerUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
         }
-
     }
 }

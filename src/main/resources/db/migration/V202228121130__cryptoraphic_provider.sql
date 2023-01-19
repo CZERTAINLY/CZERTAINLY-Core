@@ -74,6 +74,12 @@ CREATE TABLE key_event_history (
 )
 ;
 
+alter table certificate add column key_uuid UUID;
+alter table certificate add column csr TEXT NULL DEFAULT NULL;
+alter table certificate add column csr_attributes TEXT NULL DEFAULT NULL;
+alter table certificate add column signature_attributes TEXT NULL DEFAULT NULL;
+
+
 alter table if exists key_event_history
     add constraint key_history_to_cryptographic_key_item
     foreign key (key_uuid)
@@ -108,6 +114,11 @@ alter table if exists cryptographic_key
 alter table if exists cryptographic_key_item
     add constraint cryptographic_key_to_key_content_key
     foreign key (cryptographic_key_uuid)
+    references cryptographic_key;
+
+alter table if exists certificate
+    add constraint certificate_to_cryptographic_key
+    foreign key (key_uuid)
     references cryptographic_key;
 
 alter table certificate_group rename to certificate_key_group;

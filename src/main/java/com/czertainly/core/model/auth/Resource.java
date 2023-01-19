@@ -47,7 +47,7 @@ public enum Resource {
 
     @Schema(description = "Resource Name",
             example = "certificates",
-            required = true)
+            requiredMode = Schema.RequiredMode.REQUIRED)
             
     private final String code;
 
