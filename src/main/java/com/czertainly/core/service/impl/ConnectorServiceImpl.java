@@ -658,7 +658,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                         ref.setConnectorUuid(null);
                         tokenInstanceReferenceRepository.save(ref);
                     }
-                    connector.getEntityInstanceReferences().removeAll(connector.getEntityInstanceReferences());
+                    connector.getTokenInstanceReferences().removeAll(connector.getTokenInstanceReferences());
                     connectorRepository.save(connector);
                 }
 
