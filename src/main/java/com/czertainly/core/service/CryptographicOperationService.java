@@ -2,20 +2,20 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
 import com.czertainly.api.model.client.cryptography.operations.RandomDataRequestDto;
 import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
 import com.czertainly.api.model.client.cryptography.operations.VerifyDataRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.EncryptDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.RandomDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto;
+import com.czertainly.api.model.connector.cryptography.operations.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 
+import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
 import java.util.List;
 import java.util.UUID;
 
@@ -141,4 +141,24 @@ public interface CryptographicOperationService {
             SecuredUUID tokenInstanceUuid,
             RandomDataRequestDto request
     ) throws ConnectorException;
+
+    /**
+     * Generate the CSR with the key and token profile and CSR parameters
+     *
+     * @param keyUuid             UUID of the cryptographic key
+     * @param tokenProfileUuid    UUID of the token profile
+     * @param csrAttributes       CSR generation attributes
+     * @param signatureAttributes Signature attributes
+     * @return Base64 encoded CSR string
+     * @throws NotFoundException        When the key or token profile is not found
+     * @throws NoSuchAlgorithmException when thw algorithm is invalid
+     * @throws InvalidKeySpecException  when the key is invalid
+     * @throws IOException              when there are issues with writing the key data as string
+     */
+    String generateCsr(
+            UUID keyUuid,
+            UUID tokenProfileUuid,
+            List<RequestAttributeDto> csrAttributes,
+            List<RequestAttributeDto> signatureAttributes
+    ) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException;
 }

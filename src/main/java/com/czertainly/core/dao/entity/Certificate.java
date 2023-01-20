@@ -137,7 +137,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "user_uuid")
     private UUID userUuid;
 
-    @Column(name = "csr")
+    @Column(name = "csr", length = Integer.MAX_VALUE)
     private String csr;
 
     @ManyToOne
@@ -147,10 +147,10 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "key_uuid")
     private UUID keyUuid;
 
-    @Column(name = "csr_attributes")
+    @Column(name = "csr_attributes", length = Integer.MAX_VALUE)
     private String csrAttributes;
 
-    @Column(name = "signature_attributes")
+    @Column(name = "signature_attributes", length = Integer.MAX_VALUE)
     private String signatureAttributes;
 
     @Override

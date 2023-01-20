@@ -20,7 +20,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyEvent;
 import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.config.CryptographyProviderCsrSigner;
+import com.czertainly.core.config.CPCsrSigner;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
@@ -322,11 +322,19 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         permissionEvaluator.tokenProfile(SecuredUUID.fromUUID(tokenProfileUuid));
         CryptographicKey key = cryptographicKeyRepository.findByUuid(
                 keyUuid).orElseThrow(
-                        () -> new NotFoundException(
-                                CryptographicKey.class,
-                                keyUuid
-                        )
+                () -> new NotFoundException(
+                        CryptographicKey.class,
+                        keyUuid
+                )
         );
+
+        if (!key.getTokenProfile().getUuid().equals(tokenProfileUuid)) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Key and Token Profile are not associated to each other"
+                    )
+            );
+        }
         CryptographicKeyItem privateKeyItem = null;
         CryptographicKeyItem publicKeyItem = null;
 
@@ -355,6 +363,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 csrAttributes,
                 publicKeyItem.getKeyData(),
                 privateKeyItem,
+                publicKeyItem,
                 signatureAttributes
         );
     }
@@ -372,7 +381,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return key;
     }
 
-    public String generateCsr(List<RequestAttributeDto> attributes, String key, CryptographicKeyItem keyItem, List<RequestAttributeDto> signatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+    public String generateCsr(List<RequestAttributeDto> attributes, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         // Add bouncy castle provider
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 
@@ -383,11 +392,12 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         );
 
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
-        ContentSigner signer = new CryptographyProviderCsrSigner(
+        ContentSigner signer = new CPCsrSigner(
                 cryptographicOperationsApiClient,
-                keyItem.getCryptographicKey().getTokenInstanceReference().getConnector().mapToDto(),
-                keyItem.getCryptographicKey().getTokenInstanceReferenceUuid(),
-                keyItem.getKeyReferenceUuid(),
+                privateKeyItem.getCryptographicKey().getTokenInstanceReference().getConnector().mapToDto(),
+                privateKeyItem.getCryptographicKey().getTokenInstanceReferenceUuid(),
+                privateKeyItem.getKeyReferenceUuid(),
+                publicKeyItem.getKeyReferenceUuid(),
                 signatureAttributes
         );
 
