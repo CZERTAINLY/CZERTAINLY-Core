@@ -193,7 +193,6 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
-        request.setUploadCsr(true);
         ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), raProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(response);
     }

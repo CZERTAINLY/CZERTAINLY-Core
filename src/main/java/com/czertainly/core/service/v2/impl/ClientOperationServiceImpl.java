@@ -168,7 +168,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         String csr;
         List<DataAttribute> merged = null;
 
-        if (request.isUploadCsr()) {
+        if (request.getPkcs10() != null && !request.getPkcs10().isEmpty()) {
             csr = request.getPkcs10();
         } else {
             merged = AttributeDefinitionUtils.mergeAttributes(CsrAttributesUtil.csrAttributes(), request.getCsrAttributes());
@@ -377,7 +377,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         CertRevocationDto caRequest = new CertRevocationDto();
         caRequest.setReason(request.getReason());
-        if(request.getReason() == null) {
+        if (request.getReason() == null) {
             caRequest.setReason(RevocationReason.UNSPECIFIED);
         }
         caRequest.setAttributes(request.getAttributes());
@@ -410,6 +410,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     /**
      * Function to parse the CSR from string to BC JCA objects
+     *
      * @param pkcs10 Base64 encoded csr string
      * @return Jca object
      * @throws IOException
@@ -428,6 +429,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     /**
      * Check and get the CSR from the existing certificate
+     *
      * @param certificate Old certificate
      * @return CSR from the old certificate
      */
@@ -445,7 +447,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     /**
      * Check and get the CSR attributes from the existing certificate
-     * @param request Certificate issuance request
+     *
+     * @param request     Certificate issuance request
      * @param certificate Existing certificate
      * @return List of attributes from the existing certificate
      */
@@ -472,7 +475,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     private UUID getTokenProfileUuid(ClientCertificateRenewRequestDto request, Certificate certificate) {
-        if (certificate.getKeyUuid() == null && request.getTokenProfileUuid() == null){
+        if (certificate.getKeyUuid() == null && request.getTokenProfileUuid() == null) {
             throw new ValidationException(
                     ValidationError.create(
                             "Token Profile cannot be empty for creating new CSR"
@@ -484,7 +487,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     /**
      * Validate existing key from the old certificate
-     * @param request Certificate creation request
+     *
+     * @param request     Certificate creation request
      * @param certificate Existing certificate to be renewed
      * @return UUID of the key from the old certificate
      */
@@ -517,9 +521,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     /**
      * Generate the CSR for new certificate for issuance and renew
-     * @param keyUuid UUID of the key
-     * @param tokenProfileUuid Token profile UUID
-     * @param csrAttributes CSR attributes
+     *
+     * @param keyUuid             UUID of the key
+     * @param tokenProfileUuid    Token profile UUID
+     * @param csrAttributes       CSR attributes
      * @param signatureAttributes Signature attributes
      * @return Base64 encoded CSR string
      * @throws NotFoundException When the key or tokenProfile UUID is not found
