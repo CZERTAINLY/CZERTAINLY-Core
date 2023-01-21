@@ -25,6 +25,7 @@ import java.security.Security;
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
 @PropertySource(value = ApplicationConfig.EXTERNAL_PROPERTY_SOURCE, ignoreResourceNotFound = true)
+@ComponentScan(basePackages = "com.czertainly.core")
 public class ApplicationConfig {
     public static final String EXTERNAL_PROPERTY_SOURCE =
             "file:${raprofiles-backend.config.dir:/etc/raprofiles-backend}/raprofiles-backend.properties";
