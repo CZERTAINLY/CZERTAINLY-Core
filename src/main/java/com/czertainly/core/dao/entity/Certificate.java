@@ -1,11 +1,16 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.SerializationUtil;
@@ -17,10 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Table(name = "certificate")
@@ -135,6 +137,22 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "user_uuid")
     private UUID userUuid;
 
+    @Column(name = "csr", length = Integer.MAX_VALUE)
+    private String csr;
+
+    @ManyToOne
+    @JoinColumn(name = "key_uuid", insertable = false, updatable = false)
+    private CryptographicKey key;
+
+    @Column(name = "key_uuid")
+    private UUID keyUuid;
+
+    @Column(name = "csr_attributes", length = Integer.MAX_VALUE)
+    private String csrAttributes;
+
+    @Column(name = "signature_attributes", length = Integer.MAX_VALUE)
+    private String signatureAttributes;
+
     @Override
     public CertificateDto mapToDto() {
         CertificateDto dto = new CertificateDto();
@@ -180,9 +198,39 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         if (group != null) {
             dto.setGroup(group.mapToDto());
         }
-//        if (locations != null) {
-//            dto.setLocations(locations.mapToDto());
-//        }
+
+        //Check and assign private key availability
+        dto.setCsr(csr);
+        dto.setPrivateKeyAvailability(false);
+        dto.setCsrAttributes(
+                AttributeDefinitionUtils.getResponseAttributes(
+                        AttributeDefinitionUtils.deserialize(
+                                csrAttributes,
+                                DataAttribute.class
+                        )
+                )
+        );
+        dto.setSignatureAttributes(
+                AttributeDefinitionUtils.getResponseAttributes(
+                        AttributeDefinitionUtils.deserialize(
+                                signatureAttributes,
+                                DataAttribute.class
+                        )
+                )
+        );
+        if(key != null && !key.getItems().isEmpty()) {
+            if(!key.getItems()
+                    .stream()
+                    .filter(
+                            item -> item.getType()
+                                    .equals(KeyType.PRIVATE_KEY)
+                                    && item.getState().equals(KeyState.ACTIVE)
+                    ).toList()
+                    .isEmpty()
+            ) {
+                dto.setPrivateKeyAvailability(true);
+            }
+        }
         return dto;
     }
 
@@ -447,5 +495,54 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setUserUuid(UUID userUuid) {
         this.userUuid = userUuid;
+    }
+
+    public String getCsr() {
+        return csr;
+    }
+
+    public void setCsr(String csr) {
+        this.csr = csr;
+    }
+
+    public CryptographicKey getKey() {
+        return key;
+    }
+
+    public void setKey(CryptographicKey key) {
+        this.key = key;
+        if(key != null) this.keyUuid = uuid;
+    }
+
+    public UUID getKeyUuid() {
+        return keyUuid;
+    }
+
+    public void setKeyUuid(UUID keyUuid) {
+        this.keyUuid = keyUuid;
+    }
+
+    public List<DataAttribute> getCsrAttributes() {
+        return AttributeDefinitionUtils.deserialize(csrAttributes, DataAttribute.class);
+    }
+
+    public void setCsrAttributes(String csrAttributes) {
+        this.csrAttributes = csrAttributes;
+    }
+
+    public void setCsrAttributes(List<DataAttribute> csrAttributes) {
+        this.csrAttributes = AttributeDefinitionUtils.serialize(csrAttributes);
+    }
+
+    public List<RequestAttributeDto> getSignatureAttributes() {
+        return AttributeDefinitionUtils.deserializeRequestAttributes(signatureAttributes);
+    }
+
+    public void setSignatureAttributes(String signatureAttributes) {
+        this.signatureAttributes = signatureAttributes;
+    }
+
+    public void setSignatureAttributes(List<RequestAttributeDto> signatureAttributes) {
+        this.signatureAttributes = AttributeDefinitionUtils.serializeRequestAttributes(signatureAttributes);
     }
 }

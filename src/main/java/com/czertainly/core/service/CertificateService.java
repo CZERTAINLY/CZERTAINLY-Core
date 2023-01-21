@@ -3,8 +3,11 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -57,7 +60,14 @@ public interface CertificateService {
 
     Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
-    Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+    Certificate checkCreateCertificateWithMeta(
+            String certificate,
+            List<MetadataAttribute> meta,
+            String csr,
+            UUID keyUuid,
+            List<DataAttribute> csrAttributes,
+            List<RequestAttributeDto> signatureAttributes
+    ) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     CertificateDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
@@ -168,4 +178,16 @@ public interface CertificateService {
      * Method to check if the permission is available for the user to revoke certificate
      */
     void checkRevokePermissions();
+
+    /**
+     * Get the list of attributes to generate the CSR
+     * @return List of attributes to generate the CSR in core
+     */
+    List<BaseAttribute> getCsrGenerationAttributes();
+
+    /**
+     * Unassociate the given key from all the certificate
+     * @param keyUuid UUID of the key object to be unassociated
+     */
+    void clearKeyAssociations(UUID keyUuid);
 }
