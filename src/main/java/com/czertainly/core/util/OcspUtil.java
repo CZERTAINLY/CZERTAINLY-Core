@@ -140,7 +140,6 @@ public class OcspUtil {
 	
 	private static OCSPReq generateOCSPRequest(X509Certificate issuerCert, BigInteger serialNumber)
 			throws OCSPException, IOException, OperatorException, CertificateEncodingException {
-		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 		JcaDigestCalculatorProviderBuilder digestCalculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
 		DigestCalculatorProvider digestCalculatorProvider = digestCalculatorProviderBuilder.build();
 		DigestCalculator digestCalculator = digestCalculatorProvider.get(CertificateID.HASH_SHA1);

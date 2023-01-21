@@ -2,9 +2,8 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.core.audit.AuditLogDto;
 import com.czertainly.api.model.core.audit.OperationType;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import org.apache.commons.lang3.reflect.FieldUtils;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -66,7 +65,7 @@ public class UriParamsBuilderTest {
         }
 
         final Sort sort = pageable.getSort();
-        final List<String> sortList = Lists.newArrayList();
+        final List<String> sortList = new ArrayList<>();
         if (sort != null) {
             sort.forEach(order -> sortList.add(asString(order)));
         }
@@ -94,8 +93,8 @@ public class UriParamsBuilderTest {
     }
 
     private String asString(final Sort.Order order) {
-        Preconditions.checkNotNull(order);
-        Preconditions.checkNotNull(order.getProperty());
+        Assertions.assertNotNull(order);
+        Assertions.assertNotNull(order.getProperty());
         final Sort.Direction direction = Optional.ofNullable(order.getDirection()).orElse(Sort.Direction.ASC);
         return String.format("%s,%s", order.getProperty(), direction.name().toLowerCase());
     }
