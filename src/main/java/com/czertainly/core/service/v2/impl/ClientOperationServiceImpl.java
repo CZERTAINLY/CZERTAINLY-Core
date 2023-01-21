@@ -36,7 +36,7 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.CsrAttributesUtil;
+import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.util.CsrUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import jakarta.transaction.Transactional;
@@ -171,8 +171,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         if (request.getPkcs10() != null && !request.getPkcs10().isEmpty()) {
             csr = request.getPkcs10();
         } else {
-            merged = AttributeDefinitionUtils.mergeAttributes(CsrAttributesUtil.csrAttributes(), request.getCsrAttributes());
-            AttributeDefinitionUtils.validateAttributes(CsrAttributesUtil.csrAttributes(), request.getCsrAttributes());
+            merged = AttributeDefinitionUtils.mergeAttributes(CsrAttributes.csrAttributes(), request.getCsrAttributes());
+            AttributeDefinitionUtils.validateAttributes(CsrAttributes.csrAttributes(), request.getCsrAttributes());
             csr = generateCsr(
                     request.getKeyUuid(),
                     request.getTokenProfileUuid(),
@@ -469,8 +469,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             }
         } else {
             // If new set of CSR attributes are found for the request, use it to create the new CSR
-            AttributeDefinitionUtils.validateAttributes(CsrAttributesUtil.csrAttributes(), request.getCsrAttributes());
-            return AttributeDefinitionUtils.mergeAttributes(CsrAttributesUtil.csrAttributes(), request.getCsrAttributes());
+            AttributeDefinitionUtils.validateAttributes(CsrAttributes.csrAttributes(), request.getCsrAttributes());
+            return AttributeDefinitionUtils.mergeAttributes(CsrAttributes.csrAttributes(), request.getCsrAttributes());
         }
     }
 

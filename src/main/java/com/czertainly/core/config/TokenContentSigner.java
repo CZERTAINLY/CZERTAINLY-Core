@@ -5,13 +5,14 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.czertainly.api.model.core.connector.ConnectorDto;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import com.czertainly.core.util.CryptographyUtil;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.operator.ContentSigner;
 import org.slf4j.Logger;
@@ -26,38 +27,50 @@ import java.util.UUID;
  * Cryptographic Provider CSR Signer. This class extends the content signer from bouncy castle
  * and communicates with the cryptography provider for the signing operation
  */
-public class CPCsrSigner implements ContentSigner {
+public class TokenContentSigner implements ContentSigner {
 
-    private static final Logger logger = LoggerFactory.getLogger(CPCsrSigner.class);
+    private static final Logger logger = LoggerFactory.getLogger(TokenContentSigner.class);
 
     private final CryptographicOperationsApiClient apiClient;
     private final ConnectorDto connector;
     private final UUID privateKeyUuid;
     private final UUID publicKeyUuid;
+    //Used to determine the signature algorithm for the PQC Items
+    private final String publicKey;
+    private final CryptographicAlgorithm algorithm;
     private final UUID tokenInstanceUuid;
     private final List<RequestAttributeDto> signatureAttributes;
 
+
     private final ByteArrayOutputStream outputStream;
 
-    public CPCsrSigner(CryptographicOperationsApiClient apiClient,
-                       ConnectorDto connector,
-                       UUID tokenInstanceUuid,
-                       UUID privateKeyUuid,
-                       UUID publicKeyUuid,
-                       List<RequestAttributeDto> signatureAttributes) {
+    public TokenContentSigner(CryptographicOperationsApiClient apiClient,
+                              ConnectorDto connector,
+                              UUID tokenInstanceUuid,
+                              UUID privateKeyUuid,
+                              UUID publicKeyUuid,
+                              String publicKey,
+                              CryptographicAlgorithm algorithm,
+                              List<RequestAttributeDto> signatureAttributes) {
         this.connector = connector;
         this.privateKeyUuid = privateKeyUuid;
         this.publicKeyUuid = publicKeyUuid;
         this.tokenInstanceUuid = tokenInstanceUuid;
         this.signatureAttributes = signatureAttributes;
         this.apiClient = apiClient;
+        this.algorithm = algorithm;
+        this.publicKey = publicKey;
 
         this.outputStream = new ByteArrayOutputStream();
     }
 
     @Override
     public AlgorithmIdentifier getAlgorithmIdentifier() {
-        return new AlgorithmIdentifier(PKCSObjectIdentifiers.sha256WithRSAEncryption);
+        return CryptographyUtil.prepareSignatureAlgorithm(
+                algorithm,
+                publicKey,
+                signatureAttributes
+        );
     }
 
     @Override

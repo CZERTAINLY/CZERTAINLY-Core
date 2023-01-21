@@ -8,9 +8,11 @@ import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.domain.AuditorAware;
@@ -26,6 +28,7 @@ import java.security.Security;
 public class ApplicationConfig {
     public static final String EXTERNAL_PROPERTY_SOURCE =
             "file:${raprofiles-backend.config.dir:/etc/raprofiles-backend}/raprofiles-backend.properties";
+
     public static final String SECURITY_PROVIDER = BouncyCastleProvider.PROVIDER_NAME;
 
     private static final Logger logger = LoggerFactory.getLogger(ApplicationConfig.class);
@@ -41,6 +44,19 @@ public class ApplicationConfig {
             logger.info("Security provider {} already registered.", SECURITY_PROVIDER);
         }
         return provider;
+    }
+
+    @Bean
+    public Provider securityPqcProvider() {
+        Provider pqcProvider = Security.getProvider(BouncyCastlePQCProvider.PROVIDER_NAME);
+        if (pqcProvider == null) {
+            logger.info("Registering PQC security provider {}.", BouncyCastlePQCProvider.PROVIDER_NAME);
+            pqcProvider = new BouncyCastlePQCProvider();
+            Security.addProvider(pqcProvider);
+        } else {
+            logger.info("PQC security provider {} already registered.", BouncyCastlePQCProvider.PROVIDER_NAME);
+        }
+        return pqcProvider;
     }
 
     @Bean

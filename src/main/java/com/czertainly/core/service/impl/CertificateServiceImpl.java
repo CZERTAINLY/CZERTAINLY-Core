@@ -19,6 +19,7 @@ import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -28,7 +29,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.*;
-import com.google.common.collect.Lists;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -284,10 +284,10 @@ public class CertificateServiceImpl implements CertificateService {
 
             bulkOperationResponse.setFailedItem(Long.valueOf(totalItems - certListDyn.size()));
 
-            for (List<Certificate> certificates : Lists.partition(certListDyn, DELETE_BATCH_SIZE)) {
+            for (List<Certificate> certificates : partitionList(certListDyn)) {
                 certificateRepository.deleteAll(certificates);
             }
-            for (List<CertificateContent> certificateContents : Lists.partition(certificateContentRepository.findCertificateContentNotUsed(), DELETE_BATCH_SIZE)) {
+            for (List<CertificateContent> certificateContents : partitionContents(certificateContentRepository.findCertificateContentNotUsed())) {
                 certificateContentRepository.deleteAll(certificateContents);
             }
         }
@@ -667,7 +667,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ANY)
     public List<BaseAttribute> getCsrGenerationAttributes() {
-        return CsrAttributesUtil.csrAttributes();
+        return CsrAttributes.csrAttributes();
     }
 
     @Override
@@ -1079,5 +1079,23 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.bulkUpdateQuery(ownerUpdateQuery);
             certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
         }
+    }
+
+    private List<List<Certificate>> partitionList(List<Certificate> fullList) {
+        List<List<Certificate>> certificates = new ArrayList<>();
+
+        for (int i = 0; i < fullList.size(); i += DELETE_BATCH_SIZE) {
+            certificates.add(fullList.subList(i, Math.min(i + DELETE_BATCH_SIZE, fullList.size())));
+        }
+        return certificates;
+    }
+
+    private List<List<CertificateContent>> partitionContents(List<CertificateContent> fullList) {
+        List<List<CertificateContent>> certificates = new ArrayList<>();
+
+        for (int i = 0; i < fullList.size(); i += DELETE_BATCH_SIZE) {
+            certificates.add(fullList.subList(i, Math.min(i + DELETE_BATCH_SIZE, fullList.size())));
+        }
+        return certificates;
     }
 }

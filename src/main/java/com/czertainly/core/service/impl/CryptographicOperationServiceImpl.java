@@ -20,7 +20,9 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyEvent;
 import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.config.CPCsrSigner;
+import com.czertainly.core.attribute.EcdsaSignatureAttributes;
+import com.czertainly.core.attribute.RsaSignatureAttributes;
+import com.czertainly.core.config.TokenContentSigner;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
@@ -31,6 +33,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.*;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CsrUtil;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
@@ -44,7 +47,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
-import java.security.Security;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Collections;
 import java.util.List;
@@ -118,10 +120,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.info("Requesting to list cipher attributes for Key: {} and Algorithm {}", keyItemUuid, algorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
         logger.debug("Key details: {}", key);
-        return cryptographicOperationsApiClient.listCipherAttributes(
-                key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
-                key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
-                key.getKeyReferenceUuid().toString());
+        return List.of();
     }
 
     @Override
@@ -195,11 +194,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.info("Requesting to list the Signature Attributes for key: {} and Algorithm: {}", keyItemUuid, algorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
         logger.debug("Key details: {}", key);
-        return cryptographicOperationsApiClient.listSignatureAttributes(
-                key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
-                key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
-                key.getKeyReferenceUuid().toString()
-        );
+        return listSignatureAttributes(key.getCryptographicAlgorithm());
     }
 
     @Override
@@ -213,6 +208,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (request.getData() == null) {
             throw new ValidationException(ValidationError.create("Cannot sign empty data"));
         }
+        validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
         com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         requestDto.setData(request.getData());
@@ -245,6 +241,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (request.getSignatures() == null) {
             throw new ValidationException(ValidationError.create("Cannot verify empty data"));
         }
+        validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
         com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         requestDto.setData(request.getData());
@@ -382,22 +379,21 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
     public String generateCsr(List<RequestAttributeDto> attributes, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
-        // Add bouncy castle provider
-        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-
-        // Build bouny castle p10 builder
+        // Build bouncy castle p10 builder
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
                 CsrUtil.buildSubject(attributes),
-                CsrUtil.publicKeyObjectFromString(key)
+                CsrUtil.publicKeyObjectFromString(key, publicKeyItem.getCryptographicAlgorithm().getName())
         );
 
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
-        ContentSigner signer = new CPCsrSigner(
+        ContentSigner signer = new TokenContentSigner(
                 cryptographicOperationsApiClient,
                 privateKeyItem.getCryptographicKey().getTokenInstanceReference().getConnector().mapToDto(),
                 privateKeyItem.getCryptographicKey().getTokenInstanceReferenceUuid(),
                 privateKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyReferenceUuid(),
+                publicKeyItem.getKeyData(),
+                publicKeyItem.getCryptographicAlgorithm(),
                 signatureAttributes
         );
 
@@ -406,5 +402,45 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
         // Convert the data from byte array to string
         return CsrUtil.byteArrayCsrToString(csr.getEncoded());
+    }
+
+    public List<BaseAttribute> listSignatureAttributes(CryptographicAlgorithm algorithm) {
+        // we need to list based on the key algorithm
+        switch (algorithm) {
+            case RSA -> {
+                return RsaSignatureAttributes.getRsaSignatureAttributes();
+            }
+            case ECDSA -> {
+                return EcdsaSignatureAttributes.getEcdsaSignatureAttributes();
+            }
+            case FALCON, DILITHIUM, SPHINCSPLUS -> {
+                return List.of();
+            }
+            default -> throw new ValidationException(
+                    ValidationError.create(
+                            "Cryptographic algorithm not supported"
+                    )
+            );
+        }
+    }
+
+    public boolean validateSignatureAttributes(CryptographicAlgorithm algorithm, List<RequestAttributeDto> attributes) throws NotFoundException {
+        if (attributes == null) {
+            return false;
+        }
+
+        switch (algorithm) {
+            case RSA -> AttributeDefinitionUtils.validateAttributes(RsaSignatureAttributes.getRsaSignatureAttributes(), attributes);
+            case ECDSA -> AttributeDefinitionUtils.validateAttributes(EcdsaSignatureAttributes.getEcdsaSignatureAttributes(), attributes);
+            case FALCON, DILITHIUM, SPHINCSPLUS -> {
+            }
+            default -> throw new ValidationException(
+                    ValidationError.create(
+                            "Cryptographic algorithm not supported"
+                    )
+            );
+        }
+
+        return true;
     }
 }

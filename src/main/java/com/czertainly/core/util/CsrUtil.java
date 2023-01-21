@@ -2,8 +2,10 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.core.attribute.CsrAttributes;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,9 +13,7 @@ import org.slf4j.LoggerFactory;
 import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.io.StringWriter;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
+import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
@@ -46,12 +46,25 @@ public class CsrUtil {
     }
 
 
-    public static PublicKey publicKeyObjectFromString(String publicKey) throws NoSuchAlgorithmException, InvalidKeySpecException {
+    public static PublicKey publicKeyObjectFromString(String publicKey, String pqcAlgorithm) throws NoSuchAlgorithmException, InvalidKeySpecException {
         byte[] publicBytes = Base64.getDecoder().decode(publicKey);
-        String oid = org.bouncycastle.asn1.x509.SubjectPublicKeyInfo.getInstance(publicBytes)
-                .getAlgorithm().getAlgorithm().toString();
-        PublicKey publicKeyObject = KeyFactory.getInstance(oid, new org.bouncycastle.jce.provider.BouncyCastleProvider())
-                .generatePublic(new X509EncodedKeySpec(publicBytes));
+
+        PublicKey publicKeyObject;
+        try {
+            String oid = org.bouncycastle.asn1.x509.SubjectPublicKeyInfo.getInstance(publicBytes)
+                    .getAlgorithm().getAlgorithm().toString();
+            publicKeyObject = KeyFactory.getInstance(oid, new org.bouncycastle.jce.provider.BouncyCastleProvider())
+                    .generatePublic(new X509EncodedKeySpec(publicBytes));
+        } catch (NoSuchAlgorithmException e) {
+            try {
+
+                publicKeyObject = KeyFactory.getInstance(pqcAlgorithm, BouncyCastlePQCProvider.PROVIDER_NAME)
+                        .generatePublic(new X509EncodedKeySpec(publicBytes));
+            } catch (Exception e1){
+                logger.error(e1.getMessage());
+                throw new NoSuchAlgorithmException();
+            }
+        }
         return publicKeyObject;
     }
 
@@ -59,37 +72,37 @@ public class CsrUtil {
 
         // Get the data for the attributes
         String commonName = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                        CsrAttributesUtil.COMMON_NAME_ATTRIBUTE_NAME,
+                        CsrAttributes.COMMON_NAME_ATTRIBUTE_NAME,
                         attributes,
                         StringAttributeContent.class)
                 .getData();
 
         String organizationalUnit = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                        CsrAttributesUtil.ORGANIZATION_UNIT_ATTRIBUTE_NAME,
+                        CsrAttributes.ORGANIZATION_UNIT_ATTRIBUTE_NAME,
                         attributes,
                         StringAttributeContent.class)
                 .getData();
 
         String organization = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                        CsrAttributesUtil.ORGANIZATION_ATTRIBUTE_NAME,
+                        CsrAttributes.ORGANIZATION_ATTRIBUTE_NAME,
                         attributes,
                         StringAttributeContent.class)
                 .getData();
 
         String locality = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                        CsrAttributesUtil.LOCALITY_ATTRIBUTE_NAME,
+                        CsrAttributes.LOCALITY_ATTRIBUTE_NAME,
                         attributes,
                         StringAttributeContent.class)
                 .getData();
 
         String state = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                        CsrAttributesUtil.STATE_ATTRIBUTE_NAME,
+                        CsrAttributes.STATE_ATTRIBUTE_NAME,
                         attributes,
                         StringAttributeContent.class)
                 .getData();
 
         String country = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                        CsrAttributesUtil.COUNTRY_ATTRIBUTE_NAME,
+                        CsrAttributes.COUNTRY_ATTRIBUTE_NAME,
                         attributes,
                         StringAttributeContent.class)
                 .getData();

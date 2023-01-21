@@ -3,9 +3,11 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
 import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
 import com.czertainly.api.model.client.cryptography.operations.VerifyDataRequestDto;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
@@ -186,7 +188,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
-                        content1.getUuid(),
+                        tokenProfile.getUuid(),
                         CryptographicAlgorithm.RSA
                 )
         );
@@ -219,7 +221,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenInstanceReference.getSecuredParentUuid(),
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
-                        content1.getUuid(),
+                        tokenProfile.getUuid(),
                         CryptographicAlgorithm.RSA
                 )
         );
@@ -361,7 +363,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSign() throws ConnectorException {
+    public void testSign_RSA() throws ConnectorException {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
         data.setData("Hello World!".getBytes());
@@ -369,6 +371,16 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         SignDataRequestDto requestDto = new SignDataRequestDto();
         requestDto.setData(List.of(data));
         requestDto.setSignatureAttributes(List.of());
+
+        RequestAttributeDto reqDto1 = new RequestAttributeDto();
+        reqDto1.setName("data_rsaSigScheme");
+        reqDto1.setContent(List.of(new StringAttributeContent("PSS")));
+
+        RequestAttributeDto reqDto2 = new RequestAttributeDto();
+        reqDto2.setName("data_sigDigest");
+        reqDto2.setContent(List.of(new StringAttributeContent("SHA-256")));
+
+        requestDto.setSignatureAttributes(List.of(reqDto1, reqDto2));
 
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
@@ -422,6 +434,15 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         requestDto.setSignatureAttributes(List.of());
         requestDto.setSignatures(List.of(data));
 
+        RequestAttributeDto reqDto1 = new RequestAttributeDto();
+        reqDto1.setName("data_rsaSigScheme");
+        reqDto1.setContent(List.of(new StringAttributeContent("PSS")));
+
+        RequestAttributeDto reqDto2 = new RequestAttributeDto();
+        reqDto2.setName("data_sigDigest");
+        reqDto2.setContent(List.of(new StringAttributeContent("SHA-256")));
+
+        requestDto.setSignatureAttributes(List.of(reqDto1, reqDto2));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
                 .willReturn(WireMock.ok()));

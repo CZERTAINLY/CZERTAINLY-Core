@@ -1,4 +1,4 @@
-package com.czertainly.core.util;
+package com.czertainly.core.attribute;
 
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -7,10 +7,17 @@ import com.czertainly.api.model.common.attribute.v2.constraint.BaseAttributeCons
 import com.czertainly.api.model.common.attribute.v2.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.bc.BCObjectIdentifiers;
+import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-public class CsrAttributesUtil {
+public class CsrAttributes {
 
     /**
      * UUID of the CSR Attributes
@@ -43,13 +50,13 @@ public class CsrAttributesUtil {
     public static final String STATE_ATTRIBUTE_LABEL = "State";
     public static final String COUNTRY_ATTRIBUTE_LABEL = "Country";
 
-
-    public CsrAttributesUtil() {
+    public CsrAttributes() {
         throw new IllegalArgumentException("Utility class");
     }
 
     /**
      * Function to get the list of attributes for generating the CSR
+     *
      * @return List of attributes for generating the CSR
      */
     public static List<BaseAttribute> csrAttributes() {
@@ -65,6 +72,7 @@ public class CsrAttributesUtil {
 
     /**
      * Common Name Attribute Generation
+     *
      * @return Common Name Attribute Definition
      */
     public static DataAttribute commonNameAttribute() {
@@ -87,6 +95,7 @@ public class CsrAttributesUtil {
 
     /**
      * Organizational Unit Attribute Generation
+     *
      * @return Organizational Unit Attribute Definition
      */
     public static DataAttribute organizationalUnitAttribute() {
@@ -103,6 +112,7 @@ public class CsrAttributesUtil {
 
     /**
      * Organization Attribute Generation
+     *
      * @return Organization Attribute Definition
      */
     public static DataAttribute organizationAttribute() {
@@ -119,6 +129,7 @@ public class CsrAttributesUtil {
 
     /**
      * Locality Attribute Generation
+     *
      * @return Locality  Attribute Definition
      */
     public static DataAttribute localityAttribute() {
@@ -135,6 +146,7 @@ public class CsrAttributesUtil {
 
     /**
      * State Attribute Generation
+     *
      * @return State Attribute Definition
      */
     public static DataAttribute stateAttribute() {
@@ -151,6 +163,7 @@ public class CsrAttributesUtil {
 
     /**
      * Country Attribute Generation
+     *
      * @return Country Attribute Definition
      */
     public static DataAttribute countryAttribute() {
@@ -193,7 +206,8 @@ public class CsrAttributesUtil {
 
     /**
      * Function to get the data attribute properties
-     * @param label Label for the attribute
+     *
+     * @param label    Label for the attribute
      * @param required If the attribute is required or not
      * @return Data attribute properties
      */
