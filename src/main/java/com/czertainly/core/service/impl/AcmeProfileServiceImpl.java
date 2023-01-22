@@ -333,6 +333,13 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getAcmeProfileEntity(uuid);
+        // Since there are is no parent to the ACME Profile, exclusive parent permission evaluation need not be done
+    }
+
 
     private RaProfile getRaProfile(String uuid) throws NotFoundException {
         return raProfileService.getRaProfileEntity(SecuredUUID.fromString(uuid));

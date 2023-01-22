@@ -4,6 +4,7 @@ import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.key.*;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.cryptography.key.CreateKeyRequestDto;
@@ -601,6 +602,17 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     public List<KeyEventHistoryDto> getEventHistory(SecuredParentUUID tokenInstanceUuid, UUID uuid, UUID keyItemUuid) throws NotFoundException {
         logger.info("Request to get the list of events for the key item");
         return keyEventHistoryService.getKeyEventHistory(keyItemUuid);
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return null;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getCryptographicKeyEntity(uuid.getValue());
     }
 
     private void createKeyAndItems(UUID connectorUuid, TokenInstanceReference tokenInstanceReference, String key, List<KeyDataResponseDto> items) {

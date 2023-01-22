@@ -14,11 +14,7 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
@@ -44,12 +40,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -69,7 +60,10 @@ public class AttributeServiceImpl implements AttributeService {
             Resource.CREDENTIAL,
             Resource.AUTHORITY,
             Resource.ENTITY,
-            Resource.LOCATION
+            Resource.LOCATION,
+            Resource.TOKEN,
+            Resource.TOKEN_PROFILE,
+            Resource.CRYPTOGRAPHIC_KEY
     );
     private AttributeDefinitionRepository attributeDefinitionRepository;
     private AttributeRelationRepository attributeRelationRepository;
@@ -285,6 +279,33 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     @Override
+    public void updateAttributeContent(UUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContent, Resource resource) throws NotFoundException {
+        List<AttributeContent2Object> attributeContent2Objects = attributeContent2ObjectRepository
+                .findByObjectUuidAndObjectType(
+                        objectUuid,
+                        resource
+                );
+        if (attributeContent != null && (attributeContent2Objects == null || attributeContent2Objects.isEmpty())) {
+            AttributeDefinition attributeDefinition = getAttributeDefinition(SecuredUUID.fromUUID(attributeUuid), AttributeType.CUSTOM);
+            createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
+            return;
+        }
+        for (AttributeContent2Object attributeContent2Object : attributeContent2Objects) {
+            AttributeDefinition attributeDefinition = attributeContent2Object.getAttributeContent().getAttributeDefinition();
+            if (attributeDefinition.getType().equals(AttributeType.CUSTOM) && attributeDefinition.getAttributeUuid().equals(attributeUuid)) {
+                AttributeContent content = attributeContent2Object.getAttributeContent();
+                attributeContent2ObjectRepository.delete(attributeContent2Object);
+                if (attributeContent2ObjectRepository.countByAttributeContent(attributeContent2Object.getAttributeContent()) <= 1) {
+                    attributeContentRepository.delete(content);
+                }
+                if (attributeContent != null) {
+                    createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
+                }
+            }
+        }
+    }
+
+    @Override
     public void deleteAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) {
         logger.info("Deleting the content of the custom attribute for {} with UUID: {}", resource, objectUuid);
         if (attributes == null) {
@@ -486,7 +507,9 @@ public class AttributeServiceImpl implements AttributeService {
 
         attributeDefinitionRepository.save(definition);
         try {
-            updateResources(definition.getSecuredUuid(), request.getResources());
+            if (request.getResources() != null && !request.getResources().isEmpty()) {
+                updateResources(definition.getSecuredUuid(), request.getResources());
+            }
         } catch (NotFoundException e) {
             // This method will not throw error since the object will always be created before the resource assignment
             logger.error(e.getMessage());

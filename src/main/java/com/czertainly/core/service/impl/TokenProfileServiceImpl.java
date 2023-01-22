@@ -1,11 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
@@ -29,6 +25,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.TokenProfileService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -53,6 +50,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     // Services & API Clients
     // --------------------------------------------------------------------------------
     private AttributeService attributeService;
+    private PermissionEvaluator permissionEvaluator;
     private TokenInstanceApiClient tokenInstanceApiClient;
     // --------------------------------------------------------------------------------
     // Repositories
@@ -79,6 +77,11 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     @Autowired
     public void setTokenInstanceApiClient(TokenInstanceApiClient tokenInstanceApiClient) {
         this.tokenInstanceApiClient = tokenInstanceApiClient;
+    }
+
+    @Autowired
+    public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
+        this.permissionEvaluator = permissionEvaluator;
     }
 
     //-------------------------------------------------------------------------------------
@@ -280,6 +283,18 @@ public class TokenProfileServiceImpl implements TokenProfileService {
                 .stream()
                 .map(TokenProfile::mapToAccessControlObjects)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        TokenProfile profile = getTokenProfileEntity(uuid);
+        if (profile.getTokenInstanceReference() == null) {
+            return;
+        }
+        // Parent Permission evaluation - Token Instance
+        permissionEvaluator.tokenInstance(profile.getTokenInstanceReference().getSecuredUuid());
+
     }
 
     private List<DataAttribute> mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {

@@ -41,11 +41,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.LocationService;
-import com.czertainly.core.service.MetadataService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import jakarta.transaction.Transactional;
@@ -77,6 +73,7 @@ public class LocationServiceImpl implements LocationService {
     private CertificateEventHistoryService certificateEventHistoryService;
     private MetadataService metadataService;
     private AttributeService attributeService;
+    private PermissionEvaluator permissionEvaluator;
 
     @Autowired
     public void setLocationRepository(LocationRepository locationRepository) {
@@ -131,6 +128,11 @@ public class LocationServiceImpl implements LocationService {
     @Autowired
     public void setAttributeService(AttributeService attributeService) {
         this.attributeService = attributeService;
+    }
+
+    @Autowired
+    public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
+        this.permissionEvaluator = permissionEvaluator;
     }
 
     @Override
@@ -629,6 +631,19 @@ public class LocationServiceImpl implements LocationService {
                 .stream()
                 .map(Location::mapToAccessControlObjects)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        Location location = locationRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(Location.class, uuid));
+        if(location.getEntityInstanceReference() == null) {
+            return;
+        }
+        // Parent Permission evaluation - Entity Instance
+        permissionEvaluator.authorityInstance(location.getEntityInstanceReference().getSecuredUuid());
+
     }
 
     // PRIVATE METHODS

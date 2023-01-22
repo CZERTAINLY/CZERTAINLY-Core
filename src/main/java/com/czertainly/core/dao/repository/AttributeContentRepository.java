@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import jakarta.transaction.Transactional;
+
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -13,4 +15,7 @@ import java.util.Optional;
 public interface AttributeContentRepository extends JpaRepository<AttributeContent, String> {
 
     Optional<AttributeContent> findByAttributeContentAndAttributeDefinition(String serializedContent, AttributeDefinition definition);
+
+    List<AttributeContent> findByAttributeDefinition(AttributeDefinition definition);
+
 }
