@@ -311,10 +311,10 @@ public class AttributeServiceImpl implements AttributeService {
         if (attributes == null) {
             return;
         }
-        List<String> oldUuids = attributes.stream().map(RequestAttributeDto::getUuid).collect(Collectors.toList());
+        List<String> oldNames = attributes.stream().map(RequestAttributeDto::getName).collect(Collectors.toList());
         for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectType(objectUuid, resource)) {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
-            if (definition.getType().equals(AttributeType.CUSTOM) && oldUuids.contains(definition.getAttributeUuid().toString())) {
+            if (definition.getType().equals(AttributeType.CUSTOM) && oldNames.contains(definition.getAttributeName())) {
                 attributeContent2ObjectRepository.delete(object);
                 if (attributeContent2ObjectRepository.findByAttributeContent(object.getAttributeContent()).size() == 0) {
                     attributeContentRepository.delete(object.getAttributeContent());
