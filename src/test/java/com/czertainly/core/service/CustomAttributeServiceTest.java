@@ -258,7 +258,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     public void testGetResources() {
         List<Resource> resources = attributeService.getResources();
-        Assertions.assertEquals(13, resources.size());
+        Assertions.assertEquals(16, resources.size());
     }
 
     @Test

@@ -4,12 +4,14 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.UserManagementService;
@@ -149,6 +151,17 @@ public class UserManagementServiceImpl implements UserManagementService {
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto removeRole(String userUuid, String roleUuid) {
         return userManagementApiClient.removeRole(userUuid, roleUuid);
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return null;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getUser(uuid.toString());
     }
 
     private Certificate addUserCertificate(String certificateUuid, String certificateData) throws CertificateException, NotFoundException {

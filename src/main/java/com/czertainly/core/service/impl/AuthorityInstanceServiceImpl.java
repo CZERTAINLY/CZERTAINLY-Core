@@ -2,11 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.EndEntityProfileApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -31,11 +27,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.AuthorityInstanceService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,8 +73,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
     public AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
-        AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        AuthorityInstanceReference authorityInstanceReference = getAuthorityInstanceReferenceEntity(uuid);
 
         AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
         authorityInstanceDto.setName(authorityInstanceReference.getName());
@@ -158,8 +149,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.UPDATE)
     public AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException {
-        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
         AuthorityInstanceDto ref = getAuthorityInstance(uuid);
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
 
@@ -198,8 +188,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
     public void deleteAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
-        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
         removeAuthorityInstance(authorityInstanceRef);
     }
 
@@ -207,8 +196,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.END_ENTITY_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
     public List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws ConnectorException {
-        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
         return endEntityProfileApiClient.listEndEntityProfiles(authorityInstanceRef.getConnector().mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid());
@@ -218,8 +206,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.END_ENTITY_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
     public List<NameAndIdDto> listCertificateProfiles(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException {
-        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
         return endEntityProfileApiClient.listCertificateProfiles(authorityInstanceRef.getConnector().mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid(), endEntityProfileId);
@@ -229,8 +216,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.END_ENTITY_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
     public List<NameAndIdDto> listCAsInProfile(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException {
-        AuthorityInstanceReference authorityInstanceRef = authorityInstanceReferenceRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
         return endEntityProfileApiClient.listCAsInProfile(authorityInstanceRef.getConnector().mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid(), endEntityProfileId);
@@ -240,8 +226,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.ANY)
     public List<BaseAttribute> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException {
-        AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        AuthorityInstanceReference authorityInstance = getAuthorityInstanceReferenceEntity(uuid);
         Connector connector = authorityInstance.getConnector();
 
         return authorityInstanceApiClient.listRAProfileAttributes(connector.mapToDto(), authorityInstance.getAuthorityInstanceUuid());
@@ -251,8 +236,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.ANY)
     public Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
-        AuthorityInstanceReference authorityInstance = authorityInstanceReferenceRepository.findByUuid(uuid)
-                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
+        AuthorityInstanceReference authorityInstance = getAuthorityInstanceReferenceEntity(uuid);
         Connector connector = authorityInstance.getConnector();
 
         return authorityInstanceApiClient.validateRAProfileAttributes(connector.mapToDto(), authorityInstance.getAuthorityInstanceUuid(),
@@ -314,6 +298,18 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
                 .stream()
                 .map(AuthorityInstanceReference::mapToAccessControlObjects)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getAuthorityInstanceReferenceEntity(uuid);
+        // Since there are is no parent to the Authority, exclusive parent permission evaluation need not be done
+    }
+
+    private AuthorityInstanceReference getAuthorityInstanceReferenceEntity(SecuredUUID uuid) throws NotFoundException {
+        return authorityInstanceReferenceRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, uuid));
     }
 
     private void removeAuthorityInstance(AuthorityInstanceReference authorityInstanceRef) throws ValidationException {

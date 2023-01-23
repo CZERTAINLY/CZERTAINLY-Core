@@ -4,10 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
-import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
-import com.czertainly.api.model.client.cryptography.tokenprofile.BulkTokenProfileKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
@@ -16,13 +13,11 @@ import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import org.springframework.security.access.annotation.Secured;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
-public interface TokenProfileService extends AccessControlExtensionService {
+public interface TokenProfileService extends ResourceExtensionService {
     /**
      * Get the list of token profiles
      *

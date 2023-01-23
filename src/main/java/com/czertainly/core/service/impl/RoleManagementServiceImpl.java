@@ -1,10 +1,14 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.auth.RoleRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.RoleManagementService;
 import org.slf4j.Logger;
@@ -126,5 +130,16 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Override
     public RoleDetailDto updateUsers(String roleUuid, List<String> userUuids) {
         return roleManagementApiClient.updateUsers(roleUuid, userUuids);
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return null;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getRole(uuid.toString());
     }
 }

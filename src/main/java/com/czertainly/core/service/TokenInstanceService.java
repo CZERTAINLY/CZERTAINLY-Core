@@ -15,7 +15,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface TokenInstanceService extends AccessControlExtensionService {
+public interface TokenInstanceService extends ResourceExtensionService {
     /**
      * List of all available token instance
      *

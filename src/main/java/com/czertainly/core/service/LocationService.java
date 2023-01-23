@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -19,7 +18,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import java.util.List;
 import java.util.Optional;
 
-public interface LocationService {
+public interface LocationService extends ResourceExtensionService {
 
     /**
      * List all locations.
@@ -175,11 +174,5 @@ public interface LocationService {
      * @throws LocationException when the Certificate failed to be renewed in the Location.
      */
     LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException, ConnectorException;
-
-    /**
-     * Function to get the list of name and uuid dto for the objects available in the database.
-     * @return List of NameAndUuidDto
-     */
-    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter);
 
 }

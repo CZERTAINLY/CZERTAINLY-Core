@@ -1,10 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
@@ -24,28 +20,19 @@ import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
-import com.czertainly.core.dao.repository.ComplianceGroupRepository;
-import com.czertainly.core.dao.repository.ComplianceProfileRepository;
-import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
-import com.czertainly.core.dao.repository.ComplianceRuleRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.ComplianceProfileService;
-import com.czertainly.core.service.ComplianceService;
-import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -490,6 +477,13 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 .stream()
                 .map(ComplianceProfile::mapToAccessControlObjects)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getComplianceProfileEntity(uuid);
+        // Since there are is no parent to the Compliance Profile, exclusive parent permission evaluation need not be done
     }
 
     private ComplianceProfile addComplianceEntity(ComplianceProfileRequestDto request) {

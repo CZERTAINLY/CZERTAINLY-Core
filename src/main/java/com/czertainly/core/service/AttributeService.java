@@ -16,6 +16,7 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRe
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -181,6 +182,16 @@ public interface AttributeService {
      * @param resource   Resource for the attribute and value
      */
     void updateAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource);
+
+    /**
+     * Update the content for a single attribute
+     *
+     * @param objectUuid UUID of the object
+     * @param attributeUuid UUID of custom attributes
+     * @param attributeContent Attribute content
+     * @param resource   Resource for the attribute and value
+     */
+    void updateAttributeContent(UUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContent, Resource resource) throws NotFoundException;
 
     /**
      * Function to delete the attribute content for an individual object

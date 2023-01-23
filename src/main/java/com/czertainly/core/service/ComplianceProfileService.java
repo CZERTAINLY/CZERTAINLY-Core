@@ -7,7 +7,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
@@ -19,7 +18,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import java.util.List;
 import java.util.Set;
 
-public interface ComplianceProfileService {
+public interface ComplianceProfileService extends ResourceExtensionService {
     /**
      * List of all Compliance Profiles available in the system
      *
@@ -200,10 +199,4 @@ public interface ComplianceProfileService {
      * @param connector Connector Entity
      */
     void removeRulesAndGroupForEmptyConnector(Connector connector);
-
-    /**
-     * Function to get the list of name and uuid dto for the objects available in the database.
-     * @return List of NameAndUuidDto
-     */
-    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter);
 }

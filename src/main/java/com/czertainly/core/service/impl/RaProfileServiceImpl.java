@@ -24,11 +24,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
-import com.czertainly.core.dao.repository.AcmeProfileRepository;
-import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ComplianceProfileRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -36,10 +32,12 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ComplianceService;
+import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +46,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -78,6 +75,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ComplianceProfileRepository complianceProfileRepository;
     @Autowired
     private AttributeService attributeService;
+    @Autowired
+    private PermissionEvaluator permissionEvaluator;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -374,6 +373,18 @@ public class RaProfileServiceImpl implements RaProfileService {
     public RaProfile getRaProfileEntity(SecuredUUID uuid) throws NotFoundException {
         return raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        RaProfile profile = getRaProfileEntity(uuid);
+        if (profile.getAuthorityInstanceReference() == null) {
+            return;
+        }
+        // Parent Permission evaluation - Authority Instance
+        permissionEvaluator.authorityInstance(profile.getAuthorityInstanceReference().getSecuredUuid());
+
     }
 
     private List<DataAttribute> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {

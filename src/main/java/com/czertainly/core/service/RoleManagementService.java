@@ -5,7 +5,7 @@ import com.czertainly.api.model.core.auth.*;
 
 import java.util.List;
 
-public interface RoleManagementService {
+public interface RoleManagementService extends ResourceExtensionService {
     List<RoleDto> listRoles();
 
     RoleDetailDto getRole(String roleUuid);
