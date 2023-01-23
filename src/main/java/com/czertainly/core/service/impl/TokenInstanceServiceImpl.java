@@ -371,6 +371,13 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getTokenInstanceEntity(uuid);
+        // Since there are is no parent to the Group, exclusive parent permission evaluation need not be done
+    }
+
     private TokenInstanceReference getTokenInstanceReferenceEntity(SecuredUUID uuid) throws NotFoundException {
         return tokenInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, uuid));

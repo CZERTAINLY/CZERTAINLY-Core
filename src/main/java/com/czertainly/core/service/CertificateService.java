@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public interface CertificateService {
+public interface CertificateService extends ResourceExtensionService  {
 
     CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException;
 

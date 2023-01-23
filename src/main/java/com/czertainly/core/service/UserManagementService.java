@@ -11,7 +11,7 @@ import com.czertainly.api.model.core.auth.UserDto;
 import java.security.cert.CertificateException;
 import java.util.List;
 
-public interface UserManagementService {
+public interface UserManagementService extends ResourceExtensionService  {
     List<UserDto> listUsers();
 
     UserDetailDto getUser(String userUuid) throws NotFoundException;

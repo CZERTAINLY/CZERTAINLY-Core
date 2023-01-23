@@ -686,6 +686,13 @@ public class ConnectorServiceImpl implements ConnectorService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getConnectorEntity(uuid);
+        // Since there are is no parent to the Connector, exclusive parent permission evaluation need not be done
+    }
+
     private void deleteConnector(Connector connector) {
         List<String> errors = new ArrayList<>();
         if (!connector.getCredentials().isEmpty()) {

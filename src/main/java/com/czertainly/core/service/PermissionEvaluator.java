@@ -14,6 +14,20 @@ public interface PermissionEvaluator {
     void tokenProfile(SecuredUUID uuid) throws NotFoundException;
 
     /**
+     * Function to evaluate the permission for the Token Instance
+     * @param uuid UUID of the token instance
+     * @throws NotFoundException when the Token profile with the requested UUID is not found
+     */
+    void tokenInstance(SecuredUUID uuid) throws NotFoundException;
+
+    /**
+     * Function to evaluate the permission for the Authority Instance
+     * @param uuid UUID of the authority instance
+     * @throws NotFoundException when the Token profile with the requested UUID is not found
+     */
+    void authorityInstance(SecuredUUID uuid) throws NotFoundException;
+
+    /**
      * Function to evaluate the permission for list of token profiles
      * @param uuids UUIDs of the token profile
      */

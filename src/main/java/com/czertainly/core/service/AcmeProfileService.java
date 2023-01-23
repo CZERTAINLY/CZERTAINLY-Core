@@ -7,7 +7,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -15,13 +14,14 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface AcmeProfileService {
+public interface AcmeProfileService extends ResourceExtensionService {
 
     List<AcmeProfileListDto> listAcmeProfile(SecurityFilter filter);
 
     AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException;
 
     AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
+
     AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
 
     void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
@@ -39,10 +39,4 @@ public interface AcmeProfileService {
     void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException;
 
     List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
-
-    /**
-     * Function to get the list of name and uuid dto for the objects available in the database.
-     * @return List of NameAndUuidDto
-     */
-    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter);
 }

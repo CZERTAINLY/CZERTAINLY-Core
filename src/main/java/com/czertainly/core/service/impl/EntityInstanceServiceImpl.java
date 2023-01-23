@@ -1,11 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.EntityInstanceApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -87,8 +83,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DETAIL)
     public EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
-        EntityInstanceReference entityInstanceReference = entityInstanceReferenceRepository.findByUuid(entityUuid)
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
+        EntityInstanceReference entityInstanceReference = getEntityInstanceReferenceEntity(entityUuid);
 
         if (entityInstanceReference.getConnector() == null) {
             throw new NotFoundException("Connector associated with the Entity is not found. Unable to load details");
@@ -116,7 +111,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
             throw new AlreadyExistException(EntityInstanceReference.class, request.getName());
         }
 
-        if(request.getConnectorUuid() == null){
+        if (request.getConnectorUuid() == null) {
             throw new ValidationException(ValidationError.create("Connector UUID is empty"));
         }
 
@@ -158,8 +153,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.UPDATE)
     public EntityInstanceDto editEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
-        EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
+        EntityInstanceReference entityInstanceRef = getEntityInstanceReferenceEntity(entityUuid);
 
         EntityInstanceDto ref = getEntityInstance(entityUuid);
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
@@ -193,8 +187,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DELETE)
     public void deleteEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
-        EntityInstanceReference entityInstanceRef = entityInstanceReferenceRepository.findByUuid(entityUuid)
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
+        EntityInstanceReference entityInstanceRef = getEntityInstanceReferenceEntity(entityUuid);
 
         List<ValidationError> errors = new ArrayList<>();
         if (!entityInstanceRef.getLocations().isEmpty()) {
@@ -218,8 +211,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
     public List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException {
-        EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(entityUuid)
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
+        EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
 
         Connector connector = entityInstance.getConnector();
 
@@ -230,8 +222,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
     public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
-        EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(entityUuid)
-                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, entityUuid));
+        EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
 
         Connector connector = entityInstance.getConnector();
 
@@ -246,5 +237,17 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
                 .stream()
                 .map(EntityInstanceReference::mapToAccessControlObjects)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getEntityInstanceReferenceEntity(uuid);
+        // Since there are is no parent to the Entity, exclusive parent permission evaluation need not be done
+    }
+
+    private EntityInstanceReference getEntityInstanceReferenceEntity(SecuredUUID uuid) throws NotFoundException {
+        return entityInstanceReferenceRepository.findByUuid(uuid)
+                .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, uuid));
     }
 }

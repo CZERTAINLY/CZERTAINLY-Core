@@ -81,7 +81,7 @@ public class GroupServiceImpl implements GroupService {
         group.setName(request.getName());
         group.setDescription(request.getDescription());
         groupRepository.save(group);
-        attributeService.createAttributeContent(group.getUuid(), request.getCustomAttributes(), Resource.COMPLIANCE_PROFILE);
+        attributeService.createAttributeContent(group.getUuid(), request.getCustomAttributes(), Resource.GROUP);
         GroupDto dto = group.mapToDto();
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(group.getUuid(), Resource.GROUP));
         return dto;
@@ -143,6 +143,13 @@ public class GroupServiceImpl implements GroupService {
                 .stream()
                 .map(Group::mapToAccessControlObjects)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getGroupEntity(uuid);
+        // Since there are is no parent to the Group, exclusive parent permission evaluation need not be done
     }
 
     private Group getGroupEntity(SecuredUUID uuid) throws NotFoundException {
