@@ -1,11 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.DiscoveryApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
@@ -23,11 +19,7 @@ import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.DiscoveryCertificate;
-import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
@@ -226,7 +218,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
 
             Integer currentTotal = 0;
-            List<DiscoveryProviderCertificateDataDto> certificatesDiscovered = new ArrayList<>();
+            Set<DiscoveryProviderCertificateDataDto> certificatesDiscovered = new HashSet<>();
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setStartIndex(currentTotal);
                 getRequest.setEndIndex(currentTotal + MAXIMUM_CERTIFICATES_PER_PAGE);
@@ -312,7 +304,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         return response.getStatus() == DiscoveryStatus.IN_PROGRESS;
     }
 
-    private List<Certificate> updateCertificates(List<DiscoveryProviderCertificateDataDto> certificatesDiscovered,
+    private List<Certificate> updateCertificates(Set<DiscoveryProviderCertificateDataDto> certificatesDiscovered,
                                                  DiscoveryHistory modal) {
         List<Certificate> allCerts = new ArrayList<>();
         if (certificatesDiscovered.isEmpty()) {
@@ -349,7 +341,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     private void updateCertificateIssuers(List<Certificate> certificates) {
-        for(Certificate certificate: certificates) {
+        for (Certificate certificate : certificates) {
             try {
                 certificateService.updateCertificateIssuer(certificate);
             } catch (NotFoundException e) {

@@ -261,7 +261,7 @@ public class CertificateServiceImpl implements CertificateService {
         Integer totalItems;
         BulkOperationResponse bulkOperationResponse = new BulkOperationResponse();
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        if (request.getFilters() == null) {
+        if (request.getFilters() == null || request.getFilters().isEmpty()) {
             for (String uuid : request.getUuids()) {
                 try {
                     deleteCertificate(SecuredUUID.fromString(uuid));
