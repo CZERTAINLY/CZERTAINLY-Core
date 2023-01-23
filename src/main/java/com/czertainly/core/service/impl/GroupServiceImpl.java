@@ -81,7 +81,7 @@ public class GroupServiceImpl implements GroupService {
         group.setName(request.getName());
         group.setDescription(request.getDescription());
         groupRepository.save(group);
-        attributeService.createAttributeContent(group.getUuid(), request.getCustomAttributes(), Resource.COMPLIANCE_PROFILE);
+        attributeService.createAttributeContent(group.getUuid(), request.getCustomAttributes(), Resource.GROUP);
         GroupDto dto = group.mapToDto();
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(group.getUuid(), Resource.GROUP));
         return dto;
