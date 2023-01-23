@@ -105,16 +105,22 @@ public class CertValidationServiceImpl implements CertValidationService {
         boolean isValid = validateNotBefore(new Date(), x509.getNotBefore());
         long validTill = validateNotAfter(new Date(), x509.getNotAfter());
 
+        CertificateStatus status;
+
         try {
             x509.verify(x509.getPublicKey());
             certificate.setStatus(CertificateStatus.VALID);
             validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.SUCCESS, "Signature verification completed successfully"));
         } catch (Exception e) {
             logger.error("Unable to verify the self-signed certificate signature", e);
-            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Unable to verify the signature"));
+            validationOutput.put("Signature Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Unable to verify the signature. Error: {}" + e.getMessage()));
+            certificate.setStatus(CertificateStatus.INVALID);
+            certificate.setCertificateValidationResult(MetaDefinitions.serializeValidation(validationOutput));
+            certificateRepository.save(certificate);
+            return;
         }
 
-        CertificateStatus status;
+
         if (!isValid) {
             status = CertificateStatus.INVALID;
             validationOutput.put("Certificate Validity", new CertificateValidationDto(CertificateValidationStatus.INVALID, "Not Valid yet"));

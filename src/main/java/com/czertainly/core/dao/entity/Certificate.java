@@ -171,7 +171,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
         dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage));
         dto.setUuid(uuid.toString());
-        dto.setStatus(status);
+        dto.setStatus(calculateExpiryStatus());
         dto.setFingerprint(fingerprint);
         dto.setSubjectAlternativeNames(MetaDefinitions.deserialize(subjectAlternativeNames));
         dto.setOwner(owner);
@@ -238,6 +238,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid)
                 .append("commonName", commonName).append("serialNumber", serialNumber).toString();
+    }
+
+    public CertificateStatus calculateExpiryStatus() {
+        if (this.getNotAfter() != null && this.getNotAfter().before(new Date())) return CertificateStatus.EXPIRED;
+        if (this.getNotBefore() !=null && this.getNotBefore().after(new Date())) return CertificateStatus.INVALID;
+        return status;
     }
 
     public String getCommonName() {
