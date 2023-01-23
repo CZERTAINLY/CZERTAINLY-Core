@@ -1,5 +1,7 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import org.bouncycastle.jce.provider.JCEECPublicKey;
 import org.bouncycastle.pqc.jcajce.provider.dilithium.BCDilithiumPublicKey;
 import org.bouncycastle.pqc.jcajce.provider.falcon.BCFalconPublicKey;
@@ -102,12 +104,30 @@ public class KeySizeUtil {
                 len = dsapub.getY().bitLength();
             }
         } else if (publicKey instanceof BCFalconPublicKey) {
-            return PQCPublicKeySize.get(((BCFalconPublicKey) publicKey).getParameterSpec().getName());
+            return getPQCKeySizeFromMap(((BCFalconPublicKey) publicKey).getParameterSpec().getName());
         } else if (publicKey instanceof BCSPHINCSPlusPublicKey) {
-            return PQCPublicKeySize.get(((BCSPHINCSPlusPublicKey) publicKey).getParameterSpec().getName());
+            return getPQCKeySizeFromMap(((BCSPHINCSPlusPublicKey) publicKey).getParameterSpec().getName());
         } else if (publicKey instanceof BCDilithiumPublicKey) {
-            return PQCPublicKeySize.get(((BCDilithiumPublicKey) publicKey).getParameterSpec().getName());
+            return getPQCKeySizeFromMap(((BCDilithiumPublicKey) publicKey).getParameterSpec().getName());
         }
         return len;
+    }
+
+    /**
+     * Function to get the key soze of the PQC based on the key algorithm name
+     *
+     * @param name Name of the algorithm
+     * @return Public Key Size
+     */
+    private static Integer getPQCKeySizeFromMap(String name) {
+        Integer publicKeySize = PQCPublicKeySize.get(name);
+        if (publicKeySize == null) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Post Quantum Public Key Algorithm " + name + " is not yet supported"
+                    )
+            );
+        }
+        return publicKeySize;
     }
 }
