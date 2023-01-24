@@ -18,15 +18,15 @@ public class KeySizeUtil {
 
     private static final Map<String, Integer> PQCPublicKeySize = new HashMap<>() {{
         // FALCON Parameter Spec
-        put("falcon-512", 897);
-        put("falcon-1024", 1793);
+        put("falcon-512", 7176);
+        put("falcon-1024", 14344);
         //DILITHIUM Parameter Spec
-        put("dilithium2", 1312);
-        put("dilithium3", 1952);
-        put("dilithium5", 2592);
-        put("dilithium2-aes", 1312);
-        put("dilithium3-aes", 1952);
-        put("dilithium5-aes", 2592);
+        put("dilithium2", 10496);
+        put("dilithium3", 15616);
+        put("dilithium5", 20736);
+        put("dilithium2-aes", 10496);
+        put("dilithium3-aes", 15616);
+        put("dilithium5-aes", 20736);
         // SPHINCS+ Parameter Spec
         put("sha2-128f-robust", 256);
         put("sha2-128s-robust", 256);
