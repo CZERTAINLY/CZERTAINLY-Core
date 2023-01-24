@@ -10,10 +10,7 @@ import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.SerializationUtil;
+import com.czertainly.core.util.*;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -165,7 +162,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setNotBefore(notBefore);
         dto.setNotAfter(notAfter);
         dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
-        dto.setSignatureAlgorithm(signatureAlgorithm);
+        dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
         dto.setKeySize(keySize);
         dto.setBasicConstraints(basicConstraints);
         dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
@@ -551,4 +548,5 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public void setSignatureAttributes(List<RequestAttributeDto> signatureAttributes) {
         this.signatureAttributes = AttributeDefinitionUtils.serializeRequestAttributes(signatureAttributes);
     }
+
 }
