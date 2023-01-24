@@ -31,8 +31,8 @@ import java.util.*;
 
 public class CertificateUtil {
 
+    public static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
-
     @SuppressWarnings("serial")
     private static final Map<String, String> SAN_TYPE_MAP = new HashMap<>();
     @SuppressWarnings("serial")
@@ -50,14 +50,31 @@ public class CertificateUtil {
         SAN_TYPE_MAP.put("8", "registeredID");
     }
 
+    static {
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("EC", "ECDSA");
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("FALCON", "Falcon");
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", "SPHINCS+");
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", "Dilithium");
+    }
+
     private CertificateUtil() {
     }
 
-    public static X509Certificate getX509Certificate(byte[] certInBytes) throws CertificateException {
+    public static X509Certificate getX509Certificate(byte[] decoded) throws CertificateException {
         try {
-            return (X509Certificate) new CertificateFactory().engineGenerateCertificate(new ByteArrayInputStream(certInBytes));
+            X509Certificate certificate = (X509Certificate) new CertificateFactory().engineGenerateCertificate(new ByteArrayInputStream(decoded));
+            if (certificate.getPublicKey() == null) {
+                java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("x.509");
+                return (X509Certificate) certificateFactory.generateCertificate(new ByteArrayInputStream(decoded));
+            }
+            return certificate;
         } catch (Exception e) {
-            throw new CertificateException("Error when parsing certificate", e);
+            X509Certificate certificate = (X509Certificate) new CertificateFactory().engineGenerateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
+            if (certificate.getPublicKey() == null) {
+                java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("x.509");
+                return (X509Certificate) certificateFactory.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
+            }
+            return certificate;
         }
     }
 
@@ -136,11 +153,7 @@ public class CertificateUtil {
         cert = cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", "")
                 .replace("\r", "").replace("\n", "");
         byte[] decoded = Base64.getDecoder().decode(cert);
-        try {
-            return (X509Certificate) new CertificateFactory().engineGenerateCertificate(new ByteArrayInputStream(decoded));
-        } catch (Exception e) {
-            return (X509Certificate) new CertificateFactory().engineGenerateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
-        }
+        return getX509Certificate(decoded);
     }
 
     public static String getThumbprint(byte[] encodedContent)
@@ -178,7 +191,7 @@ public class CertificateUtil {
         setIssuerDNParams(modal, certificate.getIssuerX500Principal().toString());
         modal.setNotAfter(certificate.getNotAfter());
         modal.setNotBefore(certificate.getNotBefore());
-        if(certificate.getPublicKey() == null){
+        if (certificate.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
                             "Invalid Certificate. Public Key is missing"
@@ -271,4 +284,11 @@ public class CertificateUtil {
             throw new CertificateException("Failed to format CSR. " + e.getMessage());
         }
     }
+
+    public static String getAlgorithmFriendlyName(String algorithmName) {
+        String friendlyName = CERTIFICATE_ALGORITHM_FRIENDLY_NAME.get(algorithmName);
+        if (friendlyName != null) return friendlyName;
+        return algorithmName;
+    }
+
 }
