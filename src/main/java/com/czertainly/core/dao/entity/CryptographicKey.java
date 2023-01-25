@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -52,6 +53,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "group_uuid")
     private UUID groupUuid;
 
+    @JsonBackReference
     @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL)
     private Set<CryptographicKeyItem> items = new HashSet<>();
 
