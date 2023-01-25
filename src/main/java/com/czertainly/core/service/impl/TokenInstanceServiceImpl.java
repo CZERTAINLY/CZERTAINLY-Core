@@ -269,6 +269,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
                 tokenInstanceReference.getTokenInstanceUuid(),
                 attributes
         );
+        tokenInstanceReference.setStatus(TokenInstanceStatus.ACTIVATED);
         logger.info("Token instance activated");
     }
 
@@ -282,6 +283,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceReference.getTokenInstanceUuid()
         );
+        tokenInstanceReference.setStatus(TokenInstanceStatus.DEACTIVATED);
         logger.info("Token instance deactivated");
     }
 

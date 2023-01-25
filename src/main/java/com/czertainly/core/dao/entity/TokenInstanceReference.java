@@ -155,6 +155,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
         dto.setTokenProfiles(tokenProfiles.size());
         dto.setConnectorName(connectorName);
         dto.setConnectorUuid(connectorUuid.toString());
+        dto.setKind(kind);
         return dto;
     }
 
@@ -169,6 +170,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
         dto.setTokenProfiles(tokenProfiles.size());
         dto.setConnectorName(connectorName);
         dto.setConnectorUuid(connectorUuid.toString());
+        dto.setKind(kind);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(getAttributes()));
         // Custom Attributes and the Metadata should be set in the service
         return dto;
