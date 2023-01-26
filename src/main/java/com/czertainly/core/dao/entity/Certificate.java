@@ -38,7 +38,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "issuer_common_name")
     private String issuerCommonName;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "certificate_content_id", insertable = false, updatable = false)
     private CertificateContent certificateContent;
 
