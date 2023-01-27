@@ -1,16 +1,10 @@
 package com.czertainly.core.api.v2.client;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.client.v2.ClientOperationController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
-import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
-import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
-import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -57,6 +51,21 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String certificateUuid,
             ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         return clientOperationService.renewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
+    }
+
+    @Override
+    public ClientCertificateDataResponseDto regenerateCertificate(
+            String authorityUuid,
+            String raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRegenerationRequestDto request)
+            throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+        return clientOperationService.regenerateCertificate(
+                SecuredParentUUID.fromString(authorityUuid),
+                SecuredUUID.fromString(raProfileUuid),
+                certificateUuid,
+                request
+        );
     }
 
     @Override
