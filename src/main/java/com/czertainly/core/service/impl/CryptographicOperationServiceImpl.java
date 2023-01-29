@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyEvent;
 import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.EcdsaSignatureAttributes;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
@@ -134,6 +135,13 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (request.getCipherData() == null) {
             throw new ValidationException(ValidationError.create("Cannot encrypt null data"));
         }
+        if(!key.getUsage().contains(KeyUsage.SIGN) && !key.getCryptographicKey().getTokenProfile().getUsage().contains(KeyUsage.SIGN)) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Key Usage of the certificate does not support encryption"
+                    )
+            );
+        }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
         requestDto.setCipherData(request.getCipherData().stream().map(e -> {
                             CipherRequestData cipherRequestData = new CipherRequestData();
@@ -181,6 +189,13 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Key details: {}", key);
         if (request.getCipherData() == null) {
             throw new ValidationException(ValidationError.create("Cannot decrypt null data"));
+        }
+        if(!key.getUsage().contains(KeyUsage.SIGN) && !key.getCryptographicKey().getTokenProfile().getUsage().contains(KeyUsage.SIGN)) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Key Usage of the certificate does not support decryption"
+                    )
+            );
         }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
         requestDto.setCipherData(request.getCipherData().stream().map(e -> {
@@ -240,6 +255,13 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (request.getData() == null) {
             throw new ValidationException(ValidationError.create("Cannot sign empty data"));
         }
+        if(!key.getUsage().contains(KeyUsage.SIGN) && !key.getCryptographicKey().getTokenProfile().getUsage().contains(KeyUsage.SIGN)) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Key Usage of the certificate does not support signing"
+                    )
+            );
+        }
         validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
         com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
@@ -289,6 +311,13 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             throw new ValidationException(ValidationError.create("Cannot verify empty data"));
         }
         validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
+        if(!key.getUsage().contains(KeyUsage.VERIFY) && !key.getCryptographicKey().getTokenProfile().getUsage().contains(KeyUsage.VERIFY)) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Key Usage of the certificate does not support verification"
+                    )
+            );
+        }
         com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         if (request.getData() != null) requestDto.setData(request.getData().stream().map(e -> {

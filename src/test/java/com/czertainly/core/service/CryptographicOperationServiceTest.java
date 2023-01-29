@@ -12,6 +12,7 @@ import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -129,6 +130,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         content.setState(KeyState.ACTIVE);
         content.setEnabled(true);
         content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content.setUsage(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT, KeyUsage.VERIFY, KeyUsage.DECRYPT));
         cryptographicKeyItemRepository.save(content);
 
         content1 = new CryptographicKeyItem();
@@ -141,6 +143,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         content1.setState(KeyState.ACTIVE);
         content1.setEnabled(true);
         content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content1.setUsage(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT, KeyUsage.VERIFY, KeyUsage.DECRYPT));
         cryptographicKeyItemRepository.save(content1);
 
         content.setKeyReferenceUuid(content.getUuid());
