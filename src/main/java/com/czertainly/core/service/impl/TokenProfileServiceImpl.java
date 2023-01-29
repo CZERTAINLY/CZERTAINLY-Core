@@ -334,7 +334,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         entity.setTokenInstanceName(tokenInstanceReference.getName());
         entity.setTokenInstanceReference(tokenInstanceReference);
         entity.setTokenInstanceReferenceUuid(tokenInstanceReference.getUuid());
-        entity.setUsage(request.getUsage());
+        if(request.getUsage() != null) entity.setUsage(request.getUsage());
         return entity;
     }
 
