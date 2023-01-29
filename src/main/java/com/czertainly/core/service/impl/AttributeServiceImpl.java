@@ -338,6 +338,20 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     @Override
+    public void deleteAttributeContent(UUID objectUuid, Resource resource, UUID parentObjectUuid, Resource parentResource, AttributeType type) {
+        logger.info("Deleting the attribute content for: {} with UUID: {}, Parent UUID: {}, Parent Resource: {}", resource, objectUuid, parentObjectUuid, parentResource);
+        for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(objectUuid, resource, parentObjectUuid, parentResource)) {
+            AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
+            if (definition.getType().equals(type)) {
+                attributeContent2ObjectRepository.delete(object);
+                if (attributeContent2ObjectRepository.findByAttributeContent(object.getAttributeContent()).size() == 0) {
+                    attributeContentRepository.delete(object.getAttributeContent());
+                }
+            }
+        }
+    }
+
+    @Override
     public List<ResponseAttributeDto> getCustomAttributesWithValues(UUID uuid, Resource resource) {
         logger.info("Getting the custom attributes for {} with UUID: {}", resource.getCode(), uuid);
         List<CustomAttribute> attributes = new ArrayList<>();
