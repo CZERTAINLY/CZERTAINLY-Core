@@ -209,7 +209,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setFormat(format);
         dto.setState(state);
         dto.setEnabled(enabled);
-        dto.setUsage(getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
+        dto.setUsage(getUsage());
         return dto;
     }
 }

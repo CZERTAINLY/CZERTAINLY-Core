@@ -6,14 +6,11 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
-import com.czertainly.api.model.client.cryptography.operations.RandomDataRequestDto;
-import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
-import com.czertainly.api.model.client.cryptography.operations.VerifyDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
-import com.czertainly.api.model.connector.cryptography.operations.*;
+import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -46,11 +43,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -135,11 +135,18 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             throw new ValidationException(ValidationError.create("Cannot encrypt null data"));
         }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
-        requestDto.setCipherData(request.getCipherData());
+        requestDto.setCipherData(request.getCipherData().stream().map(e -> {
+                            CipherRequestData cipherRequestData = new CipherRequestData();
+                            cipherRequestData.setData(base64EncodedToByteArray(e.getData()));
+                            cipherRequestData.setIdentifier(e.getIdentifier());
+                            return cipherRequestData;
+                        })
+                        .collect(Collectors.toList())
+        );
         requestDto.setCipherAttributes(request.getCipherAttributes());
         logger.debug("Request to the connector: {}", requestDto);
         try {
-            EncryptDataResponseDto response = cryptographicOperationsApiClient.encryptData(
+            com.czertainly.api.model.connector.cryptography.operations.EncryptDataResponseDto response = cryptographicOperationsApiClient.encryptData(
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
@@ -147,7 +154,16 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             );
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
                     "Encryption of data success ", null, key);
-            return response;
+            EncryptDataResponseDto responseDto = new EncryptDataResponseDto();
+            if (response.getEncryptedData() != null)
+                responseDto.setEncryptedData(response.getEncryptedData().stream().map(e -> {
+                    CipherResponseData cipherResponseData = new CipherResponseData();
+                    cipherResponseData.setData(byteArrayToBase64Encoded(e.getData()));
+                    cipherResponseData.setIdentifier(e.getIdentifier());
+                    cipherResponseData.setDetails(e.getDetails());
+                    return cipherResponseData;
+                }).collect(Collectors.toList()));
+            return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
                     "Encryption of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
@@ -167,18 +183,34 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             throw new ValidationException(ValidationError.create("Cannot decrypt null data"));
         }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
-        requestDto.setCipherData(request.getCipherData());
+        requestDto.setCipherData(request.getCipherData().stream().map(e -> {
+                            CipherRequestData cipherRequestData = new CipherRequestData();
+                            cipherRequestData.setData(base64EncodedToByteArray(e.getData()));
+                            cipherRequestData.setIdentifier(e.getIdentifier());
+                            return cipherRequestData;
+                        })
+                        .collect(Collectors.toList())
+        );
         requestDto.setCipherAttributes(request.getCipherAttributes());
         logger.debug("Request to the connector: {}", requestDto);
         try {
-            DecryptDataResponseDto response = cryptographicOperationsApiClient.decryptData(
+            com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto response = cryptographicOperationsApiClient.decryptData(
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto);
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
                     "Decryption of data success ", null, key);
-            return response;
+            DecryptDataResponseDto responseDto = new DecryptDataResponseDto();
+            if (response.getDecryptedData() != null)
+                responseDto.setDecryptedData(response.getDecryptedData().stream().map(e -> {
+                    CipherResponseData cipherResponseData = new CipherResponseData();
+                    cipherResponseData.setData(byteArrayToBase64Encoded(e.getData()));
+                    cipherResponseData.setIdentifier(e.getIdentifier());
+                    cipherResponseData.setDetails(e.getDetails());
+                    return cipherResponseData;
+                }).collect(Collectors.toList()));
+            return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.DECRYPT, KeyEventStatus.FAILED,
                     "Encryption of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
@@ -211,10 +243,17 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
         com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
-        requestDto.setData(request.getData());
+        requestDto.setData(request.getData().stream().map(e -> {
+                            com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
+                            signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
+                            signatureRequestData.setIdentifier(e.getIdentifier());
+                            return signatureRequestData;
+                        })
+                        .collect(Collectors.toList())
+        );
         logger.debug("Request to the connector: {}", requestDto);
         try {
-            SignDataResponseDto response = cryptographicOperationsApiClient.signData(
+            com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto response = cryptographicOperationsApiClient.signData(
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
@@ -222,7 +261,15 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             );
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
                     "Signing data success ", null, key);
-            return response;
+            SignDataResponseDto responseDto = new SignDataResponseDto();
+            if (response.getSignatures() != null) responseDto.setSignatures(response.getSignatures().stream().map(e -> {
+                SignatureResponseData signatureResponseData = new SignatureResponseData();
+                signatureResponseData.setData(byteArrayToBase64Encoded(e.getData()));
+                signatureResponseData.setIdentifier(e.getIdentifier());
+                signatureResponseData.setDetails(e.getDetails());
+                return signatureResponseData;
+            }).collect(Collectors.toList()));
+            return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.SIGN, KeyEventStatus.FAILED,
                     "Encryption of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
@@ -244,11 +291,25 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
         com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
-        requestDto.setData(request.getData());
-        requestDto.setSignatures(request.getSignatures());
+        if (request.getData() != null) requestDto.setData(request.getData().stream().map(e -> {
+                            com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
+                            signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
+                            signatureRequestData.setIdentifier(e.getIdentifier());
+                            return signatureRequestData;
+                        })
+                        .collect(Collectors.toList())
+        );
+        requestDto.setSignatures(request.getSignatures().stream().map(e -> {
+                            com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
+                            signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
+                            signatureRequestData.setIdentifier(e.getIdentifier());
+                            return signatureRequestData;
+                        })
+                        .collect(Collectors.toList())
+        );
         logger.debug("Request to the connector: {}", requestDto);
         try {
-            VerifyDataResponseDto response = cryptographicOperationsApiClient.verifyData(
+            com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto response = cryptographicOperationsApiClient.verifyData(
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
                     key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
@@ -256,7 +317,16 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             );
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
                     "Verification of data completed ", null, key);
-            return response;
+            VerifyDataResponseDto responseDto = new VerifyDataResponseDto();
+            if (response.getVerifications() != null)
+                responseDto.setVerifications(response.getVerifications().stream().map(e -> {
+                    VerificationResponseData verifyDataResponseDto = new VerificationResponseData();
+                    verifyDataResponseDto.setResult(e.isResult());
+                    verifyDataResponseDto.setIdentifier(e.getIdentifier());
+                    verifyDataResponseDto.setDetails(e.getDetails());
+                    return verifyDataResponseDto;
+                }).collect(Collectors.toList()));
+            return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
                     "Encryption of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
@@ -288,11 +358,14 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         requestDto.setAttributes(request.getAttributes());
         requestDto.setLength(request.getLength());
         logger.debug("Request to the connector: {}", requestDto);
-        return cryptographicOperationsApiClient.randomData(
+        com.czertainly.api.model.connector.cryptography.operations.RandomDataResponseDto response = cryptographicOperationsApiClient.randomData(
                 tokenInstanceReference.getConnector().mapToDto(),
                 tokenInstanceReference.getTokenInstanceUuid(),
                 requestDto
         );
+        RandomDataResponseDto responseDto = new RandomDataResponseDto();
+        responseDto.setData(byteArrayToBase64Encoded(response.getData()));
+        return responseDto;
     }
 
     @Override
@@ -442,5 +515,19 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         }
 
         return true;
+    }
+
+    private byte[] base64EncodedToByteArray(String encoded) {
+        if (encoded == null) {
+            return null;
+        }
+        return Base64.getDecoder().decode(encoded.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String byteArrayToBase64Encoded(byte[] input) {
+        if (input == null) {
+            return null;
+        }
+        return Base64.getEncoder().encodeToString(input);
     }
 }

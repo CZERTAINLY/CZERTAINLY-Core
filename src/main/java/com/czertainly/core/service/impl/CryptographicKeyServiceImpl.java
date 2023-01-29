@@ -87,6 +87,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+
+    @Autowired
     public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
         this.permissionEvaluator = permissionEvaluator;
     }
@@ -258,7 +263,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                                     request.getTokenProfileUuid()
                             )
                     );
-            if (!tokenProfile.getTokenInstanceReferenceUuid().equals(key.getItems().iterator().next().getUuid())) {
+            if (!tokenProfile.getTokenInstanceReferenceUuid().equals(key.getTokenInstanceReferenceUuid())) {
                 throw new ValidationException(
                         ValidationError.create(
                                 "Cannot assign Token Profile from different provider"
@@ -362,11 +367,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                         key.getUuid(),
                         Resource.CRYPTOGRAPHIC_KEY
                 );
+                key.getItems().remove(content);
                 cryptographicKeyItemRepository.delete(content);
+                cryptographicKeyRepository.save(key);
             }
             if (key.getItems().size() == 0) {
-                cryptographicKeyRepository.delete(key);
                 certificateService.clearKeyAssociations(key.getUuid());
+                cryptographicKeyRepository.delete(key);
             }
         } else {
             deleteKey(List.of(uuid.toString()));
@@ -392,8 +399,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     );
                     cryptographicKeyItemRepository.delete(content);
                 }
-                cryptographicKeyRepository.delete(key);
                 certificateService.clearKeyAssociations(UUID.fromString(uuid));
+                cryptographicKeyRepository.delete(key);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }
