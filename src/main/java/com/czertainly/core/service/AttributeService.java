@@ -211,6 +211,17 @@ public interface AttributeService {
     void deleteAttributeContent(UUID objectUuid, Resource resource);
 
     /**
+     * Function to delete all the attribute content for an individual object with the parent resource.
+     *
+     * @param objectUuid UUID of the object
+     * @param resource   Resource type
+     * @param parentObjectUuid Parent Object UUID
+     * @param parentResource Parent Object resource
+     * @param type Type of the attribute to be deleted. Either Custom or Metadata
+     */
+    void deleteAttributeContent(UUID objectUuid, Resource resource, UUID parentObjectUuid, Resource parentResource, AttributeType type);
+
+    /**
      * Function to get the list of custom attributes associated with a specific object
      *
      * @param uuid     UUID of the object
