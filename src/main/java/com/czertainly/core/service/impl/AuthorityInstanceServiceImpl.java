@@ -324,6 +324,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         if (authorityInstanceRef.getConnector() != null) {
             try {
                 authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
+            } catch (NotFoundException notFoundException) {
+                logger.warn("Authority is already deleted in the connector. Proceeding to remove it from the core");
             } catch (Exception e) {
                 logger.error(e.getMessage());
                 throw new ValidationException(e.getMessage());
