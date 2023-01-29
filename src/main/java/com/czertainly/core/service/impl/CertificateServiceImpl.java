@@ -675,13 +675,12 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public void clearKeyAssociations(UUID keyUuid) {
-        certificateRepository.findByKeyUuid(keyUuid)
-                .forEach(
-                        e ->
-                        {
-                            e.setKey(null);
-                            certificateRepository.save(e);
-                        });
+        List<Certificate> certificates = certificateRepository.findByKeyUuid(keyUuid);
+        for(Certificate certificate: certificates) {
+            certificate.setKey(null);
+            certificate.setKeyUuid(null);
+            certificateRepository.save(certificate);
+        }
     }
 
     @Override

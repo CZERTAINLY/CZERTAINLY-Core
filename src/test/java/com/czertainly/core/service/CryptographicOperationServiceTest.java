@@ -4,18 +4,15 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
-import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
-import com.czertainly.api.model.client.cryptography.operations.VerifyDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
-import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
-import com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -28,6 +25,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -131,6 +130,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         content.setState(KeyState.ACTIVE);
         content.setEnabled(true);
         content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content.setUsage(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT, KeyUsage.VERIFY, KeyUsage.DECRYPT));
         cryptographicKeyItemRepository.save(content);
 
         content1 = new CryptographicKeyItem();
@@ -143,6 +143,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         content1.setState(KeyState.ACTIVE);
         content1.setEnabled(true);
         content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content1.setUsage(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT, KeyUsage.VERIFY, KeyUsage.DECRYPT));
         cryptographicKeyItemRepository.save(content1);
 
         content.setKeyReferenceUuid(content.getUuid());
@@ -256,7 +257,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     public void testEncrypt() throws ConnectorException {
         CipherRequestData data = new CipherRequestData();
         data.setIdentifier("identifier");
-        data.setData("Hello World!".getBytes());
+        data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
 
         CipherDataRequestDto requestDto = new CipherDataRequestDto();
         requestDto.setCipherData(List.of(data));
@@ -268,7 +269,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                                 "/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/encrypt"
                         )
                 )
-                .willReturn(WireMock.ok()));
+                .willReturn(WireMock.okJson("{}")));
 
         cryptographicOperationService.encryptData(
                 tokenInstanceReference.getSecuredParentUuid(),
@@ -311,7 +312,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     public void testDecrypt() throws ConnectorException {
         CipherRequestData data = new CipherRequestData();
         data.setIdentifier("identifier");
-        data.setData("Hello World!".getBytes());
+        data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
 
         CipherDataRequestDto requestDto = new CipherDataRequestDto();
         requestDto.setCipherData(List.of(data));
@@ -323,7 +324,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                                 "/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/decrypt"
                         )
                 )
-                .willReturn(WireMock.ok()));
+                .willReturn(WireMock.okJson("{}")));
 
         cryptographicOperationService.decryptData(
                 tokenInstanceReference.getSecuredParentUuid(),
@@ -366,7 +367,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     public void testSign_RSA() throws ConnectorException {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
-        data.setData("Hello World!".getBytes());
+        data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
 
         SignDataRequestDto requestDto = new SignDataRequestDto();
         requestDto.setData(List.of(data));
@@ -384,7 +385,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
-                .willReturn(WireMock.ok()));
+                .willReturn(WireMock.okJson("{}")));
 
         cryptographicOperationService.signData(
                 tokenInstanceReference.getSecuredParentUuid(),
@@ -427,7 +428,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     public void testVerify() throws ConnectorException {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
-        data.setData("Hello World!".getBytes());
+        data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
 
         VerifyDataRequestDto requestDto = new VerifyDataRequestDto();
         requestDto.setData(List.of(data));
@@ -445,7 +446,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         requestDto.setSignatureAttributes(List.of(reqDto1, reqDto2));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
-                .willReturn(WireMock.ok()));
+                .willReturn(WireMock.okJson("{}")));
 
         cryptographicOperationService.verifyData(
                 tokenInstanceReference.getSecuredParentUuid(),
