@@ -137,7 +137,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "csr", length = Integer.MAX_VALUE)
     private String csr;
 
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "key_uuid", insertable = false, updatable = false)
     private CryptographicKey key;
 

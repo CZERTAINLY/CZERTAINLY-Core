@@ -334,6 +334,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         entity.setTokenInstanceName(tokenInstanceReference.getName());
         entity.setTokenInstanceReference(tokenInstanceReference);
         entity.setTokenInstanceReferenceUuid(tokenInstanceReference.getUuid());
+        if(request.getUsage() != null) entity.setUsage(request.getUsage());
         return entity;
     }
 
@@ -343,6 +344,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         entity.setTokenInstanceReference(tokenInstanceReference);
         if (request.getEnabled() != null) entity.setEnabled(request.getEnabled() != null && request.getEnabled());
         entity.setTokenInstanceName(tokenInstanceReference.getName());
+        if(request.getUsage() != null) entity.setUsage(request.getUsage());
         return entity;
     }
 

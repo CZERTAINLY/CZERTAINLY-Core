@@ -1,8 +1,10 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -193,6 +195,9 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setItems(getKeyItems());
         dto.setOwner(owner);
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(
+                AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class)
+        ));
         if (group != null) {
             dto.setGroup(group.mapToDto());
         }
