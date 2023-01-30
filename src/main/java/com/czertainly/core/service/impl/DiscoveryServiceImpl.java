@@ -5,6 +5,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
@@ -99,7 +100,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     public DiscoveryHistory getDiscoveryEntity(SecuredUUID uuid) throws NotFoundException {
-        return discoveryRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Connector.class, uuid));
+        return discoveryRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
     }
 
     @Override
@@ -365,5 +366,16 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private void updateMeta(Certificate modal, DiscoveryProviderCertificateDataDto certificate, DiscoveryHistory history) {
         metadataService.createMetadataDefinitions(history.getConnectorUuid(), certificate.getMeta());
         metadataService.createMetadata(history.getConnectorUuid(), modal.getUuid(), history.getUuid(), history.getName(), certificate.getMeta(), Resource.CERTIFICATE, Resource.DISCOVERY);
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return null;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getDiscoveryEntity(uuid);
     }
 }
