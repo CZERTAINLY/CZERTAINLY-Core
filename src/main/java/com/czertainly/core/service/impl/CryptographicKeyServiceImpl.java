@@ -696,6 +696,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setKeyReferenceUuid(UUID.fromString(referenceUuid));
         content.setState(KeyState.ACTIVE);
         content.setEnabled(false);
+        if (cryptographicKey.getTokenProfile() != null) content.setUsage(cryptographicKey.getTokenProfile().getUsage());
         cryptographicKeyItemRepository.save(content);
         String message;
         if (isDiscovered) {

@@ -57,7 +57,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         try {
             dto.setTotalRaProfiles(raProfileService.statisticsRaProfilesCount(SecurityFilter.create()));
         } catch (AccessDeniedException e){
-            dto.setTotalGroups(0L);
+            dto.setTotalRaProfiles(0L);
         }
         return certificateService.addCertificateStatistics(SecurityFilter.create(), dto);
     }

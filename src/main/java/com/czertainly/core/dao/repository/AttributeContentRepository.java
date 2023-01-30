@@ -9,6 +9,7 @@ import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @Transactional
@@ -17,5 +18,6 @@ public interface AttributeContentRepository extends JpaRepository<AttributeConte
     Optional<AttributeContent> findByAttributeContentAndAttributeDefinition(String serializedContent, AttributeDefinition definition);
 
     List<AttributeContent> findByAttributeDefinition(AttributeDefinition definition);
+//    List<AttributeContent> findByAttributeDefinitionUuid(UUID attributeDefinitionUuid);
 
 }
