@@ -162,6 +162,11 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public void setUsage(List<KeyUsage> usage) {
+        if(usage == null || usage.size() == 0) {
+            this.usage = null;
+            return;
+        }
+
         this.usage = String.join(
                 ",",
                 usage.stream().map(

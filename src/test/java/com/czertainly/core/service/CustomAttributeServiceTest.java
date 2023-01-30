@@ -252,7 +252,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testUpdateResourceFailure() throws ValidationException, NotFoundException {
-        Assertions.assertThrows(ValidationException.class, () -> attributeService.updateResources(SecuredUUID.fromUUID(definition.getUuid()), List.of(Resource.DASHBOARD)));
+        Assertions.assertThrows(ValidationException.class, () -> attributeService.updateResources(SecuredUUID.fromUUID(definition.getUuid()), List.of(Resource.AUDIT_LOG)));
     }
 
     @Test
