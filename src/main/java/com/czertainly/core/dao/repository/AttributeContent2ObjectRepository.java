@@ -18,7 +18,7 @@ public interface AttributeContent2ObjectRepository extends JpaRepository<Attribu
 
     List<AttributeContent2Object> findByObjectUuidAndObjectType(UUID uuid, Resource resource);
 
-    List<AttributeContent2Object> findByObjectUuidAndObjectTypeAndAttributeContentAttributeDefinitionType(UUID uuid, Resource resource, AttributeType attributeType);
+    List<AttributeContent2Object> findByObjectUuidAndObjectTypeAndAttributeContentAttributeDefinitionUuid(UUID uuid, Resource resource, UUID attributeDefinitionUuid);
 
     List<AttributeContent2Object> findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(UUID uuid, Resource resource, UUID sourceObjectUUid, Resource sourceObjectType);
 

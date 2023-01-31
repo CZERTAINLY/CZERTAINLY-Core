@@ -280,35 +280,31 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public void updateAttributeContent(UUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContent, Resource resource) throws NotFoundException {
-//        List<AttributeContent2Object> attributeContent2Objects = attributeContent2ObjectRepository
-//                .findByObjectUuidAndObjectType(
-//                        objectUuid,
-//                        resource
-//                );
+        AttributeDefinition attributeDefinition = getAttributeDefinition(SecuredUUID.fromUUID(attributeUuid), AttributeType.CUSTOM);
+        CustomAttributeProperties props = attributeDefinition.getAttributeDefinition(CustomAttribute.class).getProperties();
+        if (props.isReadOnly()) {
+            throw new ValidationException(ValidationError.create("Cannot update content for readonly attribute"));
+        }
 
         List<AttributeContent2Object> attributeContent2Objects = attributeContent2ObjectRepository
-                .findByObjectUuidAndObjectTypeAndAttributeContentAttributeDefinitionType(
+                .findByObjectUuidAndObjectTypeAndAttributeContentAttributeDefinitionUuid(
                         objectUuid,
                         resource,
-                        AttributeType.CUSTOM
+                        attributeUuid
                 );
 
         if (attributeContent != null && (attributeContent2Objects == null || attributeContent2Objects.isEmpty())) {
-            AttributeDefinition attributeDefinition = getAttributeDefinition(SecuredUUID.fromUUID(attributeUuid), AttributeType.CUSTOM);
             createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
             return;
         }
         for (AttributeContent2Object attributeContent2Object : attributeContent2Objects) {
-            AttributeDefinition attributeDefinition = attributeContent2Object.getAttributeContent().getAttributeDefinition();
-            if (attributeDefinition.getAttributeUuid().equals(attributeUuid)) {
-                AttributeContent content = attributeContent2Object.getAttributeContent();
-                attributeContent2ObjectRepository.delete(attributeContent2Object);
-                if (attributeContent2ObjectRepository.countByAttributeContent(attributeContent2Object.getAttributeContent()) == 0) {
-                    attributeContentRepository.delete(content);
-                }
-                if (attributeContent != null) {
-                    createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
-                }
+            AttributeContent content = attributeContent2Object.getAttributeContent();
+            attributeContent2ObjectRepository.delete(attributeContent2Object);
+            if (attributeContent2ObjectRepository.countByAttributeContent(attributeContent2Object.getAttributeContent()) == 0) {
+                attributeContentRepository.delete(content);
+            }
+            if (attributeContent != null) {
+                createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
             }
         }
     }
