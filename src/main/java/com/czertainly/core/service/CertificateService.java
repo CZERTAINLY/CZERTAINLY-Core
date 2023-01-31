@@ -190,4 +190,12 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param keyUuid UUID of the key object to be unassociated
      */
     void clearKeyAssociations(UUID keyUuid);
+
+    /**
+     * Function to update the certificate with the keys if known
+     * @param keyUuid
+     * @param publicKeyFingerprint
+     * @throws NotFoundException
+     */
+    void updateCertificateKeys(UUID keyUuid, String publicKeyFingerprint);
 }

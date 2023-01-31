@@ -4,15 +4,12 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
-import com.czertainly.api.model.client.cryptography.key.EditKeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
-import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
+import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
+import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -38,6 +35,16 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @throws ConnectorException when there are issues with connector communication
      */
     KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, String uuid) throws NotFoundException;
+
+    /**
+     * Get the detail of the key item
+     * @param tokenInstanceUuid UUID of the token instance
+     * @param uuid UUID of the parent key object
+     * @param keyItemUuid UUID of the key item
+     * @return Key Item detail
+     * @throws NotFoundException when the key or token instance is not found
+     */
+    KeyItemDto getKeyItem(SecuredParentUUID tokenInstanceUuid, String uuid, String keyItemUuid) throws  NotFoundException;
 
     /**
      * @param request           DTO containing the information for creating a new key
@@ -115,6 +122,20 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     );
 
     /**
+     * Function to enable multiple key items
+     *
+     * @param uuids UUIDs of the key items
+     */
+    void enableKeyItems(List<String> uuids);
+
+    /**
+     * Function to disable multiple key items
+     *
+     * @param uuids UUIDs of the key items
+     */
+    void disableKeyItems(List<String> uuids);
+
+    /**
      * Function to delete the key
      *
      * @param tokenInstanceUuid UUID of the token instance
@@ -139,6 +160,14 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     ) throws NotFoundException;
 
     /**
+     * Function to delete multiple key items
+     *
+     * @param keyItemUuids Key Item UUIDs
+     * @throws ConnectorException
+     */
+    void deleteKeyItems(List<String> keyItemUuids) throws ConnectorException;
+
+    /**
      * Destroy a key
      *
      * @param tokenInstanceUuid UUID of the token instance
@@ -157,6 +186,15 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @throws ConnectorException when there are issues with connector communication
      */
     void destroyKey(List<String> uuids) throws ConnectorException;
+
+    /**
+     * Destroy multiple keys
+     *
+     * @param keyItemUuids UUID of the concerned key items
+     * @throws NotFoundException  when the token profile or the key uuid is not found
+     * @throws ConnectorException when there are issues with connector communication
+     */
+    void destroyKeyItems(List<String> keyItemUuids) throws ConnectorException;
 
     /**
      * List attributes to create a new key
@@ -185,17 +223,24 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      *
      * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
-     * @param keyUuids          UUIDs of the sub items inside the key. If empty list is provided
+     * @param request          UUIDs of the sub items inside the key. If empty list is provided
      *                          then all the items inside the key will be marked as compromised
      */
-    void compromiseKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException;
+    void compromiseKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, CompromiseKeyRequestDto request) throws NotFoundException;
 
     /**
      * Function to mark the keys as compromised
      *
-     * @param uuids UUIDs of the key
+     * @param request UUIDs of the key
      */
-    void compromiseKey(List<String> uuids);
+    void compromiseKey(BulkCompromiseKeyRequestDto request);
+
+    /**
+     * Function to mark the key items as compromised
+     *
+     * @param request UUIDs of the key items
+     */
+    void compromiseKeyItems(BulkCompromiseKeyItemRequestDto request);
 
     /**
      * Function to update the usages for the key
@@ -214,6 +259,13 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, UUID uuid, UpdateKeyUsageRequestDto request) throws NotFoundException;
 
     /**
+     * Function to update the usages for the key items
+     *
+     * @param request Request containing the details for updating the usages
+     */
+    void updateKeyItemUsages(BulkKeyItemUsageRequestDto request);
+
+    /**
      * Get the list of actions and events done of the provided key item
      *
      * @param tokenInstanceUuid UUID of the token Instance
@@ -221,6 +273,13 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @param keyItemUuid       UUID of the key Item
      * @return
      */
-
     List<KeyEventHistoryDto> getEventHistory(SecuredParentUUID tokenInstanceUuid, UUID uuid, UUID keyItemUuid) throws NotFoundException;
+
+    /**
+     * Function to get the key based on the sha 256 key fingerprint
+     *
+     * @param fingerprint SHA 256 fingerprint of the key
+     * @return Cryptographic Key UUID
+     */
+    UUID findKeyByFingerprint(String fingerprint);
 }

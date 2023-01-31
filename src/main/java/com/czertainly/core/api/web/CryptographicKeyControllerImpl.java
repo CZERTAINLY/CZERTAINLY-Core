@@ -5,15 +5,12 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CryptographicKeyController;
-import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
-import com.czertainly.api.model.client.cryptography.key.EditKeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
-import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
+import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
+import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CryptographicKeyService;
@@ -57,6 +54,19 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    public KeyItemDto getKeyItem(
+            String tokenInstanceUuid,
+            String uuid,
+            String keyItemUuid
+    ) throws NotFoundException {
+        return cryptographicKeyService.getKeyItem(
+                SecuredParentUUID.fromString(tokenInstanceUuid),
+                uuid,
+                keyItemUuid
+        );
+    }
+
+    @Override
     public KeyDetailDto createKey(String tokenInstanceUuid, String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         return cryptographicKeyService.createKey(
                 UUID.fromString(tokenInstanceUuid),
@@ -76,18 +86,25 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void compromiseKey(String tokenInstanceUuid, String uuid, List<String> uuids) throws NotFoundException {
+    public void compromiseKey(String tokenInstanceUuid, String uuid, CompromiseKeyRequestDto request) throws NotFoundException {
         cryptographicKeyService.compromiseKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 UUID.fromString(uuid),
-                uuids
+                request
         );
     }
 
     @Override
-    public void compromiseKeys(List<String> uuids) {
+    public void compromiseKeys(BulkCompromiseKeyRequestDto request) {
         cryptographicKeyService.compromiseKey(
-                uuids
+                request
+        );
+    }
+
+    @Override
+    public void compromiseKeyItems(BulkCompromiseKeyItemRequestDto request) {
+        cryptographicKeyService.compromiseKeyItems(
+                request
         );
     }
 
@@ -108,6 +125,13 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    public void destroyKeyItems(List<String> keyItemUuids) throws ConnectorException {
+        cryptographicKeyService.destroyKeyItems(
+                keyItemUuids
+        );
+    }
+
+    @Override
     public void deleteKey(String tokenInstanceUuid, String uuid, List<String> keyItemUuids) throws ConnectorException {
         cryptographicKeyService.deleteKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
@@ -124,6 +148,13 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    public void deleteKeyItems(List<String> keyItemUuids) throws ConnectorException {
+        cryptographicKeyService.deleteKeyItems(
+                keyItemUuids
+        );
+    }
+
+    @Override
     public void enableKey(String tokenInstanceUuid, String uuid, List<String> keyItemUuids) throws NotFoundException {
         cryptographicKeyService.enableKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
@@ -135,6 +166,13 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     @Override
     public void enableKeys(List<String> uuids) {
         cryptographicKeyService.enableKey(
+                uuids
+        );
+    }
+
+    @Override
+    public void enableKeyItems(List<String> uuids) {
+        cryptographicKeyService.enableKeyItems(
                 uuids
         );
     }
@@ -156,6 +194,13 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    public void disableKeyItems(List<String> uuids) {
+        cryptographicKeyService.disableKeyItems(
+                uuids
+        );
+    }
+
+    @Override
     public void updateKeyUsages(String tokenInstanceUuid, String uuid, UpdateKeyUsageRequestDto request) throws NotFoundException, ValidationException {
         cryptographicKeyService.updateKeyUsages(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
@@ -167,6 +212,13 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     @Override
     public void updateKeysUsages(BulkKeyUsageRequestDto request) {
         cryptographicKeyService.updateKeyUsages(
+                request
+        );
+    }
+
+    @Override
+    public void updateKeyItemUsages(BulkKeyItemUsageRequestDto request) {
+        cryptographicKeyService.updateKeyItemUsages(
                 request
         );
     }
