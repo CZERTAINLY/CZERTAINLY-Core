@@ -13,6 +13,9 @@ COPY docker /home/app/docker
 # Package stage
 FROM eclipse-temurin:17-jre-alpine
 
+RUN apk update && \
+  apk add --no-cache curl
+
 COPY --from=build /home/app/docker /
 COPY --from=build /home/app/target/*.jar /opt/czertainly/app.jar
 
