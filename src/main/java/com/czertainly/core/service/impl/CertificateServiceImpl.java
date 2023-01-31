@@ -616,6 +616,7 @@ public class CertificateServiceImpl implements CertificateService {
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
         filter.setParentRefProperty("raProfileUuid");
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter);
+
         //Compliance Mapping
         Map<String, String> complianceMap = new HashMap<>();
         complianceMap.put("NA", "Not Checked");
@@ -695,7 +696,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private String getExpiryTime(Date now, Date expiry) {
-        long diffInMillies = now.getTime() - expiry.getTime();
+        long diffInMillies = expiry.getTime() - now.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
         if (difference <= 0) {
             return "expired";
