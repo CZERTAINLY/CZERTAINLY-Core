@@ -36,8 +36,8 @@ public class SearchServiceImpl implements SearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
 
-    @PersistenceUnit
-    private EntityManagerFactory emFactory;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -83,17 +83,14 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public Object customQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
-        EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         Object result = query.getResultList();
-        entityManager.close();
         return result;
     }
 
     @Override
     public Object nativeQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
-        EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createNativeQuery(sqlQuery);
         Object result = null;
         try {
@@ -101,7 +98,6 @@ public class SearchServiceImpl implements SearchService {
         } catch (PersistenceException e) {
             logger.warn("Result is empty: {}", e.getMessage());
         }
-        entityManager.close();
         return result;
     }
 
@@ -109,7 +105,6 @@ public class SearchServiceImpl implements SearchService {
     @Async("threadPoolTaskExecutor")
     public Object asyncNativeQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
-        EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createNativeQuery(sqlQuery);
         Object result = null;
         try {
@@ -117,7 +112,6 @@ public class SearchServiceImpl implements SearchService {
         } catch (PersistenceException e) {
             logger.warn("Result is empty: {}", e.getMessage());
         }
-        entityManager.close();
         return result;
     }
 
@@ -134,7 +128,6 @@ public class SearchServiceImpl implements SearchService {
             searchRequestDto.setPageNumber(1);
         }
         String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false, additionalWhereClause) + " GROUP BY created, uuid ORDER BY created DESC";
-        EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         query.setFirstResult(page.get("start"));
         query.setMaxResults(searchRequestDto.getItemsPerPage());
@@ -144,13 +137,11 @@ public class SearchServiceImpl implements SearchService {
             dynamicSearchInternalResponse.setTotalPages(1);
             dynamicSearchInternalResponse.setTotalItems(0L);
             dynamicSearchInternalResponse.setResult(new ArrayList<>());
-            entityManager.close();
         } else {
             Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from").split(" GROUP BY ")[0]);
             Long totalItems = (Long) countQuery.getSingleResult();
             dynamicSearchInternalResponse.setTotalPages((int) Math.ceil((double) totalItems / searchRequestDto.getItemsPerPage()));
             dynamicSearchInternalResponse.setTotalItems(totalItems);
-            entityManager.close();
             dynamicSearchInternalResponse.setResult(result);
         }
         if (dynamicSearchInternalResponse.getTotalPages().equals(0)) {
