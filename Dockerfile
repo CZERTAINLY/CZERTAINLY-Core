@@ -24,6 +24,6 @@ COPY --from=build /home/app/target/*.jar /opt/czertainly/app.jar
 
 WORKDIR /opt/czertainly
 
-USER czertainly
+USER 10001
 
 ENTRYPOINT ["/opt/czertainly/entry.sh"]
