@@ -57,6 +57,8 @@ CREATE TABLE cryptographic_key_item (
 	usage VARCHAR NULL DEFAULT NULL,
 	enabled BOOLEAN NOT NULL,
 	length INTEGER NULL,
+	fingerprint VARCHAR NULL DEFAULT NULL,
+	reason VARCHAR NULL DEFAULT NULL,
 	PRIMARY KEY (uuid)
 );
 

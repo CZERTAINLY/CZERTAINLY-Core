@@ -1,9 +1,11 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.cryptography.key.KeyCompromiseReason;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.value.KeyValue;
+import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
@@ -22,7 +24,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "cryptographic_key_item")
-public class CryptographicKeyItem extends UniquelyIdentified implements Serializable, DtoMapper<KeyItemDto> {
+public class CryptographicKeyItem extends UniquelyIdentified implements Serializable, DtoMapper<KeyItemDetailDto> {
 
     @Column(name = "name")
     private String name;
@@ -64,6 +66,13 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
 
     @Column(name = "enabled")
     private boolean enabled;
+
+    @Column(name = "fingerprint")
+    private String fingerprint;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reason")
+    private KeyCompromiseReason reason;
 
     public String getName() {
         return name;
@@ -150,6 +159,14 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         this.state = state;
     }
 
+    public KeyCompromiseReason getReason() {
+        return reason;
+    }
+
+    public void setReason(KeyCompromiseReason reason) {
+        this.reason = reason;
+    }
+
     public List<KeyUsage> getUsage() {
         if (usage == null) return new ArrayList<>();
         return Arrays.stream(
@@ -187,6 +204,14 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         this.enabled = enabled;
     }
 
+    public String getFingerprint() {
+        return fingerprint;
+    }
+
+    public void setFingerprint(String fingerprint) {
+        this.fingerprint = fingerprint;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -203,7 +228,23 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     @Override
-    public KeyItemDto mapToDto() {
+    public KeyItemDetailDto mapToDto() {
+        KeyItemDetailDto dto = new KeyItemDetailDto();
+        dto.setName(name);
+        dto.setUuid(uuid.toString());
+        dto.setKeyReferenceUuid(keyReferenceUuid.toString());
+        dto.setCryptographicAlgorithm(cryptographicAlgorithm);
+        dto.setType(type);
+        dto.setLength(length);
+        dto.setFormat(format);
+        dto.setState(state);
+        dto.setEnabled(enabled);
+        dto.setUsage(getUsage());
+        dto.setReason(reason);
+        return dto;
+    }
+
+    public KeyItemDto mapToSummaryDto() {
         KeyItemDto dto = new KeyItemDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());

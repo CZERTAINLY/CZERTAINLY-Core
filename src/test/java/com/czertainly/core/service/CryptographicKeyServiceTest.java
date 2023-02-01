@@ -4,10 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.cryptography.key.EditKeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
-import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
+import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
@@ -188,7 +185,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair"))
-                .willReturn(WireMock.okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\", \"keyData\":{}}}")));
+                .willReturn(WireMock.okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{\"type\":\"Private key\", \"format\":\"Raw\", \"value\":\"something\"}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\",  \"keyData\":{\"type\":\"Private key\", \"format\":\"Raw\", \"value\":\"something\"}}}")));
 
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testRaProfile2");
@@ -302,7 +299,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         cryptographicKeyService.destroyKey(List.of(key.getUuid().toString()));
         Assertions.assertEquals(KeyState.DESTROYED, content.getState());
-        Assertions.assertEquals(null, content.getKeyData());
+        Assertions.assertNull(content.getKeyData());
     }
 
     @Test
@@ -310,9 +307,12 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         cryptographicKeyService.compromiseKey(
                 tokenInstanceReference.getSecuredParentUuid(),
                 key.getUuid(),
-                List.of(
-                        content.getUuid().toString(),
-                        content1.getUuid().toString()
+                new CompromiseKeyRequestDto(
+                        KeyCompromiseReason.UNAUTHORIZED_DISCLOSURE,
+                        List.of(
+                                content.getUuid(),
+                                content1.getUuid()
+                        )
                 )
         );
         Assertions.assertEquals(
@@ -337,9 +337,12 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         cryptographicKeyService.compromiseKey(
                 tokenInstanceReference.getSecuredParentUuid(),
                 key.getUuid(),
-                List.of(
-                        content.getUuid().toString(),
-                        content1.getUuid().toString()
+                new CompromiseKeyRequestDto(
+                        KeyCompromiseReason.UNAUTHORIZED_MODIFICATION,
+                        List.of(
+                                content.getUuid(),
+                                content1.getUuid()
+                        )
                 )
         );
         Assertions.assertThrows(
@@ -347,9 +350,12 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 () -> cryptographicKeyService.compromiseKey(
                         tokenInstanceReference.getSecuredParentUuid(),
                         key.getUuid(),
-                        List.of(
-                                content.getUuid().toString(),
-                                content1.getUuid().toString()
+                        new CompromiseKeyRequestDto(
+                                KeyCompromiseReason.UNAUTHORIZED_MODIFICATION,
+                                List.of(
+                                        content.getUuid(),
+                                        content1.getUuid()
+                                )
                         )
                 )
         );
@@ -357,7 +363,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testCompromisedKey_parentKeyObject() {
-        cryptographicKeyService.compromiseKey(List.of(key.getUuid().toString()));
+        cryptographicKeyService.compromiseKey(new BulkCompromiseKeyRequestDto(KeyCompromiseReason.UNAUTHORIZED_SUBSTITUTION, List.of(key.getUuid())));
         Assertions.assertEquals(KeyState.COMPROMISED, content.getState());
         Assertions.assertNotEquals(null, content.getKeyData());
         Assertions.assertEquals(KeyState.COMPROMISED, content1.getState());

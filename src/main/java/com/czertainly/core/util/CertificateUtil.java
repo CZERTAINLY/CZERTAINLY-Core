@@ -20,6 +20,7 @@ import javax.naming.ldap.Rdn;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
@@ -157,12 +158,11 @@ public class CertificateUtil {
     }
 
     public static String getThumbprint(byte[] encodedContent)
-            throws NoSuchAlgorithmException, CertificateEncodingException {
+            throws NoSuchAlgorithmException {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
         messageDigest.update(encodedContent);
         byte[] digest = messageDigest.digest();
         String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
-        logger.debug("Thumbprint of the certificate is {}", thumbprint);
         return thumbprint;
     }
 
@@ -197,6 +197,11 @@ public class CertificateUtil {
                             "Invalid Certificate. Public Key is missing"
                     )
             );
+        }
+        try {
+            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificate.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            logger.error("Failed to calculate the thumbprint of the certificate");
         }
         modal.setPublicKeyAlgorithm(certificate.getPublicKey().getAlgorithm());
         modal.setSignatureAlgorithm(certificate.getSigAlgName());
