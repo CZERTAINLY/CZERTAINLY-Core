@@ -165,7 +165,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public KeyItemDto getKeyItem(SecuredParentUUID tokenInstanceUuid, String uuid, String keyItemUuid) throws NotFoundException {
+    public KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, String uuid, String keyItemUuid) throws NotFoundException {
         logger.info("Requesting details of the Key Item {} with UUID {} for Token profile {}", keyItemUuid, uuid, tokenInstanceUuid);
         CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
         CryptographicKeyItem item = cryptographicKeyItemRepository.findByUuidAndCryptographicKey(
@@ -174,7 +174,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         ).orElseThrow(
                 () -> new NotFoundException(CryptographicKeyItem.class, keyItemUuid)
         );
-        KeyItemDto dto = item.mapToDto();
+        KeyItemDetailDto dto = item.mapToDto();
         logger.debug("Key details: {}", dto);
         dto.setMetadata(
                 metadataService.getFullMetadata(

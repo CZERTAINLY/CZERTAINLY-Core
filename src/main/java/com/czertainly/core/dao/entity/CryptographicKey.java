@@ -154,12 +154,12 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     }
 
     // Get the list of items for the key
-    public List<KeyItemDto> getKeyItems() {
+    public List<KeyItemDetailDto> getKeyItems() {
         return items.stream().map(CryptographicKeyItem::mapToDto).collect(Collectors.toList());
     }
 
     // Get the list of items for the key
-    public List<KeyItemSummaryDto> getKeyItemsSummary() {
+    public List<KeyItemDto> getKeyItemsSummary() {
         return items.stream().map(CryptographicKeyItem::mapToSummaryDto).collect(Collectors.toList());
     }
 

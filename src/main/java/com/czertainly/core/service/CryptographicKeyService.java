@@ -9,7 +9,7 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
-import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
+import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -44,7 +44,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @return Key Item detail
      * @throws NotFoundException when the key or token instance is not found
      */
-    KeyItemDto getKeyItem(SecuredParentUUID tokenInstanceUuid, String uuid, String keyItemUuid) throws  NotFoundException;
+    KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, String uuid, String keyItemUuid) throws  NotFoundException;
 
     /**
      * @param request           DTO containing the information for creating a new key

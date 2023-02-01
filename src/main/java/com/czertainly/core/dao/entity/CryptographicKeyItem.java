@@ -5,8 +5,8 @@ import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgori
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.value.KeyValue;
+import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
-import com.czertainly.api.model.core.cryptography.key.KeyItemSummaryDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.util.CryptographicHelper;
@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "cryptographic_key_item")
-public class CryptographicKeyItem extends UniquelyIdentified implements Serializable, DtoMapper<KeyItemDto> {
+public class CryptographicKeyItem extends UniquelyIdentified implements Serializable, DtoMapper<KeyItemDetailDto> {
 
     @Column(name = "name")
     private String name;
@@ -228,8 +228,8 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     @Override
-    public KeyItemDto mapToDto() {
-        KeyItemDto dto = new KeyItemDto();
+    public KeyItemDetailDto mapToDto() {
+        KeyItemDetailDto dto = new KeyItemDetailDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setKeyReferenceUuid(keyReferenceUuid.toString());
@@ -244,8 +244,8 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         return dto;
     }
 
-    public KeyItemSummaryDto mapToSummaryDto() {
-        KeyItemSummaryDto dto = new KeyItemSummaryDto();
+    public KeyItemDto mapToSummaryDto() {
+        KeyItemDto dto = new KeyItemDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setKeyReferenceUuid(keyReferenceUuid.toString());
