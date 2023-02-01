@@ -112,6 +112,9 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private AttributeService attributeService;
 
+    @Lazy
+    @Autowired
+    private CryptographicKeyService cryptographicKeyService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -431,6 +434,10 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         CertificateUtil.prepareCertificate(modal, certificate);
+        if(modal.getKey() == null ) {
+            UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(modal.getPublicKeyFingerprint());
+            if(keyUuid != null) modal.setKeyUuid(keyUuid);
+        }
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
         modal.setCertificateContent(certificateContent);
@@ -616,6 +623,7 @@ public class CertificateServiceImpl implements CertificateService {
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
         filter.setParentRefProperty("raProfileUuid");
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter);
+
         //Compliance Mapping
         Map<String, String> complianceMap = new HashMap<>();
         complianceMap.put("NA", "Not Checked");
@@ -675,13 +683,12 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public void clearKeyAssociations(UUID keyUuid) {
-        certificateRepository.findByKeyUuid(keyUuid)
-                .forEach(
-                        e ->
-                        {
-                            e.setKey(null);
-                            certificateRepository.save(e);
-                        });
+        List<Certificate> certificates = certificateRepository.findByKeyUuid(keyUuid);
+        for(Certificate certificate: certificates) {
+            certificate.setKey(null);
+            certificate.setKeyUuid(null);
+            certificateRepository.save(certificate);
+        }
     }
 
     @Override
@@ -695,8 +702,16 @@ public class CertificateServiceImpl implements CertificateService {
         getCertificateEntity(uuid);
     }
 
+    @Override
+    public void updateCertificateKeys(UUID keyUuid, String publicKeyFingerprint) {
+        for(Certificate certificate: certificateRepository.findByPublicKeyFingerprint(publicKeyFingerprint)) {
+            certificate.setKeyUuid(keyUuid);
+            certificateRepository.save(certificate);
+        }
+    }
+
     private String getExpiryTime(Date now, Date expiry) {
-        long diffInMillies = now.getTime() - expiry.getTime();
+        long diffInMillies = expiry.getTime() - now.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
         if (difference <= 0) {
             return "expired";

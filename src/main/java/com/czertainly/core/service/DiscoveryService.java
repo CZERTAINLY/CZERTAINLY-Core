@@ -12,7 +12,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface DiscoveryService {
+public interface DiscoveryService extends ResourceExtensionService {
 
     List<DiscoveryHistoryDto> listDiscoveries(SecurityFilter filter);
     DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException;

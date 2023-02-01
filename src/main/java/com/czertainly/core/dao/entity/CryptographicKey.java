@@ -1,8 +1,9 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
-import com.czertainly.api.model.core.cryptography.key.KeyDto;
-import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.cryptography.key.*;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -56,6 +57,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @JsonBackReference
     @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL)
     private Set<CryptographicKeyItem> items = new HashSet<>();
+
+    @JsonBackReference
+    @OneToMany(mappedBy = "key")
+    private Set<Certificate> certificates = new HashSet<>();
 
     public String getName() {
         return name;
@@ -149,8 +154,13 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     }
 
     // Get the list of items for the key
-    public List<KeyItemDto> getKeyItems() {
+    public List<KeyItemDetailDto> getKeyItems() {
         return items.stream().map(CryptographicKeyItem::mapToDto).collect(Collectors.toList());
+    }
+
+    // Get the list of items for the key
+    public List<KeyItemDto> getKeyItemsSummary() {
+        return items.stream().map(CryptographicKeyItem::mapToSummaryDto).collect(Collectors.toList());
     }
 
     @Override
@@ -176,6 +186,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         }
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        if(group != null ) dto.setGroup(group.mapToDto());
+        dto.setOwner(owner);
+        dto.setItems(getKeyItemsSummary());
+        dto.setAssociations((items.size() -1 ) + certificates.size());
         return dto;
     }
 
@@ -193,8 +207,20 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setItems(getKeyItems());
         dto.setOwner(owner);
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(
+                AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class)
+        ));
         if (group != null) {
             dto.setGroup(group.mapToDto());
+        }
+        if(certificates != null && !certificates.isEmpty()) {
+            dto.setAssociations(certificates.stream().map(e -> {
+                KeyAssociationDto keyAssociationDto = new KeyAssociationDto();
+                keyAssociationDto.setName(e.getCommonName());
+                keyAssociationDto.setUuid(e.getUuid().toString());
+                keyAssociationDto.setResource(Resource.CERTIFICATE);
+                return keyAssociationDto;
+            }).collect(Collectors.toList()));
         }
         return dto;
     }

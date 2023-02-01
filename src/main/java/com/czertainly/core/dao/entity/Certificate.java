@@ -79,6 +79,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "fingerprint")
     private String fingerprint;
 
+    @Column(name = "public_key_fingerprint")
+    private String publicKeyFingerprint;
+
     @Column(name = "subject_alternative_names")
     private String subjectAlternativeNames;
 
@@ -549,4 +552,11 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.signatureAttributes = AttributeDefinitionUtils.serializeRequestAttributes(signatureAttributes);
     }
 
+    public String getPublicKeyFingerprint() {
+        return publicKeyFingerprint;
+    }
+
+    public void setPublicKeyFingerprint(String publicKeyFingerprint) {
+        this.publicKeyFingerprint = publicKeyFingerprint;
+    }
 }

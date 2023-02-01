@@ -29,6 +29,7 @@ public class ResourceServiceImpl implements ResourceService {
     private ComplianceProfileService complianceProfileService;
     private ConnectorService connectorService;
     private CredentialService credentialService;
+    private DiscoveryService discoveryService;
     private EntityInstanceService entityInstanceService;
     private GroupService groupService;
     private RaProfileService raProfileService;
@@ -63,6 +64,11 @@ public class ResourceServiceImpl implements ResourceService {
     @Autowired
     public void setCredentialService(CredentialService credentialService) {
         this.credentialService = credentialService;
+    }
+
+    @Autowired
+    public void setDiscoveryService(DiscoveryService discoveryService) {
+        this.discoveryService = discoveryService;
     }
 
     @Autowired
@@ -168,6 +174,9 @@ public class ResourceServiceImpl implements ResourceService {
                 break;
             case CREDENTIAL:
                 credentialService.evaluatePermissionChain(objectUuid);
+                break;
+            case DISCOVERY:
+                discoveryService.evaluatePermissionChain(objectUuid);
                 break;
             case ENTITY:
                 entityInstanceService.evaluatePermissionChain(objectUuid);

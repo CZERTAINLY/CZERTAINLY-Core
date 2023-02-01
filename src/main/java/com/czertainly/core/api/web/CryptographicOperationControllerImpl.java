@@ -2,17 +2,9 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.interfaces.core.web.CryptographicOperationsController;
-import com.czertainly.api.model.client.cryptography.operations.CipherDataRequestDto;
-import com.czertainly.api.model.client.cryptography.operations.RandomDataRequestDto;
-import com.czertainly.api.model.client.cryptography.operations.SignDataRequestDto;
-import com.czertainly.api.model.client.cryptography.operations.VerifyDataRequestDto;
+import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.EncryptDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.RandomDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CryptographicOperationService;

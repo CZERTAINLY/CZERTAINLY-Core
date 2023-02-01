@@ -58,4 +58,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     void deleteCertificateWithIds(List<String> uuids);
 
     Optional<Certificate> findByUserUuid(UUID userUuid);
+
+    List<Certificate> findByPublicKeyFingerprint(String fingerprint);
 }

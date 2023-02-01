@@ -77,7 +77,11 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Pageable p, BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, order);
-        return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
+        if(p != null) {
+            return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
+        } else {
+            return entityManager.createQuery(cr).getResultList();
+        }
     }
 
     @Override

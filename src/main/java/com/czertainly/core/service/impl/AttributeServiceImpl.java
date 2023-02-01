@@ -280,27 +280,31 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public void updateAttributeContent(UUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContent, Resource resource) throws NotFoundException {
+        AttributeDefinition attributeDefinition = getAttributeDefinition(SecuredUUID.fromUUID(attributeUuid), AttributeType.CUSTOM);
+        CustomAttributeProperties props = attributeDefinition.getAttributeDefinition(CustomAttribute.class).getProperties();
+        if (props.isReadOnly()) {
+            throw new ValidationException(ValidationError.create("Cannot update content for readonly attribute"));
+        }
+
         List<AttributeContent2Object> attributeContent2Objects = attributeContent2ObjectRepository
-                .findByObjectUuidAndObjectType(
+                .findByObjectUuidAndObjectTypeAndAttributeContentAttributeDefinitionUuid(
                         objectUuid,
-                        resource
+                        resource,
+                        attributeUuid
                 );
+
         if (attributeContent != null && (attributeContent2Objects == null || attributeContent2Objects.isEmpty())) {
-            AttributeDefinition attributeDefinition = getAttributeDefinition(SecuredUUID.fromUUID(attributeUuid), AttributeType.CUSTOM);
             createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
             return;
         }
         for (AttributeContent2Object attributeContent2Object : attributeContent2Objects) {
-            AttributeDefinition attributeDefinition = attributeContent2Object.getAttributeContent().getAttributeDefinition();
-            if (attributeDefinition.getType().equals(AttributeType.CUSTOM) && attributeDefinition.getAttributeUuid().equals(attributeUuid)) {
-                AttributeContent content = attributeContent2Object.getAttributeContent();
-                attributeContent2ObjectRepository.delete(attributeContent2Object);
-                if (attributeContent2ObjectRepository.countByAttributeContent(attributeContent2Object.getAttributeContent()) <= 1) {
-                    attributeContentRepository.delete(content);
-                }
-                if (attributeContent != null) {
-                    createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
-                }
+            AttributeContent content = attributeContent2Object.getAttributeContent();
+            attributeContent2ObjectRepository.delete(attributeContent2Object);
+            if (attributeContent2ObjectRepository.countByAttributeContent(attributeContent2Object.getAttributeContent()) == 0) {
+                attributeContentRepository.delete(content);
+            }
+            if (attributeContent != null) {
+                createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
             }
         }
     }
@@ -329,6 +333,20 @@ public class AttributeServiceImpl implements AttributeService {
         for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectType(objectUuid, resource)) {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
             if (definition.getType().equals(AttributeType.CUSTOM)) {
+                attributeContent2ObjectRepository.delete(object);
+                if (attributeContent2ObjectRepository.findByAttributeContent(object.getAttributeContent()).size() == 0) {
+                    attributeContentRepository.delete(object.getAttributeContent());
+                }
+            }
+        }
+    }
+
+    @Override
+    public void deleteAttributeContent(UUID objectUuid, Resource resource, UUID parentObjectUuid, Resource parentResource, AttributeType type) {
+        logger.info("Deleting the attribute content for: {} with UUID: {}, Parent UUID: {}, Parent Resource: {}", resource, objectUuid, parentObjectUuid, parentResource);
+        for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(objectUuid, resource, parentObjectUuid, parentResource)) {
+            AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
+            if (definition.getType().equals(type)) {
                 attributeContent2ObjectRepository.delete(object);
                 if (attributeContent2ObjectRepository.findByAttributeContent(object.getAttributeContent()).size() == 0) {
                     attributeContentRepository.delete(object.getAttributeContent());
