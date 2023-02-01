@@ -37,4 +37,11 @@ public class DatabaseMigrationTest {
 
         Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211141030__AttributeV2TablesAndMigration.getChecksum(), checksum);
     }
+
+    @Test
+    public void testCalculateChecksum_V202301311500__PublicKeyMigration() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202301311500__PublicKeyMigration.java");
+
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202301311500__PublicKeyMigration.getChecksum(), checksum);
+    }
 }

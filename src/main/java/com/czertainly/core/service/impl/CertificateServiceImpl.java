@@ -112,6 +112,9 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private AttributeService attributeService;
 
+    @Lazy
+    @Autowired
+    private CryptographicKeyService cryptographicKeyService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -431,6 +434,10 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         CertificateUtil.prepareCertificate(modal, certificate);
+        if(modal.getKey() == null ) {
+            UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(modal.getPublicKeyFingerprint());
+            if(keyUuid != null) modal.setKeyUuid(keyUuid);
+        }
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
         modal.setCertificateContent(certificateContent);
@@ -693,6 +700,14 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getCertificateEntity(uuid);
+    }
+
+    @Override
+    public void updateCertificateKeys(UUID keyUuid, String publicKeyFingerprint) {
+        for(Certificate certificate: certificateRepository.findByPublicKeyFingerprint(publicKeyFingerprint)) {
+            certificate.setKeyUuid(keyUuid);
+            certificateRepository.save(certificate);
+        }
     }
 
     private String getExpiryTime(Date now, Date expiry) {
