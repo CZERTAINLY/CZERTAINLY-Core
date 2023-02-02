@@ -1098,7 +1098,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setReason(reason);
         cryptographicKeyItemRepository.save(content);
         keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.SUCCESS,
-                "Compromised Key", null, content);
+                "Compromised Key. Reason: " + reason, null, content);
     }
 
     /**
