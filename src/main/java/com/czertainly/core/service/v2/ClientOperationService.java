@@ -6,10 +6,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
-import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
-import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
-import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 
@@ -38,6 +35,13 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
+
+    ClientCertificateDataResponseDto rekeyCertificate(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRekeyRequestDto request
+    ) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
 
     List<BaseAttribute> listRevokeCertificateAttributes(
             SecuredParentUUID authorityUuid,
