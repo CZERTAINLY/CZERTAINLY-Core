@@ -126,7 +126,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.LIST)
     public List<KeyDto> listKeys(Optional<String> tokenProfileUuid,  SecurityFilter filter) {
         logger.info("Requesting key list for Token profile with UUID {}", tokenProfileUuid);
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
