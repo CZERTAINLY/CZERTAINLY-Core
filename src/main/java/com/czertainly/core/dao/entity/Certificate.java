@@ -123,7 +123,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
 
-    @Column( name = "compliance_result")
+    @Column(name = "compliance_result")
     private String complianceResult;
 
     @Column(name = "compliance_status")
@@ -190,7 +190,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             raDto.setName(raProfile.getName());
             raDto.setUuid(raProfile.getUuid().toString());
             raDto.setEnabled(raProfile.getEnabled());
-            if(raProfile.getAuthorityInstanceReference() != null) {
+            if (raProfile.getAuthorityInstanceReference() != null) {
                 raDto.setAuthorityInstanceUuid(raProfile.getAuthorityInstanceReference().getUuid().toString());
             }
             dto.setRaProfile(raDto);
@@ -218,8 +218,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
                         )
                 )
         );
-        if(key != null && !key.getItems().isEmpty()) {
-            if(!key.getItems()
+        if (key != null && !key.getItems().isEmpty()) {
+            if (!key.getItems()
                     .stream()
                     .filter(
                             item -> item.getType()
@@ -231,6 +231,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
                 dto.setPrivateKeyAvailability(true);
             }
         }
+        if (key != null) dto.setKey(key.mapToDto());
         return dto;
     }
 
@@ -242,7 +243,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public CertificateStatus calculateExpiryStatus() {
         if (this.getNotAfter() != null && this.getNotAfter().before(new Date())) return CertificateStatus.EXPIRED;
-        if (this.getNotBefore() !=null && this.getNotBefore().after(new Date())) return CertificateStatus.INVALID;
+        if (this.getNotBefore() != null && this.getNotBefore().after(new Date())) return CertificateStatus.INVALID;
         return status;
     }
 
@@ -332,7 +333,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setCertificateContent(CertificateContent certificateContent) {
         this.certificateContent = certificateContent;
-        if(certificateContent != null) this.certificateContentId = certificateContent.getId();
+        if (certificateContent != null) this.certificateContentId = certificateContent.getId();
         else this.certificateContentId = null;
     }
 
@@ -414,7 +415,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
+        if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
         else this.raProfileUuid = null;
     }
 
@@ -424,7 +425,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setGroup(Group group) {
         this.group = group;
-        if(group != null) this.groupUuid = group.getUuid();
+        if (group != null) this.groupUuid = group.getUuid();
         else this.groupUuid = null;
     }
 
@@ -469,7 +470,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     }
 
     public CertificateComplianceStorageDto getComplianceResult() {
-        if(complianceResult == null){
+        if (complianceResult == null) {
             return null;
         }
         return (CertificateComplianceStorageDto) SerializationUtil.deserialize(complianceResult, CertificateComplianceStorageDto.class);
@@ -517,7 +518,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setKey(CryptographicKey key) {
         this.key = key;
-        if(key != null) this.keyUuid = uuid;
+        if (key != null) this.keyUuid = uuid;
     }
 
     public UUID getKeyUuid() {
