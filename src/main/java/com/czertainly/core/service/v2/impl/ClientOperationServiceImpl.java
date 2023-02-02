@@ -47,7 +47,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -255,21 +254,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             csr = request.getPkcs10();
             validatePublicKeyForCsrAndCertificate(oldCertificate.getCertificateContent().getContent(), csr);
             keyUuid = null;
-        } else if (request.isUseExistingCsr()) {
+        } else {
             // Check if the request is for using the existing CSR
             csr = getExistingCsr(oldCertificate);
-        } else {
-            merged = getExistingCsrAttributes(request.getCsrAttributes(), oldCertificate);
-            keyUuid = existingKeyValidation(keyUuid, oldCertificate.getSignatureAttributes(), oldCertificate);
-            validateRenewal(oldCertificate);
-            // Gather the signature attributes either provided in the request or get it from the old certificate
-            signatureAttributes = oldCertificate.getSignatureAttributes();
-            csr = generateCsr(
-                    keyUuid,
-                    getTokenProfileUuid(oldCertificate.getKey().getTokenProfileUuid(), oldCertificate),
-                    AttributeDefinitionUtils.getClientAttributes(merged),
-                    signatureAttributes
-            );
         }
 
         try {
@@ -349,14 +336,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public ClientCertificateDataResponseDto regenerateCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRegenerationRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+    public ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRekeyRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         certificateService.checkRenewPermissions();
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         Certificate oldCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
-        logger.debug("Regenerating Certificate: ", oldCertificate.toString());
+        logger.debug("Rekeying Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
         // the CSR should be properly converted to ensure consistent Base64-encoded format
         String pkcs10;
@@ -417,8 +404,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     signatureAttributes
 
             );
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
 
             /** replace certificate in the locations if needed */
             if (request.isReplaceInLocations()) {
@@ -437,11 +424,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
-            logger.error("Failed to regenerate Certificate", e.getMessage());
-            throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
+            logger.error("Failed to rekey Certificate", e.getMessage());
+            throw new CertificateOperationException("Failed to rekey certificate: " + e.getMessage());
         }
 
-        logger.info("Certificate Regenerated: {}", certificate);
+        logger.info("Certificate Rekey: {}", certificate);
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setRaProfileUuid(raProfile.getUuid().toString());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
@@ -707,7 +694,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         try {
             X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
             JcaPKCS10CertificationRequest csrObject = parseCsrToJcaObject(csr);
-            certificate.getPublicKey().equals(csrObject.getPublicKey());
+            if(!certificate.getPublicKey().equals(csrObject.getPublicKey())); {
+                throw new Exception("Public Key of Certificate and CSR does not match");
+            }
         } catch (Exception e){
             throw new ValidationException(
                     ValidationError.create(

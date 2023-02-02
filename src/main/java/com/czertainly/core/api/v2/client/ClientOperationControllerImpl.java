@@ -54,13 +54,13 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    public ClientCertificateDataResponseDto regenerateCertificate(
+    public ClientCertificateDataResponseDto rekeyCertificate(
             String authorityUuid,
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRegenerationRequestDto request)
+            ClientCertificateRekeyRequestDto request)
             throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
-        return clientOperationService.regenerateCertificate(
+        return clientOperationService.rekeyCertificate(
                 SecuredParentUUID.fromString(authorityUuid),
                 SecuredUUID.fromString(raProfileUuid),
                 certificateUuid,

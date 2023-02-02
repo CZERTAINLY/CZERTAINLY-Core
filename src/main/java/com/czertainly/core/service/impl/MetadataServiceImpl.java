@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import jakarta.transaction.Transactional;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -145,6 +146,10 @@ public class MetadataServiceImpl implements MetadataService {
         Map<String, HashMap<String, ResponseMetadataDto>> metadata = new HashMap<>();
         for (AttributeContent2Object object : iterables) {
             if (object.getAttributeContent().getAttributeDefinition().getType().equals(AttributeType.META)) {
+                List<BaseAttributeContent> deserializedContent = object.getAttributeContent().getAttributeContent(BaseAttributeContent.class);
+                if(deserializedContent.stream().filter(e -> e.getData() != null || e.getReference() != null).collect(Collectors.toList()).size() == 0) {
+                    continue;
+                }
                 MetadataAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(MetadataAttribute.class);
                 ResponseMetadataDto responseMetadataDto = new ResponseMetadataDto();
                 responseMetadataDto.setType(AttributeType.META);
