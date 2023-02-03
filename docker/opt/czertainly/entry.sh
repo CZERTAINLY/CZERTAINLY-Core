@@ -18,6 +18,6 @@ source ${czertainlyHome}/static-functions
 #fi
 
 log "INFO" "Launching the Core"
-java -jar ./app.jar
+java $JAVA_OPTS -jar ./app.jar
 
 #exec "$@"
