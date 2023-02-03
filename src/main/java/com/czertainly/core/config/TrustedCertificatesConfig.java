@@ -9,6 +9,7 @@ import org.springframework.core.Ordered;
 
 import jakarta.annotation.PostConstruct;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,6 +32,8 @@ public class TrustedCertificatesConfig {
     private static final String BEGIN_CERTIFICATE = "-----BEGIN CERTIFICATE-----";
     private static final String END_CERTIFICATE = "-----END CERTIFICATE-----";
 
+    private TrustManager[] trustManagers;
+
     @PostConstruct
     public void configureGlobalTrustStore() throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException, KeyManagementException {
         KeyStore trustStore = loadCacertsKeyStore();
@@ -50,7 +53,7 @@ public class TrustedCertificatesConfig {
                 trustStore.setCertificateEntry("czertainly-trusted-" + i, certificate);
                 logger.info("Certificate with serial number '{}' and DN '{}' added with alias '{}'",
                         certificate.getSerialNumber().toString(16),
-                        certificate.getSubjectDN(),
+                        certificate.getSubjectX500Principal(),
                         "czertainly-trusted-" + i);
                 i++;
             }
@@ -61,8 +64,10 @@ public class TrustedCertificatesConfig {
         TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         trustManagerFactory.init(trustStore);
 
-        SSLContext sslContext = SSLContext.getInstance("TLS");
+        SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
         sslContext.init(null, trustManagerFactory.getTrustManagers(), null);
+
+        this.trustManagers = trustManagerFactory.getTrustManagers();
 
         SSLContext.setDefault(sslContext);
     }
@@ -105,6 +110,10 @@ public class TrustedCertificatesConfig {
         }
 
         return certs;
+    }
+
+    public TrustManager[] getDefaultTrustManagers() {
+        return this.trustManagers;
     }
 
 }
