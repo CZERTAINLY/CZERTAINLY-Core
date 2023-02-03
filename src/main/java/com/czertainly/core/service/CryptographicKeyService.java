@@ -28,6 +28,15 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     List<KeyDto> listKeys(Optional<String> tokenInstanceUuid, SecurityFilter filter);
 
     /**
+     * List of all available keys that contains full key pair
+     *
+     * @param tokenInstanceUuid UUID of the token instance
+     * @param filter            Security Filter for Access Control
+     * @return List of Key details {@Link KeyDto}
+     */
+    List<KeyDto> listKeyPairs(Optional<String> tokenInstanceUuid, SecurityFilter filter);
+
+    /**
      * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the concerned Key
      * @return Detail of the key {@Link KeyDetailDto}

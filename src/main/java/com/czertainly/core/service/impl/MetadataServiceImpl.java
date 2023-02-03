@@ -86,7 +86,7 @@ public class MetadataServiceImpl implements MetadataService {
     public List<MetadataAttribute> getMetadata(UUID connectorUuid, UUID uuid, Resource resource) {
         List<MetadataAttribute> metadata = new ArrayList<>();
         for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource)) {
-            if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
+            if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid() == null || object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
                 MetadataAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(MetadataAttribute.class);
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
                 metadata.add(attribute);
@@ -99,7 +99,7 @@ public class MetadataServiceImpl implements MetadataService {
     public List<MetadataAttribute> getMetadataWithSource(UUID connectorUuid, UUID uuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
         List<MetadataAttribute> metadata = new ArrayList<>();
         for (AttributeContent2Object object : metadata2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(uuid, resource, sourceObjectUuid, sourceObjectResource)) {
-            if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
+            if (object.getAttributeContent().getAttributeDefinition().getConnectorUuid() == null || object.getAttributeContent().getAttributeDefinition().getConnectorUuid().equals(connectorUuid)) {
                 MetadataAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(MetadataAttribute.class);
                 attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
                 metadata.add(attribute);
