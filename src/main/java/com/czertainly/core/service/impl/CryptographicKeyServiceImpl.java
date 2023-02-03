@@ -3,10 +3,14 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.czertainly.api.model.connector.cryptography.key.KeyData;
@@ -18,11 +22,11 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
-import com.czertainly.core.dao.repository.CryptographicKeyRepository;
-import com.czertainly.core.dao.repository.TokenProfileRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -31,9 +35,13 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.RequestValidatorHelper;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,6 +72,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private CryptographicKeyRepository cryptographicKeyRepository;
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     private TokenProfileRepository tokenProfileRepository;
+    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    private GroupRepository groupRepository;
+
 
     @Autowired
     public void setAttributeService(AttributeService attributeService) {
@@ -120,25 +131,46 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         this.tokenProfileRepository = tokenProfileRepository;
     }
 
+    @Autowired
+    public void setGroupRepository(GroupRepository groupRepository) {
+        this.groupRepository = groupRepository;
+    }
+
+    @Autowired
+    public void setTokenInstanceReferenceRepository(TokenInstanceReferenceRepository tokenInstanceReferenceRepository) {
+        this.tokenInstanceReferenceRepository = tokenInstanceReferenceRepository;
+    }
+
     // ----------------------------------------------------------------------------------------------
     // Service Implementations
     // ----------------------------------------------------------------------------------------------
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.LIST)
-    public List<KeyDto> listKeys(Optional<String> tokenProfileUuid, SecurityFilter filter) {
-        logger.info("Requesting key list for Token profile with UUID {}", tokenProfileUuid);
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.LIST)
+    public CryptographicKeyResponseDto listCryptographicKeys(SecurityFilter filter, SearchRequestDto request) {
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
-        List<KeyDto> response = cryptographicKeyRepository.findUsingSecurityFilter(filter, null, null, (root, cb) -> cb.desc(root.get("created")))
+        RequestValidatorHelper.revalidateSearchRequestDto(request);
+
+        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        final List<KeyDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root), p, (root, cb) -> cb.desc(root.get("cryptographicKey").get("created")))
                 .stream()
-                .map(CryptographicKey::mapToDto)
-                .collect(Collectors.toList()
-                );
-        if(tokenProfileUuid != null && tokenProfileUuid.isPresent()) {
-            response = response.stream().filter(e -> e.getTokenProfileUuid().equals(tokenProfileUuid.get())).collect(Collectors.toList());
-        }
-        return response;
+                .map(CryptographicKeyItem::mapCryptographicKeyToDto)
+                .collect(Collectors.toList());
+
+        final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root));
+        final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();
+        responseDto.setCryptographicKeys(listedKeyDtos);
+        responseDto.setItemsPerPage(request.getItemsPerPage());
+        responseDto.setPageNumber(request.getPageNumber());
+        responseDto.setTotalItems(maxItems);
+        responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
+        return responseDto;
+    }
+
+    @Override
+    public List<SearchFieldDataDto> getSearchableFieldInformation() {
+        return getSearchableFieldsMap();
     }
 
 
@@ -1195,5 +1227,48 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                                 uuid
                         )
                 );
+    }
+
+    private List<SearchFieldDataDto> getSearchableFieldsMap() {
+
+        final SearchFieldDataDto groupFilter = SearchLabelConstants.CK_GROUP_FILTER;
+        groupFilter.setValue(groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList()));
+
+        final SearchFieldDataDto keyAlgorithmFilter = SearchLabelConstants.CK_ALGORITHM_FILTER;
+        keyAlgorithmFilter.setValue(Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::name).collect(Collectors.toList()));
+
+        final SearchFieldDataDto keyTypeFilter = SearchLabelConstants.CK_TYPE_FILTER;
+        keyTypeFilter.setValue(Arrays.stream((KeyType.values())).map(KeyType::name).collect(Collectors.toList()));
+
+        final SearchFieldDataDto keyFormatFilter = SearchLabelConstants.CK_FORMAT_FILTER;
+        keyFormatFilter.setValue(Arrays.stream((KeyFormat.values())).map(KeyFormat::name).collect(Collectors.toList()));
+
+        final SearchFieldDataDto keyStateFilter = SearchLabelConstants.CK_STATE_FILTER;
+        keyStateFilter.setValue(Arrays.stream((KeyState.values())).map(KeyState::name).collect(Collectors.toList()));
+
+        final SearchFieldDataDto tokenInstanceStatusFilter = SearchLabelConstants.CK_TOKEN_INSTANCE_FILTER;
+        tokenInstanceStatusFilter.setValue(tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()));
+
+        final SearchFieldDataDto tokenProfileFilter = SearchLabelConstants.CK_TOKEN_PROFILE_FILTER;
+        tokenProfileFilter.setValue(tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList()));
+
+        final SearchFieldDataDto keyUsageFilter = SearchLabelConstants.CK_KEY_USAGE_FILTER;
+        keyUsageFilter.setValue(Arrays.stream((KeyUsage.values())).map(KeyUsage::name).collect(Collectors.toList()));
+
+        final List<SearchFieldDataDto> fields = List.of(
+                SearchLabelConstants.CK_NAME_FILTER,
+                groupFilter,
+                SearchLabelConstants.CK_OWNER_FILTER,
+                keyUsageFilter,
+                SearchLabelConstants.CK_KEY_LENGTH,
+                keyStateFilter,
+                keyFormatFilter,
+                keyTypeFilter,
+                keyAlgorithmFilter,
+                tokenProfileFilter,
+                tokenInstanceStatusFilter
+        );
+        logger.debug("Searchable CryptographicKey Fields: {}", fields);
+        return fields;
     }
 }

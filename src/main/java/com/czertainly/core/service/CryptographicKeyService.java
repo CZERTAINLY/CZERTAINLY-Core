@@ -4,12 +4,20 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
+import com.czertainly.api.model.client.cryptography.key.EditKeyRequestDto;
+import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
+import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
+import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -18,14 +26,20 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface CryptographicKeyService extends ResourceExtensionService  {
+
     /**
      * List of all available keys
      *
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param filter            Security Filter for Access Control
+     * @param filter - Security Filter for Access Control
      * @return List of Key details {@Link KeyDto}
      */
-    List<KeyDto> listKeys(Optional<String> tokenInstanceUuid, SecurityFilter filter);
+    CryptographicKeyResponseDto listCryptographicKeys(SecurityFilter filter, SearchRequestDto request);
+
+    /**
+     * TODO lukas.rejha - fill it
+     * @return
+     */
+    List<SearchFieldDataDto> getSearchableFieldInformation();
 
     /**
      * List of all available keys that contains full key pair

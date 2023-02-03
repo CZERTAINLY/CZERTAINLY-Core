@@ -69,15 +69,14 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
-
-        CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, null);
+        final CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, null);
         return entityManager.createQuery(cr).getResultList();
     }
 
     @Override
-    public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Pageable p, BiFunction<Root<T>, CriteriaBuilder, Order> order) {
-        CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, order);
-        if(p != null) {
+    public List<T> findUsingSecurityFilter(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+        final CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, order);
+        if (p != null) {
             return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
         } else {
             return entityManager.createQuery(cr).getResultList();
@@ -86,21 +85,27 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public Long countUsingSecurityFilter(SecurityFilter filter) {
-        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, null);
+        return countUsingSecurityFilter(filter, null);
+    }
+
+    @Override
+    public Long countUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause);
         List<Long> crlist = entityManager.createQuery(cr).getResultList();
         return crlist.get(0);
     }
 
-
-    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final CriteriaQuery<T> cr = cb.createQuery(entity);
         final Root<T> root = cr.from(entity);
+
         cr.select(root);
         if(order != null){
             cr.orderBy(order.apply(root, cb));
         }
+
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }

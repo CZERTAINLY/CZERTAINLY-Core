@@ -5,10 +5,7 @@ import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgori
 import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.value.KeyValue;
-import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
-import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
-import com.czertainly.api.model.core.cryptography.key.KeyState;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
+import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.core.util.CryptographicHelper;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
@@ -16,10 +13,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Entity
@@ -242,6 +236,13 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setUsage(getUsage());
         dto.setReason(reason);
         return dto;
+    }
+
+    public KeyDto mapCryptographicKeyToDto() {
+        final Set<CryptographicKeyItem> tempCryptographicKeyItems = new HashSet<>();
+        tempCryptographicKeyItems.add(this);
+        cryptographicKey.setItems(tempCryptographicKeyItems);
+        return cryptographicKey.mapToDto();
     }
 
     public KeyItemDto mapToSummaryDto() {
