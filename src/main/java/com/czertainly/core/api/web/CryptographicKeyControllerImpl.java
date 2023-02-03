@@ -5,12 +5,14 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CryptographicKeyController;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
-import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CryptographicKeyService;
@@ -21,7 +23,6 @@ import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -39,10 +40,14 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
         webdataBinder.registerCustomEditor(KeyRequestType.class, new KeyRequestTypeConverter());
     }
 
+    @Override
+    public CryptographicKeyResponseDto listCryptographicKeys(SearchRequestDto request) throws ValidationException {
+        return cryptographicKeyService.listCryptographicKeys(SecurityFilter.create(), request);
+    }
 
     @Override
-    public List<KeyDto> listKeys(Optional<String> tokenProfileUuid) {
-        return cryptographicKeyService.listKeys(tokenProfileUuid, SecurityFilter.create());
+    public List<SearchFieldDataDto> getSearchableFieldInformation() {
+        return cryptographicKeyService.getSearchableFieldInformation();
     }
 
     @Override
