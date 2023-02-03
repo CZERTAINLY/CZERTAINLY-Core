@@ -10,19 +10,18 @@ There are 2 types of communication that the `Core` is responsible for:
 
 `Core` is performing consistent operation on top of the certificates. The management of certificates is abstracted through CZERTAINLY objects, for example:
 
-| Object               | Short description                                                                                                                                      |
-|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Connector`          | Provides with the functionality for specific technologies (defined by `Function Group` and supported `Kinds`)                                          |
-| `Credential`         | `Credential` of various types to be used by `Connectors` and other objects                                                                             |
-| `Authority`          | Representing certification authority access                                                                                                            |
+| Object               | Short description                                                                                                                                       |
+|----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Connector`          | Provides with the functionality for specific technologies (defined by `Function Group` and supported `Kinds`)                                           |
+| `Credential`         | `Credential` of various types to be used by `Connectors` and other objects                                                                              |
+| `Authority`          | Representing certification authority access                                                                                                             |
 | `RA Profile`         | Configuration of the service for certificate lifecycle management (abstraction of `Attributes` for specific certificate type, including available APIs) |
-| `Discovery`          | Schedule discovery process for searching of certificates in various sources                                                                            |
-| `Certificate`        | `Certificate` consisting of `Attributes` and related metadata                                                                                          |
-| `Entity`             | Represents the entity that is can use the certificates                                                                                                 |
-| `Location`           | Location on the `Entity` where is certificate stored                                                                                                   |
-| `Group`              | Grouping of different certificates based on different requirements                                                                                     |
-| `Compliance Profile` | Matching rules for the certificate to assess compliance                                                                                                | 
-
+| `Discovery`          | Schedule discovery process for searching of certificates in various sources                                                                             |
+| `Certificate`        | `Certificate` consisting of `Attributes` and related metadata                                                                                           |
+| `Entity`             | Represents the entity that is can use the certificates                                                                                                  |
+| `Location`           | Location on the `Entity` where is certificate stored                                                                                                    |
+| `Group`              | Grouping of different certificates based on different requirements                                                                                      |
+| `Compliance Profile` | Matching rules for the certificate to assess compliance                                                                                                 | 
 
 ## Access Control
 
@@ -113,17 +112,18 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 | `AUTH_TOKEN_HEADER_NAME` | Name of the header for the JSON ID content                          | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `X-USERINFO`        |
 | `AUDITLOG_ENABLED`       | Audit log enable / disable                                          | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `false`             |
 | `JAVA_OPTS`              | Customize Java system properties for running application            | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `N/A`               |
+| `TRUSTED_CERTIFICATES`   | List of PEM encoded additional trusted certificates                 | ![](https://img.shields.io/badge/-NO-red.svg)      | `N/A`               |
 
 ### Proxy settings
 
 You may need to configure proxy to allow `Core` to communicate with external systems.
 To enable proxy, use the following environment variables for docker container:
 
-| Variable      | Description                                                                                                                                                | Required | Default value |
-|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|---------------|
-| `HTTP_PROXY`  | The proxy URL to use for http connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>`  | ![NO](https://img.shields.io/badge/-NO-red.svg)       | `N/A`           |
-| `HTTPS_PROXY` | The proxy URL to use for https connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>` | ![NO](https://img.shields.io/badge/-NO-red.svg)       | `N/A`           |
-| `NO_PROXY`    | A comma-separated list of host names that shouldn't go through any proxy                                                                                   | ![NO](https://img.shields.io/badge/-NO-red.svg)       | `N/A`           |
+| Variable      | Description                                                                                                                                                | Required                                        | Default value |
+|---------------|------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------|---------------|
+| `HTTP_PROXY`  | The proxy URL to use for http connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>`  | ![NO](https://img.shields.io/badge/-NO-red.svg) | `N/A`         |
+| `HTTPS_PROXY` | The proxy URL to use for https connections. Format: `<protocol>://<proxy_host>:<proxy_port>` or `<protocol>://<user>:<password>@<proxy_host>:<proxy_port>` | ![NO](https://img.shields.io/badge/-NO-red.svg) | `N/A`         |
+| `NO_PROXY`    | A comma-separated list of host names that shouldn't go through any proxy                                                                                   | ![NO](https://img.shields.io/badge/-NO-red.svg) | `N/A`         |
 
 Example values:
 - `HTTP_PROXY=http://user:password@proxy.example.com:3128`
