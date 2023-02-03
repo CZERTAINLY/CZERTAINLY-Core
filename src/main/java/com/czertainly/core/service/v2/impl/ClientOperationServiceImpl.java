@@ -44,6 +44,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -189,7 +191,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPkcs10(pkcs10);
         caRequest.setAttributes(request.getAttributes());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CERTIFICATE);
+        if (!isAcmeUser()) attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CERTIFICATE);
         CertificateDataResponseDto caResponse = certificateApiClient.issueCertificate(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
@@ -489,7 +491,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
-            certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked", "", certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked. Reason: " + request.getReason(), "", certificate);
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "", certificate);
             logger.error(e.getMessage());
@@ -704,6 +706,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     )
             );
         }
+    }
+
+    private boolean isAcmeUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication.getPrincipal() instanceof String
+                && "ACME_USER".equals(authentication.getPrincipal())) {
+            return true;
+        }
+        return false;
     }
 
 }

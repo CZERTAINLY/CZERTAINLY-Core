@@ -259,4 +259,5 @@ public interface AttributeService {
      * attribute available for the given attribute uuid and the connector UUID
      */
     DataAttribute getReferenceAttribute(UUID connectorUUid, String attributeName);
+
 }

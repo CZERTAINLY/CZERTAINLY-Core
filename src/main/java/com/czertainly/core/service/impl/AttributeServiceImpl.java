@@ -359,7 +359,7 @@ public class AttributeServiceImpl implements AttributeService {
     public List<ResponseAttributeDto> getCustomAttributesWithValues(UUID uuid, Resource resource) {
         logger.info("Getting the custom attributes for {} with UUID: {}", resource.getCode(), uuid);
         List<CustomAttribute> attributes = new ArrayList<>();
-        for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectType(uuid, resource)) {
+        for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectTypeOrderByAttributeContentAttributeDefinitionAttributeName(uuid, resource)) {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
             if (definition.getType().equals(AttributeType.CUSTOM) && definition.isEnabled()) {
                 CustomAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(CustomAttribute.class);
@@ -461,6 +461,15 @@ public class AttributeServiceImpl implements AttributeService {
         logger.info("Creating the attribute content for: {} with UUID: {}", resource, objectUuid);
         String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(value);
         AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndAttributeName(AttributeType.CUSTOM, attributeName).orElse(null);
+        List<ValidationError> validationErrors = new ArrayList<>();
+        AttributeDefinitionUtils.validateAttributeContent(
+                definition.getAttributeDefinition(CustomAttribute.class),
+                value,
+                validationErrors
+        );
+        if(!validationErrors.isEmpty()) {
+            throw new ValidationException(validationErrors);
+        }
         if (!definition.isEnabled()) {
             logger.warn("Attribute {} is disabled and the content will not be created");
             return;

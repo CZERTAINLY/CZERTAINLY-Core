@@ -447,15 +447,13 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 //do nothing
             }
         }
-        List.of(privateKeyItem, publicKeyItem).forEach(e -> {
-            if (e == null) {
-                throw new ValidationException(
-                        ValidationError.create(
-                                "Selected item does not contain the complete keypair"
-                        )
-                );
-            }
-        });
+        if (privateKeyItem == null || publicKeyItem == null) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Selected item does not contain the complete keypair"
+                    )
+            );
+        }
 
         // Generate the CSR
         return generateCsr(

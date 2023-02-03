@@ -1,6 +1,5 @@
 package com.czertainly.core.dao.repository;
 
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
@@ -9,7 +8,6 @@ import org.springframework.stereotype.Repository;
 
 import jakarta.transaction.Transactional;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -17,6 +15,8 @@ import java.util.UUID;
 public interface AttributeContent2ObjectRepository extends JpaRepository<AttributeContent2Object, String> {
 
     List<AttributeContent2Object> findByObjectUuidAndObjectType(UUID uuid, Resource resource);
+
+    List<AttributeContent2Object> findByObjectUuidAndObjectTypeOrderByAttributeContentAttributeDefinitionAttributeName(UUID uuid, Resource resource);
 
     List<AttributeContent2Object> findByObjectUuidAndObjectTypeAndAttributeContentAttributeDefinitionUuid(UUID uuid, Resource resource, UUID attributeDefinitionUuid);
 
