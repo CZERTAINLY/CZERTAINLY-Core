@@ -277,7 +277,9 @@ public class SearchServiceImpl implements SearchService {
                     }
                 }
             }
-            queryParts.add(qp);
+            if (!qp.isEmpty()) {
+                queryParts.add("(" + qp + ")");
+            }
         }
         query += String.join(" AND ", queryParts);
         logger.debug("Executable query: {}", query);
