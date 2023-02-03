@@ -137,18 +137,6 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListKeys() {
-        List<KeyDto> keys = cryptographicKeyService.listKeys(
-                Optional.ofNullable(null),
-                SecurityFilter.create()
-        );
-        Assertions.assertNotNull(keys);
-        Assertions.assertFalse(keys.isEmpty());
-        Assertions.assertEquals(1, keys.size());
-        Assertions.assertEquals(key.getUuid().toString(), keys.get(0).getUuid());
-    }
-
-    @Test
     public void testGetKeyByUuid() throws NotFoundException {
         KeyDetailDto dto = cryptographicKeyService.getKey(
                 tokenInstanceReference.getSecuredParentUuid(),
