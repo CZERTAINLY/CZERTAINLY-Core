@@ -36,7 +36,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     @Column(name = "attribute_name")
     private String attributeName;
 
-    @Column(name = "attribute_definition", columnDefinition="TEXT")
+    @Column(name = "attribute_definition", columnDefinition = "TEXT")
     private String attributeDefinition;
 
     @Column(name = "attribute_type")
@@ -64,7 +64,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
 
     public void setConnector(Connector connector) {
         this.connector = connector;
-        this.connectorUuid = connector.getUuid();
+        if (connector != null) this.connectorUuid = connector.getUuid();
     }
 
     public UUID getConnectorUuid() {
