@@ -46,6 +46,11 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    public List<KeyDto> listKeyPairs(Optional<String> tokenProfileUuid) {
+        return cryptographicKeyService.listKeyPairs(tokenProfileUuid, SecurityFilter.create());
+    }
+
+    @Override
     public KeyDetailDto getKey(String tokenInstanceUuid, String uuid) throws NotFoundException {
         return cryptographicKeyService.getKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),

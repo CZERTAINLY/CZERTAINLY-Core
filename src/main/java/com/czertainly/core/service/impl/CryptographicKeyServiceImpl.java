@@ -127,7 +127,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.LIST)
-    public List<KeyDto> listKeys(Optional<String> tokenProfileUuid,  SecurityFilter filter) {
+    public List<KeyDto> listKeys(Optional<String> tokenProfileUuid, SecurityFilter filter) {
         logger.info("Requesting key list for Token profile with UUID {}", tokenProfileUuid);
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
         List<KeyDto> response = cryptographicKeyRepository.findUsingSecurityFilter(filter, null, null, (root, cb) -> cb.desc(root.get("created")))
@@ -138,6 +138,35 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if(tokenProfileUuid != null && tokenProfileUuid.isPresent()) {
             response = response.stream().filter(e -> e.getTokenProfileUuid().equals(tokenProfileUuid.get())).collect(Collectors.toList());
         }
+        return response;
+    }
+
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.LIST)
+    public List<KeyDto> listKeyPairs(Optional<String> tokenProfileUuid, SecurityFilter filter) {
+        logger.info("Requesting key list for Token profile with UUID {}", tokenProfileUuid);
+        filter.setParentRefProperty("tokenInstanceReferenceUuid");
+        List<KeyDto> response = cryptographicKeyRepository.findUsingSecurityFilter(filter, null, null, (root, cb) -> cb.desc(root.get("created")))
+                .stream()
+                .map(CryptographicKey::mapToDto)
+                .collect(Collectors.toList()
+                );
+        if(tokenProfileUuid != null && tokenProfileUuid.isPresent()) {
+            response = response.stream().filter(e -> e.getTokenProfileUuid().equals(tokenProfileUuid.get())).collect(Collectors.toList());
+        }
+        response = response
+                .stream()
+                .filter(
+                        e -> e.getItems().size() == 2
+                ).filter(
+                        e -> {
+                            List<KeyType> keyTypes = e.getItems().stream().map(KeyItemDto::getType).collect(Collectors.toList());
+                            keyTypes.removeAll(List.of(KeyType.PUBLIC_KEY, KeyType.PRIVATE_KEY));
+                            return keyTypes.isEmpty();
+                        }
+                ).collect(Collectors.toList());
         return response;
     }
 

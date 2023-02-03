@@ -88,6 +88,10 @@ public class ConnectorServiceImpl implements ConnectorService {
     private ComplianceProfileService complianceProfileService;
     @Autowired
     private AttributeService attributeService;
+    @Autowired
+    private AttributeDefinitionRepository attributeDefinitionRepository;
+    @Autowired
+    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
@@ -668,6 +672,26 @@ public class ConnectorServiceImpl implements ConnectorService {
                     complianceProfileService.nullifyComplianceProviderAssociation(connector);
                 }
 
+                if (!connector.getAttributeDefinitions().isEmpty()) {
+                    for (AttributeDefinition ref : connector.getAttributeDefinitions()) {
+                        ref.setConnector(null);
+                        ref.setConnectorUuid(null);
+                        attributeDefinitionRepository.save(ref);
+                    }
+                    connector.getAttributeDefinitions().removeAll(connector.getAttributeDefinitions());
+                    connectorRepository.save(connector);
+                }
+
+                if (!connector.getAttributeContent2Objects().isEmpty()) {
+                    for (AttributeContent2Object ref : connector.getAttributeContent2Objects()) {
+                        ref.setConnector(null);
+                        ref.setConnectorUuid(null);
+                        attributeContent2ObjectRepository.save(ref);
+                    }
+                    connector.getAttributeContent2Objects().removeAll(connector.getAttributeContent2Objects());
+                    connectorRepository.save(connector);
+                }
+
                 deleteConnector(connector);
             } catch (NotFoundException e) {
                 logger.warn("Unable to find connector with uuid {}. It may have been deleted already", uuid);
@@ -716,6 +740,9 @@ public class ConnectorServiceImpl implements ConnectorService {
             errors.add("Dependent Compliance Profiles: " + String.join(", ", complianceProfiles));
         }
 
+        if (!connector.getAttributeContent2Objects().isEmpty() || !connector.getAttributeDefinitions().isEmpty()) {
+            errors.add("Connector has dependent attribute definitions");
+        }
 
         if (!errors.isEmpty()) {
             throw new ValidationException(ValidationError.create(String.join("\n", errors)));
