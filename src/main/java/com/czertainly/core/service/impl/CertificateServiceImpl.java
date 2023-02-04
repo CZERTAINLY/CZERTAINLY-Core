@@ -416,7 +416,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public Certificate createCertificateEntity(X509Certificate certificate) {
         logger.debug("Making a new entry for a certificate");
