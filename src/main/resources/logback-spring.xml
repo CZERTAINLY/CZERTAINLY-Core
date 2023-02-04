@@ -2,12 +2,12 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
-    <property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}/}spring.log}"/>
-    <include resource="org/springframework/boot/logging/logback/file-appender.xml" />
+    <!--    <property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}/}spring.log}"/>-->
+    <property name="LOG_FILE" value="/dev/stdout"/>
+    <!--    <include resource="org/springframework/boot/logging/logback/file-appender.xml" />-->
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
-<!--        <appender-ref ref="FILE" />-->
+        <!--        <appender-ref ref="FILE" />-->
     </root>
     <logger name="com.czertainly" level="INFO"/>
-    <logger name="com.czertainly.core.security" level="TRACE"/>
 </configuration>
