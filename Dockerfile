@@ -16,6 +16,8 @@ FROM eclipse-temurin:17-jre-alpine
 # add non root user czertainly
 RUN addgroup --system --gid 10001 czertainly && adduser --system --home /opt/czertainly --uid 10001 --ingroup czertainly czertainly
 
+RUN mkdir /tmp/tomcat
+
 RUN apk update && \
   apk add --no-cache curl
 
