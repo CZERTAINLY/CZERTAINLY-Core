@@ -134,6 +134,12 @@ public interface CertificateService extends ResourceExtensionService  {
     Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException;
 
     /**
+     * Function to update status of certificates by scheduled event
+     *
+     */
+    void updateCertificatesStatusScheduled();
+
+    /**
      * Update the user uuid of the certificate in the core database
      *
      * @param certificateUuid UUID of the certificate

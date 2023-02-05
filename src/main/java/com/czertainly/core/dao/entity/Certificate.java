@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Entity
@@ -99,6 +100,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "group_uuid")
     private UUID groupUuid;
 
+    @Column(name = "status_validation_timestamp")
+    private LocalDateTime statusValidationTimestamp;
+
     @OneToMany(
             mappedBy = "certificate",
             cascade = CascadeType.ALL
@@ -171,7 +175,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
         dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage));
         dto.setUuid(uuid.toString());
-        dto.setStatus(calculateExpiryStatus());
+        dto.setStatus(status);
         dto.setFingerprint(fingerprint);
         dto.setSubjectAlternativeNames(MetaDefinitions.deserialize(subjectAlternativeNames));
         dto.setOwner(owner);
@@ -239,12 +243,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid)
                 .append("commonName", commonName).append("serialNumber", serialNumber).toString();
-    }
-
-    public CertificateStatus calculateExpiryStatus() {
-        if (this.getNotAfter() != null && this.getNotAfter().before(new Date())) return CertificateStatus.EXPIRED;
-        if (this.getNotBefore() != null && this.getNotBefore().after(new Date())) return CertificateStatus.INVALID;
-        return status;
     }
 
     public String getCommonName() {
@@ -559,5 +557,13 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setPublicKeyFingerprint(String publicKeyFingerprint) {
         this.publicKeyFingerprint = publicKeyFingerprint;
+    }
+
+    public LocalDateTime getStatusValidationTimestamp() {
+        return statusValidationTimestamp;
+    }
+
+    public void setStatusValidationTimestamp(LocalDateTime statusValidationTimestamp) {
+        this.statusValidationTimestamp = statusValidationTimestamp;
     }
 }
