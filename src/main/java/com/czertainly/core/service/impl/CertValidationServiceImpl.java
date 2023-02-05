@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -86,6 +87,8 @@ public class CertValidationServiceImpl implements CertValidationService {
                 }
             }
         }
+        certificate.setStatusValidationTimestamp(LocalDateTime.now());
+        certificateRepository.save(certificate);
     }
 
     private Boolean checkFullChain(List<Certificate> certificates) {
