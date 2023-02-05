@@ -11,6 +11,7 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -25,6 +26,10 @@ public class AuditLogAspect {
 
     @Around("@annotation(AuditLogged)")
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
+        // if in non-request context, do not log
+        if(RequestContextHolder.getRequestAttributes() == null) {
+            return joinPoint.proceed();
+        }
 
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         AuditLogged annotation = signature.getMethod().getAnnotation(AuditLogged.class);

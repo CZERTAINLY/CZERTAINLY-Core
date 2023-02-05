@@ -33,11 +33,14 @@ import com.czertainly.core.util.*;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.Marker;
+import org.slf4j.MarkerFactory;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -56,6 +59,7 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -587,6 +591,43 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public void updateCertificatesStatusScheduled() {
+        List<CertificateStatus> skipStatuses = List.of(CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
+        long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
+        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / 24));
+
+        LocalDateTime before = LocalDateTime.now().minusDays(1);
+
+        // process 1/24 of eligible certificates for status update
+        List<Certificate> certificates = certificateRepository.findCertificatesToCheckStatus(
+                before,
+                skipStatuses,
+                PageRequest.of(0, maxCertsToValidate, Sort.by(Sort.Direction.DESC, "statusValidationTimestamp")));
+
+        int counter = 0;
+        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
+        for (Certificate certificate : certificates) {
+            if(updateCertificateStatusScheduled(certificate)) ++counter;
+        }
+        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", counter, certificates.size());
+    }
+
+    private boolean updateCertificateStatusScheduled(Certificate certificate) {
+        try {
+            updateCertificateIssuer(certificate);
+            certValidationService.validate(certificate);
+            if(certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) complianceService.checkComplianceOfCertificate(certificate);
+        } catch (Exception e) {
+            logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate {}. Certificate {}", e.getMessage(), certificate.toString());
+            certificate.setStatusValidationTimestamp(LocalDateTime.now());
+            certificateRepository.save(certificate);
+
+            return false;
+        }
+        return true;
+    }
+
+    @Override
     // Internal Use Only
     public void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
@@ -712,7 +753,7 @@ public class CertificateServiceImpl implements CertificateService {
     private String getExpiryTime(Date now, Date expiry) {
         long diffInMillies = expiry.getTime() - now.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
-        if (difference <= 0) {
+        if (diffInMillies <= 0) {
             return "expired";
         } else if (difference < 10) {
             return "10";
@@ -730,7 +771,6 @@ public class CertificateServiceImpl implements CertificateService {
 
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
-
         SearchFieldDataDto raProfileFilter = SearchLabelConstants.RA_PROFILE_NAME_FILTER;
         raProfileFilter.setValue(raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()));
 
