@@ -111,6 +111,7 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 | `AUTH_SERVICE_BASE_URL`  | Base URL of the authentication service                              | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
 | `AUTH_TOKEN_HEADER_NAME` | Name of the header for the JSON ID content                          | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `X-USERINFO`        |
 | `AUDITLOG_ENABLED`       | Audit log enable / disable                                          | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `false`             |
+| `SCHEDULED_TASKS_ENABLED`| Scheduled certificate status update enable / disable                | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `true`              |
 | `JAVA_OPTS`              | Customize Java system properties for running application            | ![NO](https://img.shields.io/badge/-NO-red.svg)    | `N/A`               |
 | `TRUSTED_CERTIFICATES`   | List of PEM encoded additional trusted certificates                 | ![](https://img.shields.io/badge/-NO-red.svg)      | `N/A`               |
 
