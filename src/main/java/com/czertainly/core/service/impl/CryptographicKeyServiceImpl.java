@@ -153,9 +153,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final List<KeyDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root), p, (root, cb) -> cb.desc(root.get("cryptographicKey").get("created")))
+        final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root), p, (root, cb) -> cb.desc(root.get("cryptographicKey").get("created")))
                 .stream()
-                .map(CryptographicKeyItem::mapCryptographicKeyToDto)
+                .map(CryptographicKeyItem::mapToSummaryDto)
                 .collect(Collectors.toList());
 
         final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root));
@@ -185,14 +185,17 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 .map(CryptographicKey::mapToDto)
                 .collect(Collectors.toList()
                 );
-        if(tokenProfileUuid != null && tokenProfileUuid.isPresent()) {
-            response = response.stream().filter(e -> e.getTokenProfileUuid().equals(tokenProfileUuid.get())).collect(Collectors.toList());
+        if (tokenProfileUuid != null && tokenProfileUuid.isPresent()) {
+            response = response.stream().filter(e -> e .getTokenProfileUuid() != null && e.getTokenProfileUuid().equals(tokenProfileUuid.get())).collect(Collectors.toList());
         }
         response = response
                 .stream()
                 .filter(
                         e -> e.getItems().size() == 2
                 ).filter(
+                        e -> e.getItems().stream().filter(i -> i.getState().equals(KeyState.ACTIVE)).count() == 2
+                )
+                .filter(
                         e -> {
                             List<KeyType> keyTypes = e.getItems().stream().map(KeyItemDto::getType).collect(Collectors.toList());
                             keyTypes.removeAll(List.of(KeyType.PUBLIC_KEY, KeyType.PRIVATE_KEY));
@@ -661,7 +664,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         // Get the list of keys from the connector
         List<KeyDataResponseDto> keys = keyManagementApiClient.listKeys(
                 tokenInstanceReference.getConnector().mapToDto(),
-                tokenInstanceUuid.toString()
+                tokenInstanceReference.getTokenInstanceUuid()
         );
 
         // Iterate and add the keys with the same associations to the map
@@ -1175,12 +1178,22 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if (evaluateTokenPermission) {
             permissionEvaluator.tokenInstance(content.getCryptographicKey().getTokenInstanceReference().getSecuredUuid());
         }
+        usages = new ArrayList<>(usages);
+        // Remove the inappropriate usages from the key
+        if(content.getType().equals(KeyType.PUBLIC_KEY)) {
+            usages.remove(KeyUsage.ENCRYPT);
+            usages.remove(KeyUsage.SIGN);
+        }
+        if(content.getType().equals(KeyType.PRIVATE_KEY)) {
+            usages.remove(KeyUsage.DECRYPT);
+            usages.remove(KeyUsage.VERIFY);
+        }
         String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
         content.setUsage(usages);
         cryptographicKeyItemRepository.save(content);
         String newUsage = String.join(", ", usages.stream().map(KeyUsage::getName).collect(Collectors.toList()));
         keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
-                "Update Key Usage from" + oldUsage + " to " + newUsage, null, content);
+                "Update Key Usage from " + oldUsage + " to " + newUsage, null, content);
     }
 
     /**

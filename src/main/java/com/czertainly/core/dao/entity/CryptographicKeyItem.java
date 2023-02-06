@@ -173,7 +173,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        if(usage == null || usage.size() == 0) {
+        if (usage == null || usage.size() == 0) {
             this.usage = null;
             return;
         }
@@ -235,14 +235,8 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setEnabled(enabled);
         dto.setUsage(getUsage());
         dto.setReason(reason);
+        dto.setKeyData(keyData);
         return dto;
-    }
-
-    public KeyDto mapCryptographicKeyToDto() {
-        final Set<CryptographicKeyItem> tempCryptographicKeyItems = new HashSet<>();
-        tempCryptographicKeyItems.add(this);
-        cryptographicKey.setItems(tempCryptographicKeyItems);
-        return cryptographicKey.mapToDto();
     }
 
     public KeyItemDto mapToSummaryDto() {
@@ -257,6 +251,18 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setState(state);
         dto.setEnabled(enabled);
         dto.setUsage(getUsage());
+        dto.setKeyWrapperUuid(cryptographicKey.getUuid().toString());
+        dto.setAssociations((cryptographicKey.getItems().size() - 1) + cryptographicKey.getCertificates().size());
+        dto.setDescription(cryptographicKey.getDescription());
+        if (cryptographicKey.getGroup() != null) dto.setGroup(cryptographicKey.getGroup().mapToDto());
+        dto.setOwner(cryptographicKey.getOwner());
+        dto.setCreationTime(cryptographicKey.getCreated());
+        dto.setTokenInstanceName(cryptographicKey.getTokenInstanceReference().getName());
+        dto.setTokenInstanceUuid(cryptographicKey.getTokenInstanceReferenceUuid().toString());
+        if (cryptographicKey.getTokenProfile() != null) {
+            dto.setTokenProfileName(cryptographicKey.getTokenProfile().getName());
+            dto.setTokenProfileUuid(cryptographicKey.getTokenProfile().getUuid().toString());
+        }
         return dto;
     }
 }
