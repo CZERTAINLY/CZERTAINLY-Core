@@ -20,7 +20,7 @@ public class CertificateContent {
     @Column(name = "fingerprint")
     private String fingerprint;
 
-    @Column(name = "content", length = 8192)
+    @Column(name = "content", length = Integer.MAX_VALUE)
     private String content;
 
     @OneToMany(mappedBy = "certificateContent")

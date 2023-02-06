@@ -155,6 +155,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
         dto.setTokenInstanceName(tokenInstanceName);
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setTokenInstanceStatus(tokenInstanceReference.getStatus());
+        dto.setUsages(getUsage());
         return dto;
     }
 

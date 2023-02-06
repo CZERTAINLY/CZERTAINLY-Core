@@ -11,10 +11,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.io.Serializable;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Entity
@@ -161,6 +158,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     // Get the list of items for the key
     public List<KeyItemDto> getKeyItemsSummary() {
         return items.stream().map(CryptographicKeyItem::mapToSummaryDto).collect(Collectors.toList());
+    }
+
+    public Set<Certificate> getCertificates() {
+        return certificates;
     }
 
     @Override

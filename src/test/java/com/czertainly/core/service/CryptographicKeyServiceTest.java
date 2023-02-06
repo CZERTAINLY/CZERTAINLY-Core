@@ -369,7 +369,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 request
         );
         Assertions.assertEquals(
-                2,
+                1,
                 content.getUsage().size()
         );
     }
@@ -394,7 +394,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     public void testSync_allNewObject() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/list"))
+                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
                 .willReturn(WireMock.okJson("[\n" +
                         "    {\n" +
                         "        \"name\":\"key1\",\n" +
@@ -467,7 +467,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     public void testSync_existingObject() throws ConnectorException {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/list"))
+                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
                 .willReturn(WireMock.okJson("[\n" +
                         "    {\n" +
                         "        \"name\":\"key1\",\n" +
