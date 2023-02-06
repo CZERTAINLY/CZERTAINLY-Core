@@ -1248,7 +1248,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         groupFilter.setValue(groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList()));
 
         final SearchFieldDataDto keyAlgorithmFilter = SearchLabelConstants.CK_ALGORITHM_FILTER;
-        keyAlgorithmFilter.setValue(Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::name).collect(Collectors.toList()));
+        keyAlgorithmFilter.setValue(Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getName).collect(Collectors.toList()));
 
         final SearchFieldDataDto keyTypeFilter = SearchLabelConstants.CK_TYPE_FILTER;
         keyTypeFilter.setValue(Arrays.stream((KeyType.values())).map(KeyType::name).collect(Collectors.toList()));
