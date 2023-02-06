@@ -98,6 +98,13 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    public void syncKeys(String tokenInstanceUuid) throws ConnectorException {
+        cryptographicKeyService.syncKeys(
+                SecuredParentUUID.fromString(tokenInstanceUuid)
+        );
+    }
+
+    @Override
     public void compromiseKey(String tokenInstanceUuid, String uuid, CompromiseKeyRequestDto request) throws NotFoundException {
         cryptographicKeyService.compromiseKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),

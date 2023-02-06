@@ -228,7 +228,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.DECRYPT, KeyEventStatus.FAILED,
-                    "Encryption of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
+                    "Decryption of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
             throw e;
         }
     }
@@ -294,7 +294,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.SIGN, KeyEventStatus.FAILED,
-                    "Encryption of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
+                    "Signing of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
             throw e;
         }
     }
@@ -358,7 +358,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
-                    "Encryption of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
+                    "Verification of data failed ", Collections.singletonMap("exception", e.getLocalizedMessage()), key);
             throw e;
         }
     }

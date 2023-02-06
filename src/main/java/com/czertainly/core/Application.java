@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.lang.NonNull;
@@ -57,6 +58,7 @@ public class Application extends SpringBootServletInitializer {
 	}
 
     @Bean("threadPoolTaskExecutor")
+	@Primary
 	public TaskExecutor taskExecutor() {
 		ThreadPoolTaskExecutor executor = new ContextAwarePoolExecutor();
 		executor.setCorePoolSize(POOL_SIZE);
