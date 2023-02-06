@@ -602,7 +602,7 @@ public class CertificateServiceImpl implements CertificateService {
         List<Certificate> certificates = certificateRepository.findCertificatesToCheckStatus(
                 before,
                 skipStatuses,
-                PageRequest.of(0, maxCertsToValidate, Sort.by(Sort.Direction.DESC, "statusValidationTimestamp")));
+                PageRequest.of(0, maxCertsToValidate));
 
         int counter = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
@@ -612,6 +612,7 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", counter, certificates.size());
     }
 
+    @Transactional
     private boolean updateCertificateStatusScheduled(Certificate certificate) {
         try {
             updateCertificateIssuer(certificate);

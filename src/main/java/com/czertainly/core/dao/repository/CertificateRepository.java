@@ -73,7 +73,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             "JOIN CertificateContent cc ON cc.id = c.certificateContentId " +
             "WHERE c.status NOT IN :skipStatuses " +
             "AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp) " +
-            "ORDER BY c.created ASC")
+            "ORDER BY c.statusValidationTimestamp ASC NULLS FIRST")
     List<Certificate> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
                                                     @Param("skipStatuses") List<CertificateStatus> skipStatuses,
                                                     Pageable pageable);
