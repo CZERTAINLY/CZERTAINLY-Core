@@ -62,7 +62,6 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
-    private MetadataService metadataService;
     private TokenInstanceService tokenInstanceService;
     private CryptographicKeyEventHistoryService eventHistoryService;
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
@@ -74,10 +73,6 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
 
     // Setters
-    @Autowired
-    public void setMetadataService(MetadataService metadataService) {
-        this.metadataService = metadataService;
-    }
 
     @Autowired
     public void setTokenInstanceService(TokenInstanceService tokenInstanceService) {
@@ -135,7 +130,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (request.getCipherData() == null) {
             throw new ValidationException(ValidationError.create("Cannot encrypt null data"));
         }
-        if(!key.getUsage().contains(KeyUsage.SIGN) && !key.getCryptographicKey().getTokenProfile().getUsage().contains(KeyUsage.SIGN)) {
+        if (!key.getUsage().contains(KeyUsage.SIGN)) {
             throw new ValidationException(
                     ValidationError.create(
                             "Key Usage of the certificate does not support encryption"
@@ -190,7 +185,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (request.getCipherData() == null) {
             throw new ValidationException(ValidationError.create("Cannot decrypt null data"));
         }
-        if(!key.getUsage().contains(KeyUsage.SIGN) && !key.getCryptographicKey().getTokenProfile().getUsage().contains(KeyUsage.SIGN)) {
+        if (!key.getUsage().contains(KeyUsage.SIGN)) {
             throw new ValidationException(
                     ValidationError.create(
                             "Key Usage of the certificate does not support decryption"
@@ -255,7 +250,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (request.getData() == null) {
             throw new ValidationException(ValidationError.create("Cannot sign empty data"));
         }
-        if(!key.getUsage().contains(KeyUsage.SIGN) && !key.getCryptographicKey().getTokenProfile().getUsage().contains(KeyUsage.SIGN)) {
+        if (!key.getUsage().contains(KeyUsage.SIGN)) {
             throw new ValidationException(
                     ValidationError.create(
                             "Key Usage of the certificate does not support signing"
@@ -311,7 +306,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             throw new ValidationException(ValidationError.create("Cannot verify empty data"));
         }
         validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
-        if(!key.getUsage().contains(KeyUsage.VERIFY) && !key.getCryptographicKey().getTokenProfile().getUsage().contains(KeyUsage.VERIFY)) {
+        if (!key.getUsage().contains(KeyUsage.VERIFY)) {
             throw new ValidationException(
                     ValidationError.create(
                             "Key Usage of the certificate does not support verification"
@@ -530,8 +525,10 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         }
 
         switch (algorithm) {
-            case RSA -> AttributeDefinitionUtils.validateAttributes(RsaSignatureAttributes.getRsaSignatureAttributes(), attributes);
-            case ECDSA -> AttributeDefinitionUtils.validateAttributes(EcdsaSignatureAttributes.getEcdsaSignatureAttributes(), attributes);
+            case RSA ->
+                    AttributeDefinitionUtils.validateAttributes(RsaSignatureAttributes.getRsaSignatureAttributes(), attributes);
+            case ECDSA ->
+                    AttributeDefinitionUtils.validateAttributes(EcdsaSignatureAttributes.getEcdsaSignatureAttributes(), attributes);
             case FALCON, DILITHIUM, SPHINCSPLUS -> {
             }
             default -> throw new ValidationException(
