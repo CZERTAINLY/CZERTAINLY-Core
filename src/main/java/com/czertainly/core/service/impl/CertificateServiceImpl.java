@@ -119,6 +119,9 @@ public class CertificateServiceImpl implements CertificateService {
     @Lazy
     @Autowired
     private CryptographicKeyService cryptographicKeyService;
+    
+    @Autowired
+    private PermissionEvaluator permissionEvaluator;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -437,9 +440,9 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         CertificateUtil.prepareCertificate(modal, certificate);
-        if(modal.getKey() == null ) {
+        if (modal.getKey() == null) {
             UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(modal.getPublicKeyFingerprint());
-            if(keyUuid != null) modal.setKeyUuid(keyUuid);
+            if (keyUuid != null) modal.setKeyUuid(keyUuid);
         }
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
@@ -607,7 +610,7 @@ public class CertificateServiceImpl implements CertificateService {
         int counter = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
         for (Certificate certificate : certificates) {
-            if(updateCertificateStatusScheduled(certificate)) ++counter;
+            if (updateCertificateStatusScheduled(certificate)) ++counter;
         }
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", counter, certificates.size());
     }
@@ -617,7 +620,8 @@ public class CertificateServiceImpl implements CertificateService {
         try {
             updateCertificateIssuer(certificate);
             certValidationService.validate(certificate);
-            if(certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) complianceService.checkComplianceOfCertificate(certificate);
+            if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null)
+                complianceService.checkComplianceOfCertificate(certificate);
         } catch (Exception e) {
             logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate {}. Certificate {}", e.getMessage(), certificate.toString());
             certificate.setStatusValidationTimestamp(LocalDateTime.now());
@@ -725,7 +729,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     public void clearKeyAssociations(UUID keyUuid) {
         List<Certificate> certificates = certificateRepository.findByKeyUuid(keyUuid);
-        for(Certificate certificate: certificates) {
+        for (Certificate certificate : certificates) {
             certificate.setKey(null);
             certificate.setKeyUuid(null);
             certificateRepository.save(certificate);
@@ -745,7 +749,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public void updateCertificateKeys(UUID keyUuid, String publicKeyFingerprint) {
-        for(Certificate certificate: certificateRepository.findByPublicKeyFingerprint(publicKeyFingerprint)) {
+        for (Certificate certificate : certificateRepository.findByPublicKeyFingerprint(publicKeyFingerprint)) {
             certificate.setKeyUuid(keyUuid);
             certificateRepository.save(certificate);
         }
@@ -1079,10 +1083,11 @@ public class CertificateServiceImpl implements CertificateService {
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         RaProfile raProfile = raProfileRepository.findByUuid(SecuredUUID.fromString(request.getRaProfileUuid()))
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
-        if (request.getFilters() == null) {
+        if (request.getFilters() == null || request.getFilters().isEmpty()) {
             List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = ((CertificateService) AopContext.currentProxy()).getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+                Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+                permissionEvaluator.certificate(certificate.getSecuredUuid());
                 batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
                 certificate.setRaProfile(raProfile);
                 batchOperationList.add(certificate);
@@ -1105,11 +1110,12 @@ public class CertificateServiceImpl implements CertificateService {
         Group group = groupRepository.findByUuid(SecuredUUID.fromString(request.getGroupUuid()))
                 .orElseThrow(() -> new NotFoundException(Group.class, request.getGroupUuid()));
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        if (request.getFilters() == null) {
+        if (request.getFilters() == null || request.getFilters().isEmpty()) {
             List<Certificate> batchOperationList = new ArrayList<>();
 
             for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = ((CertificateService) AopContext.currentProxy()).getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+                Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+                permissionEvaluator.certificate(certificate.getSecuredUuid());
                 batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + group.getName(), "", certificate));
                 certificate.setGroup(group);
                 batchOperationList.add(certificate);
@@ -1129,10 +1135,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void bulkUpdateOwner(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        if (request.getFilters() == null) {
+        if (request.getFilters() == null || request.getFilters().isEmpty()) {
             List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = ((CertificateService) AopContext.currentProxy()).getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+                Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+                permissionEvaluator.certificate(certificate.getSecuredUuid());
                 batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
                 certificate.setOwner(request.getOwner());
                 batchOperationList.add(certificate);

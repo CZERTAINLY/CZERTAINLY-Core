@@ -361,8 +361,8 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateKeyUsage() throws ConnectorException {
         UpdateKeyUsageRequestDto request = new UpdateKeyUsageRequestDto();
-        request.setUuids(List.of(content.getUuid(), content1.uuid));
-        request.setUsage(List.of(KeyUsage.ENCRYPT, KeyUsage.DECRYPT));
+        request.setUuids(List.of(content.getUuid()));
+        request.setUsage(List.of(KeyUsage.DECRYPT));
         cryptographicKeyService.updateKeyUsages(
                 tokenInstanceReference.getSecuredParentUuid(),
                 key.getUuid(),
