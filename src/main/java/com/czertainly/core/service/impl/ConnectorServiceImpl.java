@@ -165,7 +165,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     private ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException {
         if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException("name must not be empty");
+            throw new ValidationException(ValidationError.create("name must not be empty"));
         }
         attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
 
@@ -212,11 +212,11 @@ public class ConnectorServiceImpl implements ConnectorService {
     public ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException {
 
         if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException("name must not be empty");
+            throw new ValidationException(ValidationError.create("name must not be empty"));
         }
 
         if (request.getFunctionGroups() == null) {
-            throw new ValidationException("function groups must not be empty");
+            throw new ValidationException(ValidationError.create("function groups must not be empty"));
         }
 
         if (connectorRepository.findByName(request.getName()).isPresent()) {

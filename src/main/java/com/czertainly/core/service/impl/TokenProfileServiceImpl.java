@@ -124,7 +124,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     public TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         logger.info("Creating token profile with name: {}", request.getName());
         if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException("Token Profile name must not be empty");
+            throw new ValidationException(ValidationError.create("Token Profile name must not be empty"));
         }
 
         Optional<TokenProfile> optionalProfile = tokenProfileRepository.findByName(request.getName());

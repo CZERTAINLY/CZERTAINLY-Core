@@ -1,10 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
@@ -103,7 +100,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto addRaProfile(SecuredParentUUID authorityInstanceUuid, AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException {
         if (StringUtils.isBlank(dto.getName())) {
-            throw new ValidationException("RA profile name must not be empty");
+            throw new ValidationException(ValidationError.create("RA profile name must not be empty"));
         }
 
         Optional<RaProfile> o = raProfileRepository.findByName(dto.getName());
@@ -409,7 +406,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 authorityInstanceRef.getAuthorityInstanceUuid(),
                 attributes))) {
 
-            throw new ValidationException("RA profile attributes validation failed.");
+            throw new ValidationException(ValidationError.create("RA profile attributes validation failed."));
         }
 
         return merged;
