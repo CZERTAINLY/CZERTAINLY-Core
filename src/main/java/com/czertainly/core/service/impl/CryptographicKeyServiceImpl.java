@@ -46,6 +46,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -74,6 +75,14 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private TokenProfileRepository tokenProfileRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private GroupRepository groupRepository;
+
+    // Permitted usages for the keys
+    private static final Map<KeyType, KeyUsage[]> PERMITTED_USAGES = new HashMap(){{
+       put(KeyType.PRIVATE_KEY, new KeyUsage[]{KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP});
+       put(KeyType.PUBLIC_KEY, new KeyUsage[]{KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP});
+       put(KeyType.SECRET_KEY, KeyUsage.values());
+       put(KeyType.SPLIT_KEY, KeyUsage.values());
+    }};
 
 
     @Autowired
@@ -904,7 +913,21 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setKeyReferenceUuid(UUID.fromString(referenceUuid));
         content.setState(KeyState.ACTIVE);
         content.setEnabled(false);
-        if (cryptographicKey.getTokenProfile() != null) content.setUsage(cryptographicKey.getTokenProfile().getUsage());
+        if (cryptographicKey.getTokenProfile() != null) {
+            content.setUsage(
+                    cryptographicKey
+                            .getTokenProfile()
+                            .getUsage()
+                            .stream()
+                            .filter(
+                                    List.of(
+                                            PERMITTED_USAGES.get(keyData.getType())
+                                    )::contains)
+                            .collect(
+                                    Collectors.toList()
+                            )
+            );
+        }
         try {
             content.setFingerprint(CertificateUtil.getThumbprint(content.getKeyData().getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException | NullPointerException e) {
@@ -1179,14 +1202,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             permissionEvaluator.tokenInstance(content.getCryptographicKey().getTokenInstanceReference().getSecuredUuid());
         }
         usages = new ArrayList<>(usages);
-        // Remove the inappropriate usages from the key
-        if(content.getType().equals(KeyType.PUBLIC_KEY)) {
-            usages.remove(KeyUsage.ENCRYPT);
-            usages.remove(KeyUsage.SIGN);
-        }
-        if(content.getType().equals(KeyType.PRIVATE_KEY)) {
-            usages.remove(KeyUsage.DECRYPT);
-            usages.remove(KeyUsage.VERIFY);
+        if(!new HashSet<>(List.of(PERMITTED_USAGES.get(content.getType()))).containsAll(usages)) {
+            usages.removeAll(List.of(PERMITTED_USAGES.get(content.getType())));
+            String nonAllowedUsages = String.join(", ", usages.stream().map(KeyUsage::getName).collect(Collectors.toList()));
+            keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.FAILED,
+                    "Unsupported Key usages: " + nonAllowedUsages, null, content);
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Unsupported Key usages: " + nonAllowedUsages
+                    )
+            );
         }
         String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
         content.setUsage(usages);
