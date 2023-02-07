@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -70,7 +71,9 @@ public class GroupServiceImpl implements GroupService {
     public GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException {
 
         if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException("Name must not be empty");
+            throw new ValidationException(
+                    ValidationError.create("Name must not be empty")
+            );
         }
 
         if (groupRepository.findByName(request.getName()).isPresent()) {

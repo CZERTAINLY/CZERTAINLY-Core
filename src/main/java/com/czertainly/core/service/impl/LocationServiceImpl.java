@@ -162,7 +162,7 @@ public class LocationServiceImpl implements LocationService {
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.CREATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto dto) throws AlreadyExistException, LocationException, NotFoundException {
         if (StringUtils.isBlank(dto.getName())) {
-            throw new ValidationException("Location name must not be empty");
+            throw new ValidationException(ValidationError.create("Location name must not be empty"));
         }
 
         Optional<Location> o = locationRepository.findByName(dto.getName());

@@ -108,7 +108,7 @@ public class CredentialServiceImpl implements CredentialService {
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.CREATE)
     public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException {
         if (StringUtils.isBlank(request.getName())) {
-            throw new ValidationException("Name must not be empty");
+            throw new ValidationException(ValidationError.create("Name must not be empty"));
         }
 
         if (credentialRepository.findByName(request.getName()).isPresent()) {

@@ -527,7 +527,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             if (attributes != null) {
                 AttributeDefinitionUtils.validateAttributes(complianceRule.getAttributes(), attributes);
             } else {
-                throw new ValidationException("Attributes are not provided for rule with name " + complianceRule.getName());
+                throw new ValidationException(ValidationError.create("Attributes are not provided for rule with name " + complianceRule.getName()));
             }
         }
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();

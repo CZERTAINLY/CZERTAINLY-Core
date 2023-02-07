@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -136,7 +137,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
         if (filter.getParentResourceFilter() != null) {
             if (filter.getParentRefProperty() == null)
-                throw new ValidationException("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource());
+                throw new ValidationException(ValidationError.create("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource()));
 
             if (filter.getParentResourceFilter().areOnlySpecificObjectsAllowed()) {
                 predicates.add(root.get(filter.getParentRefProperty()).in(filter.getParentResourceFilter().getAllowedObjects()));
