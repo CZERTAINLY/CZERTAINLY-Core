@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
@@ -62,7 +63,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException {
         attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.USER);
         if (StringUtils.isBlank(request.getUsername())) {
-            throw new ValidationException("username must not be empty");
+            throw new ValidationException(ValidationError.create("username must not be empty"));
         }
         UserRequestDto requestDto = new UserRequestDto();
         Certificate certificate = null;

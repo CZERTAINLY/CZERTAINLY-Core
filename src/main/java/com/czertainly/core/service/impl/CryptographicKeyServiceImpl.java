@@ -265,7 +265,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         }
         if (request.getName() == null) {
             logger.error("Name is empty. Cannot create key without name");
-            throw new ValidationException("Name is required for creating a new Key");
+            throw new ValidationException(ValidationError.create("Name is required for creating a new Key"));
         }
         TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(SecuredUUID.fromUUID(tokenInstanceUuid));
         TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
