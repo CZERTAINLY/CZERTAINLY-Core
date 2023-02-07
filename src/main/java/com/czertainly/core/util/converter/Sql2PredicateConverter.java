@@ -1,8 +1,6 @@
 package com.czertainly.core.util.converter;
 
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.IAbstractSearchableEnum;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.SearchCondition;
 import jakarta.persistence.criteria.*;
