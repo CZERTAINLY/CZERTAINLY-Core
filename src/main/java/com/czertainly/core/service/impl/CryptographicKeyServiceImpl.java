@@ -1248,16 +1248,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         groupFilter.setValue(groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList()));
 
         final SearchFieldDataDto keyAlgorithmFilter = SearchLabelConstants.CK_ALGORITHM_FILTER;
-        keyAlgorithmFilter.setValue(Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::name).collect(Collectors.toList()));
+        keyAlgorithmFilter.setValue(Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getName).collect(Collectors.toList()));
 
         final SearchFieldDataDto keyTypeFilter = SearchLabelConstants.CK_TYPE_FILTER;
-        keyTypeFilter.setValue(Arrays.stream((KeyType.values())).map(KeyType::name).collect(Collectors.toList()));
+        keyTypeFilter.setValue(Arrays.stream((KeyType.values())).map(KeyType::getName).collect(Collectors.toList()));
 
         final SearchFieldDataDto keyFormatFilter = SearchLabelConstants.CK_FORMAT_FILTER;
-        keyFormatFilter.setValue(Arrays.stream((KeyFormat.values())).map(KeyFormat::name).collect(Collectors.toList()));
+        keyFormatFilter.setValue(Arrays.stream((KeyFormat.values())).map(KeyFormat::getName).collect(Collectors.toList()));
 
         final SearchFieldDataDto keyStateFilter = SearchLabelConstants.CK_STATE_FILTER;
-        keyStateFilter.setValue(Arrays.stream((KeyState.values())).map(KeyState::name).collect(Collectors.toList()));
+        keyStateFilter.setValue(Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList()));
 
         final SearchFieldDataDto tokenInstanceStatusFilter = SearchLabelConstants.CK_TOKEN_INSTANCE_FILTER;
         tokenInstanceStatusFilter.setValue(tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()));
@@ -1266,7 +1266,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         tokenProfileFilter.setValue(tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList()));
 
         final SearchFieldDataDto keyUsageFilter = SearchLabelConstants.CK_KEY_USAGE_FILTER;
-        keyUsageFilter.setValue(Arrays.stream((KeyUsage.values())).map(KeyUsage::name).collect(Collectors.toList()));
+        keyUsageFilter.setValue(Arrays.stream((KeyUsage.values())).map(KeyUsage::getName).collect(Collectors.toList()));
 
         final List<SearchFieldDataDto> fields = List.of(
                 SearchLabelConstants.CK_NAME_FILTER,
@@ -1284,4 +1284,5 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         logger.debug("Searchable CryptographicKey Fields: {}", fields);
         return fields;
     }
+
 }
