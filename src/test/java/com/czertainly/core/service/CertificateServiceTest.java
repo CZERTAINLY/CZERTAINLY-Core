@@ -7,7 +7,7 @@ import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -96,7 +96,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetCertificate() throws NotFoundException, CertificateException, IOException {
-        CertificateDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
+        CertificateDetailDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificate.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(certificate.getSerialNumber(), dto.getSerialNumber());
@@ -139,7 +139,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     public void testRevokeCertificate() throws NotFoundException, CertificateException, IOException {
         certificateService.revokeCertificate(certificate.getSerialNumber());
 
-        CertificateDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
+        CertificateDetailDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
 
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificate.getUuid().toString(), dto.getUuid());
@@ -158,7 +158,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         UploadCertificateRequestDto request = new UploadCertificateRequestDto();
         request.setCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
 
-        CertificateDto dto = certificateService.upload(request);
+        CertificateDetailDto dto = certificateService.upload(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals("CLIENT1", dto.getCommonName());
         Assertions.assertEquals("177e75f42e95ecb98f831eb57de27b0bc8c47643", dto.getSerialNumber());

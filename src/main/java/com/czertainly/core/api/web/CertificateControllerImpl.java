@@ -49,7 +49,7 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public CertificateDto getCertificate(@PathVariable String uuid)
+	public CertificateDetailDto getCertificate(@PathVariable String uuid)
 			throws NotFoundException, CertificateException, IOException {
 		return certificateService.getCertificate(SecuredUUID.fromString(uuid));
 	}
@@ -79,7 +79,7 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
 			throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
-		CertificateDto dto = certificateService.upload(request);
+		CertificateDetailDto dto = certificateService.upload(request);
 		URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{uuid}")
