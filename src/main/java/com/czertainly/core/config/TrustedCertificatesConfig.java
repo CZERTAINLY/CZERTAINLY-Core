@@ -75,14 +75,25 @@ public class TrustedCertificatesConfig {
     private KeyStore loadCacertsKeyStore() throws KeyStoreException, IOException, CertificateException, NoSuchAlgorithmException {
         String relativeCacertsPath = "/lib/security/cacerts".replace("/", File.separator);
         String filename = System.getProperty("java.home") + relativeCacertsPath;
-        FileInputStream is = new FileInputStream(filename);
 
-        logger.debug("Loading cacert in location: {}", filename);
-        KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
-        String password = "changeit";
-        keystore.load(is, password.toCharArray());
+        KeyStore keyStore = null;
+        FileInputStream is = null;
+        try {
+            is = new FileInputStream(filename);
 
-        return keystore;
+            logger.debug("Loading cacert in location: {}", filename);
+            keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            String password = "changeit";
+            keyStore.load(is, password.toCharArray());
+        } catch (Exception e) {
+            logger.error("Failed loading cacert in location: {}", filename);
+            throw e;
+        }
+        finally {
+            is.close();
+        }
+
+        return keyStore;
     }
 
     private List<X509Certificate> getTrustedCertificates(String trustedCerts) {

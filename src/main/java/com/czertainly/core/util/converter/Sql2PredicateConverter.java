@@ -1,14 +1,12 @@
 package com.czertainly.core.util.converter;
 
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.connector.cryptography.enums.IAbstractSearchableEnum;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.SearchCondition;
 import jakarta.persistence.criteria.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.StringTokenizer;
+import java.util.*;
 
 public class Sql2PredicateConverter {
 
@@ -94,7 +92,8 @@ public class Sql2PredicateConverter {
     }
 
     private static Object findEnumByCustomValue(SearchFilterRequestDto dto, Object valueObject) {
-        return Arrays.stream(dto.getField().getEnumClass().getEnumConstants()).filter(enumValue -> enumValue.getEnumLabel().equals(valueObject.toString())).findFirst().get();
+        Optional<? extends IAbstractSearchableEnum> enumItem = Arrays.stream(dto.getField().getEnumClass().getEnumConstants()).filter(enumValue -> enumValue.getEnumLabel().equals(valueObject.toString())).findFirst();
+        return enumItem.isPresent() ? enumItem.get() : null;
     }
 
     private static List<Object> readAndCheckIncomingValues(final SearchFilterRequestDto dto) {

@@ -382,7 +382,7 @@ public class AttributeServiceImpl implements AttributeService {
     public List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid) {
         List<AttributeDefinition> attributeDefinitions;
         List<ConnectorMetadataResponseDto> response = new ArrayList<>();
-        if (connectorUuid != null && connectorUuid.isPresent()) {
+        if (connectorUuid.isPresent() && !connectorUuid.get().isEmpty()) {
             attributeDefinitions = attributeDefinitionRepository.findByConnectorUuidAndGlobalAndType(UUID.fromString(connectorUuid.get()), false, AttributeType.META);
             attributeDefinitions.addAll(attributeDefinitionRepository.findByConnectorUuidAndGlobalAndType(UUID.fromString(connectorUuid.get()), null, AttributeType.META));
         } else {
@@ -461,6 +461,12 @@ public class AttributeServiceImpl implements AttributeService {
         logger.info("Creating the attribute content for: {} with UUID: {}", resource, objectUuid);
         String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(value);
         AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndAttributeName(AttributeType.CUSTOM, attributeName).orElse(null);
+
+        if(definition == null) {
+            logger.warn("Custom attribute with name '" + attributeName + "' does not exist");
+            return;
+        }
+
         List<ValidationError> validationErrors = new ArrayList<>();
         AttributeDefinitionUtils.validateAttributeContent(
                 definition.getAttributeDefinition(CustomAttribute.class),
