@@ -9,7 +9,7 @@ import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -31,7 +31,7 @@ public interface CertificateService extends ResourceExtensionService  {
 
     CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException;
 
-    CertificateDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
+    CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
 
@@ -69,7 +69,7 @@ public interface CertificateService extends ResourceExtensionService  {
             List<RequestAttributeDto> signatureAttributes
     ) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
-    CertificateDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+    CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     void revokeCertificate(String serialNumber);
