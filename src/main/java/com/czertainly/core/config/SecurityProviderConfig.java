@@ -21,7 +21,7 @@ public class SecurityProviderConfig {
         if (provider == null) {
             logger.info("Registering security provider {}.", BouncyCastleProvider.PROVIDER_NAME);
             provider = new BouncyCastleProvider();
-            Security.insertProviderAt(provider, 1);
+            Security.addProvider(provider);
         } else {
             logger.info("Security provider {} already registered.", BouncyCastleProvider.PROVIDER_NAME);
         }
@@ -34,7 +34,7 @@ public class SecurityProviderConfig {
         if (pqcProvider == null) {
             logger.info("Registering PQC security provider {}.", BouncyCastlePQCProvider.PROVIDER_NAME);
             pqcProvider = new BouncyCastlePQCProvider();
-            Security.insertProviderAt(pqcProvider, 2);
+            Security.addProvider(pqcProvider);
         } else {
             logger.info("PQC security provider {} already registered.", BouncyCastlePQCProvider.PROVIDER_NAME);
         }
