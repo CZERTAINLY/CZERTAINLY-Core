@@ -4,10 +4,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
-import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.core.util.*;
@@ -24,7 +21,7 @@ import java.util.*;
 
 @Entity
 @Table(name = "certificate")
-public class Certificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateDto> {
+public class Certificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateDetailDto> {
 
     private static final long serialVersionUID = -3048734620156664554L;
 
@@ -158,8 +155,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private String signatureAttributes;
 
     @Override
-    public CertificateDto mapToDto() {
-        CertificateDto dto = new CertificateDto();
+    public CertificateDetailDto mapToDto() {
+        CertificateDetailDto dto = new CertificateDetailDto();
         dto.setCommonName(commonName);
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
@@ -185,7 +182,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
          * When the details of the certificate is requested, the Service will transform the result into the user understandable
          * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories
-         * like complainceRules etc., So only the overall status of the compliance will be set in the mapToDto function
+         * like complianceRules etc., So only the overall status of the compliance will be set in the mapToDto function
          */
         dto.setComplianceStatus(complianceStatus);
 
@@ -236,6 +233,65 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             }
         }
         if (key != null) dto.setKey(key.mapToDto());
+        return dto;
+    }
+
+    public CertificateDto mapToListDto() {
+        CertificateDto dto = new CertificateDto();
+        dto.setCommonName(commonName);
+        dto.setSerialNumber(serialNumber);
+        dto.setIssuerCommonName(issuerCommonName);
+        dto.setCertificateContent(certificateContent.getContent());
+        dto.setIssuerDn(issuerDn);
+        dto.setSubjectDn(subjectDn);
+        dto.setNotBefore(notBefore);
+        dto.setNotAfter(notAfter);
+        dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
+        dto.setKeySize(keySize);
+        dto.setUuid(uuid.toString());
+        dto.setStatus(status);
+        dto.setFingerprint(fingerprint);
+        dto.setOwner(owner);
+        dto.setCertificateType(certificateType);
+        dto.setIssuerSerialNumber(issuerSerialNumber);
+        /**
+         * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
+         * When the details of the certificate is requested, the Service will transform the result into the user understandable
+         * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories
+         * like complianceRules etc., So only the overall status of the compliance will be set in the mapToDto function
+         */
+        dto.setComplianceStatus(complianceStatus);
+
+        if (raProfile != null) {
+            SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
+            raDto.setName(raProfile.getName());
+            raDto.setUuid(raProfile.getUuid().toString());
+            raDto.setEnabled(raProfile.getEnabled());
+            if (raProfile.getAuthorityInstanceReference() != null) {
+                raDto.setAuthorityInstanceUuid(raProfile.getAuthorityInstanceReference().getUuid().toString());
+            }
+            dto.setRaProfile(raDto);
+        }
+        if (group != null) {
+            dto.setGroup(group.mapToDto());
+        }
+
+        //Check and assign private key availability
+        dto.setPrivateKeyAvailability(false);
+        if (key != null && !key.getItems().isEmpty()) {
+            if (!key.getItems()
+                    .stream()
+                    .filter(
+                            item -> item.getType()
+                                    .equals(KeyType.PRIVATE_KEY)
+                                    && item.getState().equals(KeyState.ACTIVE)
+                    ).toList()
+                    .isEmpty()
+            ) {
+                dto.setPrivateKeyAvailability(true);
+            }
+        }
         return dto;
     }
 
