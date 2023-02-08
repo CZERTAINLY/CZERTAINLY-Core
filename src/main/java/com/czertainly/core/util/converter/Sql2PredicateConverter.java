@@ -62,7 +62,8 @@ public class Sql2PredicateConverter {
     }
 
     private static SearchCondition checkOrReplaceSearchConfition(final SearchFilterRequestDto dto) {
-        if (dto.getField().getEnumClass().equals(KeyUsage.class)) {
+        if (dto.getField().getEnumClass() != null
+                && dto.getField().getEnumClass().equals(KeyUsage.class)) {
             if (dto.getCondition().equals(SearchCondition.EQUALS)) {
                 return SearchCondition.CONTAINS;
             } else if (dto.getCondition().equals(SearchCondition.NOT_EQUALS)) {
