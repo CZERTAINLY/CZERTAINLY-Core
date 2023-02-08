@@ -7,10 +7,6 @@ import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -21,8 +17,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.net.ssl.TrustManager;
-import java.security.Provider;
-import java.security.Security;
 
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
@@ -34,37 +28,7 @@ public class ApplicationConfig {
     private TrustedCertificatesConfig trustedCertificatesConfig;
 
     public static final String EXTERNAL_PROPERTY_SOURCE =
-            "file:${raprofiles-backend.config.dir:/etc/raprofiles-backend}/raprofiles-backend.properties";
-
-    public static final String SECURITY_PROVIDER = BouncyCastleProvider.PROVIDER_NAME;
-
-    private static final Logger logger = LoggerFactory.getLogger(ApplicationConfig.class);
-
-    @Bean
-    public Provider securityProvider() {
-        Provider provider = Security.getProvider(SECURITY_PROVIDER);
-        if (provider == null) {
-            logger.info("Registering security provider {}.", SECURITY_PROVIDER);
-            provider = new BouncyCastleProvider();
-            Security.addProvider(provider);
-        } else {
-            logger.info("Security provider {} already registered.", SECURITY_PROVIDER);
-        }
-        return provider;
-    }
-
-    @Bean
-    public Provider securityPqcProvider() {
-        Provider pqcProvider = Security.getProvider(BouncyCastlePQCProvider.PROVIDER_NAME);
-        if (pqcProvider == null) {
-            logger.info("Registering PQC security provider {}.", BouncyCastlePQCProvider.PROVIDER_NAME);
-            pqcProvider = new BouncyCastlePQCProvider();
-            Security.addProvider(pqcProvider);
-        } else {
-            logger.info("PQC security provider {} already registered.", BouncyCastlePQCProvider.PROVIDER_NAME);
-        }
-        return pqcProvider;
-    }
+            "file:${czertainly-backend.config.dir:/etc/czertainly-backend}/czertainly-backend.properties";
 
     @Bean
     public AuditorAware<String> auditorAware() {
