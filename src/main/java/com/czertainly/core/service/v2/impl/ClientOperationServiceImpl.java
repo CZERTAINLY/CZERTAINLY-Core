@@ -53,10 +53,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service("clientOperationServiceImplV2")
 @Transactional
@@ -696,13 +693,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         try {
             X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
             JcaPKCS10CertificationRequest csrObject = parseCsrToJcaObject(csr);
-            if(!certificate.getPublicKey().equals(csrObject.getPublicKey())); {
-                throw new Exception("Public Key of Certificate and CSR does not match");
+            if(!Arrays.equals(certificate.getPublicKey().getEncoded(), csrObject.getPublicKey().getEncoded())) {
+                throw new Exception("Public key of certificate and CSR does not match");
             }
         } catch (Exception e){
             throw new ValidationException(
                     ValidationError.create(
-                            "Unable to validate the public of CSR and certificate. Error: " + e.getMessage()
+                            "Unable to validate the public key of CSR and certificate. Error: " + e.getMessage()
                     )
             );
         }
