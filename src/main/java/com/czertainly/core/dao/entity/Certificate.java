@@ -246,7 +246,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setSubjectDn(subjectDn);
         dto.setNotBefore(notBefore);
         dto.setNotAfter(notAfter);
-        dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
         dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
         dto.setKeySize(keySize);
         dto.setUuid(uuid.toString());
