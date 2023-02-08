@@ -1,0 +1,2 @@
+UPDATE certificate SET public_key_algorithm = 'ECDSA' WHERE public_key_algorithm = 'EC';
+UPDATE certificate SET signature_algorithm = regexp_replace(signature_algorithm, 'WITH', 'with') WHERE signature_algorithm LIKE '%WITH%';

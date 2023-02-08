@@ -3,6 +3,7 @@ package com.czertainly.core.util;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.dao.entity.Certificate;
@@ -32,6 +33,7 @@ import java.util.*;
 
 public class CertificateUtil {
 
+    public static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
     public static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
     @SuppressWarnings("serial")
@@ -52,10 +54,15 @@ public class CertificateUtil {
     }
 
     static {
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("EC", "ECDSA");
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("FALCON", "Falcon");
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", "SPHINCS+");
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", "Dilithium");
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", CryptographicAlgorithm.SPHINCSPLUS.getName());
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", CryptographicAlgorithm.DILITHIUM.getName());
+    }
+
+    static {
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", CryptographicAlgorithm.ECDSA.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("SPHINCS+", CryptographicAlgorithm.SPHINCSPLUS.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Dilithium", CryptographicAlgorithm.DILITHIUM.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", CryptographicAlgorithm.FALCON.toString());
     }
 
     private CertificateUtil() {
@@ -203,8 +210,9 @@ public class CertificateUtil {
         } catch (NoSuchAlgorithmException e) {
             logger.error("Failed to calculate the thumbprint of the certificate");
         }
-        modal.setPublicKeyAlgorithm(certificate.getPublicKey().getAlgorithm());
-        modal.setSignatureAlgorithm(certificate.getSigAlgName());
+
+        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()));
+        modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
         modal.setStatus(CertificateStatus.UNKNOWN);
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
@@ -294,6 +302,12 @@ public class CertificateUtil {
         String friendlyName = CERTIFICATE_ALGORITHM_FRIENDLY_NAME.get(algorithmName);
         if (friendlyName != null) return friendlyName;
         return algorithmName;
+    }
+
+    public static String getAlgorithmFromProviderName(String providerName) {
+        String name = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
+        if (name != null) return name;
+        return providerName;
     }
 
 }
