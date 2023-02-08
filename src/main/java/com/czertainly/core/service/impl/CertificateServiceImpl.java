@@ -594,7 +594,7 @@ public class CertificateServiceImpl implements CertificateService {
     public void updateCertificatesStatusScheduled() {
         List<CertificateStatus> skipStatuses = List.of(CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
-        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / 24));
+        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float)24));
 
         LocalDateTime before = LocalDateTime.now().minusDays(1);
 
@@ -612,7 +612,6 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", counter, certificates.size());
     }
 
-    @Transactional
     private boolean updateCertificateStatusScheduled(Certificate certificate) {
         try {
             updateCertificateIssuer(certificate);
