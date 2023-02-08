@@ -194,7 +194,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 .map(CryptographicKey::mapToDto)
                 .collect(Collectors.toList()
                 );
-        if (tokenProfileUuid != null && tokenProfileUuid.isPresent()) {
+        if (tokenProfileUuid.isPresent() && !tokenProfileUuid.get().isEmpty()) {
             response = response.stream().filter(e -> e .getTokenProfileUuid() != null && e.getTokenProfileUuid().equals(tokenProfileUuid.get())).collect(Collectors.toList());
         }
         response = response

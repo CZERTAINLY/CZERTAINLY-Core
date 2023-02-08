@@ -286,7 +286,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         return modal;
     }
 
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response) {
         modal.setStatus(response.getStatus());
         modal.setEndTime(new Date());
