@@ -904,7 +904,8 @@ public class CertificateServiceImpl implements CertificateService {
         dto.setConnectorName(rule.getComplianceRule().getConnector().getName());
         dto.setRuleName(rule.getComplianceRule().getName());
         dto.setRuleDescription(rule.getComplianceRule().getDescription());
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(rule.getAttributes()));
+        List<DataAttribute> attributes = AttributeDefinitionUtils.mergeAttributes(rule.getComplianceRule().getAttributes(), rule.getAttributes());
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(attributes));
         dto.setStatus(status);
         return dto;
     }
