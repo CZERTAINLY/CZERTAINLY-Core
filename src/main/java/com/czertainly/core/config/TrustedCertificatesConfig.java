@@ -77,9 +77,8 @@ public class TrustedCertificatesConfig {
         String filename = System.getProperty("java.home") + relativeCacertsPath;
 
         KeyStore keyStore = null;
-        FileInputStream is = null;
+        FileInputStream is = new FileInputStream(filename);
         try {
-            is = new FileInputStream(filename);
 
             logger.debug("Loading cacert in location: {}", filename);
             keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
