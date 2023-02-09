@@ -9,6 +9,7 @@ import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgori
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 
+import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
@@ -143,7 +144,7 @@ public interface CryptographicOperationService {
      *
      * @param keyUuid             UUID of the cryptographic key
      * @param tokenProfileUuid    UUID of the token profile
-     * @param csrAttributes       CSR generation attributes
+     * @param principal           X500 Principal
      * @param signatureAttributes Signature attributes
      * @return Base64 encoded CSR string
      * @throws NotFoundException        When the key or token profile is not found
@@ -154,7 +155,7 @@ public interface CryptographicOperationService {
     String generateCsr(
             UUID keyUuid,
             UUID tokenProfileUuid,
-            List<RequestAttributeDto> csrAttributes,
+            X500Principal principal,
             List<RequestAttributeDto> signatureAttributes
     ) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException;
 }
