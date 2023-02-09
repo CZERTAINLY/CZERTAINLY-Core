@@ -83,7 +83,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "subject_alternative_names")
     private String subjectAlternativeNames;
 
-    @ManyToOne()
+    @ManyToOne
     @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
 
@@ -141,7 +141,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "csr", length = Integer.MAX_VALUE)
     private String csr;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "key_uuid", insertable = false, updatable = false)
     private CryptographicKey key;
 

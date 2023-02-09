@@ -355,8 +355,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         // Check if the CSR is uploaded for the renewal
         if (request.getPkcs10() != null) {
             csr = request.getPkcs10();
-            validatePublicKeyForCsrAndCertificate(oldCertificate.getCertificateContent().getContent(), csr, false);
-            validateSubjectDnForCertificate(oldCertificate.getCertificateContent().getContent(), csr);
+            String certificateContent = oldCertificate.getCertificateContent().getContent();
+            validatePublicKeyForCsrAndCertificate(certificateContent, csr, false);
+            validateSubjectDnForCertificate(certificateContent, csr);
             keyUuid = null;
         }else {
             keyUuid = existingKeyValidation(request.getKeyUuid(), request.getSignatureAttributes(), oldCertificate);
@@ -585,7 +586,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     )
             );
         }
-        return certificate.getKey().getTokenProfile().getUuid();
+        return tokenProfileUuid != null ? tokenProfileUuid : certificate.getKey().getTokenProfile().getUuid();
     }
 
     /**
