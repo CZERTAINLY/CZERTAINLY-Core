@@ -48,6 +48,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -175,7 +176,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             csr = generateCsr(
                     request.getKeyUuid(),
                     request.getTokenProfileUuid(),
-                    request.getCsrAttributes(),
+                    CsrUtil.buildSubject(request.getCsrAttributes()),
                     request.getSignatureAttributes()
             );
         }
@@ -251,7 +252,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         // Check if the CSR is uploaded for the renewal
         if (request.getPkcs10() != null) {
             csr = request.getPkcs10();
-            validatePublicKeyForCsrAndCertificate(oldCertificate.getCertificateContent().getContent(), csr);
+            validatePublicKeyForCsrAndCertificate(oldCertificate.getCertificateContent().getContent(), csr, true);
             keyUuid = null;
         } else {
             // Check if the request is for using the existing CSR
@@ -348,17 +349,19 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         String pkcs10;
         String csr = null;
         UUID keyUuid = oldCertificate.getKeyUuid();
-        List<DataAttribute> merged = null;
         List<RequestAttributeDto> signatureAttributes = null;
 
         // CSR decision making
         // Check if the CSR is uploaded for the renewal
         if (request.getPkcs10() != null) {
             csr = request.getPkcs10();
+            validatePublicKeyForCsrAndCertificate(oldCertificate.getCertificateContent().getContent(), csr, false);
+            validateSubjectDnForCertificate(oldCertificate.getCertificateContent().getContent(), csr);
             keyUuid = null;
         }else {
-            merged = getExistingCsrAttributes(request.getCsrAttributes(), oldCertificate);
             keyUuid = existingKeyValidation(request.getKeyUuid(), request.getSignatureAttributes(), oldCertificate);
+            X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
+            X500Principal principal = x509Certificate.getSubjectX500Principal();
             // Gather the signature attributes either provided in the request or get it from the old certificate
             signatureAttributes = request.getSignatureAttributes() != null
                     ? request.getSignatureAttributes()
@@ -366,7 +369,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             csr = generateCsr(
                     keyUuid,
                     getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
-                    AttributeDefinitionUtils.getClientAttributes(merged),
+                    principal,
                     signatureAttributes
             );
         }
@@ -399,7 +402,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     caResponse.getMeta(),
                     csr,
                     keyUuid,
-                    merged,
+                    null,
                     signatureAttributes
 
             );
@@ -637,18 +640,18 @@ public class ClientOperationServiceImpl implements ClientOperationService {
      *
      * @param keyUuid             UUID of the key
      * @param tokenProfileUuid    Token profile UUID
-     * @param csrAttributes       CSR attributes
+     * @param principal       X500 Principal
      * @param signatureAttributes Signature attributes
      * @return Base64 encoded CSR string
      * @throws NotFoundException When the key or tokenProfile UUID is not found
      */
-    private String generateCsr(UUID keyUuid, UUID tokenProfileUuid, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> signatureAttributes) throws NotFoundException {
+    private String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes) throws NotFoundException {
         try {
             // Generate the CSR with the above-mentioned information
             return cryptographicOperationService.generateCsr(
                     keyUuid,
                     tokenProfileUuid,
-                    csrAttributes,
+                    principal,
                     signatureAttributes
             );
         } catch (InvalidKeySpecException | IOException | NoSuchAlgorithmException e) {
@@ -701,17 +704,37 @@ public class ClientOperationServiceImpl implements ClientOperationService {
      * @param certificateContent Certificate Content
      * @param csr CSR
      */
-    private void validatePublicKeyForCsrAndCertificate(String certificateContent, String csr) {
+    private void validatePublicKeyForCsrAndCertificate(String certificateContent, String csr, boolean shouldMatch) {
         try {
             X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
             JcaPKCS10CertificationRequest csrObject = parseCsrToJcaObject(csr);
-            if(!Arrays.equals(certificate.getPublicKey().getEncoded(), csrObject.getPublicKey().getEncoded())) {
+            if(shouldMatch && !Arrays.equals(certificate.getPublicKey().getEncoded(), csrObject.getPublicKey().getEncoded())) {
                 throw new Exception("Public key of certificate and CSR does not match");
+            }
+            if(!shouldMatch && Arrays.equals(certificate.getPublicKey().getEncoded(), csrObject.getPublicKey().getEncoded())) {
+                throw new Exception("Public key of certificate and CSR are same");
             }
         } catch (Exception e){
             throw new ValidationException(
                     ValidationError.create(
                             "Unable to validate the public key of CSR and certificate. Error: " + e.getMessage()
+                    )
+            );
+        }
+    }
+
+
+    private void validateSubjectDnForCertificate(String certificateContent, String csr) {
+        try {
+            X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
+            JcaPKCS10CertificationRequest csrObject = parseCsrToJcaObject(csr);
+            if(!certificate.getSubjectX500Principal().getName().equals(csrObject.getSubject().toString())) {
+                throw new Exception("Subject DN of certificate and CSR does not match");
+            }
+        } catch (Exception e){
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Unable to validate the Subject DN of CSR and certificate. Error: " + e.getMessage()
                     )
             );
         }
