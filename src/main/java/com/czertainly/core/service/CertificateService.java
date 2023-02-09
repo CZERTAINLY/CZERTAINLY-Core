@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.core.certificate.CertificateContentDto;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.certificate.CertificateValidationDto;
@@ -204,4 +205,11 @@ public interface CertificateService extends ResourceExtensionService  {
      * @throws NotFoundException
      */
     void updateCertificateKeys(UUID keyUuid, String publicKeyFingerprint);
+
+    /**
+     * Get the list of the certificate contents for the provided certificate UUIDs
+     * @param uuids UUIDs of the certificate
+     * @return List of certificate contents
+     */
+    List<CertificateContentDto> getCertificateContent(List<String> uuids);
 }

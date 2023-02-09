@@ -241,7 +241,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setCommonName(commonName);
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
-        dto.setCertificateContent(certificateContent.getContent());
         dto.setIssuerDn(issuerDn);
         dto.setSubjectDn(subjectDn);
         dto.setNotBefore(notBefore);

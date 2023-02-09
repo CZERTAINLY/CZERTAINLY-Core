@@ -751,6 +751,28 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST)
+    public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
+        List<CertificateContentDto> response = new ArrayList<>();
+        for(String uuid: uuids) {
+            try {
+                SecuredUUID securedUUID = SecuredUUID.fromString(uuid);
+                permissionEvaluator.certificate(securedUUID);
+                Certificate certificate = getCertificateEntity(securedUUID);
+                CertificateContentDto dto = new CertificateContentDto();
+                dto.setUuid(uuid);
+                dto.setCommonName(certificate.getCommonName());
+                dto.setSerialNumber(certificate.getSerialNumber());
+                dto.setCertificateContent(certificate.getCertificateContent().getContent());
+                response.add(dto);
+            } catch (Exception e) {
+                logger.error("Unable to get the certificate content {}. Exception: ",uuid, e.getMessage());
+            }
+        }
+        return response;
+    }
+
     private String getExpiryTime(Date now, Date expiry) {
         long diffInMillies = expiry.getTime() - now.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
