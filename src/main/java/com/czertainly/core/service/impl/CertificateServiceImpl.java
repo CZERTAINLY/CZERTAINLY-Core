@@ -867,7 +867,7 @@ public class CertificateServiceImpl implements CertificateService {
                             filter, null,
                             p, (root, cb) -> cb.desc(root.get("created")))
                     .stream()
-                    .map(Certificate::mapToDto)
+                    .map(Certificate::mapToListDto)
                     .collect(Collectors.toList()
                     )
             );
