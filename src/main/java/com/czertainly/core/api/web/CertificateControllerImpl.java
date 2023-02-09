@@ -139,4 +139,9 @@ public class CertificateControllerImpl implements CertificateController {
 		return certificateService.getCsrGenerationAttributes();
 	}
 
+	@Override
+	public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
+		return certificateService.getCertificateContent(uuids);
+	}
+
 }

@@ -615,8 +615,20 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new ValidationException(
                     "Certificate does not have private key or private key is in incorrect state"
             );
+        } else if(keyUuid != null && keyUuid.equals(certificate.getKeyUuid())) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Operation not permitted. Cannot use same key to rekey certificate"
+                    )
+            );
+        } else if (keyUuid != null){
+            return keyUuid;
         } else {
-            return keyUuid != null ? keyUuid : certificate.getKeyUuid();
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Invalid key information"
+                    )
+            );
         }
     }
 
