@@ -3,14 +3,14 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.interfaces.core.web.EntityInstanceController;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.EntityInstanceService;
@@ -68,7 +68,7 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     }
 
     @Override
-    public List<AttributeDefinition> listLocationAttributes(String entityUuid) throws ConnectorException {
+    public List<BaseAttribute> listLocationAttributes(String entityUuid) throws ConnectorException {
         return entityInstanceService.listLocationAttributes(SecuredUUID.fromString(entityUuid));
     }
 

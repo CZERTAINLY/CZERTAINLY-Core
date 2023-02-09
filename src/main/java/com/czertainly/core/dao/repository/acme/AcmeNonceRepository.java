@@ -4,7 +4,7 @@ import com.czertainly.core.dao.entity.acme.AcmeNonce;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import org.springframework.stereotype.Repository;
 
-import javax.transaction.Transactional;
+import jakarta.transaction.Transactional;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;

@@ -3,15 +3,10 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.util.DtoMapper;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
@@ -29,10 +24,10 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
     @Enumerated(EnumType.STRING)
     private FunctionGroupCode code;
 
-    @OneToMany(mappedBy = "functionGroup")
+    @OneToMany(fetch = FetchType.EAGER, mappedBy = "functionGroup")
     private Set<Endpoint> endpoints = new HashSet<>();
 
-    @OneToMany(mappedBy = "functionGroup")
+    @OneToMany(fetch = FetchType.EAGER, mappedBy = "functionGroup")
     private Set<Connector2FunctionGroup> connectors = new HashSet<>();
 
     public String getName() {

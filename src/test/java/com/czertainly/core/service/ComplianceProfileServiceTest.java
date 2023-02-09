@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestD
 import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
 import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
@@ -358,5 +359,11 @@ public class ComplianceProfileServiceTest extends BaseSpringBootTest {
     @Test
     public void getComplianceGroupsTest_Invalid() throws NotFoundException {
         Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceGroups("abfbc322-29e1-11ed-a261-0242ac120002", null));
+    }
+
+    @Test
+    public void testGetObjectsForResource() {
+        List<NameAndUuidDto> dtos = complianceProfileService.listResourceObjects(SecurityFilter.create());
+        Assertions.assertEquals(1, dtos.size());
     }
 }

@@ -2,12 +2,12 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
-import com.czertainly.api.model.common.attribute.content.JsonAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
 
 import java.util.List;
 
 public interface CoreCallbackService {
 
-    List<JsonAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws NotFoundException, ValidationException;
+    List<ObjectAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws NotFoundException, ValidationException;
 }

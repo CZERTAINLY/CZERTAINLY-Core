@@ -9,7 +9,7 @@ import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -18,7 +18,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import java.util.List;
 import java.util.Optional;
 
-public interface LocationService {
+public interface LocationService extends ResourceExtensionService {
 
     /**
      * List all locations.
@@ -94,7 +94,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the push Attributes failed to be retrieved from the Location.
      */
-    List<AttributeDefinition> listPushAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException;
+    List<BaseAttribute> listPushAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException;
 
     /**
      * List all issue Attributes for the given Location.
@@ -105,7 +105,7 @@ public interface LocationService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the issue Attributes failed to be retrieved from the Location.
      */
-    List<AttributeDefinition> listCsrAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException;
+    List<BaseAttribute> listCsrAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException;
 
     /**
      * Remove existing Certificate from the given Location.

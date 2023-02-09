@@ -5,10 +5,10 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationStatusEnum;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.util.DtoMapper;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.util.UUID;
 

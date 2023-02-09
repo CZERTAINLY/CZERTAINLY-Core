@@ -1,20 +1,22 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Table;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "certificate_group")
-public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto> {
+@Table(name = "certificate_key_group")
+public class Group extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     /**
      *
@@ -53,6 +55,11 @@ public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Se
     }
 
     @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
+    }
+
+    @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("name", name)
@@ -65,7 +72,7 @@ public class CertificateGroup extends UniquelyIdentifiedAndAudited implements Se
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        CertificateGroup that = (CertificateGroup) o;
+        Group that = (Group) o;
         return new EqualsBuilder().append(uuid, that.uuid).isEquals();
     }
 

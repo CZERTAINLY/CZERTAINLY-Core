@@ -1,16 +1,10 @@
 package com.czertainly.core.api.v2.client;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.client.v2.ClientOperationController;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
-import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
-import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
-import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
-import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -28,7 +22,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     private ClientOperationService clientOperationService;
 
     @Override
-    public List<AttributeDefinition> listIssueCertificateAttributes(
+    public List<BaseAttribute> listIssueCertificateAttributes(
             String authorityUuid,
             String raProfileUuid) throws ConnectorException {
         return clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
@@ -60,7 +54,22 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    public List<AttributeDefinition> listRevokeCertificateAttributes(
+    public ClientCertificateDataResponseDto rekeyCertificate(
+            String authorityUuid,
+            String raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRekeyRequestDto request)
+            throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+        return clientOperationService.rekeyCertificate(
+                SecuredParentUUID.fromString(authorityUuid),
+                SecuredUUID.fromString(raProfileUuid),
+                certificateUuid,
+                request
+        );
+    }
+
+    @Override
+    public List<BaseAttribute> listRevokeCertificateAttributes(
             String authorityUuid,
             String raProfileUuid) throws ConnectorException {
         return clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));

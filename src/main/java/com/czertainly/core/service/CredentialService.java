@@ -7,28 +7,25 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.AttributeCallback;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeCallback;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.credential.CredentialDto;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface CredentialService {
+public interface CredentialService extends ResourceExtensionService {
     List<CredentialDto> listCredentials(SecurityFilter filter);
 
     List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) throws NotFoundException;
 
     CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException;
 
-    CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
+    CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException;
 
-    CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException;
+    CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException;
 
     void deleteCredential(SecuredUUID uuid) throws NotFoundException;
 
@@ -38,8 +35,7 @@ public interface CredentialService {
 
     void bulkDeleteCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 
-    void loadFullCredentialData(List<AttributeDefinition> attributes) throws NotFoundException;
+    void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException;
 
-    @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     void loadFullCredentialData(AttributeCallback callback, RequestAttributeCallback callbackRequest) throws NotFoundException;
 }

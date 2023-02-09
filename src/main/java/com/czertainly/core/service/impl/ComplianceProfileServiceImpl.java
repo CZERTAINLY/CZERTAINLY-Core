@@ -1,17 +1,15 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
@@ -22,27 +20,19 @@ import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.ComplianceGroupRepository;
-import com.czertainly.core.dao.repository.ComplianceProfileRepository;
-import com.czertainly.core.dao.repository.ComplianceProfileRuleRepository;
-import com.czertainly.core.dao.repository.ComplianceRuleRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.ComplianceProfileService;
-import com.czertainly.core.service.ComplianceService;
-import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.transaction.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -76,6 +66,9 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Autowired
     private CertificateService certificateService;
 
+    @Autowired
+    private AttributeService attributeService;
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
@@ -90,7 +83,9 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.info("Requesting Compliance Profile details for: {}", uuid);
         ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
         logger.debug("Compliance Profile: {}", complianceProfile);
-        return complianceProfile.mapToDto();
+        ComplianceProfileDto dto = complianceProfile.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.COMPLIANCE_PROFILE));
+        return dto;
     }
 
     @Override
@@ -109,13 +104,17 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             logger.error("Compliance Profile with same name already exists");
             throw new AlreadyExistException(ComplianceProfile.class, request.getName());
         }
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.COMPLIANCE_PROFILE);
         ComplianceProfile complianceProfile = addComplianceEntity(request);
+        attributeService.createAttributeContent(complianceProfile.getUuid(), request.getCustomAttributes(), Resource.COMPLIANCE_PROFILE);
         logger.debug("Compliance Entity: {}", complianceProfile);
         if (request.getRules() != null && !request.getRules().isEmpty()) {
             logger.info("Rules are not empty in the request. Adding them to the profile");
             addRulesForConnector(request.getRules(), complianceProfile);
         }
-        return complianceProfile.mapToDto();
+        ComplianceProfileDto dto = complianceProfile.mapToDto();
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(complianceProfile.getUuid(), Resource.COMPLIANCE_PROFILE));
+        return dto;
     }
 
     @Override
@@ -471,6 +470,22 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         }
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return complianceProfileRepository.findUsingSecurityFilter(filter)
+                .stream()
+                .map(ComplianceProfile::mapToAccessControlObjects)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getComplianceProfileEntity(uuid);
+        // Since there are is no parent to the Compliance Profile, exclusive parent permission evaluation need not be done
+    }
+
     private ComplianceProfile addComplianceEntity(ComplianceProfileRequestDto request) {
         logger.debug("Adding compliance entity for: {}", request);
         ComplianceProfile complianceProfile = new ComplianceProfile();
@@ -512,7 +527,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             if (attributes != null) {
                 AttributeDefinitionUtils.validateAttributes(complianceRule.getAttributes(), attributes);
             } else {
-                throw new ValidationException("Attributes are not provided for rule with name " + complianceRule.getName());
+                throw new ValidationException(ValidationError.create("Attributes are not provided for rule with name " + complianceRule.getName()));
             }
         }
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
@@ -613,6 +628,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 throw new ValidationException(error);
             }
         }
+        attributeService.deleteAttributeContent(complianceProfile.getUuid(), Resource.COMPLIANCE_PROFILE);
         complianceProfileRepository.delete(complianceProfile);
     }
 }

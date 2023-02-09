@@ -2,14 +2,10 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.discovery.DiscoveryCertificatesDto;
 import com.czertainly.core.util.DtoMapper;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.OneToOne;
-import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.UUID;
@@ -37,14 +33,14 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     @Column(name = "not_after")
     private Date notAfter;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "certificate_content_id", nullable = false, insertable = false, updatable = false)
     private CertificateContent certificateContent;
 
     @Column(name = "certificate_content_id", nullable = false)
-    private Long certificateContentId ;
+    private Long certificateContentId;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "discovery_uuid", nullable = false, insertable = false, updatable = false)
     private DiscoveryHistory discovery;
 
@@ -62,6 +58,14 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
         dto.setNotAfter(notAfter);
         dto.setCertificateContent(certificateContent.getContent());
         dto.setFingerprint(certificateContent.getFingerprint());
+        // Certificate Inventory UUID can be obtained from the content table since it has relation to the certificate.
+        // If the certificate is deleted from the inventory and the history is not deleted, then the content remains and
+        // the certificate becomes null. Also, the Certificate Content is unique for each certificate and the certificate
+        // inventory does not contain duplicate data. Hence, a single content will be mapped to a single certificate using
+        // One-to-One relation
+        if (certificateContent.getCertificate() != null) {
+            dto.setInventoryUuid(certificateContent.getCertificate().getUuid().toString());
+        }
         return dto;
     }
 

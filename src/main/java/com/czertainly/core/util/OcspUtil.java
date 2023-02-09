@@ -24,11 +24,7 @@ import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -144,7 +140,6 @@ public class OcspUtil {
 	
 	private static OCSPReq generateOCSPRequest(X509Certificate issuerCert, BigInteger serialNumber)
 			throws OCSPException, IOException, OperatorException, CertificateEncodingException {
-		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
 		JcaDigestCalculatorProviderBuilder digestCalculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
 		DigestCalculatorProvider digestCalculatorProvider = digestCalculatorProviderBuilder.build();
 		DigestCalculator digestCalculator = digestCalculatorProvider.get(CertificateID.HASH_SHA1);
