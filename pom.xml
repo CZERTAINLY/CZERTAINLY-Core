@@ -27,6 +27,7 @@
         <dependency>
             <groupId>com.czertainly</groupId>
             <artifactId>interfaces</artifactId>
+            <version>1.6.0</version>
         </dependency>
 
         <!-- Spring  -->
