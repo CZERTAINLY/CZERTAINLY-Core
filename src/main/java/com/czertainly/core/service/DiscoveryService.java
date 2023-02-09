@@ -4,17 +4,18 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
-import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface DiscoveryService {
+public interface DiscoveryService extends ResourceExtensionService {
 
     List<DiscoveryHistoryDto> listDiscoveries(SecurityFilter filter);
-    DiscoveryHistoryDto getDiscovery(SecuredUUID uuid) throws NotFoundException;
+    DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException;
     DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException;
 
     void createDiscovery(DiscoveryDto request, DiscoveryHistory modal) throws AlreadyExistException, NotFoundException, ConnectorException;

@@ -1,5 +1,7 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -7,13 +9,14 @@ import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
@@ -21,7 +24,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "connector")
-public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ConnectorDto> {
+public class Connector extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ConnectorDto>, ObjectAccessControlMapper<NameAndUuidDto> {
     private static final long serialVersionUID = -4057975339123024975L;
 
     @Column(name = "name")
@@ -33,8 +36,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "auth_type")
     @Enumerated(EnumType.STRING)
     private AuthType authType;
-
-    @Basic(fetch = FetchType.LAZY)
+    
     @Column(name = "auth_attributes")
     private String authAttributes;
 
@@ -42,7 +44,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Enumerated(EnumType.STRING)
     private ConnectorStatus status;
 
-    @OneToMany(mappedBy = "connector")
+    @OneToMany(fetch = FetchType.EAGER, mappedBy = "connector")
     private Set<Connector2FunctionGroup> functionGroups = new HashSet<>();
 
     @OneToMany(mappedBy = "connectorUuid")
@@ -56,6 +58,18 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @OneToMany(mappedBy = "connector")
     @JsonIgnore
     private Set<EntityInstanceReference> entityInstanceReferences = new HashSet<>();
+
+    @OneToMany(mappedBy = "connectorUuid")
+    @JsonIgnore
+    private Set<TokenInstanceReference> tokenInstanceReferences = new HashSet<>();
+
+    @OneToMany(mappedBy = "connectorUuid")
+    @JsonIgnore
+    private Set<AttributeDefinition> attributeDefinitions = new HashSet<>();
+
+    @OneToMany(mappedBy = "connectorUuid")
+    @JsonIgnore
+    private Set<AttributeContent2Object> attributeContent2Objects = new HashSet<>();
 
     public String getName() {
         return name;
@@ -125,6 +139,18 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         return entityInstanceReferences;
     }
 
+    public Set<TokenInstanceReference> getTokenInstanceReferences() {
+        return tokenInstanceReferences;
+    }
+
+    public Set<AttributeDefinition> getAttributeDefinitions() {
+        return attributeDefinitions;
+    }
+
+    public Set<AttributeContent2Object> getAttributeContent2Objects() {
+        return attributeContent2Objects;
+    }
+
     @Override
     public ConnectorDto mapToDto() {
         ConnectorDto dto = new ConnectorDto();
@@ -132,7 +158,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setName(this.name);
         dto.setUrl(this.url);
         dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes)));
+        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
         dto.setStatus(this.status);
         dto.setFunctionGroups(this.functionGroups.stream().map(f -> {
             FunctionGroupDto functionGroupDto = f.getFunctionGroup().mapToDto();
@@ -140,6 +166,11 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
             return functionGroupDto;
         }).collect(Collectors.toList()));
         return dto;
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     @Override

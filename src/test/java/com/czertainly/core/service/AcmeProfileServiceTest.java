@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
@@ -178,5 +179,11 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
     public void testBulkDisable() throws NotFoundException {
         acmeProfileService.bulkDisableAcmeProfile(List.of(acmeProfile.getSecuredUuid()));
         Assertions.assertEquals(false, acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()).isEnabled());
+    }
+
+    @Test
+    public void testGetObjectsForResource() {
+        List<NameAndUuidDto> dtos = acmeProfileService.listResourceObjects(SecurityFilter.create());
+        Assertions.assertEquals(1, dtos.size());
     }
 }

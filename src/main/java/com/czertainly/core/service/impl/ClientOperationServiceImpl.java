@@ -15,9 +15,10 @@ import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AddEndEntityRequestDto;
 import com.czertainly.api.model.core.authority.CertRevocationDto;
 import com.czertainly.api.model.core.authority.CertificateSignRequestDto;
@@ -28,7 +29,6 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -37,13 +37,13 @@ import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.transaction.Transactional;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -90,7 +90,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         logger.debug("UUID of the certificate is {}", certificate.getUuid());
         logger.debug("UUID of the RA Profile is {}", raProfile.getUuid());
         certificateService.updateCertificateObjects(SecuredUUID.fromString(certificate.getUuid().toString()), dto);
-        certificateService.updateIssuer();
+        certificateService.updateCertificateIssuer(certificate);
         try {
             certValidationService.validate(certificate);
         } catch (Exception e) {
@@ -223,7 +223,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     private String getEndEntityProfileName(RaProfile raProfile) {
-        List<AttributeDefinition> attributes = AttributeDefinitionUtils.deserialize(raProfile.getAttributes());
+        List<DataAttribute> attributes = AttributeDefinitionUtils.deserialize(raProfile.getAttributes(), DataAttribute.class);
         if (attributes == null
                 || !AttributeDefinitionUtils.containsAttributeDefinition("endEntityProfile", attributes)) {
             throw new ValidationException(ValidationError.create("EndEntityProfile not found in attributes"));

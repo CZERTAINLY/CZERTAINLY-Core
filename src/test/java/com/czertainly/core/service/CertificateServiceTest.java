@@ -7,12 +7,12 @@ import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
@@ -54,7 +54,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     private Certificate certificate;
     private CertificateContent certificateContent;
     private RaProfile raProfile;
-    private CertificateGroup certificateGroup;
+    private Group group;
 
     private X509Certificate x509Cert;
 
@@ -75,8 +75,8 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         raProfile = new RaProfile();
         raProfile = raProfileRepository.save(raProfile);
 
-        certificateGroup = new CertificateGroup();
-        certificateGroup = groupRepository.save(certificateGroup);
+        group = new Group();
+        group = groupRepository.save(group);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
@@ -96,7 +96,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetCertificate() throws NotFoundException, CertificateException, IOException {
-        CertificateDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
+        CertificateDetailDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificate.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(certificate.getSerialNumber(), dto.getSerialNumber());
@@ -139,7 +139,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     public void testRevokeCertificate() throws NotFoundException, CertificateException, IOException {
         certificateService.revokeCertificate(certificate.getSerialNumber());
 
-        CertificateDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
+        CertificateDetailDto dto = certificateService.getCertificate(certificate.getSecuredUuid());
 
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificate.getUuid().toString(), dto.getUuid());
@@ -158,16 +158,10 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         UploadCertificateRequestDto request = new UploadCertificateRequestDto();
         request.setCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
 
-        CertificateDto dto = certificateService.upload(request);
+        CertificateDetailDto dto = certificateService.upload(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals("CLIENT1", dto.getCommonName());
         Assertions.assertEquals("177e75f42e95ecb98f831eb57de27b0bc8c47643", dto.getSerialNumber());
-    }
-
-    @Test
-    public void testUpdateIssuer() {
-        // TODO: improve test for non self-signed certificates
-        certificateService.updateIssuer();
     }
 
     @Test
@@ -197,17 +191,17 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateCertificateGroup() throws NotFoundException {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid(certificateGroup.getUuid().toString());
+        uuidDto.setGroupUuid(group.getUuid().toString());
 
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
 
-        Assertions.assertEquals(certificateGroup, certificate.getGroup());
+        Assertions.assertEquals(group, certificate.getGroup());
     }
 
     @Test
     public void testUpdateCertificateGroup_certificateNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid(certificateGroup.getUuid().toString());
+        uuidDto.setGroupUuid(group.getUuid().toString());
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), uuidDto));
     }
 

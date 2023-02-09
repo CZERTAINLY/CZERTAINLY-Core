@@ -1,21 +1,19 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
-import com.czertainly.api.model.core.auth.RoleDto;
-import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
-import com.czertainly.api.model.core.auth.UserDetailDto;
-import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.api.model.core.auth.UserRequestDto;
-import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
@@ -25,7 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.transaction.Transactional;
+import jakarta.transaction.Transactional;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -43,6 +41,9 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Autowired
     private CertificateService certificateService;
 
+    @Autowired
+    private AttributeService attributeService;
+
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.LIST)
     public List<UserDto> listUsers() {
@@ -52,15 +53,17 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public UserDetailDto getUser(String userUuid) throws NotFoundException {
-        return userManagementApiClient.getUserDetail(userUuid);
+        UserDetailDto dto = userManagementApiClient.getUserDetail(userUuid);
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(userUuid), Resource.USER));
+        return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.CREATE)
     public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException {
-
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.USER);
         if (StringUtils.isBlank(request.getUsername())) {
-            throw new ValidationException("username must not be empty");
+            throw new ValidationException(ValidationError.create("username must not be empty"));
         }
         UserRequestDto requestDto = new UserRequestDto();
         Certificate certificate = null;
@@ -81,13 +84,18 @@ public class UserManagementServiceImpl implements UserManagementService {
             certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
         }
 
+        attributeService.deleteAttributeContent(UUID.fromString(response.getUuid()), request.getCustomAttributes(), Resource.USER);
+        response.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(response.getUuid()), Resource.USER));
         return response;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
-        return getUserUpdateRequestPayload(userUuid, request, "", "");
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.USER);
+        UserDetailDto dto = getUserUpdateRequestPayload(userUuid, request, "", "");
+        attributeService.updateAttributeContent(UUID.fromString(userUuid), request.getCustomAttributes(), Resource.USER);
+        return dto;
     }
 
     @Override
@@ -101,6 +109,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     public void deleteUser(String userUuid) {
         userManagementApiClient.removeUser(userUuid);
         certificateService.removeCertificateUser(UUID.fromString(userUuid));
+        attributeService.deleteAttributeContent(UUID.fromString(userUuid), Resource.USER);
     }
 
     @Override
@@ -143,6 +152,17 @@ public class UserManagementServiceImpl implements UserManagementService {
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
     public UserDetailDto removeRole(String userUuid, String roleUuid) {
         return userManagementApiClient.removeRole(userUuid, roleUuid);
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return null;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        getUser(uuid.toString());
     }
 
     private Certificate addUserCertificate(String certificateUuid, String certificateData) throws CertificateException, NotFoundException {

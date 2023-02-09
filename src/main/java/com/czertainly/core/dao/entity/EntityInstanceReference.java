@@ -1,19 +1,16 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
@@ -21,7 +18,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "entity_instance_reference")
-public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<EntityInstanceDto> {
+public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<EntityInstanceDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name = "entity_instance_uuid")
     private String entityInstanceUuid;
@@ -111,6 +108,7 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
         this.connectorUuid = connectorUuid;
     }
 
+    @Override
     public EntityInstanceDto mapToDto() {
         EntityInstanceDto dto = new EntityInstanceDto();
         dto.setUuid(this.uuid.toString());
@@ -122,6 +120,11 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
             dto.setConnectorUuid(this.connector.getUuid().toString());
         }
         return dto;
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     @Override

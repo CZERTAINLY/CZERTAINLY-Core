@@ -1,8 +1,9 @@
 package com.czertainly.core.config.logging;
 
 import com.czertainly.core.config.CustomHttpServletResponseWrapper;
-import com.google.common.base.Charsets;
-import com.google.common.io.CharStreams;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.slf4j.Logger;
@@ -13,9 +14,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.ModelAndView;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -29,8 +31,7 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
         if (logger.isDebugEnabled()) {
-            String body = CharStreams.toString(new InputStreamReader(
-                    request.getInputStream(), Charsets.UTF_8));
+            String body = servletInputStreamToString(request.getInputStream());
             ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
                     .append("METHOD", request.getMethod())
                     .append("PATH", request.getRequestURI())
@@ -38,9 +39,9 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
                     .append("REQUEST TYPE", request.getContentType())
                     .append("REQUEST HEADERS", Collections.list(request.getHeaderNames()).stream()
                             .map(r -> r + " : " + request.getHeader(r)).collect(Collectors.toList()));
-                    if(!request.getMethod().equals(HttpMethod.GET.name())) {
-                        debugMessage.append("REQUEST BODY", body);
-                    }
+            if (!request.getMethod().equals(HttpMethod.GET.name())) {
+                debugMessage.append("REQUEST BODY", body);
+            }
             logger.debug("REQUEST DATA: {}", debugMessage);
         }
         return true;
@@ -49,11 +50,11 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
                            @Nullable ModelAndView modelAndView) throws Exception {
-        if(logger.isDebugEnabled()) {
+        if (logger.isDebugEnabled()) {
             String responseBody;
             try {
                 responseBody = getResponseAsString((CustomHttpServletResponseWrapper) response);
-            }catch (ClassCastException e){
+            } catch (ClassCastException e) {
                 responseBody = "";
             }
             List<String> responseHeaders = response.getHeaderNames().stream()
@@ -76,5 +77,16 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
         }
         String responseBody = new String(data);
         return responseBody;
+    }
+
+    private String servletInputStreamToString(ServletInputStream stream) throws IOException {
+        int bufferSize = 1024;
+        char[] buffer = new char[bufferSize];
+        StringBuilder out = new StringBuilder();
+        Reader in = new InputStreamReader(stream, StandardCharsets.UTF_8);
+        for (int numRead; (numRead = in.read(buffer, 0, buffer.length)) > 0; ) {
+            out.append(buffer, 0, numRead);
+        }
+        return out.toString();
     }
 }

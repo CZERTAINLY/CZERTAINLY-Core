@@ -1,8 +1,10 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
+
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
 
 import java.util.List;
@@ -11,25 +13,25 @@ import java.util.Set;
 public interface ConnectorAuthService {
     Set<AuthType> getAuthenticationTypes();
 
-    List<AttributeDefinition> getAuthAttributes(AuthType authenticationType);
+    List<BaseAttribute> getAuthAttributes(AuthType authenticationType);
 
     boolean validateAuthAttributes(AuthType authenticationType, List<RequestAttributeDto> attributes);
 
-    List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttributeDto> attributes);
+    List<DataAttribute> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttributeDto> attributes);
 
-    List<AttributeDefinition> getBasicAuthAttributes();
+    List<BaseAttribute> getBasicAuthAttributes();
 
     Boolean validateBasicAuthAttributes(List<RequestAttributeDto> attributes);
 
-    List<AttributeDefinition> getCertificateAttributes();
+    List<BaseAttribute> getCertificateAttributes();
 
     Boolean validateCertificateAttributes(List<RequestAttributeDto> attributes);
 
-    List<AttributeDefinition> getApiKeyAuthAttributes();
+    List<BaseAttribute> getApiKeyAuthAttributes();
 
     Boolean validateApiKeyAuthAttributes(List<RequestAttributeDto> attributes);
 
-    List<AttributeDefinition> getJWTAuthAttributes();
+    List<BaseAttribute> getJWTAuthAttributes();
 
     Boolean validateJWTAuthAttributes(List<RequestAttributeDto> attributes);
 }

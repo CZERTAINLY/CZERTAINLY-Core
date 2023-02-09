@@ -1,25 +1,26 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.SecretMaskingUtil;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "location")
-public class Location extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<LocationDto> {
+public class Location extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<LocationDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     @Column(name = "name")
     private String name;
@@ -58,9 +59,6 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
     @Column(name = "support_key_mgmt")
     private boolean supportKeyManagement;
 
-    @Column(name = "metadata")
-    private String metadata;
-
     public String getName() {
         return name;
     }
@@ -89,7 +87,11 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         return AttributeDefinitionUtils.deserializeRequestAttributes(this.attributes);
     }
 
-    public void setAttributes(List<AttributeDefinition> attributes) {
+    public List<DataAttribute> getAttributes() {
+        return AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class);
+    }
+
+    public void setAttributes(List<DataAttribute> attributes) {
         this.attributes = AttributeDefinitionUtils.serialize(attributes);
     }
 
@@ -99,7 +101,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     public void setEntityInstanceReference(EntityInstanceReference entityInstanceReference) {
         this.entityInstanceReference = entityInstanceReference;
-        if(entityInstanceReference != null) this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
+        if (entityInstanceReference != null) this.entityInstanceReferenceUuid = entityInstanceReference.getUuid();
         else this.entityInstanceReferenceUuid = null;
     }
 
@@ -135,14 +137,6 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         this.supportKeyManagement = supportKeyManagement;
     }
 
-    public Map<String, Object> getMetadata() {
-        return MetaDefinitions.deserialize(metadata);
-    }
-
-    public void setMetadata(Map<String, Object> metadata) {
-        this.metadata = MetaDefinitions.serialize(metadata);
-    }
-
     public UUID getEntityInstanceReferenceUuid() {
         return entityInstanceReferenceUuid;
     }
@@ -162,32 +156,34 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes)));
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class)));
         dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
         dto.setSupportKeyManagement(supportKeyManagement);
-        dto.setMetadata(MetaDefinitions.deserialize(metadata));
-
         List<CertificateInLocationDto> cilDtoList = new ArrayList<>();
 
         List<CertificateLocation> orderedList = certificates.stream().sorted(Comparator.comparing(CertificateLocation::getCreated).reversed()).collect(Collectors.toList());
         for (CertificateLocation certificateLocation : orderedList) {
             CertificateInLocationDto cilDto = new CertificateInLocationDto();
-            cilDto.setMetadata(certificateLocation.getMetadata());
             cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
             cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid().toString());
             cilDto.setWithKey(certificateLocation.isWithKey());
-            cilDto.setPushAttributes(AttributeDefinitionUtils.getClientAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getPushAttributes()))));
-            cilDto.setCsrAttributes(AttributeDefinitionUtils.getClientAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getCsrAttributes()))));
+            cilDto.setPushAttributes(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getPushAttributes()));
+            cilDto.setCsrAttributes(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getCsrAttributes()));
 
             cilDtoList.add(cilDto);
         }
         dto.setCertificates(cilDtoList);
 
         return dto;
+    }
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     public LocationDto mapToDtoSimple() {
@@ -200,8 +196,9 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setEnabled(enabled);
         dto.setSupportMultipleEntries(supportMultipleEntries);
         dto.setSupportKeyManagement(supportKeyManagement);
-        dto.setMetadata(MetaDefinitions.deserialize(metadata));
-
+        //TODO - Create a new DTO for the list location operation. Has to be done when creating the objects for other
+        // similar operation
+        dto.setCertificates(List.of());
         return dto;
     }
 

@@ -1,8 +1,8 @@
 package com.czertainly.core.dao.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 
-import javax.persistence.*;
 import java.util.UUID;
 
 @Entity

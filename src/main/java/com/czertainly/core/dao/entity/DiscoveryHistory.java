@@ -1,31 +1,27 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.SecretMaskingUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.OneToMany;
-import javax.persistence.Table;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "discovery_history")
-public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryHistoryDto> {
+public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryHistoryDetailDto> {
 
     /**
      *
@@ -56,9 +52,6 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
 
     @Column(name = "total_certificates_discovered")
     private Integer totalCertificatesDiscovered;
-
-    @Column(name = "meta")
-    private String meta;
 
     @Column(name = "connector_uuid")
     private UUID connectorUuid;
@@ -148,14 +141,6 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         this.attributes = attributes;
     }
 
-    public String getMeta() {
-        return meta;
-    }
-
-    public void setMeta(String meta) {
-        this.meta = meta;
-    }
-
     public String getKind() {
         return kind;
     }
@@ -189,20 +174,34 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
     }
 
     @Override
-    public DiscoveryHistoryDto mapToDto() {
+    public DiscoveryHistoryDetailDto mapToDto() {
+        DiscoveryHistoryDetailDto dto = new DiscoveryHistoryDetailDto();
+        dto.setUuid(uuid.toString());
+        dto.setName(name);
+        dto.setEndTime(endTime);
+        dto.setStartTime(startTime);
+        dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
+        dto.setStatus(status);
+        dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
+        dto.setConnectorUuid(connectorUuid.toString());
+        List<DataAttribute> a = AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class);
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(a));
+        dto.setKind(kind);
+        dto.setMessage(message);
+        dto.setConnectorName(connectorName);
+        return dto;
+    }
+
+    public DiscoveryHistoryDto mapToListDto() {
         DiscoveryHistoryDto dto = new DiscoveryHistoryDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setEndTime(endTime);
         dto.setStartTime(startTime);
-        dto.setMeta(MetaDefinitions.deserialize(meta));
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
-        dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
         dto.setConnectorUuid(connectorUuid.toString());
-        dto.setAttributes(SecretMaskingUtil.maskSecret(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(attributes))));
         dto.setKind(kind);
-        dto.setMessage(message);
         dto.setConnectorName(connectorName);
         return dto;
     }

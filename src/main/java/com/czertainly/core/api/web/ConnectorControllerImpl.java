@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ConnectorController;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
@@ -12,18 +13,22 @@ import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.util.converter.ConnectorStatusConverter;
+import com.czertainly.core.util.converter.FunctionGroupCodeConverter;
+import com.czertainly.core.util.converter.OptionalEnumConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -40,6 +45,13 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Autowired
     private ConnectorService connectorService;
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(FunctionGroupCode.class, new FunctionGroupCodeConverter());
+        webdataBinder.registerCustomEditor(ConnectorStatusConverter.class, new ConnectorStatusConverter());
+        webdataBinder.registerCustomEditor(Optional.class, new OptionalEnumConverter());
+    }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CONNECTOR)
@@ -109,10 +121,10 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    public List<AttributeDefinition> getAttributes(@PathVariable String uuid,
-                                                   @PathVariable String functionGroup,
-                                                   @PathVariable String kind) throws NotFoundException, ConnectorException {
-        return connectorService.getAttributes(SecuredUUID.fromString(uuid), FunctionGroupCode.findByCode(functionGroup), kind);
+    public List<BaseAttribute> getAttributes(@PathVariable String uuid,
+                                             @PathVariable FunctionGroupCode functionGroup,
+                                             @PathVariable String kind) throws NotFoundException, ConnectorException {
+        return connectorService.getAttributes(SecuredUUID.fromString(uuid), functionGroup, kind);
     }
 
     @Override
@@ -126,7 +138,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
 	@Override
-	public Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAttributesAll(String uuid) throws NotFoundException, ConnectorException {
+	public Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAttributesAll(String uuid) throws NotFoundException, ConnectorException {
 		return connectorService.getAllAttributesOfConnector(SecuredUUID.fromString(uuid));
 	}
 

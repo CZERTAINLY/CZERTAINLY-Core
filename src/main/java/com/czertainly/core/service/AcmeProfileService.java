@@ -14,13 +14,14 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface AcmeProfileService {
+public interface AcmeProfileService extends ResourceExtensionService {
 
     List<AcmeProfileListDto> listAcmeProfile(SecurityFilter filter);
 
     AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException;
 
     AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
+
     AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException;
 
     void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;

@@ -6,10 +6,10 @@ import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
-import javax.persistence.*;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.UUID;

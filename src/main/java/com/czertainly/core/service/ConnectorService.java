@@ -4,20 +4,18 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -26,13 +24,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public interface ConnectorService {
-    
-    Map<FunctionGroupCode, Map<String, List<AttributeDefinition>>> getAllAttributesOfConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;
+public interface ConnectorService extends ResourceExtensionService {
+
+    Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException;
 
     List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) throws NotFoundException;
 
-    ConnectorDto getConnector(SecuredUUID uuid) throws NotFoundException, ConnectorException;
+    ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException;
 
     Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException;
 
@@ -50,20 +48,19 @@ public interface ConnectorService {
 
     List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException;
 
-    List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, NotFoundException, ConnectorException;
+    List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, ConnectorException;
 
-    void reconnect(List<SecuredUUID> uuids) throws ValidationException, NotFoundException, ConnectorException;
+    void reconnect(List<SecuredUUID> uuids) throws ValidationException, ConnectorException;
 
     void approve(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
-    HealthDto checkHealth(SecuredUUID uuid) throws NotFoundException, ConnectorException;
+    HealthDto checkHealth(SecuredUUID uuid) throws ConnectorException;
 
-    List<AttributeDefinition> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws NotFoundException, ConnectorException;
+    List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException;
 
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
-    void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ValidationException, ConnectorException;
+    void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException;
 
-    List<AttributeDefinition> mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws NotFoundException, ConnectorException;
+    List<DataAttribute> mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ConnectorException;
 
     List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 

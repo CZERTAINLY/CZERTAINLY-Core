@@ -18,7 +18,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import java.util.List;
 import java.util.Set;
 
-public interface ComplianceProfileService {
+public interface ComplianceProfileService extends ResourceExtensionService {
     /**
      * List of all Compliance Profiles available in the system
      *

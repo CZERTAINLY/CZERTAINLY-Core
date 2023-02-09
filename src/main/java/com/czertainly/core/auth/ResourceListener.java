@@ -1,6 +1,6 @@
 package com.czertainly.core.auth;
 
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceSyncRequestDto;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import org.slf4j.Logger;
@@ -13,12 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Component
 public class ResourceListener {
@@ -65,7 +60,7 @@ public class ResourceListener {
         for(Map.Entry<Resource, Set<String>> entry: resourceToAction.entrySet()) {
             ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
             requestDto.setActions(new ArrayList<>(entry.getValue()));
-            requestDto.setName(entry.getKey());
+            requestDto.setName(com.czertainly.core.model.auth.Resource.findByCode(entry.getKey().getCode()));
             requestDto.setListObjectsEndpoint(listingEndpoints.get(entry.getKey()));
             resources.add(requestDto);
         }

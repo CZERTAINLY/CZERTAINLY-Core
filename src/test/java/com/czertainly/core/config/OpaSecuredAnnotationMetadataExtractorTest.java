@@ -1,6 +1,6 @@
 package com.czertainly.core.config;
 
-import com.czertainly.core.model.auth.Resource;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.ExternalAuthorizationConfigAttribute;
@@ -21,20 +21,20 @@ class OpaSecuredAnnotationMetadataExtractorTest {
     @Test
     void extractsResourceAndAction() {
         // given
-        ExternalAuthorization externalAuthorization = new TestExternalAuthorization(Resource.CERTIFICATE_GROUP, ResourceAction.DELETE, NoOpParentUUIDGetter.class);
+        ExternalAuthorization externalAuthorization = new TestExternalAuthorization(Resource.GROUP, ResourceAction.DELETE, NoOpParentUUIDGetter.class);
 
         // when
         Collection<ExternalAuthorizationConfigAttribute> attributes = metadataExtractor.extractAttributes(externalAuthorization);
 
         // then
-        assertAttributePresent("name", Resource.CERTIFICATE_GROUP.getCode(), attributes);
+        assertAttributePresent("name", Resource.GROUP.getCode(), attributes);
         assertAttributePresent("action", ResourceAction.DELETE.getCode(), attributes);
     }
 
     @Test
     void doesNotExtractUUIDGetterWhenNoOpImplementationIsUsed() {
         // given
-        ExternalAuthorization externalAuthorization = new TestExternalAuthorization(Resource.CERTIFICATE_GROUP, ResourceAction.DELETE, NoOpParentUUIDGetter.class);
+        ExternalAuthorization externalAuthorization = new TestExternalAuthorization(Resource.GROUP, ResourceAction.DELETE, NoOpParentUUIDGetter.class);
 
         // when
         Collection<ExternalAuthorizationConfigAttribute> attributes = metadataExtractor.extractAttributes(externalAuthorization);
@@ -46,7 +46,7 @@ class OpaSecuredAnnotationMetadataExtractorTest {
     @Test
     void ExtractsUUIDGetterWhenOtherImplementationThanNoOpIsUsed() {
         // given
-        ExternalAuthorization externalAuthorization = new TestExternalAuthorization(Resource.CERTIFICATE_GROUP, ResourceAction.DELETE, GroupParentUUIDGetter.class);
+        ExternalAuthorization externalAuthorization = new TestExternalAuthorization(Resource.GROUP, ResourceAction.DELETE, GroupParentUUIDGetter.class);
 
         // when
         Collection<ExternalAuthorizationConfigAttribute> attributes = metadataExtractor.extractAttributes(externalAuthorization);

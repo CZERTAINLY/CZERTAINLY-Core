@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.entity.Location;
 import org.springframework.stereotype.Repository;
 
@@ -14,7 +15,7 @@ public interface LocationRepository extends SecurityFilterRepository<Location, L
 
     Optional<Location> findByName(String name);
 
-    List<Location> findByEnabled(Boolean isEnabled);
+    List<Location> findByEntityInstanceReference(EntityInstanceReference entityInstanceReference);
 
     Optional<Location> findByUuidAndEnabledIsTrue(UUID uuid);
 

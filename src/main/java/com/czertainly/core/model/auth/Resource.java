@@ -29,17 +29,25 @@ public enum Resource {
     AUTHORITY("authorities"),
     RA_PROFILE("raProfiles"),
     CERTIFICATE("certificates"),
-    CERTIFICATE_GROUP("certificateGroups"),
+    GROUP("groups"),
     COMPLIANCE_PROFILE("complianceProfiles"),
     DISCOVERY("discoveries"),
 
     // ENTITIES
     ENTITY("entities"),
-    LOCATION("locations");
+    LOCATION("locations"),
+
+    //CRYPTOGRAPHY
+    TOKEN_PROFILE("tokenProfiles"),
+    TOKEN("tokens"),
+    CRYPTOGRAPHIC_KEY("keys"),
+
+    ATTRIBUTE("attributes");
+
 
     @Schema(description = "Resource Name",
-            example = "client",
-            required = true)
+            example = "certificates",
+            requiredMode = Schema.RequiredMode.REQUIRED)
             
     private final String code;
 

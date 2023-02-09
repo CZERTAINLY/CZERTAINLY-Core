@@ -2,12 +2,16 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.AttributeType;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.content.FileAttributeContent;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.FileAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -16,14 +20,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import javax.transaction.Transactional;
+import jakarta.transaction.Transactional;
 import java.io.ByteArrayInputStream;
 import java.security.KeyStore;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static com.czertainly.api.clients.BaseApiClient.*;
 
@@ -41,7 +41,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<AttributeDefinition> getAuthAttributes(AuthType authenticationType) {
+    public List<BaseAttribute> getAuthAttributes(AuthType authenticationType) {
         switch (authenticationType) {
             case NONE:
                 return List.of();
@@ -77,37 +77,46 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<AttributeDefinition> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttributeDto> attributes) {
+    public List<DataAttribute> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttributeDto> attributes) {
         if (authenticationType == null || attributes == null) {
             return List.of();
         }
 
-        List<AttributeDefinition> definitions = getAuthAttributes(authenticationType);
-        List<AttributeDefinition> merged = AttributeDefinitionUtils.mergeAttributes(definitions, AttributeDefinitionUtils.getClientAttributes(attributes));
+        List<BaseAttribute> definitions = getAuthAttributes(authenticationType);
+        List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, AttributeDefinitionUtils.getClientAttributes(attributes));
 
         return merged;
     }
 
     @Override
-    public List<AttributeDefinition> getBasicAuthAttributes() {
-        List<AttributeDefinition> attrs = new ArrayList<>();
+    public List<BaseAttribute> getBasicAuthAttributes() {
+        List<BaseAttribute> attrs = new ArrayList<>();
 
-        AttributeDefinition username = new AttributeDefinition();
+        DataAttribute username = new DataAttribute();
         username.setUuid("fe2d6d35-fb3d-4ea0-9f0b-7e39be93beeb");
         username.setName(ATTRIBUTE_USERNAME);
-        username.setType(AttributeType.STRING);
-        username.setRequired(true);
-        username.setReadOnly(false);
-        username.setVisible(true);
+        username.setType(AttributeType.DATA);
+        username.setContentType(AttributeContentType.STRING);
+
+        DataAttributeProperties usernameProperties = new DataAttributeProperties();
+        usernameProperties.setRequired(true);
+        usernameProperties.setReadOnly(false);
+        usernameProperties.setVisible(true);
+        username.setProperties(usernameProperties);
         attrs.add(username);
 
-        AttributeDefinition password = new AttributeDefinition();
+        DataAttribute password = new DataAttribute();
         password.setUuid("04506d45-c865-4ddc-b6fc-117ee5d5c8e7");
         password.setName(ATTRIBUTE_PASSWORD);
-        password.setType(AttributeType.SECRET);
-        password.setRequired(true);
-        password.setReadOnly(false);
-        password.setVisible(true);
+        password.setType(AttributeType.DATA);
+        password.setContentType(AttributeContentType.SECRET);
+
+        DataAttributeProperties pwdProperties = new DataAttributeProperties();
+        pwdProperties.setRequired(true);
+        pwdProperties.setReadOnly(false);
+        pwdProperties.setVisible(true);
+        password.setProperties(pwdProperties);
+
         attrs.add(password);
 
         return attrs;
@@ -120,69 +129,100 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<AttributeDefinition> getCertificateAttributes() {
-        List<AttributeDefinition> attrs = new ArrayList<>();
+    public List<BaseAttribute> getCertificateAttributes() {
+        List<BaseAttribute> attrs = new ArrayList<>();
 
-        AttributeDefinition keyStoreType = new AttributeDefinition();
+        DataAttribute keyStoreType = new DataAttribute();
         keyStoreType.setUuid("e334e055-900e-43f1-aedc-54e837028de0");
         keyStoreType.setName(ATTRIBUTE_KEYSTORE_TYPE);
-        keyStoreType.setType(AttributeType.STRING);
-        keyStoreType.setList(true);
-        keyStoreType.setRequired(true);
-        keyStoreType.setReadOnly(false);
-        keyStoreType.setVisible(true);
+        keyStoreType.setType(AttributeType.DATA);
+        keyStoreType.setContentType(AttributeContentType.STRING);
 
-        BaseAttributeContent base = new BaseAttributeContent<String>();
-        base.setValue(SUPPORTED_KEY_STORE_TYPES);
+        DataAttributeProperties kstProperties = new DataAttributeProperties();
+        kstProperties.setList(true);
+        kstProperties.setRequired(true);
+        kstProperties.setReadOnly(false);
+        kstProperties.setVisible(true);
+        keyStoreType.setProperties(kstProperties);
+
+        List<BaseAttributeContent> base = new ArrayList<>();
+        SUPPORTED_KEY_STORE_TYPES.forEach(e -> {
+            base.add(new StringAttributeContent(e));
+        });
 
         keyStoreType.setContent(base);
         attrs.add(keyStoreType);
 
-        AttributeDefinition keyStore = new AttributeDefinition();
+        DataAttribute keyStore = new DataAttribute();
         keyStore.setUuid("6df7ace9-c501-4d58-953c-f8d53d4fb378");
         keyStore.setName(ATTRIBUTE_KEYSTORE);
-        keyStore.setType(AttributeType.FILE);
-        keyStore.setRequired(true);
-        keyStore.setReadOnly(false);
-        keyStore.setVisible(true);
+        keyStore.setType(AttributeType.DATA);
+        keyStore.setContentType(AttributeContentType.FILE);
+
+        DataAttributeProperties ksProperties = new DataAttributeProperties();
+        ksProperties.setRequired(true);
+        ksProperties.setReadOnly(false);
+        ksProperties.setVisible(true);
+        keyStore.setProperties(ksProperties);
+
         attrs.add(keyStore);
 
-        AttributeDefinition keyStorePassword = new AttributeDefinition();
+        DataAttribute keyStorePassword = new DataAttribute();
         keyStorePassword.setUuid("d975fe42-9d09-4740-a362-fc26f98e55ea");
         keyStorePassword.setName(ATTRIBUTE_KEYSTORE_PASSWORD);
-        keyStorePassword.setType(AttributeType.SECRET);
-        keyStorePassword.setRequired(true);
-        keyStorePassword.setReadOnly(false);
-        keyStorePassword.setVisible(true);
+        keyStorePassword.setType(AttributeType.DATA);
+        keyStorePassword.setContentType(AttributeContentType.SECRET);
+
+        DataAttributeProperties kspProperties = new DataAttributeProperties();
+        kspProperties.setRequired(true);
+        kspProperties.setReadOnly(false);
+        kspProperties.setVisible(true);
+        keyStorePassword.setProperties(kspProperties);
+
         attrs.add(keyStorePassword);
 
-        AttributeDefinition trustStoreType = new AttributeDefinition();
+        DataAttribute trustStoreType = new DataAttribute();
         trustStoreType.setUuid("c4454807-805a-44e2-81d1-94b56e993786");
         trustStoreType.setName(ATTRIBUTE_TRUSTSTORE_TYPE);
-        trustStoreType.setType(AttributeType.STRING);
-        trustStoreType.setList(true);
-        trustStoreType.setRequired(false);
-        trustStoreType.setReadOnly(false);
-        trustStoreType.setVisible(true);
+        trustStoreType.setType(AttributeType.DATA);
+        trustStoreType.setContentType(AttributeContentType.STRING);
+
+        DataAttributeProperties tstProperties = new DataAttributeProperties();
+        tstProperties.setList(true);
+        tstProperties.setRequired(false);
+        tstProperties.setReadOnly(false);
+        tstProperties.setVisible(true);
+        trustStoreType.setProperties(tstProperties);
+
         trustStoreType.setContent(base);
         attrs.add(trustStoreType);
 
-        AttributeDefinition trustStore = new AttributeDefinition();
+        DataAttribute trustStore = new DataAttribute();
         trustStore.setUuid("6a245220-eaf4-44cb-9079-2228ad9264f5");
         trustStore.setName(ATTRIBUTE_TRUSTSTORE);
-        trustStore.setType(AttributeType.FILE);
-        trustStore.setRequired(false);
-        trustStore.setReadOnly(false);
-        trustStore.setVisible(true);
+        trustStore.setType(AttributeType.DATA);
+        trustStore.setContentType(AttributeContentType.FILE);
+
+        DataAttributeProperties tsProperties = new DataAttributeProperties();
+        tsProperties.setRequired(false);
+        tsProperties.setReadOnly(false);
+        tsProperties.setVisible(true);
+        trustStore.setProperties(tsProperties);
+
         attrs.add(trustStore);
 
-        AttributeDefinition trustStorePassword = new AttributeDefinition();
+        DataAttribute trustStorePassword = new DataAttribute();
         trustStorePassword.setUuid("85a874da-1413-4770-9830-4188a37c95ee");
         trustStorePassword.setName(ATTRIBUTE_TRUSTSTORE_PASSWORD);
-        trustStorePassword.setType(AttributeType.SECRET);
-        trustStorePassword.setRequired(false);
-        trustStorePassword.setReadOnly(false);
-        trustStorePassword.setVisible(true);
+        trustStorePassword.setType(AttributeType.DATA);
+        trustStorePassword.setContentType(AttributeContentType.SECRET);
+
+        DataAttributeProperties tspProperties = new DataAttributeProperties();
+        tspProperties.setRequired(false);
+        tspProperties.setReadOnly(false);
+        tspProperties.setVisible(true);
+        trustStorePassword.setProperties(tspProperties);
+
         attrs.add(trustStorePassword);
 
         return attrs;
@@ -193,14 +233,14 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         AttributeDefinitionUtils.validateAttributes(getCertificateAttributes(), attributes);
 
         try {
-            FileAttributeContent keyStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE, attributes);
-            byte[] keyStoreBytes = Base64.getDecoder().decode(keyStoreBase64.getValue());
+            FileAttributeContent keyStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE, attributes, true);
+            byte[] keyStoreBytes = Base64.getDecoder().decode(keyStoreBase64.getData().getContent());
 
-            BaseAttributeContent<String> keyStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_TYPE, attributes);
-            BaseAttributeContent<String> keyStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_PASSWORD, attributes);
+            StringAttributeContent keyStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_TYPE, attributes, true);
+            StringAttributeContent keyStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_PASSWORD, attributes, true);
 
-            KeyStore keyStore = KeyStore.getInstance(keyStoreType.getValue());
-            keyStore.load(new ByteArrayInputStream(keyStoreBytes), keyStorePassword.getValue().toCharArray());
+            KeyStore keyStore = KeyStore.getInstance(keyStoreType.getData());
+            keyStore.load(new ByteArrayInputStream(keyStoreBytes), keyStorePassword.getData().toCharArray());
             logger.info("Key store attribute successfully validated. Given key store contains: {}", keyStore.aliases());
 
         } catch (Exception e) {
@@ -209,14 +249,14 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         }
 
         try {
-            String trustStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE, attributes);
-            String trustStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_TYPE, attributes);
-            String trustStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_PASSWORD, attributes);
+            FileAttributeContent trustStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE, attributes, false);
+            StringAttributeContent trustStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_TYPE, attributes, false);
+            StringAttributeContent trustStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_PASSWORD, attributes, false);
 
-            if (!StringUtils.isAnyBlank(trustStoreBase64, trustStoreType, trustStorePassword)) {
-                byte[] trustStoreBytes = Base64.getDecoder().decode(trustStoreBase64);
-                KeyStore trustStore = KeyStore.getInstance(trustStoreType);
-                trustStore.load(new ByteArrayInputStream(trustStoreBytes), trustStorePassword.toCharArray());
+            if (trustStoreBase64 != null && !StringUtils.isAnyBlank(trustStoreBase64.getData().getContent(), trustStoreType.getData(), trustStorePassword.getData())) {
+                byte[] trustStoreBytes = Base64.getDecoder().decode(trustStoreBase64.getData().getContent());
+                KeyStore trustStore = KeyStore.getInstance(trustStoreType.getData());
+                trustStore.load(new ByteArrayInputStream(trustStoreBytes), trustStorePassword.getData().toCharArray());
                 logger.info("Trust store attribute successfully validated. Given trust store contains: {}", trustStore.aliases());
             }
         } catch (Exception e) {
@@ -228,30 +268,41 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<AttributeDefinition> getApiKeyAuthAttributes() {
-        List<AttributeDefinition> attrs = new ArrayList<>();
+    public List<BaseAttribute> getApiKeyAuthAttributes() {
+        List<BaseAttribute> attrs = new ArrayList<>();
 
-        AttributeDefinition apiKeyHeader = new AttributeDefinition();
+        DataAttribute apiKeyHeader = new DataAttribute();
         apiKeyHeader.setUuid("705ccbfb-1d81-402a-ae67-8d38f159b240");
         apiKeyHeader.setName(ATTRIBUTE_API_KEY_HEADER);
-        apiKeyHeader.setType(AttributeType.STRING);
-        apiKeyHeader.setRequired(true);
-        apiKeyHeader.setReadOnly(false);
-        apiKeyHeader.setVisible(true);
+        apiKeyHeader.setType(AttributeType.DATA);
+        apiKeyHeader.setContentType(AttributeContentType.STRING);
 
-        BaseAttributeContent header = new BaseAttributeContent<String>();
-        header.setValue("X-API-KEY");
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setRequired(true);
+        properties.setReadOnly(false);
+        properties.setVisible(true);
+        apiKeyHeader.setProperties(properties);
 
-        apiKeyHeader.setContent(header);
+        String headerReference = "X-API-KEY";
+        StringAttributeContent header = new StringAttributeContent();
+        header.setReference(headerReference);
+        header.setData(headerReference);
+
+        apiKeyHeader.setContent(List.of(header));
         attrs.add(apiKeyHeader);
 
-        AttributeDefinition apiKey = new AttributeDefinition();
+        DataAttribute apiKey = new DataAttribute();
         apiKey.setUuid("989dafd6-d18c-41f1-b68d-285c56d6331e");
         apiKey.setName(ATTRIBUTE_API_KEY);
-        apiKey.setType(AttributeType.SECRET);
-        apiKey.setRequired(true);
-        apiKey.setReadOnly(false);
-        apiKey.setVisible(true);
+        apiKey.setType(AttributeType.DATA);
+        apiKey.setContentType(AttributeContentType.SECRET);
+
+        DataAttributeProperties apiKeyproperties = new DataAttributeProperties();
+        apiKeyproperties.setRequired(true);
+        apiKeyproperties.setReadOnly(false);
+        apiKeyproperties.setVisible(true);
+        apiKey.setProperties(apiKeyproperties);
+
         attrs.add(apiKey);
 
         return attrs;
@@ -264,7 +315,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<AttributeDefinition> getJWTAuthAttributes() {
+    public List<BaseAttribute> getJWTAuthAttributes() {
         throw new ValidationException(ValidationError.create("Auth type JWT not implemented yet"));
     }
 

@@ -3,16 +3,16 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.api.model.common.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface EntityInstanceService {
+public interface EntityInstanceService extends ResourceExtensionService {
 
     /**
      * List available Entity instances
@@ -54,7 +54,7 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to delete Entity instance
      */
-    
+
     void deleteEntityInstance(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
 
     /**
@@ -64,7 +64,7 @@ public interface EntityInstanceService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to get Location Attributes
      */
-    List<AttributeDefinition> listLocationAttributes(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
+    List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
 
     /**
      * Validate Location Attributes for Entity instance

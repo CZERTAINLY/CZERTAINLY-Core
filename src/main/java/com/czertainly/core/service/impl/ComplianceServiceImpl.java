@@ -11,6 +11,7 @@ import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.connector.compliance.ComplianceResponseDto;
 import com.czertainly.api.model.connector.compliance.ComplianceResponseRulesDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
@@ -19,11 +20,11 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ComplianceService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -155,7 +156,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                     try {
                         complianceProfileRuleUuid = complianceProfileRuleRepository.findByComplianceProfileAndComplianceRule(complianceProfile, complianceRule)
                                 .orElseThrow(() -> new NotFoundException("Unable to find compliance profile rule for the result")).getUuid().toString();
-                    } catch (NotFoundException e){
+                    } catch (NotFoundException e) {
                         complianceProfileRuleUuid = complianceRule.getUuid().toString();
                     }
                     switch (rule.getStatus()) {
@@ -223,6 +224,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     private ComplianceRule getComplianceRuleEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
     }
+
     @Override
     public List<ComplianceProfileRule> getComplianceProfileRuleEntityForUuids(List<String> ids) {
         return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
@@ -258,7 +260,7 @@ public class ComplianceServiceImpl implements ComplianceService {
             nonDuplicateUuids.add(rule.getUuid());
             ComplianceRequestRulesDto dto = new ComplianceRequestRulesDto();
             dto.setUuid(rule.getUuid());
-            dto.setAttributes(rule.getAttributes());
+            dto.setAttributes(AttributeDefinitionUtils.getClientAttributes(rule.getAttributes()));
             dtos.add(dto);
         }
         logger.debug("Compliance Rules to be validated: {}", dtos);

@@ -5,8 +5,9 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
+import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.discovery.DiscoveryHistoryDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -33,7 +34,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	}
 
 	@Override
-	public DiscoveryHistoryDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
+	public DiscoveryHistoryDetailDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
 		return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
 	}
 

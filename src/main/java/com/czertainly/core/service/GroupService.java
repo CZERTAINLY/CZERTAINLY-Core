@@ -10,7 +10,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface GroupService {
+public interface GroupService extends ResourceExtensionService {
 
     List<GroupDto> listGroups(SecurityFilter filter);
     GroupDto getGroup(SecuredUUID uuid) throws NotFoundException;

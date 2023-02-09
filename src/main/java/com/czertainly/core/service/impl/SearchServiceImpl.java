@@ -9,12 +9,13 @@ import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchableFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
-import com.czertainly.core.dao.entity.CertificateGroup;
+import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SearchService;
+import jakarta.persistence.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,11 +23,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.PersistenceException;
-import javax.persistence.PersistenceUnit;
-import javax.persistence.Query;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -40,8 +36,8 @@ public class SearchServiceImpl implements SearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(SearchServiceImpl.class);
 
-    @PersistenceUnit
-    private EntityManagerFactory emFactory;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -87,17 +83,14 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public Object customQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
-        EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         Object result = query.getResultList();
-        entityManager.close();
         return result;
     }
 
     @Override
     public Object nativeQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
-        EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createNativeQuery(sqlQuery);
         Object result = null;
         try {
@@ -105,7 +98,6 @@ public class SearchServiceImpl implements SearchService {
         } catch (PersistenceException e) {
             logger.warn("Result is empty: {}", e.getMessage());
         }
-        entityManager.close();
         return result;
     }
 
@@ -113,7 +105,6 @@ public class SearchServiceImpl implements SearchService {
     @Async("threadPoolTaskExecutor")
     public Object asyncNativeQueryExecutor(String sqlQuery) {
         logger.debug("Executing query: {}", sqlQuery);
-        EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createNativeQuery(sqlQuery);
         Object result = null;
         try {
@@ -121,7 +112,6 @@ public class SearchServiceImpl implements SearchService {
         } catch (PersistenceException e) {
             logger.warn("Result is empty: {}", e.getMessage());
         }
-        entityManager.close();
         return result;
     }
 
@@ -138,7 +128,6 @@ public class SearchServiceImpl implements SearchService {
             searchRequestDto.setPageNumber(1);
         }
         String sqlQuery = getQueryDynamicBasedOnFilter(searchRequestDto.getFilters(), entity, originalJson, "", false, false, additionalWhereClause) + " GROUP BY created, uuid ORDER BY created DESC";
-        EntityManager entityManager = emFactory.createEntityManager();
         Query query = entityManager.createQuery(sqlQuery);
         query.setFirstResult(page.get("start"));
         query.setMaxResults(searchRequestDto.getItemsPerPage());
@@ -148,13 +137,11 @@ public class SearchServiceImpl implements SearchService {
             dynamicSearchInternalResponse.setTotalPages(1);
             dynamicSearchInternalResponse.setTotalItems(0L);
             dynamicSearchInternalResponse.setResult(new ArrayList<>());
-            entityManager.close();
         } else {
-            Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from").replace(" GROUP BY c.id ORDER BY c.id DESC", ""));
+            Query countQuery = entityManager.createQuery(sqlQuery.replace("select c from", "select COUNT(c) from").split(" GROUP BY ")[0]);
             Long totalItems = (Long) countQuery.getSingleResult();
             dynamicSearchInternalResponse.setTotalPages((int) Math.ceil((double) totalItems / searchRequestDto.getItemsPerPage()));
             dynamicSearchInternalResponse.setTotalItems(totalItems);
-            entityManager.close();
             dynamicSearchInternalResponse.setResult(result);
         }
         if (dynamicSearchInternalResponse.getTotalPages().equals(0)) {
@@ -212,7 +199,7 @@ public class SearchServiceImpl implements SearchService {
                 if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {
                     whereObjects.addAll(raProfileRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(RaProfile::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
                 } else if (filter.getField().equals(SearchableFields.GROUP_NAME)) {
-                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(CertificateGroup::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
+                    whereObjects.addAll(groupRepository.findAll().stream().filter(c -> ((List<Object>) filter.getValue()).contains(c.getName())).map(Group::getUuid).map(c -> "'" + c + "'").collect(Collectors.toList()));
                 } else {
                     whereObjects.addAll(((List<Object>) filter.getValue()).stream().map(i -> "'" + i.toString() + "'").collect(Collectors.toList()));
                 }
@@ -290,7 +277,9 @@ public class SearchServiceImpl implements SearchService {
                     }
                 }
             }
-            queryParts.add(qp);
+            if (!qp.isEmpty()) {
+                queryParts.add("(" + qp + ")");
+            }
         }
         query += String.join(" AND ", queryParts);
         logger.debug("Executable query: {}", query);

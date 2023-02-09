@@ -6,11 +6,8 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.certificate.BulkOperationStatus;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.CertificateValidationDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -52,7 +49,7 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public CertificateDto getCertificate(@PathVariable String uuid)
+	public CertificateDetailDto getCertificate(@PathVariable String uuid)
 			throws NotFoundException, CertificateException, IOException {
 		return certificateService.getCertificate(SecuredUUID.fromString(uuid));
 	}
@@ -82,7 +79,7 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
 			throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
-		CertificateDto dto = certificateService.upload(request);
+		CertificateDetailDto dto = certificateService.upload(request);
 		URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{uuid}")
@@ -130,11 +127,21 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException, CertificateException, IOException {
 		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
-		certificateService.updateIssuer();
+		certificateService.updateCertificateIssuer(crt);
 		if (crt.getStatus() != CertificateStatus.EXPIRED || crt.getStatus() != CertificateStatus.REVOKED) {
 			certValidationService.validate(crt);
 		}
 		return certificateService.getCertificateValidationResult(SecuredUUID.fromString(uuid));
+	}
+
+	@Override
+	public List<BaseAttribute> getCsrGenerationAttributes() {
+		return certificateService.getCsrGenerationAttributes();
+	}
+
+	@Override
+	public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
+		return certificateService.getCertificateContent(uuids);
 	}
 
 }

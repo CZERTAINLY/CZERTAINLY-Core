@@ -1,14 +1,13 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.AttributeDefinition;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.MetaDefinitions;
 
-import javax.persistence.*;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.persistence.*;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 @Entity
@@ -25,9 +24,6 @@ public class CertificateLocation implements Serializable {
     @ManyToOne(fetch = FetchType.EAGER)
     @MapsId("certificateUuid")
     private Certificate certificate;
-
-    @Column(name = "metadata")
-    private String metadata;
 
     @Column(name = "push_attributes")
     private String pushAttributes;
@@ -64,27 +60,19 @@ public class CertificateLocation implements Serializable {
         this.certificate = certificate;
     }
 
-    public Map<String, Object> getMetadata() {
-        return MetaDefinitions.deserialize(metadata);
+    public List<DataAttribute> getPushAttributes() {
+        return AttributeDefinitionUtils.deserialize(pushAttributes, DataAttribute.class);
     }
 
-    public void setMetadata(Map<String, Object> metadata) {
-        this.metadata = MetaDefinitions.serialize(metadata);
-    }
-
-    public List<AttributeDefinition> getPushAttributes() {
-        return AttributeDefinitionUtils.deserialize(pushAttributes);
-    }
-
-    public void setPushAttributes(List<AttributeDefinition> pushAttributes) {
+    public void setPushAttributes(List<DataAttribute> pushAttributes) {
         this.pushAttributes = AttributeDefinitionUtils.serialize(pushAttributes);
     }
 
-    public List<AttributeDefinition> getCsrAttributes() {
-        return AttributeDefinitionUtils.deserialize(csrAttributes);
+    public List<DataAttribute> getCsrAttributes() {
+        return AttributeDefinitionUtils.deserialize(csrAttributes, DataAttribute.class);
     }
 
-    public void setCsrAttributes(List<AttributeDefinition> csrAttributes) {
+    public void setCsrAttributes(List<DataAttribute> csrAttributes) {
         this.csrAttributes = AttributeDefinitionUtils.serialize(csrAttributes);
     }
 
@@ -121,7 +109,6 @@ public class CertificateLocation implements Serializable {
                 "id=" + id +
                 ", location=" + location +
                 ", certificate=" + certificate +
-                ", metadata='" + metadata + '\'' +
                 ", pushAttributes='" + pushAttributes + '\'' +
                 ", csrAttributes='" + csrAttributes + '\'' +
                 ", withKey=" + withKey +

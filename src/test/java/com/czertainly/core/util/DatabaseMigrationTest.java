@@ -23,4 +23,25 @@ public class DatabaseMigrationTest {
 
         Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202209211100__Access_Control.getChecksum(), checksum);
     }
+
+    @Test
+    public void testCalculateChecksum_V202211031400__AttributeV2Changes() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202211031400__AttributeV2Changes.java");
+
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211031400__AttributeV2Changes.getChecksum(), checksum);
+    }
+
+    @Test
+    public void testCalculateChecksum_V202211141030__AttributeV2TablesAndMigration() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202211141030__AttributeV2TablesAndMigration.java");
+
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202211141030__AttributeV2TablesAndMigration.getChecksum(), checksum);
+    }
+
+    @Test
+    public void testCalculateChecksum_V202301311500__PublicKeyMigration() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202301311500__PublicKeyMigration.java");
+
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202301311500__PublicKeyMigration.getChecksum(), checksum);
+    }
 }
