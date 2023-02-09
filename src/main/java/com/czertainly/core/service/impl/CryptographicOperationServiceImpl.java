@@ -43,6 +43,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
@@ -393,7 +394,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
     @Override
-    public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+    public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         // Check if the UUID of the Key is empty
         if (keyUuid == null) {
             throw new ValidationException(
@@ -452,7 +453,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
         // Generate the CSR
         return generateCsr(
-                csrAttributes,
+                principal,
                 publicKeyItem.getKeyData(),
                 privateKeyItem,
                 publicKeyItem,
@@ -473,10 +474,10 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return key;
     }
 
-    public String generateCsr(List<RequestAttributeDto> attributes, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+    public String generateCsr(X500Principal principal, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         // Build bouncy castle p10 builder
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
-                CsrUtil.buildSubject(attributes),
+                principal,
                 CsrUtil.publicKeyObjectFromString(key, publicKeyItem.getCryptographicAlgorithm().getName())
         );
 
