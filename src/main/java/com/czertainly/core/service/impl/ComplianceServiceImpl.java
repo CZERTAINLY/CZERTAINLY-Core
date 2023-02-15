@@ -208,6 +208,62 @@ public class ComplianceServiceImpl implements ComplianceService {
         return complianceRuleRepository.findByUuidIn(uuids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
+    @Override
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForUuids(List<String> ids) {
+        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
+    }
+
+    @Override
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids) {
+        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
+    }
+
+    @Override
+    public void inHouseComplianceStatusUpdate(UUID ruleUuid) {
+        List<Certificate> certificates = getInHouseComplianceUpdatableCertificates(ruleUuid.toString());
+        for(Certificate certificate: certificates) {
+            removeAndUpdateComplianceStatus(certificate, ruleUuid);
+        }
+    }
+
+    private List<Certificate> getInHouseComplianceUpdatableCertificates(String ruleUuid) {
+        return certificateRepository.findByComplianceResultContaining(ruleUuid);
+    }
+
+    private void removeAndUpdateComplianceStatus(Certificate certificate, UUID ruleUuid) {
+        CertificateComplianceStorageDto complianceResult = certificate.getComplianceResult();
+        List<String> nokResult = complianceResult.getNok();
+        List<String> okResult = complianceResult.getOk();
+        List<String> naResult = complianceResult.getNa();
+        if(nokResult.contains(ruleUuid.toString())) {
+            nokResult.remove(ruleUuid.toString());
+        }
+        if(okResult.contains(ruleUuid.toString())) {
+            okResult.remove(ruleUuid.toString());
+        }
+        if(naResult.contains(ruleUuid.toString())) {
+            naResult.remove(ruleUuid.toString());
+        }
+
+        complianceResult.setNok(nokResult);
+        complianceResult.setOk(okResult);
+        complianceResult.setNa(naResult);
+
+        if(!nokResult.isEmpty()) {
+            certificate.setComplianceStatus(ComplianceStatus.NOK);
+        }
+        else if(nokResult.isEmpty() && !complianceResult.getOk().isEmpty()) {
+            certificate.setComplianceStatus(ComplianceStatus.OK);
+        } else if (nokResult.isEmpty() && complianceResult.getOk().isEmpty()) {
+            certificate.setComplianceStatus(ComplianceStatus.NA);
+        } else {
+            certificate.setComplianceStatus(null);
+            complianceResult = null;
+        }
+        certificate.setComplianceResult(complianceResult);
+        certificateRepository.save(certificate);
+    }
+
 
     public void saveComplianceRule(ComplianceRule complianceRule) {
         complianceRuleRepository.save(complianceRule);
@@ -224,17 +280,6 @@ public class ComplianceServiceImpl implements ComplianceService {
     private ComplianceRule getComplianceRuleEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
     }
-
-    @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForUuids(List<String> ids) {
-        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
-    }
-
-    @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids) {
-        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
-    }
-
 
     private void complianceCheckForRaProfile(RaProfile raProfile) throws ConnectorException {
         List<Certificate> certificates = certificateRepository.findByRaProfile(raProfile);

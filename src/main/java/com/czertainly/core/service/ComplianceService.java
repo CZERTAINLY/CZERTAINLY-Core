@@ -9,6 +9,7 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.security.authz.SecuredUUID;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface ComplianceService {
 
@@ -87,4 +88,23 @@ public interface ComplianceService {
      * @throws ConnectorException Raises when there are issues with communicating with the connector
      */
     void updateGroupsAndRules(Connector connector) throws ConnectorException;
+
+    /**
+     * Update the status of the compliance for the certificate. The method takes the uuid of the compliance rule
+     * get all the certificate that has the rule and perform the following operation.
+     *
+     * The Compliance Update goes through the following protocol
+     *
+     * 1. Get the list of certificates where the compliance_result column json contains the UUID of the compliance rule
+     * 2. Iterate through each certificate and for each certificate
+     *      2.1 Get the Compliance Validation result from the certificate
+     *      2.2 Extract Compliant, non-compliant and not applicable result
+     *      3.3 Check where the rule exists and remove it
+     *      3.4 Once the rule is removed, update the compliance status of the certificate based on the following condition
+     *      3.5 If the Non-Compliant rules are not empty, leave the status as non-compliant
+     *      3.6 If the Non-Compliant rules are empty and the certificate has compliant rules, then the status is compliant
+     *      3.7 If the compliant and the non-compliant rules are empty then the status is set to Not Applicable
+     * @param ruleUuid UUID of the compliance rule
+     */
+    void inHouseComplianceStatusUpdate(UUID ruleUuid);
 }
