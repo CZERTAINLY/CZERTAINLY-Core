@@ -106,5 +106,5 @@ public interface ComplianceService {
      *      3.7 If the compliant and the non-compliant rules are empty then the status is set to Not Applicable
      * @param ruleUuid UUID of the compliance rule
      */
-    void inHouseComplianceStatusUpdate(UUID ruleUuid);
+    void inCoreComplianceStatusUpdate(UUID ruleUuid);
 }

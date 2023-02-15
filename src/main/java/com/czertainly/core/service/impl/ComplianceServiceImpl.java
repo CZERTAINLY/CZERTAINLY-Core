@@ -219,14 +219,14 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    public void inHouseComplianceStatusUpdate(UUID ruleUuid) {
-        List<Certificate> certificates = getInHouseComplianceUpdatableCertificates(ruleUuid.toString());
+    public void inCoreComplianceStatusUpdate(UUID ruleUuid) {
+        List<Certificate> certificates = getinCoreComplianceUpdatableCertificates(ruleUuid.toString());
         for(Certificate certificate: certificates) {
             removeAndUpdateComplianceStatus(certificate, ruleUuid);
         }
     }
 
-    private List<Certificate> getInHouseComplianceUpdatableCertificates(String ruleUuid) {
+    private List<Certificate> getinCoreComplianceUpdatableCertificates(String ruleUuid) {
         return certificateRepository.findByComplianceResultContaining(ruleUuid);
     }
 

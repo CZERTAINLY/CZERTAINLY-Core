@@ -150,7 +150,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         complianceProfileRuleRepository.delete(complianceProfileRule);
         complianceProfile.getComplianceRules().remove(complianceProfileRule);
         complianceProfileRepository.save(complianceProfile);
-        complianceService.inHouseComplianceStatusUpdate(complianceProfileRule.getUuid());
+        complianceService.inCoreComplianceStatusUpdate(complianceProfileRule.getUuid());
         logger.debug("Rule: {} removed", request);
         return response;
     }
@@ -189,7 +189,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         complianceProfileRepository.save(complianceProfile);
         if(complianceGroup.getRules() != null) {
             for (ComplianceRule rule : complianceGroup.getRules()) {
-                complianceService.inHouseComplianceStatusUpdate(rule.getUuid());
+                complianceService.inCoreComplianceStatusUpdate(rule.getUuid());
             }
         }
         return complianceProfile.mapToDto();
