@@ -300,7 +300,7 @@ public class CertValidationServiceImpl implements CertValidationService {
 
             } catch (Exception e) {
                 logger.warn("Not able to check OCSP: {}", e.getMessage());
-                validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Error while checking OCSP.\nOCSP URL: " + String.join("\n", ocspUrls)));
+                validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Error while checking OCSP.\nOCSP URL: " + String.join("\n", ocspUrls) + "\nError: " + e.getLocalizedMessage()));
             }
         }
 
@@ -494,7 +494,7 @@ public class CertValidationServiceImpl implements CertValidationService {
 
             } catch (Exception e) {
                 logger.warn("Not able to check OCSP: {}", e.getMessage());
-                validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Error while checking OCSP.\nOCSP URL: " + String.join("\n", ocspUrls)));
+                validationOutput.put("OCSP Verification", new CertificateValidationDto(CertificateValidationStatus.FAILED, "Error while checking OCSP.\nOCSP URL: " + String.join("\n", ocspUrls)  + "\nError: " + e.getLocalizedMessage()));
             }
         }
 
