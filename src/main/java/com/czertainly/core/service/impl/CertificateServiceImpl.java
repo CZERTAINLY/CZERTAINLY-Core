@@ -561,6 +561,12 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    // Only Internal method
+    public List<Certificate> listCertificatesForRaProfileAndNonNullComplianceStatus(RaProfile raProfile) {
+        return certificateRepository.findByRaProfileAndComplianceStatusIsNotNull(raProfile);
+    }
+
+    @Override
     @Async
     public void checkCompliance(CertificateComplianceCheckDto request) {
         for (String uuid : request.getCertificateUuids()) {
