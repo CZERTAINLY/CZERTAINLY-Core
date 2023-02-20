@@ -701,7 +701,14 @@ public class ExtendedAcmeHelperService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
         }
 
-        revokeRequest.setReason(RevocationReason.fromCode(request.getReason().getCode()));
+        // if the revocation reason is null, set it to UNSPECIFIED, otherwise get the code from the request
+        final RevocationReason reason = request.getReason() == null ? RevocationReason.UNSPECIFIED : RevocationReason.fromCode(request.getReason().getCode());
+        // when the reason is null, it means, that is not in the list
+        if (reason == null) {
+            final String details = "Allowed revocation reason codes are: " + Arrays.toString(Arrays.stream(RevocationReason.values()).map(RevocationReason::getCode).toArray());
+            throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.BAD_REVOCATION_REASON, details);
+        }
+        revokeRequest.setReason(reason);
         revokeRequest.setAttributes(List.of());
         try {
             clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(cert.getRaProfile().getAuthorityInstanceReferenceUuid()), cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest);
