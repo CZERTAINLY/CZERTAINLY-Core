@@ -97,6 +97,14 @@ public interface CertificateService extends ResourceExtensionService  {
     List<Certificate> listCertificatesForRaProfile(RaProfile raProfile);
 
     /**
+     * List the available certificates that are associated with the RA Profile
+     *
+     * @param raProfile Ra Profile entity to search for the certificates
+     * @return List of Certificates
+     */
+    List<Certificate> listCertificatesForRaProfileAndNonNullComplianceStatus(RaProfile raProfile);
+
+    /**
      * Initiates the compliance check for the certificates in the request
      *
      * @param request List of uuids of the certificate
