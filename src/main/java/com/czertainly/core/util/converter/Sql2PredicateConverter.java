@@ -4,11 +4,17 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.connector.cryptography.enums.IAbstractSearchableEnum;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.SearchCondition;
+import com.czertainly.api.model.core.search.SearchableFields;
 import jakarta.persistence.criteria.*;
 
+import java.time.LocalDate;
 import java.util.*;
 
 public class Sql2PredicateConverter {
+
+    private static final String OCSP_VERIFICATION = "%\"OCSP Verification\":{\"status\":\"%STATUS%\"%";
+    private static final String SIGNATURE_VERIFICATION = "%\"Signature Verification\":{\"status\":\"%STATUS%\"%";
+    private static final String CRL_VERIFICATION = "%\"CRL Verification\":{\"status\":\"%STATUS%\"%";
 
     public static Predicate mapSearchFilter2Predicates(final List<SearchFilterRequestDto> dtos, final CriteriaBuilder criteriaBuilder, final Root root) {
         final List<Predicate> predicates = new ArrayList<>();
@@ -32,34 +38,37 @@ public class Sql2PredicateConverter {
     }
 
     private static Predicate processPredicate(final CriteriaBuilder criteriaBuilder, final Root root, final SearchFilterRequestDto dto, final Object valueObject) {
-        Predicate predicate = null;
-        final SearchCondition searchCondition = checkOrReplaceSearchConfition(dto);
-        switch (searchCondition) {
-            case EQUALS ->
-                    predicate = criteriaBuilder.equal(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
-            case NOT_EQUALS ->
-                    predicate = criteriaBuilder.notEqual(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
-            case STARTS_WITH ->
-                    predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject) + "%");
-            case ENDS_WITH ->
-                    predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject));
-            case CONTAINS ->
-                    predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject) + "%");
-            case NOT_CONTAINS -> predicate = criteriaBuilder.or(
-                    criteriaBuilder.notLike((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject) + "%"),
-                    criteriaBuilder.isNull(prepareExpression(root, dto.getField().getCode()))
-            );
-            case EMPTY -> predicate = criteriaBuilder.isNull(prepareExpression(root, dto.getField().getCode()));
-            case NOT_EMPTY -> predicate = criteriaBuilder.isNotNull(prepareExpression(root, dto.getField().getCode()));
-            case GREATER ->
-                    predicate = criteriaBuilder.greaterThan(prepareExpression(root, dto.getField().getCode()).as(Integer.class), Integer.parseInt(dto.getValue().toString()));
-            case LESSER ->
-                    predicate = criteriaBuilder.lessThan(prepareExpression(root, dto.getField().getCode()).as(Integer.class), Integer.parseInt(dto.getValue().toString()));
+        final SearchCondition searchCondition = checkOrReplaceSearchCondition(dto);
+        Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject);
+        if (predicate == null) {
+            switch (searchCondition) {
+                case EQUALS ->
+                        predicate = criteriaBuilder.equal(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
+                case NOT_EQUALS ->
+                        predicate = criteriaBuilder.notEqual(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
+                case STARTS_WITH ->
+                        predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject) + "%");
+                case ENDS_WITH ->
+                        predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject));
+                case CONTAINS ->
+                        predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject) + "%");
+                case NOT_CONTAINS -> predicate = criteriaBuilder.or(
+                        criteriaBuilder.notLike((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject) + "%"),
+                        criteriaBuilder.isNull(prepareExpression(root, dto.getField().getCode()))
+                );
+                case EMPTY -> predicate = criteriaBuilder.isNull(prepareExpression(root, dto.getField().getCode()));
+                case NOT_EMPTY ->
+                        predicate = criteriaBuilder.isNotNull(prepareExpression(root, dto.getField().getCode()));
+                case GREATER ->
+                        predicate = criteriaBuilder.greaterThan(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                case LESSER ->
+                        predicate = criteriaBuilder.lessThan(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+            }
         }
         return predicate;
     }
 
-    private static SearchCondition checkOrReplaceSearchConfition(final SearchFilterRequestDto dto) {
+    private static SearchCondition checkOrReplaceSearchCondition(final SearchFilterRequestDto dto) {
         if (dto.getField().getEnumClass() != null
                 && dto.getField().getEnumClass().equals(KeyUsage.class)) {
             if (dto.getCondition().equals(SearchCondition.EQUALS)) {
@@ -104,6 +113,30 @@ public class Sql2PredicateConverter {
             objects.add(dto.getValue());
         }
         return objects;
+    }
+
+    private static Predicate checkCertificateValidationResult(final Root root, final CriteriaBuilder criteriaBuilder, final SearchFilterRequestDto dto, final Object valueObject) {
+        if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(dto.getField())) {
+            String textToBeFormatted = null;
+            switch (dto.getField()) {
+                case OCSP_VALIDATION -> textToBeFormatted = OCSP_VERIFICATION;
+                case SIGNATURE_VALIDATION -> textToBeFormatted = SIGNATURE_VERIFICATION;
+                case CRL_VALIDATION -> textToBeFormatted = CRL_VERIFICATION;
+            }
+            switch (dto.getCondition()) {
+                case EQUALS -> {
+                    return criteriaBuilder.like(root.get("certificateValidationResult"), formatCertificateVerificationResultByStatus(textToBeFormatted, valueObject.toString()));
+                }
+                case NOT_EQUALS -> {
+                    return criteriaBuilder.notLike(root.get("certificateValidationResult"), formatCertificateVerificationResultByStatus(textToBeFormatted, valueObject.toString()));
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String formatCertificateVerificationResultByStatus(final String textToBeFormatted, final String statusCode) {
+        return textToBeFormatted.replace("%STATUS%", statusCode);
     }
 
 
