@@ -77,4 +77,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Certificate> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
                                                     @Param("skipStatuses") List<CertificateStatus> skipStatuses,
                                                     Pageable pageable);
+
+    List<Certificate> findByComplianceResultContaining(String ruleUuid);
+
+    List<Certificate> findByRaProfileAndComplianceStatusIsNotNull(RaProfile raProfile);
 }

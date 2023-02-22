@@ -30,6 +30,10 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.*;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +63,7 @@ import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Service
@@ -125,8 +130,24 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
         filter.setParentRefProperty("raProfileUuid");
-        return getCertificatesWithFilter(request, filter);
+        RequestValidatorHelper.revalidateSearchRequestDto(request);
 
+        final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root);
+
+        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+                .stream()
+                .map(Certificate::mapToListDto)
+                .collect(Collectors.toList());
+
+        final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+        final CertificateResponseDto responseDto = new CertificateResponseDto();
+        responseDto.setCertificates(listedKeyDTOs);
+        responseDto.setItemsPerPage(request.getItemsPerPage());
+        responseDto.setPageNumber(request.getPageNumber());
+        responseDto.setTotalItems(maxItems);
+        responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
+        return responseDto;
     }
 
     @Override
@@ -561,6 +582,12 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    // Only Internal method
+    public List<Certificate> listCertificatesForRaProfileAndNonNullComplianceStatus(RaProfile raProfile) {
+        return certificateRepository.findByRaProfileAndComplianceStatusIsNotNull(raProfile);
+    }
+
+    @Override
     @Async
     public void checkCompliance(CertificateComplianceCheckDto request) {
         for (String uuid : request.getCertificateUuids()) {
@@ -812,6 +839,21 @@ public class CertificateServiceImpl implements CertificateService {
         SearchFieldDataDto keyUsageFilter = SearchLabelConstants.KEY_USAGE_FILTER;
         keyUsageFilter.setValue(serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()));
 
+        SearchFieldDataDto ocspValidationFilter = SearchLabelConstants.OCSP_VALIDATION_FILTER;
+        ocspValidationFilter.setValue(Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList()));
+
+        SearchFieldDataDto crlValidationFilter = SearchLabelConstants.CRL_VALIDATION_FILTER;
+        crlValidationFilter.setValue(Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList()));
+
+        SearchFieldDataDto signatureValidationFilter = SearchLabelConstants.SIGNATURE_VALIDATION_FILTER;
+        signatureValidationFilter.setValue(Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList()));
+
+        SearchFieldDataDto statusFilter = SearchLabelConstants.STATUS_FILTER;
+        statusFilter.setValue(Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).collect(Collectors.toList()));
+
+        SearchFieldDataDto complianceStatusFilter = SearchLabelConstants.COMPLIANCE_STATUS_FILTER;
+        complianceStatusFilter.setValue(Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).collect(Collectors.toList()));
+
         List<SearchFieldDataDto> fields = List.of(
                 SearchLabelConstants.COMMON_NAME_FILTER,
                 SearchLabelConstants.SERIAL_NUMBER_FILTER,
@@ -819,8 +861,8 @@ public class CertificateServiceImpl implements CertificateService {
                 raProfileFilter,
                 groupFilter,
                 SearchLabelConstants.OWNER_FILTER,
-                SearchLabelConstants.STATUS_FILTER,
-                SearchLabelConstants.COMPLIANCE_STATUS_FILTER,
+                statusFilter,
+                complianceStatusFilter,
                 SearchLabelConstants.ISSUER_COMMON_NAME_FILTER,
                 SearchLabelConstants.FINGERPRINT_FILTER,
                 signatureAlgorithmFilter,
@@ -828,11 +870,10 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchLabelConstants.NOT_BEFORE_FILTER,
                 SearchLabelConstants.SUBJECTDN_FILTER,
                 SearchLabelConstants.ISSUERDN_FILTER,
-                SearchLabelConstants.META_FILTER,
                 SearchLabelConstants.SUBJECT_ALTERNATIVE_NAMES_FILTER,
-                SearchLabelConstants.OCSP_VALIDATION_FILTER,
-                SearchLabelConstants.CRL_VALIDATION_FILTER,
-                SearchLabelConstants.SIGNATURE_VALIDATION_FILTER,
+                ocspValidationFilter,
+                crlValidationFilter,
+                signatureValidationFilter,
                 publicKeyFilter,
                 keySizeFilter,
                 keyUsageFilter

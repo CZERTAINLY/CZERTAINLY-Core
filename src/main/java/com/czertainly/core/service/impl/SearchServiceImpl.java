@@ -181,7 +181,7 @@ public class SearchServiceImpl implements SearchService {
                 }
             }
         }
-        for (SearchFieldDataDto filter : iterableJson) {
+         for (SearchFieldDataDto filter : iterableJson) {
             String qp = "";
             String ntvCode = "";
             if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(filter.getField())) {
@@ -232,7 +232,7 @@ public class SearchServiceImpl implements SearchService {
                     }
                 } else if (filter.getField().equals(SearchableFields.OCSP_VALIDATION)) {
                     if (filter.getConditions().get(0).equals(SearchCondition.SUCCESS)) {
-                        qp += "LIKE '\"OCSP Verification\":{\"status\":\"success\"%'";
+                        qp += "LIKE '%\"OCSP Verification\":{\"status\":\"success\"%'";
                     } else if (filter.getConditions().get(0).equals(SearchCondition.FAILED)) {
                         qp += "LIKE '%\"OCSP Verification\":{\"status\":\"failed\"%'";
                     } else if (filter.getConditions().get(0).equals(SearchCondition.UNKNOWN)) {
