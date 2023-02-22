@@ -1,0 +1,8 @@
+CREATE TABLE setting (
+	uuid UUID NOT NULL,
+	i_author VARCHAR NOT NULL,
+	i_cre TIMESTAMP NOT NULL,
+	i_upd TIMESTAMP NOT NULL,
+	"section" VARCHAR NOT NULL,
+	attributes TEXT NULL
+);

@@ -65,6 +65,12 @@ public class SerializationUtil {
 		}
 	}
 
+	public static <T> T convertValue(Object source, Class<T> returnType) {
+		OBJECT_MAPPER.configure(
+				DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		if (source == null) return null;
+		return OBJECT_MAPPER.convertValue(source, returnType);
+	}
 
 
 }
