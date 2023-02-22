@@ -7,9 +7,12 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.setting.*;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import jakarta.transaction.Transactional;
@@ -34,8 +37,6 @@ public class SettingServiceImpl implements SettingService {
     private static final Logger logger = LoggerFactory.getLogger(SettingServiceImpl.class);
 
     private SettingRepository settingRepository;
-
-    public static final String DEFAULT_UTIL_SERVICE_URL = "http://util-service:8080";
     private DataAttribute utilsServiceUrl;
 
     @Autowired
@@ -100,6 +101,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public SectionSettingsDto updateSectionSettings(Section section, List<RequestAttributeDto> attributes) {
         Setting setting = settingRepository.findBySection(section)
                 .orElse(null);
@@ -116,24 +118,6 @@ public class SettingServiceImpl implements SettingService {
         return constructSectionSettingsDto(setting);
     }
 
-//    @Override
-//    public Object getSetting(Section section) {
-//        Setting setting = settingRepository.findBySection(section)
-//                .orElse(null);
-//        if(setting != null) return setting.toDto(section);
-//        return initializeSetting(section);
-//    }
-//
-//    @Override
-//    public Object updateSetting(Section section, Object request) {
-//        // Use switch to find the section type and add the data accordingly
-//        if (section.equals(Section.GENERAL)) {
-//            processUtilServiceSetting(request);
-//            return getSetting(Section.GENERAL);
-//        }
-//        return null;
-//    }
-//
     private SectionSettingsDto constructSectionSettingsDto(Setting setting) {
         SectionSettingsDto dto = new SectionSettingsDto();
         dto.setSection(setting.getSection());
@@ -143,24 +127,6 @@ public class SettingServiceImpl implements SettingService {
 
         return dto;
     }
-//
-//    private Object processUtilServiceSetting(Object request) {
-//        UtilServiceSettingRequestDto requestDto = SerializationUtil.convertValue(request, UtilServiceSettingRequestDto.class);
-//        UtilServiceSettingDto settingDto = new UtilServiceSettingDto();
-//        settingDto.setName(Section.GENERAL.getName());
-//        settingDto.setSection(Section.GENERAL);
-//        settingDto.setUrl(requestDto.getUrl());
-//        return createSettingEntity(Section.GENERAL.getName(), Section.GENERAL, settingDto);
-//    }
-//
-//    private Setting createSettingEntity(String name, Section section, Object data) {
-//        Setting setting = new Setting();
-//        setting.setName(name);
-//        setting.setData(data);
-//        setting.setSection(section);
-//        settingRepository.save(setting);
-//        return setting;
-//    }
 
     private List<BaseAttribute> getGeneralSectionAttributes() {
         List<BaseAttribute> attrs = new ArrayList<>();
