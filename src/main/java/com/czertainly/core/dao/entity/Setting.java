@@ -1,10 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.setting.Section;
-import com.czertainly.api.model.core.setting.UtilServiceSettingDto;
-import com.czertainly.core.util.SerializationUtil;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -15,23 +11,12 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 @Table(name = "setting")
 public class Setting extends UniquelyIdentifiedAndAudited {
 
-    @Column(name = "name")
-    private String name;
-
     @Column(name = "section")
     @Enumerated(EnumType.STRING)
     private Section section;
 
-    @Column(name = "data", length = Integer.MAX_VALUE)
-    private String data;
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
+    @Column(name = "attributes", length = Integer.MAX_VALUE)
+    private String attributes;
 
     public Section getSection() {
         return section;
@@ -41,30 +26,20 @@ public class Setting extends UniquelyIdentifiedAndAudited {
         this.section = section;
     }
 
-    public Object getData(Section section) {
-        return SerializationUtil.deserialize(data, section.getClass());
+    public String getAttributes() {
+        return attributes;
     }
 
-    public void setData(String data) {
-        this.data = data;
-    }
-
-    public void setData(Object data) {
-        this.data = SerializationUtil.serialize(data);
-    }
-
-    public Object toDto(Section section) {
-        switch (section){
-            case UTIL_SERVICE: return getData(section);
-            default: throw new ValidationException(ValidationError.create("Unsupported section"));
-        }
+    public void setAttributes(String attributes) {
+        this.attributes = attributes;
     }
 
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("name", name)
                 .append("uuid", uuid)
+                .append("section", section)
+                .append("attributes", attributes)
                 .toString();
     }
 
@@ -73,7 +48,7 @@ public class Setting extends UniquelyIdentifiedAndAudited {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Setting that = (Setting) o;
-        return new EqualsBuilder().append(uuid, that.uuid).append(name, that.name).append(section, that.section).isEquals();
+        return new EqualsBuilder().append(uuid, that.uuid).append(section, that.section).isEquals();
     }
 
     @Override

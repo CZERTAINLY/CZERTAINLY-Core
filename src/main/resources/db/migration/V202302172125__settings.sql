@@ -3,7 +3,6 @@ CREATE TABLE setting (
 	i_author VARCHAR NOT NULL,
 	i_cre TIMESTAMP NOT NULL,
 	i_upd TIMESTAMP NOT NULL,
-	name VARCHAR NULL DEFAULT NULL,
 	"section" VARCHAR NOT NULL,
-	data TEXT NOT NULL
+	attributes TEXT NULL
 );
