@@ -106,7 +106,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
     public DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid,
-                                                                    Boolean isNew,
+                                                                    Boolean newlyDiscovered,
                                                                     int itemsPerPage,
                                                                     int pageNumber) throws NotFoundException {
         DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
@@ -114,12 +114,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         Pageable p = PageRequest.of(pageNumber > 1 ? pageNumber - 1 : 0, itemsPerPage);
         List<DiscoveryCertificate> certificates;
         Long maxItems;
-        if (isNew == null) {
+        if (newlyDiscovered == null) {
             certificates = discoveryCertificateRepository.findByDiscovery(discoveryHistory, p);
             maxItems = discoveryCertificateRepository.countByDiscovery(discoveryHistory);
         } else {
-            certificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, isNew, p);
-            maxItems = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discoveryHistory, isNew);
+            certificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, newlyDiscovered, p);
+            maxItems = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discoveryHistory, newlyDiscovered);
         }
 
         final DiscoveryCertificateResponseDto responseDto = new DiscoveryCertificateResponseDto();

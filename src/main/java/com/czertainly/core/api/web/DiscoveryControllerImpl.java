@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.discovery.DiscoveryCertificatesDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -43,13 +42,13 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	@Override
 	public DiscoveryCertificateResponseDto getDiscoveryCertificates(
 			String uuid,
-			Boolean isNew,
+			Boolean newlyDiscovered,
 			int itemsPerPage,
 			int pageNumber
 	) throws NotFoundException {
 		return discoveryService.getDiscoveryCertificates(
 				SecuredUUID.fromString(uuid),
-				isNew,
+				newlyDiscovered,
 				itemsPerPage,
 				pageNumber
 		);

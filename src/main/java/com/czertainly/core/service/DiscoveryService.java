@@ -7,7 +7,6 @@ import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
-import com.czertainly.api.model.core.discovery.DiscoveryCertificatesDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -22,13 +21,13 @@ public interface DiscoveryService extends ResourceExtensionService {
     /**
      * List the certificates that are discovered as part of the discovery
      * @param uuid UUID of the discovery
-     * @param isNew Boolean representing of the certificate is newly discovered or existing
+     * @param newlyDiscovered Boolean representing of the certificate is newly discovered or existing
      * @param itemsPerPage Pagination Item - Number of items per page
      * @param pageNumber Page number
      * @return List of certificates
      * @throws NotFoundException when the discovery with the UUID is not found
      */
-    DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid, Boolean isNew, int itemsPerPage, int pageNumber) throws NotFoundException;
+    DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid, Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException;
     DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException;
 
     void createDiscovery(DiscoveryDto request, DiscoveryHistory modal) throws AlreadyExistException, NotFoundException, ConnectorException;

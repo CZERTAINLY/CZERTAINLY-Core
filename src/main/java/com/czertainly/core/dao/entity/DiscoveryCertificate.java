@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.discovery.DiscoveryCertificatesDto;
+import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "discovery_certificate")
-public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryCertificatesDto> {
+public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryCertificateDto> {
     /**
      *
      */
@@ -51,8 +51,8 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     private boolean newlyDiscovered;
 
     @Override
-    public DiscoveryCertificatesDto mapToDto() {
-        DiscoveryCertificatesDto dto = new DiscoveryCertificatesDto();
+    public DiscoveryCertificateDto mapToDto() {
+        DiscoveryCertificateDto dto = new DiscoveryCertificateDto();
         dto.setUuid(uuid.toString());
         dto.setCommonName(commonName);
         dto.setSerialNumber(serialNumber);
