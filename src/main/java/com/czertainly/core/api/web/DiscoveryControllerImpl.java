@@ -4,10 +4,12 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
+import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.discovery.DiscoveryCertificatesDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -36,6 +38,21 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	@Override
 	public DiscoveryHistoryDetailDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
 		return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
+	}
+
+	@Override
+	public DiscoveryCertificateResponseDto getDiscoveryCertificates(
+			String uuid,
+			Boolean isNew,
+			int itemsPerPage,
+			int pageNumber
+	) throws NotFoundException {
+		return discoveryService.getDiscoveryCertificates(
+				SecuredUUID.fromString(uuid),
+				isNew,
+				itemsPerPage,
+				pageNumber
+		);
 	}
 
 	@Override

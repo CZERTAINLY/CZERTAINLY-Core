@@ -47,6 +47,9 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     @Column(name = "discovery_uuid", nullable = false)
     private UUID discoveryUuid;
 
+    @Column(name = "newly_discovered", nullable = false)
+    private boolean newlyDiscovered;
+
     @Override
     public DiscoveryCertificatesDto mapToDto() {
         DiscoveryCertificatesDto dto = new DiscoveryCertificatesDto();
@@ -58,6 +61,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
         dto.setNotAfter(notAfter);
         dto.setCertificateContent(certificateContent.getContent());
         dto.setFingerprint(certificateContent.getFingerprint());
+        dto.setNewlyDiscovered(newlyDiscovered);
         // Certificate Inventory UUID can be obtained from the content table since it has relation to the certificate.
         // If the certificate is deleted from the inventory and the history is not deleted, then the content remains and
         // the certificate becomes null. Also, the Certificate Content is unique for each certificate and the certificate
@@ -147,5 +151,13 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     public void setDiscoveryUuid(String discoveryUuid) {
         this.discoveryUuid = UUID.fromString(discoveryUuid);
+    }
+
+    public boolean isNewlyDiscovered() {
+        return newlyDiscovered;
+    }
+
+    public void setNewlyDiscovered(boolean newlyDiscovered) {
+        this.newlyDiscovered = newlyDiscovered;
     }
 }

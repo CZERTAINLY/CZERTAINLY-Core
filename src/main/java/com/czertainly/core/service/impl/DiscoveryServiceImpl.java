@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.DiscoveryApiClient;
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
@@ -36,6 +37,8 @@ import com.czertainly.core.util.MetaDefinitions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -97,6 +100,35 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         dto.setMetadata(metadataService.getFullMetadata(discoveryHistory.getUuid(), Resource.DISCOVERY, null, null));
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.DISCOVERY));
         return dto;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
+    public DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid,
+                                                                    Boolean isNew,
+                                                                    int itemsPerPage,
+                                                                    int pageNumber) throws NotFoundException {
+        DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
+        // Page number for the user always starts from 1. But for JPA, page number starts from 0
+        Pageable p = PageRequest.of(pageNumber > 1 ? pageNumber - 1 : 0, itemsPerPage);
+        List<DiscoveryCertificate> certificates;
+        Long maxItems;
+        if (isNew == null) {
+            certificates = discoveryCertificateRepository.findByDiscovery(discoveryHistory, p);
+            maxItems = discoveryCertificateRepository.countByDiscovery(discoveryHistory);
+        } else {
+            certificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, isNew, p);
+            maxItems = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discoveryHistory, isNew);
+        }
+
+        final DiscoveryCertificateResponseDto responseDto = new DiscoveryCertificateResponseDto();
+        responseDto.setCertificates(certificates.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
+        responseDto.setItemsPerPage(itemsPerPage);
+        responseDto.setPageNumber(pageNumber);
+        responseDto.setTotalItems(maxItems);
+        responseDto.setTotalPages((int) Math.ceil((double) maxItems / itemsPerPage));
+        return responseDto;
     }
 
     public DiscoveryHistory getDiscoveryEntity(SecuredUUID uuid) throws NotFoundException {
@@ -315,9 +347,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         for (DiscoveryProviderCertificateDataDto certificate : certificatesDiscovered) {
             try {
                 X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getBase64Content());
+                boolean existingCertificate = certificateRepository.existsByFingerprint(CertificateUtil.getThumbprint(x509Cert.getEncoded()));
                 Certificate entry = certificateService.createCertificateEntity(x509Cert);
                 allCerts.add(entry);
-                createDiscoveryCertificate(entry, modal);
+                createDiscoveryCertificate(entry, modal, !existingCertificate);
                 certificateService.updateCertificateEntity(entry);
                 updateMeta(entry, certificate, modal);
                 Map<String, Object> additionalInfo = new HashMap<>();
@@ -350,7 +383,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
     }
 
-    private void createDiscoveryCertificate(Certificate entry, DiscoveryHistory modal) {
+    private void createDiscoveryCertificate(Certificate entry, DiscoveryHistory modal, boolean newlyDiscovered) {
         DiscoveryCertificate discoveryCertificate = new DiscoveryCertificate();
         discoveryCertificate.setCommonName(entry.getCommonName());
         discoveryCertificate.setSerialNumber(entry.getSerialNumber());
@@ -359,6 +392,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryCertificate.setNotBefore(entry.getNotBefore());
         discoveryCertificate.setCertificateContent(entry.getCertificateContent());
         discoveryCertificate.setDiscovery(modal);
+        discoveryCertificate.setNewlyDiscovered(newlyDiscovered);
         discoveryCertificateRepository.save(discoveryCertificate);
     }
 

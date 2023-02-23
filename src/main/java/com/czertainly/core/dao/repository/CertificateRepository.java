@@ -30,6 +30,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     Optional<Certificate> findByFingerprint(String fingerprint);
 
+    boolean existsByFingerprint(String fingerprint);
+
     List<Certificate> findBySubjectDn(String subjectDn);
 
     List<Certificate> findAllByIssuerSerialNumber(String issuerSerialNumber);
