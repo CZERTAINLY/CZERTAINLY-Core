@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.acme;
 import com.czertainly.api.model.core.acme.Authorization;
 import com.czertainly.api.model.core.acme.AuthorizationStatus;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
+import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.SerializationUtil;
@@ -131,10 +132,12 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
 
     private String getBaseUrl() {
         if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
-            return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/raProfile/"
+            return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                    + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/"
                     + order.getAcmeAccount().getRaProfile().getName();
         }
-        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/"
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                + ExtendedAcmeHelperService.ACME_URI_HEADER + "/"
                 + order.getAcmeAccount().getAcmeProfile().getName();
     }
     // Customer Getter for Authorization URL
