@@ -39,9 +39,9 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
         String linkUrl;
         Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
         if(pathVariables.containsKey("acmeProfileName")){
-            linkUrl = baseUri + "/acme/"+ pathVariables.get("acmeProfileName") + "/directory";
+            linkUrl = baseUri + ExtendedAcmeHelperService.ACME_URI_HEADER + "/" + pathVariables.get("acmeProfileName") + "/directory";
         }else{
-            linkUrl = baseUri + "/acme/raProfile/"+ pathVariables.get("acmeProfileName") + "/directory";
+            linkUrl = baseUri + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/"+ pathVariables.get("raProfileName") + "/directory";
         }
         response.addHeader("Link", "<"+linkUrl + ">;rel=\"index\"");
     }

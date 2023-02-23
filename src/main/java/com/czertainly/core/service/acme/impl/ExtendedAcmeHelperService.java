@@ -90,6 +90,7 @@ public class ExtendedAcmeHelperService {
     public static final List<String> ACME_SUPPORTED_ALGORITHMS = List.of(RSA_KEY_TYPE_NOTATION, EC_KEY_TYPE_NOTATION);
     public static final Integer ACME_RSA_MINIMUM_KEY_LENGTH = 1024;
     public static final Integer ACME_EC_MINIMUM_KEY_LENGTH = 112;
+    public static final String ACME_URI_HEADER = "/v1/protocols/acme";
     private static final Logger logger = LoggerFactory.getLogger(ExtendedAcmeHelperService.class);
     private static final String NONCE_HEADER_NAME = "Replay-Nonce";
     private static final String RETRY_HEADER_NAME = "Retry-After";
@@ -224,14 +225,14 @@ public class ExtendedAcmeHelperService {
     public Directory frameDirectory(String profileName) throws AcmeProblemDocumentException {
         logger.debug("Framing the directory for the profile with name: {}", profileName);
         Directory directory = new Directory();
-        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + ACME_URI_HEADER;
         String replaceUrl;
         Boolean raProfileRequest;
         if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
-            replaceUrl = "%s/acme/raProfile/%s/";
+            replaceUrl = "%s/raProfile/%s/";
             raProfileRequest = true;
         } else {
-            replaceUrl = "%s/acme/%s/";
+            replaceUrl = "%s/%s/";
             raProfileRequest = false;
         }
         directory.setNewNonce(String.format(replaceUrl + "new-nonce", baseUri, profileName));
@@ -279,34 +280,34 @@ public class ExtendedAcmeHelperService {
         AcmeAccount account;
         account = addNewAccount(profileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(getPublicKey()), accountRequest);
         Account accountDto = account.mapToDto();
-        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + ACME_URI_HEADER;
         if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
-            accountDto.setOrders(String.format("%s/acme/raProfile/%s/acct/%s/orders", baseUri, profileName, account.getAccountId()));
+            accountDto.setOrders(String.format("%s/raProfile/%s/acct/%s/orders", baseUri, profileName, account.getAccountId()));
             if (accountRequest.isOnlyReturnExisting()) {
                 return ResponseEntity
                         .ok()
-                        .location(URI.create(String.format("%s/acme/raProfile/%s/acct/%s", baseUri, profileName, account.getAccountId())))
+                        .location(URI.create(String.format("%s/raProfile/%s/acct/%s", baseUri, profileName, account.getAccountId())))
                         .header(NONCE_HEADER_NAME, generateNonce())
                         .header(RETRY_HEADER_NAME, account.getAcmeProfile().getRetryInterval().toString())
                         .body(accountDto);
             }
             return ResponseEntity
-                    .created(URI.create(String.format("%s/acme/raProfile/%s/acct/%s", baseUri, profileName, account.getAccountId())))
+                    .created(URI.create(String.format("%s/raProfile/%s/acct/%s", baseUri, profileName, account.getAccountId())))
                     .header(NONCE_HEADER_NAME, generateNonce())
                     .header(RETRY_HEADER_NAME, account.getAcmeProfile().getRetryInterval().toString())
                     .body(accountDto);
         } else {
-            accountDto.setOrders(String.format("%s/acme/%s/acct/%s/orders", baseUri, profileName, account.getAccountId()));
+            accountDto.setOrders(String.format("%s/%s/acct/%s/orders", baseUri, profileName, account.getAccountId()));
             if (accountRequest.isOnlyReturnExisting()) {
                 return ResponseEntity
                         .ok()
-                        .location(URI.create(String.format("%s/acme/%s/acct/%s", baseUri, profileName, account.getAccountId())))
+                        .location(URI.create(String.format("%s/%s/acct/%s", baseUri, profileName, account.getAccountId())))
                         .header(NONCE_HEADER_NAME, generateNonce())
                         .header(RETRY_HEADER_NAME, account.getAcmeProfile().getRetryInterval().toString())
                         .body(accountDto);
             }
             return ResponseEntity
-                    .created(URI.create(String.format("%s/acme/%s/acct/%s", baseUri, profileName, account.getAccountId())))
+                    .created(URI.create(String.format("%s/%s/acct/%s", baseUri, profileName, account.getAccountId())))
                     .header(NONCE_HEADER_NAME, generateNonce())
                     .header(RETRY_HEADER_NAME, account.getAcmeProfile().getRetryInterval().toString())
                     .body(accountDto);
@@ -401,7 +402,8 @@ public class ExtendedAcmeHelperService {
         AcmeAccount acmeAccount;
         try {
             acmeAccount = getAcmeAccountEntity(acmeAccountId);
-            logger.info("ACME Account set: {}", acmeAccount.toString());
+            validateAccount(acmeAccount);
+            logger.info("ACME Account set: {}", acmeAccount);
         } catch (Exception e) {
             logger.error("Requested Account with ID {} does not exists", acmeAccountId);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
@@ -409,9 +411,9 @@ public class ExtendedAcmeHelperService {
         String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
         String baseUrl;
         if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
-            baseUrl = String.format("%s/acme/raProfile/%s", baseUri, profileName);
+            baseUrl = String.format("%s/raProfile/%s", baseUri, profileName);
         } else {
-            baseUrl = String.format("%s/acme/%s", baseUri, profileName);
+            baseUrl = String.format("%s/%s", baseUri, profileName);
         }
 
         if (!acmeAccount.getStatus().equals(AccountStatus.VALID)) {
@@ -492,7 +494,8 @@ public class ExtendedAcmeHelperService {
         AcmeChallenge challenge;
         try {
             challenge = acmeChallengeRepository.findByChallengeId(challengeId).orElseThrow(() -> new NotFoundException(Challenge.class, challengeId));
-            logger.debug("Challenge: {}", challenge.toString());
+            validateAccount(challenge.getAuthorization().getOrder().getAcmeAccount());
+            logger.debug("Challenge: {}", challenge);
 
         } catch (NotFoundException e) {
             logger.error("Challenge not found with ID: {}", challengeId);
@@ -528,7 +531,8 @@ public class ExtendedAcmeHelperService {
         AcmeOrder order;
         try {
             order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new NotFoundException(Order.class, orderId));
-            logger.debug("Order found : {}", order.toString());
+            validateAccount(order.getAcmeAccount());
+            logger.debug("Order found : {}", order);
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound", "Order Not Found", "The given Order is not found"));
         }
@@ -626,6 +630,7 @@ public class ExtendedAcmeHelperService {
     public ResponseEntity<Account> updateAccount(String accountId) throws NotFoundException, AcmeProblemDocumentException {
         logger.info("Request to update the ACME Account with ID: {}", accountId);
         AcmeAccount account = getAcmeAccountEntity(accountId);
+        validateAccount(account);
         Account request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), Account.class);
         logger.debug("Account Update request: {}", request.toString());
         if (request.getContact() != null) {
@@ -671,6 +676,7 @@ public class ExtendedAcmeHelperService {
         if (getJwsObject().getHeader().toJSONObject().containsKey("kid")) {
             String accountId = accountKid.split("/")[accountKid.split("/").length - 1];
             AcmeAccount account = getAcmeAccountEntity(accountId);
+            validateAccount(account);
             try {
                 accountPublicKey = AcmePublicKeyProcessor.publicKeyObjectFromString(account.getPublicKey());
             } catch (Exception e) {
@@ -738,6 +744,7 @@ public class ExtendedAcmeHelperService {
         String account = innerJws.getPayload().toJSONObject().get("account").toString();
         String accountId = account.split("/")[account.split("/").length - 1];
         AcmeAccount acmeAccount = getAcmeAccountEntity(accountId);
+        validateAccount(acmeAccount);
         if (!acmeAccount.getPublicKey().equals(AcmePublicKeyProcessor.publicKeyPemStringFromObject(oldKey))) {
             logger.error("Public key of the Account with ID: {} does not match with old key in request", accountId);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("malformed", "JWS Malformed", "Account key does not match with old key"));
@@ -1054,6 +1061,14 @@ public class ExtendedAcmeHelperService {
                 order.setStatus(OrderStatus.INVALID);
                 acmeOrderRepository.save(order);
             }
+        }
+    }
+
+    private void validateAccount(AcmeAccount acmeAccount) throws AcmeProblemDocumentException {
+        if (!acmeAccount.getStatus().equals(AccountStatus.VALID)) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("accountDeactivated",
+                    "Account Deactivated",
+                    "The requested account has been deactivated"));
         }
     }
 }

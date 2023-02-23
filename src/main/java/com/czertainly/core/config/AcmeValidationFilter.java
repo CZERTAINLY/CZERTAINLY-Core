@@ -90,7 +90,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         String requestUri = request.getRequestURI();
         String requestUrl = request.getRequestURL().toString();
         boolean raProfileBased;
-        if (!requestUri.startsWith("/api/acme/")) {
+        if (!requestUri.startsWith("/api/v1/protocols/acme/")) {
             filterChain.doFilter(requestWrapper, responseWrapper);
             return;
         }
@@ -254,7 +254,7 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
     }
 
     private void validateJwsHeader(String requestUrl, String requestUri, CustomHttpServletRequestWrapper requestWrapper) throws AcmeProblemDocumentException {
-        if (requestUri.endsWith("/new-nonce") || requestUri.endsWith("/directory") || !requestUri.contains("/api/acme/")) {
+        if (requestUri.endsWith("/new-nonce") || requestUri.endsWith("/directory") || !requestUri.contains("/api/v1/protocols/acme/")) {
             return;
         }
         String requestBody = "";
