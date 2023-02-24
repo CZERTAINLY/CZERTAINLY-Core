@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.discovery.DiscoveryCertificatesDto;
+import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "discovery_certificate")
-public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryCertificatesDto> {
+public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryCertificateDto> {
     /**
      *
      */
@@ -47,9 +47,12 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     @Column(name = "discovery_uuid", nullable = false)
     private UUID discoveryUuid;
 
+    @Column(name = "newly_discovered", nullable = false)
+    private boolean newlyDiscovered;
+
     @Override
-    public DiscoveryCertificatesDto mapToDto() {
-        DiscoveryCertificatesDto dto = new DiscoveryCertificatesDto();
+    public DiscoveryCertificateDto mapToDto() {
+        DiscoveryCertificateDto dto = new DiscoveryCertificateDto();
         dto.setUuid(uuid.toString());
         dto.setCommonName(commonName);
         dto.setSerialNumber(serialNumber);
@@ -58,6 +61,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
         dto.setNotAfter(notAfter);
         dto.setCertificateContent(certificateContent.getContent());
         dto.setFingerprint(certificateContent.getFingerprint());
+        dto.setNewlyDiscovered(newlyDiscovered);
         // Certificate Inventory UUID can be obtained from the content table since it has relation to the certificate.
         // If the certificate is deleted from the inventory and the history is not deleted, then the content remains and
         // the certificate becomes null. Also, the Certificate Content is unique for each certificate and the certificate
@@ -147,5 +151,13 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     public void setDiscoveryUuid(String discoveryUuid) {
         this.discoveryUuid = UUID.fromString(discoveryUuid);
+    }
+
+    public boolean isNewlyDiscovered() {
+        return newlyDiscovered;
+    }
+
+    public void setNewlyDiscovered(boolean newlyDiscovered) {
+        this.newlyDiscovered = newlyDiscovered;
     }
 }
