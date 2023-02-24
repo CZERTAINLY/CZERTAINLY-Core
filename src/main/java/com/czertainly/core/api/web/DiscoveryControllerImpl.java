@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
+import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
@@ -36,6 +37,21 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	@Override
 	public DiscoveryHistoryDetailDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
 		return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
+	}
+
+	@Override
+	public DiscoveryCertificateResponseDto getDiscoveryCertificates(
+			String uuid,
+			Boolean newlyDiscovered,
+			int itemsPerPage,
+			int pageNumber
+	) throws NotFoundException {
+		return discoveryService.getDiscoveryCertificates(
+				SecuredUUID.fromString(uuid),
+				newlyDiscovered,
+				itemsPerPage,
+				pageNumber
+		);
 	}
 
 	@Override
