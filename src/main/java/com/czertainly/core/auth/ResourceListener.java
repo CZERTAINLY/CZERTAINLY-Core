@@ -28,7 +28,7 @@ public class ResourceListener {
         Map<Resource, String> listingEndpoints = new HashMap<>();
         Map<Resource, Set<String>> resourceToAction = new HashMap<>();
         //Get all the routes annotated with the listing end point
-        applicationContext.getBean(RequestMappingHandlerMapping.class)
+        applicationContext.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class)
                 .getHandlerMethods()
                 .entrySet().stream()
                 .filter(e -> !e.getKey().getMethodsCondition().getMethods().isEmpty())
