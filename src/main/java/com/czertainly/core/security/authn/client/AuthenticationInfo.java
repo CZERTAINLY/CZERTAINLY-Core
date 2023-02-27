@@ -1,12 +1,14 @@
 package com.czertainly.core.security.authn.client;
 
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class AuthenticationInfo {
 
+    private static final String ANONYMOUS_USERNAME = "anonymousUser";
     private final String username;
     private final List<GrantedAuthority> authorities;
     private final String rawData;
@@ -38,5 +40,13 @@ public class AuthenticationInfo {
 
     public String getRawData() {
         return rawData;
+    }
+
+    public boolean isAnonymous() {
+        return this.username.equals(ANONYMOUS_USERNAME);
+    }
+
+    public static AuthenticationInfo getAnonymousAuthenticationInfo() {
+        return new AuthenticationInfo(ANONYMOUS_USERNAME, List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
     }
 }
