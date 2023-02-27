@@ -142,7 +142,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(metadata);
         Assertions.assertFalse(metadata.isEmpty());
         Assertions.assertEquals(1, metadata.size());
-        Assertions.assertEquals(metaAttribute.getUuid(), metadata.get(0).getUuid());
+        Assertions.assertEquals(metaDefinition.getUuid().toString(), metadata.get(0).getUuid());
     }
 
     @Test
@@ -150,7 +150,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         GlobalMetadataDefinitionDetailDto dto = attributeService.getGlobalMetadata(SecuredUUID.fromUUID(metaDefinition.getUuid()));
         Assertions.assertNotNull(dto);
         Assertions.assertFalse(dto.getUuid().isEmpty());
-        Assertions.assertEquals(metaAttribute.getUuid(), dto.getUuid());
+        Assertions.assertEquals(metaDefinition.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(metaAttribute.getName(), dto.getName());
         Assertions.assertEquals(metaAttribute.getType(), AttributeType.META);
         Assertions.assertEquals(metaAttribute.getContentType(), AttributeContentType.STRING);
