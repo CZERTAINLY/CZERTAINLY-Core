@@ -8,8 +8,10 @@ import com.czertainly.api.interfaces.core.web.TokenInstanceController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
+import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.TokenInstanceService;
@@ -30,6 +32,7 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
 
 
     @Override
+    @AuthEndpoint(resourceName = Resource.TOKEN)
     public List<TokenInstanceDto> listTokenInstances() {
         return tokenInstanceService.listTokenInstances(SecurityFilter.create());
     }

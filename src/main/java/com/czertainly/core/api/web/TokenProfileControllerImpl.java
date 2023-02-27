@@ -11,8 +11,10 @@ import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfile
 import com.czertainly.api.model.client.cryptography.tokenprofile.BulkTokenProfileKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.TokenProfileKeyUsageRequestDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
+import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -38,6 +40,7 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.TOKEN_PROFILE)
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled) {
         return tokenProfileService.listTokenProfiles(enabled, SecurityFilter.create());
     }
