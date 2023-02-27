@@ -393,12 +393,13 @@ public class AttributeServiceImpl implements AttributeService {
             if (definition.getAttributeName() == null || definition.getAttributeUuid() == null || definition.getConnectorUuid() == null) {
                 continue;
             }
-            GlobalMetadataDefinitionDetailDto metadataAttribute = definition.mapToGlobalMetadataDefinitionDetailDto();
+            MetadataAttribute attribute = definition.getAttributeDefinition(MetadataAttribute.class);
+            String label = attribute.getProperties() != null ? attribute.getProperties().getLabel() : null;
             ConnectorMetadataResponseDto dto = new ConnectorMetadataResponseDto();
-            dto.setName(metadataAttribute.getName());
-            dto.setUuid(metadataAttribute.getUuid());
-            dto.setContentType(metadataAttribute.getContentType());
-            dto.setLabel(metadataAttribute.getLabel());
+            dto.setName(definition.getAttributeName());
+            dto.setUuid(definition.getAttributeUuid().toString());
+            dto.setContentType(definition.getContentType());
+            dto.setLabel(label);
             dto.setConnectorUuid(definition.getConnectorUuid().toString());
             response.add(dto);
         }
@@ -462,7 +463,7 @@ public class AttributeServiceImpl implements AttributeService {
         String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(value);
         AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndAttributeName(AttributeType.CUSTOM, attributeName).orElse(null);
 
-        if(definition == null) {
+        if (definition == null) {
             logger.warn("Custom attribute with name '" + attributeName + "' does not exist");
             return;
         }
@@ -473,7 +474,7 @@ public class AttributeServiceImpl implements AttributeService {
                 value,
                 validationErrors
         );
-        if(!validationErrors.isEmpty()) {
+        if (!validationErrors.isEmpty()) {
             throw new ValidationException(validationErrors);
         }
         if (!definition.isEnabled()) {
