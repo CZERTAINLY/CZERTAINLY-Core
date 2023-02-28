@@ -15,6 +15,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -88,7 +89,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
     private AuthenticationInfo createAuthenticationInfo(AuthenticationResponseDto response) {
         if (!response.isAuthenticated()) {
-            throw new CzertainlyAuthenticationException("The user has not been authenticated by the authentication service.");
+            return AuthenticationInfo.getAnonymousAuthenticationInfo();
         }
 
         try {

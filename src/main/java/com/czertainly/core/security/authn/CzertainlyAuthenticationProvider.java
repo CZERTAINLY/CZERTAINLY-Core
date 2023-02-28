@@ -5,10 +5,14 @@ import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
+
+import java.util.UUID;
 
 @Component
 public class CzertainlyAuthenticationProvider implements AuthenticationProvider {
@@ -24,10 +28,15 @@ public class CzertainlyAuthenticationProvider implements AuthenticationProvider 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         CzertainlyAuthenticationRequest authRequest = (CzertainlyAuthenticationRequest) authentication;
-        logger.trace("Going to authenticate users against the Czertainly Authentication Service.");
+        logger.debug("Going to authenticate users against the Czertainly Authentication Service.");
         AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders());
 
-        logger.trace(String.format("User has been successfully authenticated as '%s'.", authInfo.getUsername()));
+        if(authInfo.isAnonymous()) {
+            logger.debug(String.format("User not identified, using anonymous."));
+            return new AnonymousAuthenticationToken(UUID.randomUUID().toString(), new CzertainlyUserDetails(authInfo), authInfo.getAuthorities());
+        }
+
+        logger.debug(String.format("User has been successfully authenticated as '%s'.", authInfo.getUsername()));
         return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
     }
 
