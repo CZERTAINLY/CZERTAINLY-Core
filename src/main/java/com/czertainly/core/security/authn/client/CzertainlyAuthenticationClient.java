@@ -89,9 +89,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
     private AuthenticationInfo createAuthenticationInfo(AuthenticationResponseDto response) {
         if (!response.isAuthenticated()) {
-            logger.info("The user has not been authenticated by the authentication service and acts as anonymous user");
             return AuthenticationInfo.getAnonymousAuthenticationInfo();
-//            throw new CzertainlyAuthenticationException("The user has not been authenticated by the authentication service.");
         }
 
         try {
