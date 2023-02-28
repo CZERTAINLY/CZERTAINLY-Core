@@ -23,10 +23,10 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.SearchLabelConstants;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -36,6 +36,7 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.RequestValidatorHelper;
+import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +47,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
-import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -1269,42 +1269,18 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
 
-        final SearchFieldDataDto groupFilter = SearchLabelConstants.CK_GROUP_FILTER;
-        groupFilter.setValue(groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList()));
-
-        final SearchFieldDataDto keyAlgorithmFilter = SearchLabelConstants.CK_ALGORITHM_FILTER;
-        keyAlgorithmFilter.setValue(Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getName).collect(Collectors.toList()));
-
-        final SearchFieldDataDto keyTypeFilter = SearchLabelConstants.CK_TYPE_FILTER;
-        keyTypeFilter.setValue(Arrays.stream((KeyType.values())).map(KeyType::getName).collect(Collectors.toList()));
-
-        final SearchFieldDataDto keyFormatFilter = SearchLabelConstants.CK_FORMAT_FILTER;
-        keyFormatFilter.setValue(Arrays.stream((KeyFormat.values())).map(KeyFormat::getName).collect(Collectors.toList()));
-
-        final SearchFieldDataDto keyStateFilter = SearchLabelConstants.CK_STATE_FILTER;
-        keyStateFilter.setValue(Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList()));
-
-        final SearchFieldDataDto tokenInstanceStatusFilter = SearchLabelConstants.CK_TOKEN_INSTANCE_FILTER;
-        tokenInstanceStatusFilter.setValue(tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()));
-
-        final SearchFieldDataDto tokenProfileFilter = SearchLabelConstants.CK_TOKEN_PROFILE_FILTER;
-        tokenProfileFilter.setValue(tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList()));
-
-        final SearchFieldDataDto keyUsageFilter = SearchLabelConstants.CK_KEY_USAGE_FILTER;
-        keyUsageFilter.setValue(Arrays.stream((KeyUsage.values())).map(KeyUsage::getName).collect(Collectors.toList()));
-
         final List<SearchFieldDataDto> fields = List.of(
-                SearchLabelConstants.CK_NAME_FILTER,
-                groupFilter,
-                SearchLabelConstants.CK_OWNER_FILTER,
-                keyUsageFilter,
-                SearchLabelConstants.CK_KEY_LENGTH,
-                keyStateFilter,
-                keyFormatFilter,
-                keyTypeFilter,
-                keyAlgorithmFilter,
-                tokenProfileFilter,
-                tokenInstanceStatusFilter
+                SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_LENGTH),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()))
         );
         logger.debug("Searchable CryptographicKey Fields: {}", fields);
         return fields;

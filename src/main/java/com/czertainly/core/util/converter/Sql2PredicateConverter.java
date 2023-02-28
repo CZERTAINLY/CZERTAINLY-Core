@@ -5,6 +5,8 @@ import com.czertainly.api.model.connector.cryptography.enums.IAbstractSearchable
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchableFields;
+import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.enums.SearchFieldTypeEnum;
 import jakarta.persistence.criteria.*;
 
 import java.time.LocalDate;
@@ -59,10 +61,23 @@ public class Sql2PredicateConverter {
                 case EMPTY -> predicate = criteriaBuilder.isNull(prepareExpression(root, dto.getField().getCode()));
                 case NOT_EMPTY ->
                         predicate = criteriaBuilder.isNotNull(prepareExpression(root, dto.getField().getCode()));
-                case GREATER ->
-                        predicate = criteriaBuilder.greaterThan(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
-                case LESSER ->
-                        predicate = criteriaBuilder.lessThan(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                case GREATER, LESSER -> {
+                    boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(SearchFieldNameEnum.getEnumBySearchableFields(dto.getField()).getFieldTypeEnum());
+                    final Expression<?> expression = prepareExpression(root, dto.getField().getCode());
+                    if (searchCondition.equals(SearchCondition.GREATER)) {
+                        if (isDateFormat) {
+                            predicate = criteriaBuilder.greaterThan(expression.as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                        } else {
+                            predicate = criteriaBuilder.greaterThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
+                        }
+                    } else {
+                        if (isDateFormat) {
+                            predicate = criteriaBuilder.lessThan(expression.as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                        } else {
+                            predicate = criteriaBuilder.lessThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
+                        }
+                    }
+                }
             }
         }
         return predicate;
