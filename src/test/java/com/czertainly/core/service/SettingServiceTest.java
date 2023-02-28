@@ -7,19 +7,21 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.core.setting.AllSettingsDto;
 import com.czertainly.api.model.core.setting.Section;
+import com.czertainly.api.model.core.setting.SectionDto;
 import com.czertainly.api.model.core.setting.SectionSettingsDto;
+import com.czertainly.core.service.impl.SettingServiceImpl;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class SettingServiceTest extends BaseSpringBootTest {
-
-    public static final String ATTRIBUTE_DATA_UTILS_SERVICE_URL = "data_utilsServiceUrl";
 
     @Autowired
     private SettingService settingService;
@@ -35,27 +37,38 @@ public class SettingServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void getSectionSettings() throws NotFoundException {
-        SectionSettingsDto dto = settingService.getSectionSettings(Section.GENERAL);
-        Assertions.assertEquals(dto.getSection(), Section.GENERAL);
+    public void getSettings() {
+        List<SectionDto> sections = settingService.getSections();
+
+        List<SectionSettingsDto> sectionSettings = settingService.getSettings();
+        Assertions.assertEquals(sections.size(), sectionSettings.size());
     }
 
     @Test
-    public void updateGeneralSettings() throws NotFoundException {
+    public void updateGeneralSettings() {
         String utilsServiceUrl = "http://util-service:8080";
 
-        List<BaseAttribute> attrs = settingService.getSectionSettingsAttributes(Section.GENERAL);
+        List<SectionSettingsDto> attrs = settingService.getSettings();
 
-        Optional<BaseAttribute> urlAttr = attrs.stream().filter(attr -> attr.getName().equals(ATTRIBUTE_DATA_UTILS_SERVICE_URL)).findFirst();
+        Optional<SectionSettingsDto> sectionSettings = attrs.stream().filter(settings -> settings.getSection().equals(Section.GENERAL)).findFirst();
+        Assertions.assertEquals(true, sectionSettings.isPresent());
+
+        Optional<BaseAttribute> urlAttr = sectionSettings.get().getAttributeDefinitions().stream().filter(attr -> attr.getName().equals(SettingServiceImpl.ATTRIBUTE_DATA_UTILS_SERVICE_URL)).findFirst();
         Assertions.assertEquals(true, urlAttr.isPresent());
+
+        Map<Section, List<RequestAttributeDto>> request = new HashMap<>();
 
         RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
         requestAttributeDto.setUuid(urlAttr.get().getUuid());
         requestAttributeDto.setName(urlAttr.get().getName());
         requestAttributeDto.setContent(List.of(new StringAttributeContent(utilsServiceUrl)));
+        request.put(Section.GENERAL, List.of(requestAttributeDto));
 
-        SectionSettingsDto sectionSettingsDto = settingService.updateSectionSettings(Section.GENERAL, List.of(requestAttributeDto));
-        Optional<ResponseAttributeDto> responseUrlAttr = sectionSettingsDto.getAttributes().stream().filter(attr -> attr.getName().equals(ATTRIBUTE_DATA_UTILS_SERVICE_URL)).findFirst();
+        List<SectionSettingsDto> sectionSettingsDto = settingService.updateSettings(request);
+        sectionSettings = sectionSettingsDto.stream().filter(settings -> settings.getSection().equals(Section.GENERAL)).findFirst();
+        Assertions.assertEquals(true, sectionSettings.isPresent());
+
+        Optional<ResponseAttributeDto> responseUrlAttr = sectionSettings.get().getAttributes().stream().filter(attr -> attr.getName().equals(SettingServiceImpl.ATTRIBUTE_DATA_UTILS_SERVICE_URL)).findFirst();
         Assertions.assertEquals(true, responseUrlAttr.isPresent());
         Assertions.assertEquals(utilsServiceUrl, (String)responseUrlAttr.get().getContent().get(0).getData());
 

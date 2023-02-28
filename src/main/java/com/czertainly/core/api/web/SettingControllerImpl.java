@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 public class SettingControllerImpl implements SettingController {
@@ -32,10 +33,9 @@ public class SettingControllerImpl implements SettingController {
         webdataBinder.registerCustomEditor(Section.class, new SectionCodeConverter());
     }
 
-
     @Override
-    public List<SectionDto> getSettingsSections() {
-        return settingService.getSettingSections();
+    public List<SectionDto> getSections() {
+        return settingService.getSections();
     }
 
     @Override
@@ -49,17 +49,7 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
-    public List<BaseAttribute> getSectionSettingsAttributes(Section section) throws NotFoundException {
-        return settingService.getSectionSettingsAttributes(section);
-    }
-
-    @Override
-    public SectionSettingsDto getSectionSettings(Section section) throws NotFoundException {
-        return settingService.getSectionSettings(section);
-    }
-
-    @Override
-    public SectionSettingsDto updateSectionSettings(Section section, List<RequestAttributeDto> attributes) {
-        return settingService.updateSectionSettings(section, attributes);
+    public List<SectionSettingsDto> updateSettings(Map<Section, List<RequestAttributeDto>> attributes) {
+        return settingService.updateSettings(attributes);
     }
 }

@@ -45,7 +45,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    public List<SectionDto> getSettingSections() {
+    public List<SectionDto> getSections() {
         ArrayList<SectionDto> sections = new ArrayList<>();
         for (Section section: Section.values()) {
             SectionDto sectionDto = new SectionDto();
@@ -78,31 +78,18 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    public List<BaseAttribute> getSectionSettingsAttributes(Section section) {
-        switch (section) {
-            case GENERAL -> {
-                return getGeneralSectionAttributes();
-            }
-        }
-
-        return new ArrayList<>();
-    }
-
-    @Override
-    public SectionSettingsDto getSectionSettings(Section section) {
-        Setting setting = settingRepository.findBySection(section)
-                .orElse(null);
-        if(setting == null) {
-            setting = new Setting();
-            setting.setSection(section);
-            settingRepository.save(setting);
-        }
-        return constructSectionSettingsDto(setting);
-    }
-
-    @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
-    public SectionSettingsDto updateSectionSettings(Section section, List<RequestAttributeDto> attributes) {
+    public List<SectionSettingsDto> updateSettings(Map<Section, List<RequestAttributeDto>> attributes) {
+        List<SectionSettingsDto> sectionsSettings = new ArrayList<>();
+
+        for (Map.Entry<Section, List<RequestAttributeDto>> entry : attributes.entrySet()) {
+            sectionsSettings.add(updateSectionSettings(entry.getKey(), entry.getValue()));
+        }
+
+        return sectionsSettings;
+    }
+
+    private SectionSettingsDto updateSectionSettings(Section section, List<RequestAttributeDto> attributes) {
         Setting setting = settingRepository.findBySection(section)
                 .orElse(null);
 
@@ -118,12 +105,34 @@ public class SettingServiceImpl implements SettingService {
         return constructSectionSettingsDto(setting);
     }
 
+    private SectionSettingsDto getSectionSettings(Section section) {
+        Setting setting = settingRepository.findBySection(section)
+                .orElse(null);
+        if(setting == null) {
+            setting = new Setting();
+            setting.setSection(section);
+            settingRepository.save(setting);
+        }
+        return constructSectionSettingsDto(setting);
+    }
+
+    private List<BaseAttribute> getSectionSettingsAttributes(Section section) {
+        switch (section) {
+            case GENERAL -> {
+                return getGeneralSectionAttributes();
+            }
+        }
+
+        return new ArrayList<>();
+    }
+
     private SectionSettingsDto constructSectionSettingsDto(Setting setting) {
         SectionSettingsDto dto = new SectionSettingsDto();
         dto.setSection(setting.getSection());
         dto.setName(setting.getSection().getName());
         dto.setDescription(setting.getSection().getDescription());
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(setting.getAttributes(), DataAttribute.class)));
+        dto.setAttributeDefinitions(getSectionSettingsAttributes(setting.getSection()));
 
         return dto;
     }
