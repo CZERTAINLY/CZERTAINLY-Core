@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.setting.*;
 
 import java.util.List;
+import java.util.Map;
 
 public interface SettingService {
 
@@ -14,7 +15,7 @@ public interface SettingService {
      * @return List of sections DTOs
      * {@link com.czertainly.api.model.core.setting.SectionDto}
      */
-    List<SectionDto> getSettingSections();
+    List<SectionDto> getSections();
 
     /**
      * Get all settings extracted from attributes in dedicated DTO
@@ -25,34 +26,17 @@ public interface SettingService {
 
     /**
      * Get the list of all settings
-     * @return Sections Settings DTO
+     * @return List of sections settings
      * {@link com.czertainly.api.model.core.setting.SectionSettingsDto}
      */
     List<SectionSettingsDto> getSettings();
 
     /**
-     * Get the list of section settings in form of attributes
-     * @param section Section of the settings
-     * @return Deserialized attributes definitions for section settings
-     * {@link com.czertainly.api.model.common.attribute.v2.BaseAttribute}
-     */
-    List<BaseAttribute> getSectionSettingsAttributes(Section section) throws NotFoundException;
-
-    /**
-     * Get the list of section settings in form of response attributes
-     * @param section Section of the settings
-     * @return Section settings DTO
+     * Update settings per section
+     * @param attributes Request attributes with content of settings mapped by section
+     * @return List of sections settings
      * {@link com.czertainly.api.model.core.setting.SectionSettingsDto}
      */
-    SectionSettingsDto getSectionSettings(Section section);
-
-    /**
-     * Update setting section by using the section enum
-     * @param section Section of the settings
-     * @param attributes Request attributes with content of settings
-     * @return Settings DTO
-     * {@link com.czertainly.api.model.core.setting.SectionSettingsDto}
-     */
-    SectionSettingsDto updateSectionSettings(Section section, List<RequestAttributeDto> attributes);
+    List<SectionSettingsDto> updateSettings(Map<Section, List<RequestAttributeDto>> attributes);
 
 }
