@@ -40,14 +40,25 @@ public class Sql2PredicateConverter {
     }
 
     private static Predicate processPredicate(final CriteriaBuilder criteriaBuilder, final Root root, final SearchFilterRequestDto dto, final Object valueObject) {
+        final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(SearchFieldNameEnum.getEnumBySearchableFields(dto.getField()).getFieldTypeEnum());
         final SearchCondition searchCondition = checkOrReplaceSearchCondition(dto);
         Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject);
         if (predicate == null) {
             switch (searchCondition) {
-                case EQUALS ->
+                case EQUALS -> {
+                    if (isDateFormat) {
+                        predicate = criteriaBuilder.equal(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                    } else {
                         predicate = criteriaBuilder.equal(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
-                case NOT_EQUALS ->
+                    }
+                }
+                case NOT_EQUALS -> {
+                    if (isDateFormat) {
+                        predicate = criteriaBuilder.notEqual(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                    } else {
                         predicate = criteriaBuilder.notEqual(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
+                    }
+                }
                 case STARTS_WITH ->
                         predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject) + "%");
                 case ENDS_WITH ->
@@ -62,7 +73,6 @@ public class Sql2PredicateConverter {
                 case NOT_EMPTY ->
                         predicate = criteriaBuilder.isNotNull(prepareExpression(root, dto.getField().getCode()));
                 case GREATER, LESSER -> {
-                    boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(SearchFieldNameEnum.getEnumBySearchableFields(dto.getField()).getFieldTypeEnum());
                     final Expression<?> expression = prepareExpression(root, dto.getField().getCode());
                     if (searchCondition.equals(SearchCondition.GREATER)) {
                         if (isDateFormat) {

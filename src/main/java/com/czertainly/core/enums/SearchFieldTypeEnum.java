@@ -11,9 +11,9 @@ public enum SearchFieldTypeEnum {
             List.of(SearchCondition.CONTAINS, SearchCondition.NOT_CONTAINS, SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY, SearchCondition.STARTS_WITH, SearchCondition.ENDS_WITH)
             , false),
     DATE(SearchableFieldType.DATE,
-            List.of(SearchCondition.GREATER, SearchCondition.LESSER)
+            List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.GREATER, SearchCondition.LESSER)
             , false),
-    NUMBER(SearchableFieldType.STRING,
+    NUMBER(SearchableFieldType.NUMBER,
             List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.GREATER, SearchCondition.LESSER)
             , false),
     LIST(SearchableFieldType.LIST,
