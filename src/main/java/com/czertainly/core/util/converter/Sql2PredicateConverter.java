@@ -5,6 +5,8 @@ import com.czertainly.api.model.connector.cryptography.enums.IAbstractSearchable
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchableFields;
+import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.enums.SearchFieldTypeEnum;
 import jakarta.persistence.criteria.*;
 
 import java.time.LocalDate;
@@ -38,14 +40,25 @@ public class Sql2PredicateConverter {
     }
 
     private static Predicate processPredicate(final CriteriaBuilder criteriaBuilder, final Root root, final SearchFilterRequestDto dto, final Object valueObject) {
+        final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(SearchFieldNameEnum.getEnumBySearchableFields(dto.getField()).getFieldTypeEnum());
         final SearchCondition searchCondition = checkOrReplaceSearchCondition(dto);
         Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject);
         if (predicate == null) {
             switch (searchCondition) {
-                case EQUALS ->
+                case EQUALS -> {
+                    if (isDateFormat) {
+                        predicate = criteriaBuilder.equal(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                    } else {
                         predicate = criteriaBuilder.equal(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
-                case NOT_EQUALS ->
+                    }
+                }
+                case NOT_EQUALS -> {
+                    if (isDateFormat) {
+                        predicate = criteriaBuilder.notEqual(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                    } else {
                         predicate = criteriaBuilder.notEqual(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
+                    }
+                }
                 case STARTS_WITH ->
                         predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject) + "%");
                 case ENDS_WITH ->
@@ -59,10 +72,22 @@ public class Sql2PredicateConverter {
                 case EMPTY -> predicate = criteriaBuilder.isNull(prepareExpression(root, dto.getField().getCode()));
                 case NOT_EMPTY ->
                         predicate = criteriaBuilder.isNotNull(prepareExpression(root, dto.getField().getCode()));
-                case GREATER ->
-                        predicate = criteriaBuilder.greaterThan(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
-                case LESSER ->
-                        predicate = criteriaBuilder.lessThan(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                case GREATER, LESSER -> {
+                    final Expression<?> expression = prepareExpression(root, dto.getField().getCode());
+                    if (searchCondition.equals(SearchCondition.GREATER)) {
+                        if (isDateFormat) {
+                            predicate = criteriaBuilder.greaterThan(expression.as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                        } else {
+                            predicate = criteriaBuilder.greaterThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
+                        }
+                    } else {
+                        if (isDateFormat) {
+                            predicate = criteriaBuilder.lessThan(expression.as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
+                        } else {
+                            predicate = criteriaBuilder.lessThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
+                        }
+                    }
+                }
             }
         }
         return predicate;
