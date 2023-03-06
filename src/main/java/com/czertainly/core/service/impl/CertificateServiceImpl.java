@@ -17,7 +17,9 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.dao.entity.*;
@@ -324,8 +326,51 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Deprecated
     public List<SearchFieldDataDto> getSearchableFieldInformation() {
         return getSearchableFieldsMap();
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
+
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(new ArrayList<>(), SearchGroup.META.name()));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(new ArrayList<>(), SearchGroup.CUSTOM.name()));
+
+        final List<SearchFieldDataDto> fields = List.of(
+                SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.EXPIRES),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.NOT_BEFORE),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()))
+        );
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.name()));
+
+        logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
+        return searchFieldDataByGroupDtos;
+
+
+
     }
 
     @Override
@@ -820,6 +865,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
 
+    @Deprecated
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
 
         final List<SearchFieldDataDto> fields = List.of(

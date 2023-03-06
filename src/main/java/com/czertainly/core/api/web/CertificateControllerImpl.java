@@ -9,6 +9,7 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -107,6 +108,11 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public List<SearchFieldDataDto> getSearchableFieldInformation() {
 		return certificateService.getSearchableFieldInformation();
+	}
+
+	@Override
+	public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
+		return certificateService.getSearchableFieldInformationByGroup();
 	}
 
 	@Override
