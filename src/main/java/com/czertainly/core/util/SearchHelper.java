@@ -11,7 +11,7 @@ public class SearchHelper {
 
     public static SearchFieldDataDto prepareSearch(final SearchFieldNameEnum fieldNameEnum, final Object values) {
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
-        fieldDataDto.setField(fieldNameEnum.getFieldProperty());
+        fieldDataDto.setFieldIdentifier(fieldNameEnum.getFieldProperty().getCode());
         fieldDataDto.setLabel(fieldNameEnum.getFieldLabel());
         fieldDataDto.setMultiValue(fieldNameEnum.getFieldTypeEnum().isMultiValue());
         fieldDataDto.setConditions(fieldNameEnum.getFieldTypeEnum().getContitions());
