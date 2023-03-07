@@ -22,7 +22,9 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -178,7 +180,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
-    public List<SearchFieldDataDto> getSearchableFieldInformation() {
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return getSearchableFieldsMap();
     }
 
@@ -1267,7 +1269,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 );
     }
 
-    private List<SearchFieldDataDto> getSearchableFieldsMap() {
+    private List<SearchFieldDataByGroupDto> getSearchableFieldsMap() {
+
+        final List<SearchFieldDataByGroupDto> searchFilterRequestDtos = new ArrayList<>();
+
+        searchFilterRequestDtos.add(new SearchFieldDataByGroupDto(new ArrayList<>(), SearchGroup.META.name()));
+        searchFilterRequestDtos.add(new SearchFieldDataByGroupDto(new ArrayList<>(), SearchGroup.CUSTOM.name()));
 
         final List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
@@ -1282,8 +1289,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()))
         );
-        logger.debug("Searchable CryptographicKey Fields: {}", fields);
-        return fields;
+        searchFilterRequestDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.name()));
+
+        logger.debug("Searchable CryptographicKey Fields groups: {}", searchFilterRequestDtos);
+        return searchFilterRequestDtos;
     }
 
 }

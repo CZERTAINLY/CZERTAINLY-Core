@@ -48,7 +48,7 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values, SearchableFieldType fieldType, List<SearchCondition> conditions) {
         SearchFieldDataDto dto = new SearchFieldDataDto();
-        dto.setField(field);
+        dto.setFieldIdentifier(field.getCode());
         dto.setLabel(label);
         dto.setMultiValue(multiValue);
         dto.setValue(values);
@@ -168,9 +168,9 @@ public class SearchServiceImpl implements SearchService {
         List<SearchFieldDataDto> iterableJson = new LinkedList<>();
         for (SearchFilterRequestDto requestField : conditions) {
             for (SearchFieldDataDto field : originalJson) {
-                if (requestField.getField().equals(field.getField())) {
+                if (requestField.getFieldIdentifier().equals(field.getFieldIdentifier())) {
                     SearchFieldDataDto fieldDup = new SearchFieldDataDto();
-                    fieldDup.setField(field.getField());
+                    fieldDup.setFieldIdentifier(field.getFieldIdentifier());
                     fieldDup.setType(field.getType());
                     fieldDup.setLabel(field.getLabel());
                     fieldDup.setType(field.getType());

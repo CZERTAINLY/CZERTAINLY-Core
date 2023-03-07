@@ -17,7 +17,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
-import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -39,7 +39,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * TODO lukas.rejha - fill it
      * @return
      */
-    List<SearchFieldDataDto> getSearchableFieldInformation();
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
     /**
      * List of all available keys that contains full key pair
