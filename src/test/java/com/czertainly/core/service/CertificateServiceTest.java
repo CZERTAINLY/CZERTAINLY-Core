@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
@@ -231,7 +232,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testSearchableFields() {
-        List<SearchFieldDataDto> response = certificateService.getSearchableFieldInformation();
+        final List<SearchFieldDataByGroupDto> response = certificateService.getSearchableFieldInformationByGroup();
         Assertions.assertNotNull(response);
         Assertions.assertFalse(response.isEmpty());
     }

@@ -325,7 +325,6 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
     }
 
-    @Override
     @Deprecated
     public List<SearchFieldDataDto> getSearchableFieldInformation() {
         return getSearchableFieldsMap();

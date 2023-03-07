@@ -76,9 +76,6 @@ public interface CertificateService extends ResourceExtensionService  {
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     void revokeCertificate(String serialNumber);
 
-    @Deprecated
-    List<SearchFieldDataDto> getSearchableFieldInformation();
-
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
     void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException;

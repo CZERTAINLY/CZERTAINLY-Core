@@ -106,14 +106,10 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public List<SearchFieldDataDto> getSearchableFieldInformation() {
-		return certificateService.getSearchableFieldInformation();
-	}
-
-	@Override
-	public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
+	public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
 		return certificateService.getSearchableFieldInformationByGroup();
 	}
+
 
 	@Override
 	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
