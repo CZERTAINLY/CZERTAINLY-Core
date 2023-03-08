@@ -49,7 +49,7 @@ public class SearchServiceImpl implements SearchService {
     public SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values, SearchableFieldType fieldType, List<SearchCondition> conditions) {
         SearchFieldDataDto dto = new SearchFieldDataDto();
         dto.setFieldIdentifier(field.getCode());
-        dto.setLabel(label);
+        dto.setFieldLabel(label);
         dto.setMultiValue(multiValue);
         dto.setValue(values);
         dto.setType(fieldType);
@@ -172,7 +172,7 @@ public class SearchServiceImpl implements SearchService {
                     SearchFieldDataDto fieldDup = new SearchFieldDataDto();
                     fieldDup.setFieldIdentifier(field.getFieldIdentifier());
                     fieldDup.setType(field.getType());
-                    fieldDup.setLabel(field.getLabel());
+                    fieldDup.setFieldLabel(field.getFieldLabel());
                     fieldDup.setType(field.getType());
                     fieldDup.setMultiValue(field.isMultiValue());
                     fieldDup.setValue(requestField.getValue());
@@ -205,7 +205,7 @@ public class SearchServiceImpl implements SearchService {
                 }
 
                 if (whereObjects.isEmpty()) {
-                    throw new ValidationException(ValidationError.create("No valid object found for search in " + filter.getLabel()));
+                    throw new ValidationException(ValidationError.create("No valid object found for search in " + filter.getFieldLabel()));
                 }
 
                 if (filter.getConditions().get(0).equals(SearchCondition.EQUALS)) {
