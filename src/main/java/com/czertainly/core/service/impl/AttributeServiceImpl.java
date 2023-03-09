@@ -407,7 +407,7 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
     public GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(UUID uuid, UUID connectorUUid) throws NotFoundException {
         AttributeDefinition definition = attributeDefinitionRepository.findByConnectorUuidAndAttributeUuid(
                 connectorUUid,
@@ -416,6 +416,26 @@ public class AttributeServiceImpl implements AttributeService {
         definition.setGlobal(true);
         attributeDefinitionRepository.save(definition);
         return getGlobalMetadata(SecuredUUID.fromUUID(definition.getUuid()));
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
+    public void demoteConnectorMetadata(SecuredUUID uuid) throws NotFoundException {
+        AttributeDefinition definition = getAttributeDefinition(uuid, AttributeType.META);
+        definition.setGlobal(false);
+        attributeDefinitionRepository.save(definition);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
+    public void bulkDemoteConnectorMetadata(List<SecuredUUID> attributeUuids) {
+        for (SecuredUUID uuid : attributeUuids) {
+            try {
+                demoteConnectorMetadata(uuid);
+            } catch (NotFoundException e) {
+                logger.warn("Unable to find global metadata with UUID {}", uuid);
+            }
+        }
     }
 
     @Override

@@ -250,6 +250,19 @@ public interface AttributeService {
     GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(UUID uuid, UUID connectorUUid) throws NotFoundException;
 
     /**
+     * Demote multiple global metadata
+     *
+     * @param attributeUuids UUIDs of the global metadata to be demoted
+     */
+    void bulkDemoteConnectorMetadata(List<SecuredUUID> attributeUuids);
+
+    /**
+     * Function to demote the metadata from global metadata to connector metadata as result of delete operation
+     * @param uuid    UUID of the global metadata
+     */
+    void demoteConnectorMetadata(SecuredUUID uuid) throws NotFoundException;
+
+    /**
      * Check and create the reference attributes in the database
      */
     AttributeDefinition createAttributeDefinition(UUID connectorUuid, BaseAttribute attribute);
