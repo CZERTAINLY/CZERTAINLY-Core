@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.setting.Section;
+import com.czertainly.api.model.core.settings.Section;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -11,12 +11,18 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 @Table(name = "setting")
 public class Setting extends UniquelyIdentifiedAndAudited {
 
-    @Column(name = "section")
+    @Column(name = "section", nullable = false)
     @Enumerated(EnumType.STRING)
     private Section section;
 
-    @Column(name = "attributes", length = Integer.MAX_VALUE)
-    private String attributes;
+    @Column(name = "category")
+    private String category;
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "value", length = Integer.MAX_VALUE)
+    private String value;
 
     public Section getSection() {
         return section;
@@ -26,12 +32,28 @@ public class Setting extends UniquelyIdentifiedAndAudited {
         this.section = section;
     }
 
-    public String getAttributes() {
-        return attributes;
+    public String getCategory() {
+        return category;
     }
 
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getValue() {
+        return value;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
     }
 
     @Override
@@ -39,7 +61,9 @@ public class Setting extends UniquelyIdentifiedAndAudited {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("uuid", uuid)
                 .append("section", section)
-                .append("attributes", attributes)
+                .append("category", category)
+                .append("name", name)
+                .append("value", value)
                 .toString();
     }
 
@@ -48,7 +72,7 @@ public class Setting extends UniquelyIdentifiedAndAudited {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Setting that = (Setting) o;
-        return new EqualsBuilder().append(uuid, that.uuid).append(section, that.section).isEquals();
+        return new EqualsBuilder().append(uuid, that.uuid).append(section, that.section).append(name, that.name).isEquals();
     }
 
     @Override

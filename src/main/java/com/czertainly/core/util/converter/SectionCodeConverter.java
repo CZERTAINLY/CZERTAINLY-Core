@@ -1,6 +1,6 @@
 package com.czertainly.core.util.converter;
 
-import com.czertainly.api.model.core.setting.Section;
+import com.czertainly.api.model.core.settings.Section;
 
 import java.beans.PropertyEditorSupport;
 
