@@ -213,10 +213,6 @@ public class MetadataServiceImpl implements MetadataService {
         AttributeDefinition definition = null;
         if (properties != null && properties.isGlobal()) {
             definition = metadataDefinitionRepository.findByTypeAndAttributeNameAndGlobalAndContentType(AttributeType.META, attributeName, true, contentType).orElse(null);
-//            if (definition == null) {
-//                logger.warn("Attribute {} is given as global metadata. But not defined in the core. Hence ignoring the content", attributeName);
-//                return;
-//            }
         }
         if(definition == null) {
             definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorUuid, attributeUuid).orElse(null);
