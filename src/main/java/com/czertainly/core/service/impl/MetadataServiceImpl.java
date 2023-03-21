@@ -59,7 +59,8 @@ public class MetadataServiceImpl implements MetadataService {
         }
         for (MetadataAttribute metadataAttribute : metadataDefinitions) {
             if (metadataAttribute.getProperties() != null && metadataAttribute.getProperties().isGlobal()) {
-                continue;
+                Optional<AttributeDefinition> definition = metadataDefinitionRepository.findByTypeAndAttributeNameAndGlobalAndContentType(metadataAttribute.getType(), metadataAttribute.getName(), true, metadataAttribute.getContentType());
+                if(definition.isPresent()) continue;
             }
             if (!metadataDefinitionRepository.existsByConnectorUuidAndAttributeUuidAndTypeAndContentType(connectorUuid, UUID.fromString(metadataAttribute.getUuid()), metadataAttribute.getType(), metadataAttribute.getContentType())) {
                 AttributeDefinition definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeNameAndAttributeUuidAndTypeAndContentType(connectorUuid, metadataAttribute.getName(), null, metadataAttribute.getType(), metadataAttribute.getContentType()).orElse(null);
@@ -209,16 +210,14 @@ public class MetadataServiceImpl implements MetadataService {
 
     private void createMetadataContent(String attributeName, AttributeContentType contentType, UUID connectorUuid, UUID objectUuid, UUID attributeUuid, UUID sourceObjectUuid, String sourceObjectName, List<BaseAttributeContent> metadata, Resource resource, Resource sourceObjectResource, MetadataAttributeProperties properties) {
         String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(metadata);
-        AttributeDefinition definition;
+        AttributeDefinition definition = null;
         if (properties != null && properties.isGlobal()) {
             definition = metadataDefinitionRepository.findByTypeAndAttributeNameAndGlobalAndContentType(AttributeType.META, attributeName, true, contentType).orElse(null);
-            if (definition == null) {
-                logger.warn("Attribute {} is given as global metadata. But not defined in the core. Hence ignoring the content", attributeName);
-                return;
-            }
-        } else {
+        }
+        if(definition == null) {
             definition = metadataDefinitionRepository.findByConnectorUuidAndAttributeUuid(connectorUuid, attributeUuid).orElse(null);
         }
+
         AttributeContent existingContent = metadataContentRepository.findByAttributeContentAndAttributeDefinition(serializedContent, definition).orElse(null);
 
         AttributeContent2Object metadata2Object = new AttributeContent2Object();
