@@ -34,6 +34,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findBySubjectDn(String subjectDn);
 
+    List<Certificate> findByCommonName(String commonName);
+
     List<Certificate> findAllByIssuerSerialNumber(String issuerSerialNumber);
 
     List<Certificate> findByStatus(CertificateStatus status);

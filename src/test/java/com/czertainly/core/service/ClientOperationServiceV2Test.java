@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
@@ -126,6 +127,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
         certificate.setCertificateContent(certificateContent);
+        certificate.setStatus(CertificateStatus.VALID);
         certificate.setCertificateContentId(certificateContent.getId());
         certificate = certificateRepository.save(certificate);
 

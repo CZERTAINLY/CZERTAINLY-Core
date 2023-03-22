@@ -11,12 +11,14 @@ import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,7 +28,9 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.net.URI;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,9 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Autowired
 	private CertificateEventHistoryService certificateEventHistoryService;
+
+	@Autowired
+	private ClientOperationService clientOperationService;
 
 	@Override
 	public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
@@ -144,6 +151,11 @@ public class CertificateControllerImpl implements CertificateController {
 	@Override
 	public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
 		return certificateService.getCertificateContent(uuids);
+	}
+
+	@Override
+	public CertificateDetailDto createCsr(ClientCertificateRequestDto request) throws ValidationException, NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
+		return clientOperationService.createCsr(request);
 	}
 
 }

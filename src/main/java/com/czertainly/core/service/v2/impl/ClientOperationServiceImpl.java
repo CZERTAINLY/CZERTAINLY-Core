@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.RevocationReason;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
@@ -50,7 +51,9 @@ import org.springframework.stereotype.Service;
 
 import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
@@ -153,6 +156,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
+    public CertificateDetailDto createCsr(ClientCertificateRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
+        Map<String, Object> csrMap = generateCsr(request.getPkcs10(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes());
+        String pkcs10 = (String) csrMap.get("csr");
+        List<DataAttribute> merged = (List<DataAttribute>) csrMap.get("merged");
+        Certificate csr = certificateService.createCsr(pkcs10, request.getSignatureAttributes(), merged, request.getKeyUuid());
+        certificateEventHistoryService.addEventHistory(CertificateEvent.CREATE_CSR, CertificateEventStatus.SUCCESS, "CSR created with the provided parameters", "", csr);
+        return csr.mapToDto();
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
@@ -161,49 +175,33 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
-
-        CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
-        // the CSR should be properly converted to ensure consistent Base64-encoded format
+        Certificate certificate;
         String pkcs10;
-        String csr;
-        List<DataAttribute> merged = null;
+        CertificateDataResponseDto caResponse;
+        if(request.getUuid() != null) {
+            Certificate csrCertificate = certificateService.getCertificateEntity(SecuredUUID.fromUUID(request.getUuid()));
+            pkcs10 = csrCertificate.getCsr();
+            caResponse = issueCertificate(pkcs10, request.getAttributes(), raProfile);
+            certificate = certificateService.updateCsrToCertificate(csrCertificate.getUuid(), caResponse.getCertificateData(), caResponse.getMeta());
 
-        if (request.getPkcs10() != null && !request.getPkcs10().isEmpty()) {
-            csr = request.getPkcs10();
         } else {
-            merged = AttributeDefinitionUtils.mergeAttributes(CsrAttributes.csrAttributes(), request.getCsrAttributes());
-            AttributeDefinitionUtils.validateAttributes(CsrAttributes.csrAttributes(), request.getCsrAttributes());
-            csr = generateCsr(
+            // the CSR should be properly converted to ensure consistent Base64-encoded format
+            Map<String, Object> csrMap = generateCsr(request.getPkcs10(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes());
+            pkcs10 = (String) csrMap.get("csr");
+            List<DataAttribute> merged = (List<DataAttribute>) csrMap.get("merged");
+            if (!isProtocolUser())
+                attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CERTIFICATE);
+            caResponse = issueCertificate(pkcs10, request.getAttributes(), raProfile);
+            //Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
+            certificate = certificateService.checkCreateCertificateWithMeta(
+                    caResponse.getCertificateData(),
+                    caResponse.getMeta(),
+                    pkcs10,
                     request.getKeyUuid(),
-                    request.getTokenProfileUuid(),
-                    CsrUtil.buildSubject(request.getCsrAttributes()),
+                    merged,
                     request.getSignatureAttributes()
             );
         }
-        try {
-            pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(csr).getEncoded());
-        } catch (IOException e) {
-            logger.debug("Failed to parse CSR: " + e);
-            throw new CertificateException(e);
-        }
-        caRequest.setPkcs10(pkcs10);
-        caRequest.setAttributes(request.getAttributes());
-        caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
-        if (!isAcmeUser()) attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CERTIFICATE);
-        CertificateDataResponseDto caResponse = certificateApiClient.issueCertificate(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                caRequest);
-
-        //Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
-        Certificate certificate = certificateService.checkCreateCertificateWithMeta(
-                caResponse.getCertificateData(),
-                caResponse.getMeta(),
-                pkcs10,
-                request.getKeyUuid(),
-                merged,
-                request.getSignatureAttributes()
-        );
 
         //Create Custom Attributes
         attributeService.createAttributeContent(certificate.getUuid(), request.getCustomAttributes(), Resource.CERTIFICATE);
@@ -229,6 +227,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         return response;
     }
 
+    private CertificateDataResponseDto issueCertificate(String pkcs10, List<RequestAttributeDto> raProfileAttributes, RaProfile raProfile) throws ConnectorException {
+        CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
+        caRequest.setPkcs10(pkcs10);
+        caRequest.setAttributes(raProfileAttributes);
+        caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
+        return certificateApiClient.issueCertificate(
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                caRequest);
+    }
+
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
@@ -238,6 +247,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         Certificate oldCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        checkNewStatus(oldCertificate.getStatus());
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Renewing Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
@@ -342,6 +352,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         Certificate oldCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        checkNewStatus(oldCertificate.getStatus());
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Rekeying Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
@@ -476,6 +487,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        checkNewStatus(certificate.getStatus());
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Revoking Certificate: ", certificate.toString());
 
@@ -741,13 +753,48 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
     }
 
-    private boolean isAcmeUser() {
+    private boolean isProtocolUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication.getPrincipal() instanceof String
-                && "ACME_USER".equals(authentication.getPrincipal())) {
+                && ("acme".equals(authentication.getPrincipal())) || "scep".equals(authentication.getPrincipal())) {
             return true;
         }
         return false;
+    }
+
+    private Map<String, Object> generateCsr(String uploadedCsr, List<RequestAttributeDto> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, CertificateException {
+        String pkcs10;
+        String csr;
+        List<DataAttribute> merged = List.of();
+
+        if (uploadedCsr != null && !uploadedCsr.isEmpty()) {
+            csr = uploadedCsr;
+        } else {
+            merged = AttributeDefinitionUtils.mergeAttributes(CsrAttributes.csrAttributes(), csrAttributes);
+            AttributeDefinitionUtils.validateAttributes(CsrAttributes.csrAttributes(), csrAttributes);
+            csr = generateCsr(
+                    keyUUid,
+                    tokenProfileUuid,
+                    CsrUtil.buildSubject(csrAttributes),
+                    signatureAttributes
+            );
+        }
+        try {
+            pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(csr).getEncoded());
+        } catch (IOException e) {
+            logger.debug("Failed to parse CSR: " + e);
+            throw new CertificateException(e);
+        }
+        return Map.of("csr", pkcs10, "attributes", merged);
+    }
+
+
+    private void checkNewStatus(CertificateStatus status) {
+        if(status.equals(CertificateStatus.NEW)) {
+            throw new ValidationException(
+                    ValidationError.create("Cannot perform operation on certificate with status NEW")
+            );
+        }
     }
 
 }
