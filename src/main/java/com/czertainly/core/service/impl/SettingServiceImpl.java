@@ -1,10 +1,13 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.Section;
 import com.czertainly.api.model.core.settings.UtilsSettingsDto;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.SettingService;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -31,6 +34,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public PlatformSettingsDto getPlatformSettings() {
         List<Setting> settings = settingRepository.findBySection(Section.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
@@ -47,6 +51,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updatePlatformSettings(PlatformSettingsDto platformSettings) {
         List<Setting> settings = settingRepository.findBySection(Section.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
