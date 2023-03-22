@@ -8,8 +8,15 @@ import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.dao.entity.Certificate;
 import jakarta.xml.bind.DatatypeConverter;
+import org.bouncycastle.asn1.pkcs.Attribute;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
@@ -22,6 +29,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Principal;
@@ -157,6 +165,44 @@ public class CertificateUtil {
         return sans;
     }
 
+
+    private static Map<String, Object> getSAN(JcaPKCS10CertificationRequest csr) {
+
+        Map<String, Object> sans = new HashMap<>();
+        sans.put("otherName", new ArrayList<>());
+        sans.put("rfc822Name", new ArrayList<>());
+        sans.put("dNSName", new ArrayList<>());
+        sans.put("x400Address", new ArrayList<>());
+        sans.put("directoryName", new ArrayList<>());
+        sans.put("ediPartyName", new ArrayList<>());
+        sans.put("uniformResourceIdentifier", new ArrayList<>());
+        sans.put("iPAddress", new ArrayList<>());
+        sans.put("registeredID", new ArrayList<>());
+
+        Attribute[] certAttributes = csr.getAttributes();
+        for (Attribute attribute : certAttributes) {
+            if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
+                Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
+                GeneralNames gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+                GeneralName[] names = gns.getNames();
+                for (GeneralName name : names) {
+                    switch (name.getTagNo()){
+                        case GeneralName.dNSName: ((ArrayList<String>) sans.get("dNSName")).add(name.getName().toString());
+                        case GeneralName.iPAddress: ((ArrayList<String>) sans.get("iPAddress")).add(name.getName().toString());
+                        case GeneralName.otherName: ((ArrayList<String>) sans.get("otherName")).add(name.getName().toString());
+                        case GeneralName.directoryName: ((ArrayList<String>) sans.get("directoryName")).add(name.getName().toString());
+                        case GeneralName.registeredID: ((ArrayList<String>) sans.get("registeredID")).add(name.getName().toString());
+                        case GeneralName.x400Address: ((ArrayList<String>) sans.get("x400Address")).add(name.getName().toString());
+                        case GeneralName.uniformResourceIdentifier: ((ArrayList<String>) sans.get("uniformResourceIdentifier")).add(name.getName().toString());
+                        case GeneralName.ediPartyName: ((ArrayList<String>) sans.get("ediPartyName")).add(name.getName().toString());
+                        case GeneralName.rfc822Name: ((ArrayList<String>) sans.get("rfc822Name")).add(name.getName().toString());
+                    }
+                }
+            }
+        }
+        return sans;
+    }
+
     public static X509Certificate parseCertificate(String cert) throws CertificateException {
         cert = cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", "")
                 .replace("\r", "").replace("\n", "");
@@ -229,6 +275,34 @@ public class CertificateUtil {
 
         return modal;
     }
+
+
+    public static Certificate prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
+        setSubjectDNParams(modal, certificate.getSubject().toString());
+        if (certificate.getPublicKey() == null) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Invalid Certificate. Public Key is missing"
+                    )
+            );
+        }
+        try {
+            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificate.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            logger.error("Failed to calculate the thumbprint of the certificate");
+        }
+
+        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()));
+        DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
+        modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificate.getSignatureAlgorithm()).replace("WITH", "with"));
+        modal.setStatus(CertificateStatus.NEW);
+        modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
+        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(getSAN(certificate)));
+        return modal;
+    }
+
+
+
 
     private static void setIssuerDNParams(Certificate modal, String issuerDN) {
         modal.setIssuerDn(issuerDN);
