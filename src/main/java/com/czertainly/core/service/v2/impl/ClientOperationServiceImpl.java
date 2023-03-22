@@ -247,6 +247,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         Certificate oldCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        checkNewStatus(oldCertificate.getStatus());
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Renewing Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
@@ -351,6 +352,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         Certificate oldCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        checkNewStatus(oldCertificate.getStatus());
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Rekeying Certificate: ", oldCertificate.toString());
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
@@ -485,6 +487,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        checkNewStatus(certificate.getStatus());
         extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
         logger.debug("Revoking Certificate: ", certificate.toString());
 
@@ -783,6 +786,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateException(e);
         }
         return Map.of("csr", pkcs10, "attributes", merged);
+    }
+
+
+    private void checkNewStatus(CertificateStatus status) {
+        if(status.equals(CertificateStatus.NEW)) {
+            throw new ValidationException(
+                    ValidationError.create("Cannot perform operation on certificate with status NEW")
+            );
+        }
     }
 
 }

@@ -16,6 +16,7 @@ import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
@@ -292,7 +293,8 @@ public class CertificateUtil {
         }
 
         modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()));
-        modal.setSignatureAlgorithm(certificate.getSignatureAlgorithm().getAlgorithm().toString().replace("WITH", "with"));
+        DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
+        modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificate.getSignatureAlgorithm()).replace("WITH", "with"));
         modal.setStatus(CertificateStatus.NEW);
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setSubjectAlternativeNames(MetaDefinitions.serialize(getSAN(certificate)));
