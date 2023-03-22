@@ -28,6 +28,7 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -755,8 +756,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private boolean isProtocolUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication.getPrincipal() instanceof String
-                && ("acme".equals(authentication.getPrincipal())) || "scep".equals(authentication.getPrincipal())) {
+        String username = ((CzertainlyUserDetails) authentication.getPrincipal()).getUsername();
+        if (username.equals("acme")) {
             return true;
         }
         return false;

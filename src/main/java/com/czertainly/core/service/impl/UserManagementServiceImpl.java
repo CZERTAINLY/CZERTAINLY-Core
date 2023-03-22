@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -174,6 +175,11 @@ public class UserManagementServiceImpl implements UserManagementService {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
             try {
                 certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
+                if(certificate.getStatus().equals(CertificateStatus.NEW)) {
+                    throw new ValidationException(ValidationError.create(
+                            "Cannot create user for certificate with state NEW"
+                    ));
+                }
             } catch (NotFoundException | NoSuchAlgorithmException e) {
                 logger.debug("New Certificate uploaded for the user");
                 certificate = certificateService.createCertificateEntity(x509Cert);
