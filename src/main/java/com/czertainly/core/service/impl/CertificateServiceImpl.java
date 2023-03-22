@@ -37,6 +37,7 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
@@ -57,7 +58,9 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -185,6 +188,16 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
         return entity;
+    }
+
+    @Override
+    public List<Certificate> getCertificateEntityBySubjectDn(String subjectDn) {
+        return certificateRepository.findBySubjectDn(subjectDn);
+    }
+
+    @Override
+    public List<Certificate> getCertificateEntityByCommonName(String commonName) {
+        return certificateRepository.findByCommonName(commonName);
     }
 
     @Override
@@ -842,6 +855,40 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
         return response;
+    }
+
+    @Override
+    public Certificate createCsr(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, UUID keyUuid) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
+        JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(csr);
+        Certificate model = new Certificate();
+        CertificateUtil.prepareCsrObject(model, jcaObject);
+        model.setKeyUuid(keyUuid);
+        model.setCsr(csr);
+        model.setStatus(CertificateStatus.NEW);
+        model.setSignatureAttributes(signatureAttributes);
+        model.setCsrAttributes(csrAttributes);
+        certificateRepository.save(model);
+        return model;
+    }
+
+    @Override
+    public Certificate updateCsrToCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException {
+        X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
+        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
+        Certificate entity = getCertificateEntity(SecuredUUID.fromUUID(uuid));
+        if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
+            throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
+        }
+        CertificateUtil.prepareCertificate(entity, x509Cert);
+        CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert));
+        entity.setFingerprint(fingerprint);
+        entity.setCertificateContent(certificateContent);
+        entity.setCertificateContentId(certificateContent.getId());
+        certificateRepository.save(entity);
+        metadataService.createMetadataDefinitions(null, meta);
+        metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
+        certificateComplianceCheck(entity);
+        return entity;
     }
 
     private String getExpiryTime(Date now, Date expiry) {

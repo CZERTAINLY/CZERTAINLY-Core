@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
@@ -23,6 +24,7 @@ import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -60,6 +62,9 @@ public class CertValidationServiceTest extends BaseSpringBootTest {
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
+        certificate.setStatus(CertificateStatus.VALID);
+        certificate.setNotBefore(new Date());
+        certificate.setNotAfter(new Date());
         certificate.setCertificateContent(certificateContent);
         certificate = certificateRepository.save(certificate);
     }
