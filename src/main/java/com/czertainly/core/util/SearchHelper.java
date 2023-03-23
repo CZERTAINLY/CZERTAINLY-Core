@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
@@ -55,7 +56,9 @@ public class SearchHelper {
 
     public static List<SearchFieldDataDto> prepareSearchForJSON(final List<SearchFieldObject> searchFieldObjectList) {
         final List<String> duplicatesOfNames = filterDuplicity(searchFieldObjectList);
-        return searchFieldObjectList.stream().map(attribute -> prepareSearchForJSON(attribute.getAttributeName(), attribute.getAttributeContentType(), duplicatesOfNames.contains(attribute.getAttributeName()))).collect(Collectors.toList());
+        final List<SearchFieldDataDto> searchFieldDataDtoList = searchFieldObjectList.stream().map(attribute -> prepareSearchForJSON(attribute.getAttributeName(), attribute.getAttributeContentType(), duplicatesOfNames.contains(attribute.getAttributeName()))).collect(Collectors.toList());
+        searchFieldDataDtoList.sort(new SearchFieldDataComparator());
+        return searchFieldDataDtoList;
     }
 
     private static List<String> filterDuplicity(final List<SearchFieldObject> searchFieldObjectList) {
