@@ -25,7 +25,7 @@ public class V202303160830__AttributeContentJsonMigration extends BaseJavaMigrat
 
     @Override
     public Integer getChecksum() {
-        return DatabaseMigration.JavaMigrationChecksums.V202303160830__JsonMigration.getChecksum();
+        return DatabaseMigration.JavaMigrationChecksums.V202303230830__AttributeContentJsonMigration.getChecksum();
     }
 
     @Override
@@ -48,6 +48,7 @@ public class V202303160830__AttributeContentJsonMigration extends BaseJavaMigrat
                     final String insertScript = "INSERT INTO attribute_content_item (uuid, attribute_content_uuid, json) VALUES ('%s', '%s', '%s');";
                     jsons.forEach(json -> commands.add(String.format(insertScript, UUID.randomUUID(), attributeContentUUID, gson.toJson(json))));
                 }
+                commands.add("ALTER TABLE attribute_content DROP COLUMN attribute_content");
                 executeCommands(select, commands);
             }
         }
