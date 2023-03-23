@@ -34,7 +34,7 @@ public class Sql2PredicateConverter {
             }
         }
         final Predicate propertyPredicates = criteriaBuilder.and(predicates.toArray(new Predicate[]{}));
-        if (objectUUIDsToBeFiltered != null && !objectUUIDsToBeFiltered.isEmpty() && !dtos.isEmpty()) {
+        if (objectUUIDsToBeFiltered != null && !dtos.isEmpty()) {
             Predicate uuidOrPredicate = root.get("uuid").in(objectUUIDsToBeFiltered);
             if (root.getJavaType().equals(CryptographicKeyItem.class)) {
                 uuidOrPredicate = criteriaBuilder.or(
