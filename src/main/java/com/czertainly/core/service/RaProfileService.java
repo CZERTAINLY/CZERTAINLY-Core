@@ -5,13 +5,14 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
-import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.scep.ScepProfile;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -52,11 +53,17 @@ public interface RaProfileService extends ResourceExtensionService {
 
     void bulkRemoveAssociatedAcmeProfile(List<SecuredUUID> uuids);
 
+    void bulkRemoveAssociatedScepProfile(List<SecuredUUID> uuids);
+
     RaProfileAcmeDetailResponseDto getAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
     RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException;
 
     void deactivateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
+
+    RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException;
+
+    void deactivateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
     List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException;
 
@@ -100,4 +107,12 @@ public interface RaProfileService extends ResourceExtensionService {
      * @return Boolean of permission
      */
     Boolean evaluateNullableRaPermissions(SecurityFilter filter);
+
+    /**
+     * Function to list the RA Profiles associated with the SCEP Profiles
+     * @param scepProfileUuid UUID of the SCEP Profile
+     * @param filter Security filter
+     * @return List of RA Profiles associated with the SCEP Profiles
+     */
+    SecuredList<RaProfile> listRaProfilesAssociatedWithScepProfile(String scepProfileUuid, SecurityFilter filter);
 }

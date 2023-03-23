@@ -47,6 +47,7 @@ public class WebAppConfig implements WebMvcConfigurer {
         converters.add(new StringHttpMessageConverter());
         converters.add(new MappingJackson2HttpMessageConverter(jsonObjectMapper()));
         converters.add(new ResourceHttpMessageConverter());
+        converters.add(new ScepHttpMessageConverter<>());
     }
 
     @Override

@@ -4,10 +4,7 @@ import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
-import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
@@ -16,12 +13,11 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.AuthorityInstanceReference;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.ComplianceProfile;
-import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -74,6 +70,11 @@ public class RaProfileServiceImpl implements RaProfileService {
     private AttributeService attributeService;
     @Autowired
     private PermissionEvaluator permissionEvaluator;
+    @Autowired
+    private RaProfileProtocolAttributeRepository raProfileProtocolAttributeRepository;
+    @Autowired
+    private ScepProfileRepository scepProfileRepository;
+
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
@@ -265,6 +266,15 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    public void bulkRemoveAssociatedScepProfile(List<SecuredUUID> uuids) {
+        List<RaProfile> raProfiles = raProfileRepository.findAllByUuidIn(
+                uuids.stream().map(SecuredUUID::getValue).collect(Collectors.toList())
+        );
+        raProfiles.forEach(raProfile -> raProfile.setScepProfile(null));
+        raProfileRepository.saveAll(raProfiles);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     // TODO - use acme service to obtain ACME profile
     public RaProfileAcmeDetailResponseDto getAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
@@ -278,14 +288,18 @@ public class RaProfileServiceImpl implements RaProfileService {
         AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(acmeProfileUuid)
                 .orElseThrow(() -> new NotFoundException(AcmeProfile.class, acmeProfileUuid));
         raProfile.setAcmeProfile(acmeProfile);
-        raProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(
+        RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
+        raProfileProtocolAttribute.setAcmeIssueCertificateAttributes(AttributeDefinitionUtils.serialize(
                 extendedAttributeService.mergeAndValidateIssueAttributes
                         (raProfile, request.getIssueCertificateAttributes()
                         )));
-        raProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(
+        raProfileProtocolAttribute.setAcmeRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(
                 extendedAttributeService.mergeAndValidateRevokeAttributes(
                         raProfile, request.getRevokeCertificateAttributes()
                 )));
+        raProfileProtocolAttribute.setRaProfile(raProfile);
+        raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
+        raProfile.setProtocolAttribute(raProfileProtocolAttribute);
         raProfileRepository.save(raProfile);
         return raProfile.mapToAcmeDto();
     }
@@ -295,8 +309,40 @@ public class RaProfileServiceImpl implements RaProfileService {
     public void deactivateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         raProfile.setAcmeProfile(null);
-        raProfile.setIssueCertificateAttributes(null);
-        raProfile.setRevokeCertificateAttributes(null);
+        RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
+        raProfileProtocolAttribute.setAcmeRevokeCertificateAttributes(null);
+        raProfileProtocolAttribute.setScepIssueCertificateAttributes(null);
+        raProfile.setProtocolAttribute(raProfileProtocolAttribute);
+        raProfileRepository.save(raProfile);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException {
+        RaProfile raProfile = getRaProfileEntity(uuid);
+        ScepProfile scepProfile = scepProfileRepository.findByUuid(scepProfileUuid)
+                .orElseThrow(() -> new NotFoundException(ScepProfile.class, scepProfileUuid));
+        raProfile.setScepProfile(scepProfile);
+        RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
+        raProfileProtocolAttribute.setScepIssueCertificateAttributes(AttributeDefinitionUtils.serialize(
+                extendedAttributeService.mergeAndValidateIssueAttributes(
+                        raProfile, request.getIssueCertificateAttributes()
+                )));
+        raProfileProtocolAttribute.setRaProfile(raProfile);
+        raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
+        raProfile.setProtocolAttribute(raProfileProtocolAttribute);
+        raProfileRepository.save(raProfile);
+        return raProfile.mapToScepDto();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public void deactivateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
+        RaProfile raProfile = getRaProfileEntity(uuid);
+        raProfile.setScepProfile(null);
+        RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
+        raProfileProtocolAttribute.setScepIssueCertificateAttributes(null);
+        raProfile.setProtocolAttribute(raProfileProtocolAttribute);
         raProfileRepository.save(raProfile);
     }
 
@@ -354,6 +400,12 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
     public Boolean evaluateNullableRaPermissions(SecurityFilter filter) {
         return !filter.getResourceFilter().areOnlySpecificObjectsAllowed();
+    }
+
+    @Override
+    public SecuredList<RaProfile> listRaProfilesAssociatedWithScepProfile(String scepProfileUuid, SecurityFilter filter) {
+        List<RaProfile> raProfiles = raProfileRepository.findAllByScepProfileUuid(UUID.fromString(scepProfileUuid));
+        return SecuredList.fromFilter(filter, raProfiles);
     }
 
     @Override
