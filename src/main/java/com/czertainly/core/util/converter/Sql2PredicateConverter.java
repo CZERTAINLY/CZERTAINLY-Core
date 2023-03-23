@@ -1,15 +1,22 @@
 package com.czertainly.core.util.converter;
 
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.connector.cryptography.enums.IAbstractSearchableEnum;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.SearchCondition;
+import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.api.model.core.search.SearchableFields;
+import com.czertainly.core.dao.entity.AttributeContent;
+import com.czertainly.core.dao.entity.AttributeContent2Object;
+import com.czertainly.core.dao.entity.AttributeContentItem;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
+import com.czertainly.core.model.SearchFieldObject;
 import jakarta.persistence.criteria.*;
 
-import java.time.LocalDate;
 import java.util.*;
 
 public class Sql2PredicateConverter {
@@ -18,12 +25,29 @@ public class Sql2PredicateConverter {
     private static final String SIGNATURE_VERIFICATION = "%\"Signature Verification\":{\"status\":\"%STATUS%\"%";
     private static final String CRL_VERIFICATION = "%\"CRL Verification\":{\"status\":\"%STATUS%\"%";
 
-    public static Predicate mapSearchFilter2Predicates(final List<SearchFilterRequestDto> dtos, final CriteriaBuilder criteriaBuilder, final Root root) {
+    public static Predicate mapSearchFilter2Predicates(final List<SearchFilterRequestDto> dtos, final CriteriaBuilder criteriaBuilder, final Root root, final List<UUID> objectUUIDsToBeFiltered) {
         final List<Predicate> predicates = new ArrayList<>();
         for (final SearchFilterRequestDto dto : dtos) {
-            predicates.add(mapSearchFilter2Predicate(dto, criteriaBuilder, root));
+            final Optional<SearchGroup> group = Arrays.stream(SearchGroup.values()).filter(groupTemp -> groupTemp.getEnumLabel().toUpperCase().equals(dto.getGroupName().toUpperCase())).findFirst();
+            if (group.isPresent() && SearchGroup.PROPERTY.equals(group.get())) {
+                predicates.add(mapSearchFilter2Predicate(dto, criteriaBuilder, root));
+            }
         }
-        return criteriaBuilder.and(predicates.toArray(new Predicate[]{}));
+        final Predicate propertyPredicates = criteriaBuilder.and(predicates.toArray(new Predicate[]{}));
+        if (objectUUIDsToBeFiltered != null && !objectUUIDsToBeFiltered.isEmpty() && !dtos.isEmpty()) {
+            Predicate uuidOrPredicate = root.get("uuid").in(objectUUIDsToBeFiltered);
+            if (root.getJavaType().equals(CryptographicKeyItem.class)) {
+                uuidOrPredicate = criteriaBuilder.or(
+                        uuidOrPredicate,
+                        prepareExpression(root,"cryptographicKey.uuid").in(objectUUIDsToBeFiltered));
+            }
+            return criteriaBuilder.and(propertyPredicates, uuidOrPredicate);
+        }
+        return propertyPredicates;
+    }
+
+    public static Predicate mapSearchFilter2Predicates(final List<SearchFilterRequestDto> dtos, final CriteriaBuilder criteriaBuilder, final Root root) {
+        return mapSearchFilter2Predicates(dtos, criteriaBuilder, root, null);
     }
 
     public static Predicate mapSearchFilter2Predicate(final SearchFilterRequestDto dto, final CriteriaBuilder criteriaBuilder, final Root root) {
@@ -40,62 +64,110 @@ public class Sql2PredicateConverter {
     }
 
     private static Predicate processPredicate(final CriteriaBuilder criteriaBuilder, final Root root, final SearchFilterRequestDto dto, final Object valueObject) {
-        final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(SearchFieldNameEnum.getEnumBySearchableFields(dto.getField()).getFieldTypeEnum());
-        final SearchCondition searchCondition = checkOrReplaceSearchCondition(dto);
-        Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject);
+
+        final SearchableFields searchableFields = SearchableFields.valueOf(dto.getFieldIdentifier());
+        final SearchCondition searchCondition = checkOrReplaceSearchCondition(dto, searchableFields);
+        final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(SearchFieldNameEnum.getEnumBySearchableFields(searchableFields).getFieldTypeEnum());
+        final Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject, searchableFields);
         if (predicate == null) {
-            switch (searchCondition) {
-                case EQUALS -> {
-                    if (isDateFormat) {
-                        predicate = criteriaBuilder.equal(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
-                    } else {
-                        predicate = criteriaBuilder.equal(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
-                    }
-                }
-                case NOT_EQUALS -> {
-                    if (isDateFormat) {
-                        predicate = criteriaBuilder.notEqual(prepareExpression(root, dto.getField().getCode()).as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
-                    } else {
-                        predicate = criteriaBuilder.notEqual(prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject));
-                    }
-                }
-                case STARTS_WITH ->
-                        predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), prepareValue(dto, valueObject) + "%");
-                case ENDS_WITH ->
-                        predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject));
-                case CONTAINS ->
-                        predicate = criteriaBuilder.like((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject) + "%");
-                case NOT_CONTAINS -> predicate = criteriaBuilder.or(
-                        criteriaBuilder.notLike((Expression<String>) prepareExpression(root, dto.getField().getCode()), "%" + prepareValue(dto, valueObject) + "%"),
-                        criteriaBuilder.isNull(prepareExpression(root, dto.getField().getCode()))
-                );
-                case EMPTY -> predicate = criteriaBuilder.isNull(prepareExpression(root, dto.getField().getCode()));
-                case NOT_EMPTY ->
-                        predicate = criteriaBuilder.isNotNull(prepareExpression(root, dto.getField().getCode()));
-                case GREATER, LESSER -> {
-                    final Expression<?> expression = prepareExpression(root, dto.getField().getCode());
-                    if (searchCondition.equals(SearchCondition.GREATER)) {
-                        if (isDateFormat) {
-                            predicate = criteriaBuilder.greaterThan(expression.as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
-                        } else {
-                            predicate = criteriaBuilder.greaterThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
-                        }
-                    } else {
-                        if (isDateFormat) {
-                            predicate = criteriaBuilder.lessThan(expression.as(LocalDate.class), LocalDate.parse(dto.getValue().toString()));
-                        } else {
-                            predicate = criteriaBuilder.lessThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
-                        }
-                    }
+            final Expression expression = prepareExpression(root, searchableFields.getCode());
+            final Object expressionValue = prepareValue(valueObject, searchableFields);
+            return buildPredicateByCondition(criteriaBuilder, searchCondition, expression, expressionValue, isDateFormat, dto, null);
+        }
+        return predicate;
+    }
+
+    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, Expression expression, Object expressionValue, final boolean isDateFormat, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
+        if (expressionValue == null) {
+            expressionValue = dto.getValue().toString();
+        }
+
+        if (isDateFormat) {
+            if (searchFieldObject == null) {
+                searchFieldObject = new SearchFieldObject(AttributeContentType.DATE);
+            }
+            return prepareDateTimePredicate(criteriaBuilder, searchCondition, expression, expressionValue.toString(), searchFieldObject);
+        }
+
+
+        Predicate predicate = null;
+        switch (searchCondition) {
+            case EQUALS -> {
+                predicate = criteriaBuilder.equal(expression, expressionValue);
+            }
+            case NOT_EQUALS -> {
+                predicate = criteriaBuilder.notEqual(expression, expressionValue);
+            }
+            case STARTS_WITH -> predicate = criteriaBuilder.like(expression, expressionValue + "%");
+            case ENDS_WITH -> predicate = criteriaBuilder.like(expression, "%" + expressionValue);
+            case CONTAINS -> predicate = criteriaBuilder.like(expression, "%" + expressionValue + "%");
+            case NOT_CONTAINS -> predicate = criteriaBuilder.or(
+                    criteriaBuilder.notLike(expression, "%" + expressionValue + "%"),
+                    criteriaBuilder.isNull(expression)
+            );
+            case EMPTY -> predicate = criteriaBuilder.isNull(expression);
+            case NOT_EMPTY -> predicate = criteriaBuilder.isNotNull(expression);
+            case GREATER, LESSER -> {
+                if (searchCondition.equals(SearchCondition.GREATER)) {
+                    predicate = criteriaBuilder.greaterThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
+                } else {
+                    predicate = criteriaBuilder.lessThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
                 }
             }
         }
         return predicate;
     }
 
-    private static SearchCondition checkOrReplaceSearchCondition(final SearchFilterRequestDto dto) {
-        if (dto.getField().getEnumClass() != null
-                && dto.getField().getEnumClass().equals(KeyUsage.class)) {
+    private static Predicate prepareDateTimePredicate(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, final Expression expression, final String value, final SearchFieldObject searchFieldObject) {
+        Predicate dateTimePredicate = null;
+        switch (searchCondition) {
+            case EQUALS -> {
+                switch (searchFieldObject.getAttributeContentType()) {
+                    case DATETIME ->
+                            dateTimePredicate = criteriaBuilder.equal(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalDateTimeFormat(value));
+                    case DATE ->
+                            dateTimePredicate = criteriaBuilder.equal(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalDateFormat(value));
+                    case TIME ->
+                            dateTimePredicate = criteriaBuilder.equal(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalTimeFormat(value));
+                }
+            }
+            case NOT_EQUALS -> {
+                switch (searchFieldObject.getAttributeContentType()) {
+                    case DATETIME ->
+                            dateTimePredicate = criteriaBuilder.notEqual(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalDateTimeFormat(value));
+                    case DATE ->
+                            dateTimePredicate = criteriaBuilder.notEqual(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalDateFormat(value));
+                    case TIME ->
+                            dateTimePredicate = criteriaBuilder.notEqual(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalTimeFormat(value));
+                }
+            }
+            case GREATER -> {
+                switch (searchFieldObject.getAttributeContentType()) {
+                    case DATETIME ->
+                            dateTimePredicate = criteriaBuilder.greaterThan(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalDateTimeFormat(value));
+                    case DATE ->
+                            dateTimePredicate = criteriaBuilder.greaterThan(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalDateFormat(value));
+                    case TIME ->
+                            dateTimePredicate = criteriaBuilder.greaterThan(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalTimeFormat(value));
+                }
+            }
+            case LESSER -> {
+                switch (searchFieldObject.getAttributeContentType()) {
+                    case DATETIME ->
+                            dateTimePredicate = criteriaBuilder.lessThan(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalDateTimeFormat(value));
+                    case DATE ->
+                            dateTimePredicate = criteriaBuilder.lessThan(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalDateFormat(value));
+                    case TIME ->
+                            dateTimePredicate = criteriaBuilder.lessThan(expression.as(searchFieldObject.getDateTimeFormatClass()), searchFieldObject.getLocalTimeFormat(value));
+                }
+            }
+        }
+        return dateTimePredicate;
+    }
+
+    private static SearchCondition checkOrReplaceSearchCondition(final SearchFilterRequestDto dto, final SearchableFields searchableFields) {
+        if (searchableFields.getEnumClass() != null
+                && searchableFields.getEnumClass().equals(KeyUsage.class)) {
             if (dto.getCondition().equals(SearchCondition.EQUALS)) {
                 return SearchCondition.CONTAINS;
             } else if (dto.getCondition().equals(SearchCondition.NOT_EQUALS)) {
@@ -114,19 +186,19 @@ public class Sql2PredicateConverter {
         return path;
     }
 
-    private static Object prepareValue(final SearchFilterRequestDto dto, final Object valueObject) {
-        if (dto.getField().getEnumClass() != null) {
-            if (dto.getField().getEnumClass().equals(KeyUsage.class)) {
-                final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(dto, valueObject);
+    private static Object prepareValue(final Object valueObject, final SearchableFields searchableFields) {
+        if (searchableFields.getEnumClass() != null) {
+            if (searchableFields.getEnumClass().equals(KeyUsage.class)) {
+                final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(valueObject, searchableFields);
                 return keyUsage.getId();
             }
-            return findEnumByCustomValue(dto, valueObject);
+            return findEnumByCustomValue(valueObject, searchableFields);
         }
         return valueObject.toString();
     }
 
-    private static Object findEnumByCustomValue(SearchFilterRequestDto dto, Object valueObject) {
-        Optional<? extends IAbstractSearchableEnum> enumItem = Arrays.stream(dto.getField().getEnumClass().getEnumConstants()).filter(enumValue -> enumValue.getEnumLabel().equals(valueObject.toString())).findFirst();
+    private static Object findEnumByCustomValue(Object valueObject, final SearchableFields searchableFields) {
+        Optional<? extends IAbstractSearchableEnum> enumItem = Arrays.stream(searchableFields.getEnumClass().getEnumConstants()).filter(enumValue -> enumValue.getEnumLabel().equals(valueObject.toString())).findFirst();
         return enumItem.isPresent() ? enumItem.get() : null;
     }
 
@@ -140,10 +212,10 @@ public class Sql2PredicateConverter {
         return objects;
     }
 
-    private static Predicate checkCertificateValidationResult(final Root root, final CriteriaBuilder criteriaBuilder, final SearchFilterRequestDto dto, final Object valueObject) {
-        if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(dto.getField())) {
+    private static Predicate checkCertificateValidationResult(final Root root, final CriteriaBuilder criteriaBuilder, final SearchFilterRequestDto dto, final Object valueObject, final SearchableFields searchableFields) {
+        if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(searchableFields)) {
             String textToBeFormatted = null;
-            switch (dto.getField()) {
+            switch (searchableFields) {
                 case OCSP_VALIDATION -> textToBeFormatted = OCSP_VERIFICATION;
                 case SIGNATURE_VALIDATION -> textToBeFormatted = SIGNATURE_VERIFICATION;
                 case CRL_VALIDATION -> textToBeFormatted = CRL_VERIFICATION;
@@ -164,5 +236,105 @@ public class Sql2PredicateConverter {
         return textToBeFormatted.replace("%STATUS%", statusCode);
     }
 
+    public static CriteriaQueryDataObject prepareQueryToSearchIntoAttributes(final List<SearchFieldObject> searchableFields, final List<SearchFilterRequestDto> dtos, final CriteriaBuilder criteriaBuilder, final Resource resource) {
+
+        final CriteriaQuery<UUID> criteriaQuery = criteriaBuilder.createQuery(UUID.class);
+        final Root<AttributeContent2Object> root = criteriaQuery.from(AttributeContent2Object.class);
+
+        criteriaQuery.distinct(true).select(root.get("objectUuid"));
+
+        final List<Predicate> rootPredicates = new ArrayList<>();
+
+        for (final SearchFilterRequestDto dto : dtos) {
+            final Optional<SearchGroup> group = Arrays.stream(SearchGroup.values()).filter(groupTemp -> groupTemp.getEnumLabel().toUpperCase().equals(dto.getGroupName().toUpperCase())).findFirst();
+            if (group.isPresent() &&
+                    (SearchGroup.CUSTOM.equals(group.get()) || SearchGroup.META.equals(group.get()))) {
+                final SearchGroup searchGroup = group.get();
+
+                // --- SUB QUERY ---
+                final Subquery<UUID> subquery = criteriaQuery.subquery(UUID.class);
+                final Root<AttributeContent2Object> subRoot = subquery.from(AttributeContent2Object.class);
+                final Join<AttributeContent2Object, AttributeContent> joinAttributeContent = subRoot.join("attributeContent");
+                final Join<AttributeContent, AttributeContentItem> joinAttributeContentItem = joinAttributeContent.join("attributeContentItems");
+
+                subquery.select(subRoot.get("objectUuid"));
+
+                final List<Predicate> subPredicates = new ArrayList<>();
+                subPredicates.add(criteriaBuilder.equal(subRoot.get("objectType"), resource));
+
+                final Optional<SearchFieldObject> searchFieldObject =
+                        searchableFields.stream().filter(attr -> attr.getAttributeType().equals(searchGroup.getAttributeType()) && attr.getAttributeName().equals(dto.getFieldIdentifier())).findFirst();
+
+                if (searchFieldObject.isPresent()) {
+
+                    final SearchFieldObject searchField = searchFieldObject.get();
+
+                    final Subquery<String> jsonValueQuery = subquery.subquery(String.class);
+                    final Root subACIRoot = jsonValueQuery.from(AttributeContentItem.class);
+
+                    final Expression expressionFunctionToGetJsonValue = criteriaBuilder.function("jsonb_extract_path_text", String.class, subACIRoot.get("json"),
+                            criteriaBuilder.literal(searchField.getAttributeContentType().isFilterByData() ? "data" : "reference"));
+
+                    final Predicate predicateForContentType = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.contentType"), searchField.getAttributeContentType());
+                    final Predicate predicateToKeepRelationWithUpperQuery = criteriaBuilder.equal(subACIRoot.get("uuid"), joinAttributeContentItem.get("uuid"));
+                    final Predicate predicateGroup = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.type"), searchField.getAttributeType());
+                    final Predicate predicateAttributeName =
+                            criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.attributeName"), dto.getFieldIdentifier());
+
+                    jsonValueQuery.select(expressionFunctionToGetJsonValue);
+                    jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);
+
+                    final Predicate predicateOfTheExpression =
+                            buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, searchField.isDateTimeFormat(), dto, searchField);
+
+                    subPredicates.add(criteriaBuilder.and(predicateOfTheExpression));
+                    subquery.where(subPredicates.toArray(new Predicate[]{}));
+                    rootPredicates.add(criteriaBuilder.in(root.get("objectUuid")).value(subquery));
+                }
+            }
+        }
+
+        final CriteriaQueryDataObject cqdo = new CriteriaQueryDataObject();
+        cqdo.setCriteriaQuery(criteriaQuery);
+        cqdo.setPredicate(criteriaBuilder.and(rootPredicates.toArray(new Predicate[]{})));
+        return cqdo;
+    }
+
+
+    public static class CriteriaQueryDataObject {
+
+        private CriteriaQuery criteriaQuery;
+
+        private Root root;
+
+        private Predicate predicate;
+
+        public CriteriaQuery getCriteriaQuery() {
+            return criteriaQuery;
+        }
+
+        public void setCriteriaQuery(CriteriaQuery criteriaQuery) {
+            this.criteriaQuery = criteriaQuery;
+        }
+
+        public Predicate getPredicate() {
+            return predicate;
+        }
+
+        public void setPredicate(Predicate predicate) {
+            this.predicate = predicate;
+        }
+
+        public Root getRoot() {
+            return root;
+        }
+
+        public void setRoot(Root root) {
+            this.root = root;
+        }
+    }
+
 
 }
+
+
