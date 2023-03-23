@@ -19,9 +19,9 @@ import java.util.UUID;
 /**
  * Migration script for the Json array migration to separate table
  */
-public class V202303160830__JsonMigration extends BaseJavaMigration {
+public class V202303160830__AttributeContentJsonMigration extends BaseJavaMigration {
 
-    private static final Logger logger = LoggerFactory.getLogger(V202303160830__JsonMigration.class);
+    private static final Logger logger = LoggerFactory.getLogger(V202303160830__AttributeContentJsonMigration.class);
 
     @Override
     public Integer getChecksum() {
