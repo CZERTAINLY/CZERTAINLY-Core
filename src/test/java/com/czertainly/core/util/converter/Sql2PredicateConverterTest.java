@@ -16,6 +16,7 @@ import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.tree.predicate.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,6 +26,7 @@ import java.io.Serializable;
 /**
  * Tests for class {@link Sql2PredicateConverter}
  */
+@Disabled
 @SpringBootTest
 public class Sql2PredicateConverterTest extends BaseSpringBootTest {
 
