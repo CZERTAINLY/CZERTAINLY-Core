@@ -253,7 +253,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         );
         dto.getItems().forEach(k -> k.setMetadata(
                 metadataService.getFullMetadata(
-                        key.getTokenInstanceReference().getConnectorUuid(),
+                        UUID.fromString(k.getUuid()),
                         Resource.CRYPTOGRAPHIC_KEY
                 )
         ));
