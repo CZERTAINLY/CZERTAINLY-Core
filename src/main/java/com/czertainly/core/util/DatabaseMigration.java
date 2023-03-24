@@ -51,7 +51,9 @@ public class DatabaseMigration {
         V202209211100__Access_Control(-2127987777),
         V202211031400__AttributeV2Changes(-691194104),
         V202211141030__AttributeV2TablesAndMigration(-1479676999),
-        V202301311500__PublicKeyMigration(-761670493);
+        V202301311500__PublicKeyMigration(-761670493),
+
+        V202303230830__AttributeContentJsonMigration(1077049851);
 
         private final int checksum;
 

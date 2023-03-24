@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
@@ -22,9 +23,11 @@ import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -33,6 +36,8 @@ import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -83,6 +88,9 @@ public class CertificateServiceImpl implements CertificateService {
     public static final Integer DELETE_BATCH_SIZE = 1000;
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @Autowired
     private CertificateRepository certificateRepository;
 
@@ -100,6 +108,12 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private DiscoveryCertificateRepository discoveryCertificateRepository;
+
+    @Autowired
+    private AttributeContentRepository attributeContentRepository;
+
+    @Autowired
+    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
 
     @Autowired
     private ComplianceService complianceService;
@@ -136,16 +150,25 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
         filter.setParentRefProperty("raProfileUuid");
         RequestValidatorHelper.revalidateSearchRequestDto(request);
-
-        final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root);
-
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+
+        final List<UUID> objectUUIDs = new ArrayList<>();
+        if (!request.getFilters().isEmpty()) {
+            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
+            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
+            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
+
+            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.CERTIFICATE);
+            objectUUIDs.addAll(certificateRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
+        }
+
+        final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(Certificate::mapToListDto)
                 .collect(Collectors.toList());
-
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+
         final CertificateResponseDto responseDto = new CertificateResponseDto();
         responseDto.setCertificates(listedKeyDTOs);
         responseDto.setItemsPerPage(request.getItemsPerPage());
@@ -348,10 +371,17 @@ public class CertificateServiceImpl implements CertificateService {
 
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(new ArrayList<>(), SearchGroup.META.name()));
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(new ArrayList<>(), SearchGroup.CUSTOM.name()));
+        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
+        if (metadataSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META.getLabel()));
+        }
 
-        final List<SearchFieldDataDto> fields = List.of(
+        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
+        if (customAttrSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM.getLabel()));
+        }
+
+        List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
@@ -376,13 +406,22 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()))
         );
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.name()));
+        fields = fields.stream().collect(Collectors.toList());
+        fields.sort(new SearchFieldDataComparator());
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.getLabel()));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
 
+    }
 
+    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.META);
+    }
 
+    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.CUSTOM);
     }
 
     @Override
@@ -951,6 +990,7 @@ public class CertificateServiceImpl implements CertificateService {
         return new ArrayList<>(serSet);
     }
 
+    @Deprecated
     private CertificateResponseDto getCertificatesWithFilter(SearchRequestDto request, SecurityFilter filter) {
         logger.debug("Certificate search request: {}", request.toString());
         CertificateResponseDto certificateResponseDto = new CertificateResponseDto();
