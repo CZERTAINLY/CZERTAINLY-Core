@@ -46,7 +46,6 @@ public class AttributeContentItem extends UniquelyIdentified {
 
     public void setAttributeContent(AttributeContent attributeContent) {
         this.attributeContent = attributeContent;
-        this.attributeContentUuid = attributeContent.getUuid();
     }
 
     public void setJson(BaseAttributeContent json) {
