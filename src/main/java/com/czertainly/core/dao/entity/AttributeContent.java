@@ -45,11 +45,7 @@ public class AttributeContent extends UniquelyIdentified {
     }
 
     public void addAttributeContent(List<BaseAttributeContent> baseAttributeContents) {
-        //baseAttributeContents.stream().map(bAttr -> getAttributeContentItems().add(new AttributeContentItem(this, UUID.randomUUID(), bAttr)));
-        var items = getAttributeContentItems();
-        for (var baseAttributeContent: baseAttributeContents) {
-            items.add(new AttributeContentItem(this, UUID.randomUUID(), baseAttributeContent));
-        }
+        baseAttributeContents.stream().forEach(bAttr -> getAttributeContentItems().add(new AttributeContentItem(this, bAttr)));
     }
 
     public List<AttributeContentItem> getAttributeContentItems() {

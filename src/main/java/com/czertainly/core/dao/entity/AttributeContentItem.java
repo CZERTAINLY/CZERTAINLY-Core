@@ -14,10 +14,10 @@ import java.util.UUID;
 public class AttributeContentItem extends UniquelyIdentified {
 
     @ManyToOne
-    @JoinColumn(name = "attribute_content_uuid", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "attribute_content_uuid", nullable = false)
     private AttributeContent attributeContent;
 
-    @Column(name = "attribute_content_uuid", nullable = false)
+    @Column(name = "attribute_content_uuid", nullable = false, insertable = false, updatable = false)
     private UUID attributeContentUuid;
 
     @Column(name = "json", columnDefinition = "jsonb")
@@ -27,9 +27,8 @@ public class AttributeContentItem extends UniquelyIdentified {
     public AttributeContentItem() {
     }
 
-    public AttributeContentItem(AttributeContent attributeContent, UUID attributeContentUuid, BaseAttributeContent json) {
+    public AttributeContentItem(AttributeContent attributeContent, BaseAttributeContent json) {
         this.attributeContent = attributeContent;
-        this.attributeContentUuid = attributeContentUuid;
         this.json = json;
     }
 
@@ -47,6 +46,7 @@ public class AttributeContentItem extends UniquelyIdentified {
 
     public void setAttributeContent(AttributeContent attributeContent) {
         this.attributeContent = attributeContent;
+        this.attributeContentUuid = attributeContent.getUuid();
     }
 
     public void setJson(BaseAttributeContent json) {
