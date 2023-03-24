@@ -868,7 +868,11 @@ public class LocationServiceImpl implements LocationService {
     private void removeCertificateFromLocation(CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
-        List<MetadataAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(), certificateLocation.getLocation().getUuid(),
+        List<MetadataAttribute> metadata = metadataService.getMetadata(
+                certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
+                certificateLocation.getCertificate().getUuid(),
+                Resource.CERTIFICATE,
+                certificateLocation.getLocation().getUuid(),
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
         attributeService.deleteAttributeContent(
@@ -890,7 +894,11 @@ public class LocationServiceImpl implements LocationService {
     private void removeCertificateFromLocation(Location entity, CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(entity.getRequestAttributes());
-        List<MetadataAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(), certificateLocation.getLocation().getUuid(),
+        List<MetadataAttribute> metadata = metadataService.getMetadata(
+                certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
+                certificateLocation.getCertificate().getUuid(),
+                Resource.CERTIFICATE,
+                certificateLocation.getLocation().getUuid(),
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
 
