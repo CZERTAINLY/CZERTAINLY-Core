@@ -12,3 +12,4 @@ with ct2a AS (SELECT a.object_uuid, c.key_reference_uuid, c.uuid
  UPDATE attribute_content_2_object AS a1
  SET object_uuid = ct2a.uuid FROM ct2a
  WHERE a1.object_uuid = ct2a.key_reference_uuid;
+ 
