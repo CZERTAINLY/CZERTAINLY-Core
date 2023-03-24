@@ -75,6 +75,17 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
+    public List<T> findUsingSecurityFilterByCustomCriteriaQuery(SecurityFilter filter, Root<T> root, CriteriaQuery<T> criteriaQuery, Predicate customPredicates) {
+        final List<Predicate> predicates = getPredicates(filter, null, root, null);
+        predicates.add(customPredicates);
+
+        if (predicates != null && !predicates.isEmpty()) {
+            criteriaQuery.where(predicates.toArray(new Predicate[]{}));
+        }
+        return entityManager.createQuery(criteriaQuery).getResultList();
+    }
+
+    @Override
     public List<T> findUsingSecurityFilter(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, order);
         if (p != null) {

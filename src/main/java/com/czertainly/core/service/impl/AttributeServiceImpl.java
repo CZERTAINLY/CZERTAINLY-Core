@@ -363,7 +363,7 @@ public class AttributeServiceImpl implements AttributeService {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
             if (definition.getType().equals(AttributeType.CUSTOM) && definition.isEnabled()) {
                 CustomAttribute attribute = object.getAttributeContent().getAttributeDefinition().getAttributeDefinition(CustomAttribute.class);
-                attribute.setContent(object.getAttributeContent().getAttributeContent(BaseAttributeContent.class));
+                attribute.setContent(object.getAttributeContent().getAttributeContent());
                 attributes.add(attribute);
             }
         }
@@ -478,20 +478,18 @@ public class AttributeServiceImpl implements AttributeService {
         return null;
     }
 
-    private void createAttributeContent(UUID objectUuid, String attributeName, List<BaseAttributeContent> value, Resource resource) {
+    private void createAttributeContent(final UUID objectUuid, final String attributeName, final List<BaseAttributeContent> baseAttributeContentList, final Resource resource) {
         logger.info("Creating the attribute content for: {} with UUID: {}", resource, objectUuid);
-        String serializedContent = AttributeDefinitionUtils.serializeAttributeContent(value);
-        AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndAttributeName(AttributeType.CUSTOM, attributeName).orElse(null);
-
+        final AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndAttributeName(AttributeType.CUSTOM, attributeName).orElse(null);
         if (definition == null) {
             logger.warn("Custom attribute with name '" + attributeName + "' does not exist");
             return;
         }
 
-        List<ValidationError> validationErrors = new ArrayList<>();
+        final List<ValidationError> validationErrors = new ArrayList<>();
         AttributeDefinitionUtils.validateAttributeContent(
                 definition.getAttributeDefinition(CustomAttribute.class),
-                value,
+                baseAttributeContentList,
                 validationErrors
         );
         if (!validationErrors.isEmpty()) {
@@ -501,9 +499,17 @@ public class AttributeServiceImpl implements AttributeService {
             logger.warn("Attribute {} is disabled and the content will not be created");
             return;
         }
-        AttributeContent existingContent = attributeContentRepository.findByAttributeContentAndAttributeDefinition(serializedContent, definition).orElse(null);
 
-        AttributeContent2Object metadata2Object = new AttributeContent2Object();
+
+        AttributeContent existingContent = null;
+        final List<AttributeContent> attributeContentList = attributeContentRepository.findByBaseAttributeContentAndAttributeDefinition(baseAttributeContentList, definition);
+        for (final AttributeContent ac : attributeContentList) {
+            if (ac.getAttributeContentItems().size() == baseAttributeContentList.size()) {
+                existingContent = ac;
+            }
+        }
+
+        final AttributeContent2Object metadata2Object = new AttributeContent2Object();
         metadata2Object.setObjectUuid(objectUuid);
         metadata2Object.setObjectType(resource);
 
@@ -512,8 +518,8 @@ public class AttributeServiceImpl implements AttributeService {
             metadata2Object.setAttributeContent(existingContent);
         } else {
             logger.debug("Creating new attribute content");
-            AttributeContent content = new AttributeContent();
-            content.setAttributeContent(value);
+            final AttributeContent content = new AttributeContent();
+            content.addAttributeContent(baseAttributeContentList);
             content.setAttributeDefinition(definition);
             attributeContentRepository.save(content);
             logger.debug("Attribute Content: {}", content);

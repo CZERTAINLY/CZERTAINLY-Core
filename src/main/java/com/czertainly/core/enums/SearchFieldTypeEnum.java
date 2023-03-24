@@ -18,7 +18,14 @@ public enum SearchFieldTypeEnum {
             , false),
     LIST(SearchableFieldType.LIST,
             List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY)
-            , true);
+            , true),
+
+    BOOLEAN(SearchableFieldType.BOOLEAN,
+         List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS)
+            , false),
+    OTHERS_AS_STRING(SearchableFieldType.STRING,
+            List.of(SearchCondition.CONTAINS, SearchCondition.NOT_CONTAINS, SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY, SearchCondition.STARTS_WITH, SearchCondition.ENDS_WITH)
+            , false);
 
 
     private SearchableFieldType fieldType;
