@@ -981,7 +981,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         );
         metadataService.createMetadata(
                 connectorUuid,
-                UUID.fromString(referenceUuid),
+                UUID.fromString(content.getUuid().toString()),
                 cryptographicKey.getUuid(),
                 referenceName,
                 keyData.getMetadata(),
