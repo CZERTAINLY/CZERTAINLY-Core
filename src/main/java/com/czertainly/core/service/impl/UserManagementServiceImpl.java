@@ -163,6 +163,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public UserDetailDto identifyUser(UserIdentificationRequestDto request) throws NotFoundException {
+        request.setCertificateContent(CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
         UserDetailDto dto = userManagementApiClient.identifyUser(request);
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(dto.getUuid()), Resource.USER));
         return dto;
