@@ -83,8 +83,8 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
                 requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
             } catch (UnsupportedEncodingException e) {
                 logger.debug("Header not URL encoded");
+                requestDto.setCertificateContent(headers.get(certificateHeaderName).get(0));
             }
-            requestDto.setCertificateContent(headers.get(certificateHeaderName).get(0));
         }
         if(headers.get(authTokenHeaderName) != null) {
             requestDto.setAuthenticationToken(headers.get(authTokenHeaderName).get(0));
