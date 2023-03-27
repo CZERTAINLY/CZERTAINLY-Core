@@ -39,7 +39,7 @@ public class Sql2PredicateConverter {
             if (root.getJavaType().equals(CryptographicKeyItem.class)) {
                 uuidOrPredicate = criteriaBuilder.or(
                         uuidOrPredicate,
-                        prepareExpression(root,"cryptographicKey.uuid").in(objectUUIDsToBeFiltered));
+                        prepareExpression(root, "cryptographicKey.uuid").in(objectUUIDsToBeFiltered));
             }
             return criteriaBuilder.and(propertyPredicates, uuidOrPredicate);
         }
@@ -262,8 +262,15 @@ public class Sql2PredicateConverter {
                 final List<Predicate> subPredicates = new ArrayList<>();
                 subPredicates.add(criteriaBuilder.equal(subRoot.get("objectType"), resource));
 
+                final String identifier = dto.getFieldIdentifier();
+                final String[] fieldIdentifier = identifier.split("\\|");
+                final AttributeContentType fieldAttributeContentType = AttributeContentType.valueOf(fieldIdentifier[1]);
+                final String fieldIdentifierName = fieldIdentifier[0];
                 final Optional<SearchFieldObject> searchFieldObject =
-                        searchableFields.stream().filter(attr -> attr.getAttributeType().equals(searchGroup.getAttributeType()) && attr.getAttributeName().equals(dto.getFieldIdentifier())).findFirst();
+                        searchableFields.stream().filter(attr ->
+                                attr.getAttributeType().equals(searchGroup.getAttributeType())
+                                        && attr.getAttributeName().equals(fieldIdentifierName)
+                                            && attr.getAttributeContentType().equals(fieldAttributeContentType)).findFirst();
 
                 if (searchFieldObject.isPresent()) {
 
@@ -279,7 +286,7 @@ public class Sql2PredicateConverter {
                     final Predicate predicateToKeepRelationWithUpperQuery = criteriaBuilder.equal(subACIRoot.get("uuid"), joinAttributeContentItem.get("uuid"));
                     final Predicate predicateGroup = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.type"), searchField.getAttributeType());
                     final Predicate predicateAttributeName =
-                            criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.attributeName"), dto.getFieldIdentifier());
+                            criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.attributeName"), fieldIdentifierName);
 
                     jsonValueQuery.select(expressionFunctionToGetJsonValue);
                     jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);
