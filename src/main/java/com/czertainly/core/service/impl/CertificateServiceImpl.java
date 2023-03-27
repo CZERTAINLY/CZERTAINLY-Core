@@ -806,10 +806,12 @@ public class CertificateServiceImpl implements CertificateService {
         for (Certificate certificate : certificates) {
             groupStat.merge(certificate.getGroup() != null ? certificate.getGroup().getName() : "Unknown", 1L, Long::sum);
             raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unknown", 1L, Long::sum);
-            typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+            if (!certificate.getStatus().equals(CertificateStatus.NEW)) {
+                typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+                expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
+                bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
+            }
             keySizeStat.merge(certificate.getKeySize().toString(), 1L, Long::sum);
-            bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
-            expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
             statusStat.merge(certificate.getStatus().getCode(), 1L, Long::sum);
             complianceStat.merge(certificate.getComplianceStatus() != null ? complianceMap.get(certificate.getComplianceStatus().getCode().toUpperCase()) : "Not Checked", 1L, Long::sum);
         }

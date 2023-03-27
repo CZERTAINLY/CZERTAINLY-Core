@@ -35,6 +35,7 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 ### Lifecycle operations
 
 The following basic lifecycle operations are supported for each `Certificate`:
+- create (request)
 - issue
 - renew
 - rekey
