@@ -4,8 +4,8 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
-import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
-import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.client.authority.LegacyClientCertificateRevocationDto;
+import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequestDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
@@ -135,7 +135,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/issue"))
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
-        ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
+        LegacyClientCertificateSignRequestDto request = new LegacyClientCertificateSignRequestDto();
         clientOperationService.issueCertificate(RA_PROFILE_NAME, request);
     }
 
@@ -150,7 +150,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/revoke"))
                 .willReturn(WireMock.ok()));
 
-        ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
+        LegacyClientCertificateRevocationDto request = new LegacyClientCertificateRevocationDto();
         clientOperationService.revokeCertificate(RA_PROFILE_NAME, request);
     }
 
