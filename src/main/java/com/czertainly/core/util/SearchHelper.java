@@ -33,7 +33,7 @@ public class SearchHelper {
     public static SearchFieldDataDto prepareSearchForJSON(final String fieldName, final AttributeContentType attributeContentType, final boolean hasDupliciteInList) {
         final SearchFieldTypeEnum searchFieldTypeEnum = retrieveSearchFieldTypeEnumByContentType(attributeContentType);
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
-        fieldDataDto.setFieldIdentifier(fieldName);
+        fieldDataDto.setFieldIdentifier(fieldName + "|" + attributeContentType.name());
         fieldDataDto.setFieldLabel(hasDupliciteInList ? String.format(SEARCH_LABEL_TEMPLATE, fieldName, attributeContentType.getCode()) : fieldName);
         fieldDataDto.setMultiValue(searchFieldTypeEnum.isMultiValue());
         fieldDataDto.setConditions(searchFieldTypeEnum.getContitions());
