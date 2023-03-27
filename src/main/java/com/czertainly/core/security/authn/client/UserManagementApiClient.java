@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
+import com.czertainly.api.model.client.auth.UserIdentificationRequestDto;
 import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
@@ -17,6 +18,8 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
 
     private static final String USER_BASE_CONTEXT = "/auth/users";
     private static final String USER_DETAIL_CONTEXT = USER_BASE_CONTEXT + "/{userUuid}";
+
+    private static final String USER_IDENTIFY_CONTEXT = USER_BASE_CONTEXT + "/identify";
     private static final String USER_PERMISSION_CONTEXT = USER_DETAIL_CONTEXT + "/permissions";
     private static final String USER_ROLE_CONTEXT = USER_DETAIL_CONTEXT + "/roles";
 
@@ -45,6 +48,18 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
         WebClient.RequestBodySpec request = prepareRequest(HttpMethod.GET).uri(USER_DETAIL_CONTEXT.replace("{userUuid}", userUuid));
 
         return processRequest(r -> r
+                        .retrieve()
+                        .toEntity(UserDetailDto.class)
+                        .block().getBody(),
+                request);
+    }
+
+    public UserDetailDto identifyUser(UserIdentificationRequestDto requestDto) {
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
+
+        return processRequest(r -> r
+                        .uri(USER_IDENTIFY_CONTEXT)
+                        .body(Mono.just(requestDto), UserRequestDto.class)
                         .retrieve()
                         .toEntity(UserDetailDto.class)
                         .block().getBody(),
