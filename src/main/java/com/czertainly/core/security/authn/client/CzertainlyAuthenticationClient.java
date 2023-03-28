@@ -5,6 +5,7 @@ import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
 import com.czertainly.core.security.authn.client.dto.UserDetailsDto;
+import com.czertainly.core.util.CertificateUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
@@ -15,12 +16,13 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.stream.Collectors;
 
 @Component
@@ -76,7 +78,13 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
     private AuthenticationRequestDto getAuthPayload(HttpHeaders headers) {
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
         if( headers.get(certificateHeaderName) != null) {
-            requestDto.setCertificateContent(headers.get(certificateHeaderName).get(0));
+            try {
+                String certificateInHeader = java.net.URLDecoder.decode(headers.get(certificateHeaderName).get(0), StandardCharsets.UTF_8.name());
+                requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
+            } catch (UnsupportedEncodingException e) {
+                logger.debug("Header not URL encoded");
+                requestDto.setCertificateContent(headers.get(certificateHeaderName).get(0));
+            }
         }
         if(headers.get(authTokenHeaderName) != null) {
             requestDto.setAuthenticationToken(headers.get(authTokenHeaderName).get(0));

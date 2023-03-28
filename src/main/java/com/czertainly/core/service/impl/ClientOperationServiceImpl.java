@@ -8,8 +8,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
-import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
-import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.client.authority.LegacyClientCertificateRevocationDto;
+import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequestDto;
 import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
@@ -69,7 +69,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public ClientCertificateSignResponseDto issueCertificate(String raProfileName, ClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException, NoSuchAlgorithmException {
+    public ClientCertificateSignResponseDto issueCertificate(String raProfileName, LegacyClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException, NoSuchAlgorithmException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
@@ -85,6 +85,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         logger.info("Certificate Created. Adding the certificate to Inventory");
+
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setRaProfileUuid(raProfile.getUuid().toString());
         logger.debug("UUID of the certificate is {}", certificate.getUuid());
@@ -105,7 +106,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
-    public void revokeCertificate(String raProfileName, ClientCertificateRevocationDto request) throws ConnectorException {
+    public void revokeCertificate(String raProfileName, LegacyClientCertificateRevocationDto request) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         CertRevocationDto caRequest = new CertRevocationDto();
