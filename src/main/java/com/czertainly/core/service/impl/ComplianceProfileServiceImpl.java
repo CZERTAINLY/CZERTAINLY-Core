@@ -133,6 +133,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.debug("Rule Entity: {}", complianceRule);
         ComplianceProfileRule complianceProfileRule = generateComplianceProfileRule(complianceProfile, complianceRule, request.getAttributes());
         complianceProfileRuleRepository.save(complianceProfileRule);
+        resetComplianceStatus(complianceProfile);
         return complianceProfileRule.mapToDto();
     }
 
@@ -149,6 +150,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         complianceProfileRuleRepository.delete(complianceProfileRule);
         complianceProfile.getComplianceRules().remove(complianceProfileRule);
         complianceProfileRepository.save(complianceProfile);
+        complianceService.inCoreComplianceStatusUpdate(complianceProfileRule.getUuid());
         logger.debug("Rule: {} removed", request);
         return response;
     }
@@ -170,6 +172,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         complianceProfile.getGroups().add(complianceGroup);
         logger.debug("Group Entity: {}", complianceGroup);
         complianceProfileRepository.save(complianceProfile);
+        resetComplianceStatus(complianceProfile);
         return complianceProfile.mapToDto();
     }
 
@@ -184,6 +187,11 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         complianceProfile.getGroups().remove(complianceGroup);
         logger.debug("Group: {} removed", request);
         complianceProfileRepository.save(complianceProfile);
+        if(complianceGroup.getRules() != null) {
+            for (ComplianceRule rule : complianceGroup.getRules()) {
+                complianceService.inCoreComplianceStatusUpdate(rule.getUuid());
+            }
+        }
         return complianceProfile.mapToDto();
     }
 
@@ -630,5 +638,15 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         }
         attributeService.deleteAttributeContent(complianceProfile.getUuid(), Resource.COMPLIANCE_PROFILE);
         complianceProfileRepository.delete(complianceProfile);
+    }
+
+    private void resetComplianceStatus(ComplianceProfile complianceProfile) {
+        for (RaProfile raProfile : complianceProfile.getRaProfiles()) {
+            for (Certificate certificate : certificateService.listCertificatesForRaProfileAndNonNullComplianceStatus(raProfile)) {
+                certificate.setComplianceStatus(null);
+                certificate.setComplianceResult(null);
+                certificateService.updateCertificateEntity(certificate);
+            }
+        }
     }
 }

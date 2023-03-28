@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.acme.Challenge;
 import com.czertainly.api.model.core.acme.Directory;
 import com.czertainly.api.model.core.acme.Order;
 import com.czertainly.core.service.acme.AcmeService;
+import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -38,9 +39,9 @@ public class AcmeControllerImpl implements AcmeController {
         String linkUrl;
         Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
         if(pathVariables.containsKey("acmeProfileName")){
-            linkUrl = baseUri + "/acme/"+ pathVariables.get("acmeProfileName") + "/directory";
+            linkUrl = baseUri  + ExtendedAcmeHelperService.ACME_URI_HEADER + "/" + pathVariables.get("acmeProfileName") + "/directory";
         }else{
-            linkUrl = baseUri + "/acme/raProfile/"+ pathVariables.get("acmeProfileName") + "/directory";
+            linkUrl = baseUri  + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/"+ pathVariables.get("raProfileName") + "/directory";
         }
         response.addHeader("Link", "<"+linkUrl + ">;rel=\"index\"");
     }

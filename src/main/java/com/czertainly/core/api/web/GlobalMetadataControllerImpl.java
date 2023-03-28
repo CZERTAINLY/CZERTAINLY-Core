@@ -62,12 +62,12 @@ public class GlobalMetadataControllerImpl implements GlobalMetadataController {
 
     @Override
     public void deleteGlobalMetadata(String uuid) throws NotFoundException {
-        attributeService.deleteAttribute(SecuredUUID.fromString(uuid), AttributeType.META);
+        attributeService.demoteConnectorMetadata(SecuredUUID.fromString(uuid));
     }
 
     @Override
     public void bulkDeleteGlobalMetadata(List<String> metadataUuids) {
-        attributeService.bulkDeleteAttributes(SecuredUUID.fromList(metadataUuids), AttributeType.META);
+        attributeService.bulkDemoteConnectorMetadata(SecuredUUID.fromList(metadataUuids));
     }
 
     @Override

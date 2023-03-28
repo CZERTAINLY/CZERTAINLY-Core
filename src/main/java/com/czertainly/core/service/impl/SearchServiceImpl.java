@@ -48,8 +48,8 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values, SearchableFieldType fieldType, List<SearchCondition> conditions) {
         SearchFieldDataDto dto = new SearchFieldDataDto();
-        dto.setField(field);
-        dto.setLabel(label);
+        dto.setFieldIdentifier(field.getCode());
+        dto.setFieldLabel(label);
         dto.setMultiValue(multiValue);
         dto.setValue(values);
         dto.setType(fieldType);
@@ -168,11 +168,11 @@ public class SearchServiceImpl implements SearchService {
         List<SearchFieldDataDto> iterableJson = new LinkedList<>();
         for (SearchFilterRequestDto requestField : conditions) {
             for (SearchFieldDataDto field : originalJson) {
-                if (requestField.getField().equals(field.getField())) {
+                if (requestField.getFieldIdentifier().equals(field.getFieldIdentifier())) {
                     SearchFieldDataDto fieldDup = new SearchFieldDataDto();
-                    fieldDup.setField(field.getField());
+                    fieldDup.setFieldIdentifier(field.getFieldIdentifier());
                     fieldDup.setType(field.getType());
-                    fieldDup.setLabel(field.getLabel());
+                    fieldDup.setFieldLabel(field.getFieldLabel());
                     fieldDup.setType(field.getType());
                     fieldDup.setMultiValue(field.isMultiValue());
                     fieldDup.setValue(requestField.getValue());
@@ -181,7 +181,7 @@ public class SearchServiceImpl implements SearchService {
                 }
             }
         }
-        for (SearchFieldDataDto filter : iterableJson) {
+         for (SearchFieldDataDto filter : iterableJson) {
             String qp = "";
             String ntvCode = "";
             if (List.of(SearchableFields.OCSP_VALIDATION, SearchableFields.CRL_VALIDATION, SearchableFields.SIGNATURE_VALIDATION).contains(filter.getField())) {
@@ -205,7 +205,7 @@ public class SearchServiceImpl implements SearchService {
                 }
 
                 if (whereObjects.isEmpty()) {
-                    throw new ValidationException(ValidationError.create("No valid object found for search in " + filter.getLabel()));
+                    throw new ValidationException(ValidationError.create("No valid object found for search in " + filter.getFieldLabel()));
                 }
 
                 if (filter.getConditions().get(0).equals(SearchCondition.EQUALS)) {
@@ -232,7 +232,7 @@ public class SearchServiceImpl implements SearchService {
                     }
                 } else if (filter.getField().equals(SearchableFields.OCSP_VALIDATION)) {
                     if (filter.getConditions().get(0).equals(SearchCondition.SUCCESS)) {
-                        qp += "LIKE '\"OCSP Verification\":{\"status\":\"success\"%'";
+                        qp += "LIKE '%\"OCSP Verification\":{\"status\":\"success\"%'";
                     } else if (filter.getConditions().get(0).equals(SearchCondition.FAILED)) {
                         qp += "LIKE '%\"OCSP Verification\":{\"status\":\"failed\"%'";
                     } else if (filter.getConditions().get(0).equals(SearchCondition.UNKNOWN)) {

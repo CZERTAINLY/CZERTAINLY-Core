@@ -30,7 +30,11 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     Optional<Certificate> findByFingerprint(String fingerprint);
 
+    boolean existsByFingerprint(String fingerprint);
+
     List<Certificate> findBySubjectDn(String subjectDn);
+
+    List<Certificate> findByCommonName(String commonName);
 
     List<Certificate> findAllByIssuerSerialNumber(String issuerSerialNumber);
 
@@ -77,4 +81,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Certificate> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
                                                     @Param("skipStatuses") List<CertificateStatus> skipStatuses,
                                                     Pageable pageable);
+
+    List<Certificate> findByComplianceResultContaining(String ruleUuid);
+
+    List<Certificate> findByRaProfileAndComplianceStatusIsNotNull(RaProfile raProfile);
 }

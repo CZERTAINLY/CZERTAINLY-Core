@@ -1,0 +1,5 @@
+ALTER TABLE certificate ALTER COLUMN serial_number DROP NOT NULL;
+ALTER TABLE certificate ALTER COLUMN not_before DROP NOT NULL;
+ALTER TABLE certificate ALTER COLUMN not_after DROP NOT NULL;
+ALTER TABLE certificate ALTER COLUMN issuer_dn DROP NOT NULL;
+ALTER TABLE certificate ALTER COLUMN fingerprint DROP NOT NULL;

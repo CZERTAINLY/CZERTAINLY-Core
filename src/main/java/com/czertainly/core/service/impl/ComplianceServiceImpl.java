@@ -13,6 +13,7 @@ import com.czertainly.api.model.connector.compliance.ComplianceResponseRulesDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -108,6 +109,9 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Override
     // Internal purpose only
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException {
+        if(certificate.getStatus().equals(CertificateStatus.NEW)) {
+            return;
+        }
         logger.debug("Checking the Compliance of the Certificate: {}", certificate);
         RaProfile raProfile = certificate.getRaProfile();
         CertificateComplianceStorageDto complianceResults = new CertificateComplianceStorageDto();
@@ -208,6 +212,62 @@ public class ComplianceServiceImpl implements ComplianceService {
         return complianceRuleRepository.findByUuidIn(uuids.stream().map(UUID::fromString).collect(Collectors.toList()));
     }
 
+    @Override
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForUuids(List<String> ids) {
+        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
+    }
+
+    @Override
+    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids) {
+        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
+    }
+
+    @Override
+    public void inCoreComplianceStatusUpdate(UUID ruleUuid) {
+        List<Certificate> certificates = getinCoreComplianceUpdatableCertificates(ruleUuid.toString());
+        for(Certificate certificate: certificates) {
+            removeAndUpdateComplianceStatus(certificate, ruleUuid);
+        }
+    }
+
+    private List<Certificate> getinCoreComplianceUpdatableCertificates(String ruleUuid) {
+        return certificateRepository.findByComplianceResultContaining(ruleUuid);
+    }
+
+    private void removeAndUpdateComplianceStatus(Certificate certificate, UUID ruleUuid) {
+        CertificateComplianceStorageDto complianceResult = certificate.getComplianceResult();
+        List<String> nokResult = complianceResult.getNok();
+        List<String> okResult = complianceResult.getOk();
+        List<String> naResult = complianceResult.getNa();
+        if(nokResult.contains(ruleUuid.toString())) {
+            nokResult.remove(ruleUuid.toString());
+        }
+        if(okResult.contains(ruleUuid.toString())) {
+            okResult.remove(ruleUuid.toString());
+        }
+        if(naResult.contains(ruleUuid.toString())) {
+            naResult.remove(ruleUuid.toString());
+        }
+
+        complianceResult.setNok(nokResult);
+        complianceResult.setOk(okResult);
+        complianceResult.setNa(naResult);
+
+        if(!nokResult.isEmpty()) {
+            certificate.setComplianceStatus(ComplianceStatus.NOK);
+        }
+        else if(nokResult.isEmpty() && !complianceResult.getOk().isEmpty()) {
+            certificate.setComplianceStatus(ComplianceStatus.OK);
+        } else if (nokResult.isEmpty() && complianceResult.getOk().isEmpty()) {
+            certificate.setComplianceStatus(ComplianceStatus.NA);
+        } else {
+            certificate.setComplianceStatus(null);
+            complianceResult = null;
+        }
+        certificate.setComplianceResult(complianceResult);
+        certificateRepository.save(certificate);
+    }
+
 
     public void saveComplianceRule(ComplianceRule complianceRule) {
         complianceRuleRepository.save(complianceRule);
@@ -224,17 +284,6 @@ public class ComplianceServiceImpl implements ComplianceService {
     private ComplianceRule getComplianceRuleEntity(SecuredUUID uuid, Connector connector, String kind) throws NotFoundException {
         return complianceRuleRepository.findByUuidAndConnectorAndKind(uuid.getValue(), connector, kind).orElseThrow(() -> new NotFoundException(ComplianceRule.class, uuid));
     }
-
-    @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForUuids(List<String> ids) {
-        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
-    }
-
-    @Override
-    public List<ComplianceProfileRule> getComplianceProfileRuleEntityForIds(List<String> ids) {
-        return complianceProfileRuleRepository.findByUuidIn(ids.stream().map(UUID::fromString).collect(Collectors.toList()));
-    }
-
 
     private void complianceCheckForRaProfile(RaProfile raProfile) throws ConnectorException {
         List<Certificate> certificates = certificateRepository.findByRaProfile(raProfile);
