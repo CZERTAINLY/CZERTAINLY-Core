@@ -27,14 +27,17 @@ public class Sql2PredicateConverter {
 
     public static Predicate mapSearchFilter2Predicates(final List<SearchFilterRequestDto> dtos, final CriteriaBuilder criteriaBuilder, final Root root, final List<UUID> objectUUIDsToBeFiltered) {
         final List<Predicate> predicates = new ArrayList<>();
+        boolean hasFilteredAttributes = false;
         for (final SearchFilterRequestDto dto : dtos) {
             final Optional<SearchGroup> group = Arrays.stream(SearchGroup.values()).filter(groupTemp -> groupTemp.getEnumLabel().toUpperCase().equals(dto.getGroupName().toUpperCase())).findFirst();
             if (group.isPresent() && SearchGroup.PROPERTY.equals(group.get())) {
                 predicates.add(mapSearchFilter2Predicate(dto, criteriaBuilder, root));
+            } else {
+                hasFilteredAttributes = true;
             }
         }
         final Predicate propertyPredicates = criteriaBuilder.and(predicates.toArray(new Predicate[]{}));
-        if (objectUUIDsToBeFiltered != null && !dtos.isEmpty()) {
+        if (objectUUIDsToBeFiltered != null && !dtos.isEmpty() && hasFilteredAttributes) {
             Predicate uuidOrPredicate = root.get("uuid").in(objectUUIDsToBeFiltered);
             if (root.getJavaType().equals(CryptographicKeyItem.class)) {
                 uuidOrPredicate = criteriaBuilder.or(
