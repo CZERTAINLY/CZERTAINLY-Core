@@ -182,7 +182,6 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setStartTime(startTime);
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
-        dto.setCertificate(certificate.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
         dto.setConnectorUuid(connectorUuid.toString());
         List<DataAttribute> a = AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(a));

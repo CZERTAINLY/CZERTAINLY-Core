@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Entity
 @Table(name = "certificate")
@@ -158,26 +159,28 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public CertificateDetailDto mapToDto() {
         CertificateDetailDto dto = new CertificateDetailDto();
         dto.setCommonName(commonName);
-        dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
-        dto.setCertificateContent(certificateContent.getContent());
-        dto.setIssuerDn(issuerDn);
+        if(!status.equals(CertificateStatus.NEW)) {
+            dto.setCertificateContent(certificateContent.getContent());
+            dto.setIssuerDn(issuerDn);
+            dto.setNotBefore(notBefore);
+            dto.setNotAfter(notAfter);
+            dto.setBasicConstraints(basicConstraints);
+            dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
+            dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage));
+            dto.setFingerprint(fingerprint);
+            dto.setSubjectAlternativeNames(MetaDefinitions.deserialize(subjectAlternativeNames));
+            dto.setIssuerSerialNumber(issuerSerialNumber);
+            dto.setSerialNumber(serialNumber);
+        }
         dto.setSubjectDn(subjectDn);
-        dto.setNotBefore(notBefore);
-        dto.setNotAfter(notAfter);
         dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
         dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
         dto.setKeySize(keySize);
-        dto.setBasicConstraints(basicConstraints);
-        dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
-        dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage));
         dto.setUuid(uuid.toString());
         dto.setStatus(status);
-        dto.setFingerprint(fingerprint);
-        dto.setSubjectAlternativeNames(MetaDefinitions.deserialize(subjectAlternativeNames));
         dto.setOwner(owner);
         dto.setCertificateType(certificateType);
-        dto.setIssuerSerialNumber(issuerSerialNumber);
         /**
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
          * When the details of the certificate is requested, the Service will transform the result into the user understandable
@@ -620,5 +623,13 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setStatusValidationTimestamp(LocalDateTime statusValidationTimestamp) {
         this.statusValidationTimestamp = statusValidationTimestamp;
+    }
+
+    public Long getValidity() {
+        return TimeUnit.DAYS.convert(Math.abs(notAfter.getTime() - notBefore.getTime()), TimeUnit.MILLISECONDS);
+    }
+
+    public Long getExpiryInDays() {
+        return TimeUnit.DAYS.convert(Math.abs(notAfter.getTime() - new Date().getTime()), TimeUnit.MILLISECONDS);
     }
 }

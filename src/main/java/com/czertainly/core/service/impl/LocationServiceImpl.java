@@ -500,7 +500,8 @@ public class LocationServiceImpl implements LocationService {
         ClientCertificateDataResponseDto clientCertificateDataResponseDto = null;
         try {
             clientCertificateDataResponseDto = issueCertificateForLocation(
-                    location, generateCsrResponseDto.getCsr(), request.getIssueAttributes(), raProfileUuid);
+                    location, generateCsrResponseDto.getCsr(), request.getIssueAttributes(), raProfileUuid,
+                    request.getCertificateCustomAttributes());
             certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(clientCertificateDataResponseDto.getUuid()));
         } catch (Exception e) {
             logger.error("Failed to issue Certificate", e.getMessage());
@@ -695,12 +696,12 @@ public class LocationServiceImpl implements LocationService {
         return generateCsrResponseDto;
     }
 
-    private ClientCertificateDataResponseDto issueCertificateForLocation(Location location, String csr, List<RequestAttributeDto> issueAttributes, String raProfileUuid) throws LocationException {
+    private ClientCertificateDataResponseDto issueCertificateForLocation(Location location, String csr, List<RequestAttributeDto> issueAttributes, String raProfileUuid, List<RequestAttributeDto> certificateCustomAttributes) throws LocationException {
         ClientCertificateSignRequestDto clientCertificateSignRequestDto = new ClientCertificateSignRequestDto();
         clientCertificateSignRequestDto.setAttributes(issueAttributes);
         // TODO: support for different types of certificate
         clientCertificateSignRequestDto.setPkcs10(csr);
-
+        clientCertificateSignRequestDto.setCustomAttributes(certificateCustomAttributes);
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
             // TODO : introduces raProfileRepository, services probably need to be reorganized
@@ -867,7 +868,11 @@ public class LocationServiceImpl implements LocationService {
     private void removeCertificateFromLocation(CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
-        List<MetadataAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(), certificateLocation.getLocation().getUuid(),
+        List<MetadataAttribute> metadata = metadataService.getMetadata(
+                certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
+                certificateLocation.getCertificate().getUuid(),
+                Resource.CERTIFICATE,
+                certificateLocation.getLocation().getUuid(),
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
         attributeService.deleteAttributeContent(
@@ -889,7 +894,11 @@ public class LocationServiceImpl implements LocationService {
     private void removeCertificateFromLocation(Location entity, CertificateLocation certificateLocation) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(entity.getRequestAttributes());
-        List<MetadataAttribute> metadata = metadataService.getMetadata(certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(), certificateLocation.getLocation().getUuid(),
+        List<MetadataAttribute> metadata = metadataService.getMetadata(
+                certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
+                certificateLocation.getCertificate().getUuid(),
+                Resource.CERTIFICATE,
+                certificateLocation.getLocation().getUuid(),
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
 

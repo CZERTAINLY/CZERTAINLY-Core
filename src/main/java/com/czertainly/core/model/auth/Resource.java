@@ -13,6 +13,7 @@ public enum Resource {
 
     // GENERAL
     DASHBOARD("dashboard"),
+    SETTINGS("settings"),
     AUDIT_LOG("auditLogs"),
     CREDENTIAL("credentials"),
     CONNECTOR("connectors"),

@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -21,7 +22,10 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.io.IOException;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -35,6 +39,10 @@ public interface CertificateService extends ResourceExtensionService  {
     CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
+
+    List<Certificate> getCertificateEntityBySubjectDn(String subjectDn);
+
+    List<Certificate> getCertificateEntityByCommonName(String commonName);
 
     // TODO AUTH - unable to check access based on certificate content. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByContent(String content);
@@ -75,7 +83,7 @@ public interface CertificateService extends ResourceExtensionService  {
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     void revokeCertificate(String serialNumber);
 
-    List<SearchFieldDataDto> getSearchableFieldInformation();
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
     void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException;
 
@@ -95,6 +103,14 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return List of Certificates
      */
     List<Certificate> listCertificatesForRaProfile(RaProfile raProfile);
+
+    /**
+     * List the available certificates that are associated with the RA Profile
+     *
+     * @param raProfile Ra Profile entity to search for the certificates
+     * @return List of Certificates
+     */
+    List<Certificate> listCertificatesForRaProfileAndNonNullComplianceStatus(RaProfile raProfile);
 
     /**
      * Initiates the compliance check for the certificates in the request
@@ -212,4 +228,23 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return List of certificate contents
      */
     List<CertificateContentDto> getCertificateContent(List<String> uuids);
+
+    /**
+     * Create CSR Entity and store it in the database which is ready for issuing
+     * @param csr - PKCS10 certificate request to be added
+     * @param signatureAttributes signatureAttributes used to sign the CSR. If the CSR is uploaded from the User
+     *                            this parameter should be left empty
+     * @param csrAttributes Attributes used to create CSR
+     * @param keyUuid UUID of the key used to sign the CSR
+     */
+    Certificate createCsr(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, UUID keyUuid) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException;
+
+    /**
+     * Function to change the Certificate Entity from CSR to Certificate
+     * @param uuid UUID of the entity to be transformed
+     * @param certificateData Issued Certificate Data
+     * @param meta Metadata of the certificate
+     * @return Certificate entity
+     */
+    Certificate updateCsrToCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException;
 }

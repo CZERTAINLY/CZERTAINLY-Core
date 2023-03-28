@@ -170,7 +170,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
             dto.setEnabled(enabled);
         } else if (type.equals(AttributeType.META)) {
             MetadataAttribute attribute = getAttributeDefinition(MetadataAttribute.class);
-            dto.setUuid(attribute.getUuid());
+            dto.setUuid(uuid.toString());
             dto.setName(attribute.getName());
             dto.setContentType(attribute.getContentType());
             dto.setDescription(attribute.getDescription());
@@ -206,7 +206,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     public GlobalMetadataDefinitionDetailDto mapToGlobalMetadataDefinitionDetailDto() {
         MetadataAttribute attribute = getAttributeDefinition(MetadataAttribute.class);
         GlobalMetadataDefinitionDetailDto dto = new GlobalMetadataDefinitionDetailDto();
-        dto.setUuid(attribute.getUuid());
+        dto.setUuid(uuid.toString());
         dto.setName(attribute.getName());
         dto.setType(AttributeType.META);
         dto.setContentType(attribute.getContentType());

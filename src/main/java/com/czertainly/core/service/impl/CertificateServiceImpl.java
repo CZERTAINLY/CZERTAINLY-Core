@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
@@ -17,12 +18,16 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.SearchLabelConstants;
+import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -30,7 +35,14 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.*;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
@@ -51,7 +63,9 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -59,6 +73,7 @@ import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Service
@@ -72,6 +87,9 @@ public class CertificateServiceImpl implements CertificateService {
     // Default batch size to perform bulk delete operation on Certificates
     public static final Integer DELETE_BATCH_SIZE = 1000;
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -90,6 +108,12 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private DiscoveryCertificateRepository discoveryCertificateRepository;
+
+    @Autowired
+    private AttributeContentRepository attributeContentRepository;
+
+    @Autowired
+    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
 
     @Autowired
     private ComplianceService complianceService;
@@ -125,8 +149,33 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
         filter.setParentRefProperty("raProfileUuid");
-        return getCertificatesWithFilter(request, filter);
+        RequestValidatorHelper.revalidateSearchRequestDto(request);
+        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
+        final List<UUID> objectUUIDs = new ArrayList<>();
+        if (!request.getFilters().isEmpty()) {
+            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
+            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
+            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
+
+            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.CERTIFICATE);
+            objectUUIDs.addAll(certificateRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
+        }
+
+        final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+                .stream()
+                .map(Certificate::mapToListDto)
+                .collect(Collectors.toList());
+        final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+
+        final CertificateResponseDto responseDto = new CertificateResponseDto();
+        responseDto.setCertificates(listedKeyDTOs);
+        responseDto.setItemsPerPage(request.getItemsPerPage());
+        responseDto.setPageNumber(request.getPageNumber());
+        responseDto.setTotalItems(maxItems);
+        responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
+        return responseDto;
     }
 
     @Override
@@ -162,6 +211,16 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
         return entity;
+    }
+
+    @Override
+    public List<Certificate> getCertificateEntityBySubjectDn(String subjectDn) {
+        return certificateRepository.findBySubjectDn(subjectDn);
+    }
+
+    @Override
+    public List<Certificate> getCertificateEntityByCommonName(String commonName) {
+        return certificateRepository.findByCommonName(commonName);
     }
 
     @Override
@@ -302,9 +361,67 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
     }
 
-    @Override
+    @Deprecated
     public List<SearchFieldDataDto> getSearchableFieldInformation() {
         return getSearchableFieldsMap();
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
+
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
+
+        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
+        if (metadataSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META.getLabel()));
+        }
+
+        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
+        if (customAttrSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM.getLabel()));
+        }
+
+        List<SearchFieldDataDto> fields = List.of(
+                SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.EXPIRES),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.NOT_BEFORE),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()))
+        );
+
+        fields = fields.stream().collect(Collectors.toList());
+        fields.sort(new SearchFieldDataComparator());
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.getLabel()));
+
+        logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
+        return searchFieldDataByGroupDtos;
+
+    }
+
+    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.META);
+    }
+
+    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.CUSTOM);
     }
 
     @Override
@@ -561,6 +678,12 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    // Only Internal method
+    public List<Certificate> listCertificatesForRaProfileAndNonNullComplianceStatus(RaProfile raProfile) {
+        return certificateRepository.findByRaProfileAndComplianceStatusIsNotNull(raProfile);
+    }
+
+    @Override
     @Async
     public void checkCompliance(CertificateComplianceCheckDto request) {
         for (String uuid : request.getCertificateUuids()) {
@@ -683,10 +806,12 @@ public class CertificateServiceImpl implements CertificateService {
         for (Certificate certificate : certificates) {
             groupStat.merge(certificate.getGroup() != null ? certificate.getGroup().getName() : "Unknown", 1L, Long::sum);
             raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unknown", 1L, Long::sum);
-            typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+            if (!certificate.getStatus().equals(CertificateStatus.NEW)) {
+                typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+                expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
+                bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
+            }
             keySizeStat.merge(certificate.getKeySize().toString(), 1L, Long::sum);
-            bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
-            expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
             statusStat.merge(certificate.getStatus().getCode(), 1L, Long::sum);
             complianceStat.merge(certificate.getComplianceStatus() != null ? complianceMap.get(certificate.getComplianceStatus().getCode().toUpperCase()) : "Not Checked", 1L, Long::sum);
         }
@@ -773,6 +898,40 @@ public class CertificateServiceImpl implements CertificateService {
         return response;
     }
 
+    @Override
+    public Certificate createCsr(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, UUID keyUuid) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
+        JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(csr);
+        Certificate model = new Certificate();
+        CertificateUtil.prepareCsrObject(model, jcaObject);
+        model.setKeyUuid(keyUuid);
+        model.setCsr(csr);
+        model.setStatus(CertificateStatus.NEW);
+        model.setSignatureAttributes(signatureAttributes);
+        model.setCsrAttributes(csrAttributes);
+        certificateRepository.save(model);
+        return model;
+    }
+
+    @Override
+    public Certificate updateCsrToCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException {
+        X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
+        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
+        Certificate entity = getCertificateEntity(SecuredUUID.fromUUID(uuid));
+        if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
+            throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
+        }
+        CertificateUtil.prepareCertificate(entity, x509Cert);
+        CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert));
+        entity.setFingerprint(fingerprint);
+        entity.setCertificateContent(certificateContent);
+        entity.setCertificateContentId(certificateContent.getId());
+        certificateRepository.save(entity);
+        metadataService.createMetadataDefinitions(null, meta);
+        metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
+        certificateComplianceCheck(entity);
+        return entity;
+    }
+
     private String getExpiryTime(Date now, Date expiry) {
         long diffInMillies = expiry.getTime() - now.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
@@ -793,50 +952,34 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
 
+    @Deprecated
     private List<SearchFieldDataDto> getSearchableFieldsMap() {
-        SearchFieldDataDto raProfileFilter = SearchLabelConstants.RA_PROFILE_NAME_FILTER;
-        raProfileFilter.setValue(raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList()));
 
-        SearchFieldDataDto groupFilter = SearchLabelConstants.GROUP_NAME_FILTER;
-        groupFilter.setValue(groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList()));
-
-        SearchFieldDataDto signatureAlgorithmFilter = SearchLabelConstants.SIGNATURE_ALGORITHM_FILTER;
-        signatureAlgorithmFilter.setValue(new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm()));
-
-        SearchFieldDataDto publicKeyFilter = SearchLabelConstants.PUBLIC_KEY_ALGORITHM_FILTER;
-        publicKeyFilter.setValue(new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm()));
-
-        SearchFieldDataDto keySizeFilter = SearchLabelConstants.KEY_SIZE_FILTER;
-        keySizeFilter.setValue(new ArrayList<>(certificateRepository.findDistinctKeySize()));
-
-        SearchFieldDataDto keyUsageFilter = SearchLabelConstants.KEY_USAGE_FILTER;
-        keyUsageFilter.setValue(serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()));
-
-        List<SearchFieldDataDto> fields = List.of(
-                SearchLabelConstants.COMMON_NAME_FILTER,
-                SearchLabelConstants.SERIAL_NUMBER_FILTER,
-                SearchLabelConstants.ISSUER_SERIAL_NUMBER_FILTER,
-                raProfileFilter,
-                groupFilter,
-                SearchLabelConstants.OWNER_FILTER,
-                SearchLabelConstants.STATUS_FILTER,
-                SearchLabelConstants.COMPLIANCE_STATUS_FILTER,
-                SearchLabelConstants.ISSUER_COMMON_NAME_FILTER,
-                SearchLabelConstants.FINGERPRINT_FILTER,
-                signatureAlgorithmFilter,
-                SearchLabelConstants.NOT_AFTER_FILTER,
-                SearchLabelConstants.NOT_BEFORE_FILTER,
-                SearchLabelConstants.SUBJECTDN_FILTER,
-                SearchLabelConstants.ISSUERDN_FILTER,
-                SearchLabelConstants.META_FILTER,
-                SearchLabelConstants.SUBJECT_ALTERNATIVE_NAMES_FILTER,
-                SearchLabelConstants.OCSP_VALIDATION_FILTER,
-                SearchLabelConstants.CRL_VALIDATION_FILTER,
-                SearchLabelConstants.SIGNATURE_VALIDATION_FILTER,
-                publicKeyFilter,
-                keySizeFilter,
-                keyUsageFilter
+        final List<SearchFieldDataDto> fields = List.of(
+                SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.EXPIRES),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.NOT_BEFORE),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()))
         );
+
         logger.debug("Searchable Fields: {}", fields);
         return fields;
     }
@@ -849,6 +992,7 @@ public class CertificateServiceImpl implements CertificateService {
         return new ArrayList<>(serSet);
     }
 
+    @Deprecated
     private CertificateResponseDto getCertificatesWithFilter(SearchRequestDto request, SecurityFilter filter) {
         logger.debug("Certificate search request: {}", request.toString());
         CertificateResponseDto certificateResponseDto = new CertificateResponseDto();

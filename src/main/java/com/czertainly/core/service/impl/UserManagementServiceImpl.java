@@ -5,9 +5,13 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
+import com.czertainly.api.model.client.auth.UserIdentificationRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.core.config.AcmeValidationFilter;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -21,9 +25,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 
 import jakarta.transaction.Transactional;
+
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -155,6 +161,15 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
+    public UserDetailDto identifyUser(UserIdentificationRequestDto request) throws NotFoundException {
+        request.setCertificateContent(CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
+        UserDetailDto dto = userManagementApiClient.identifyUser(request);
+        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(dto.getUuid()), Resource.USER));
+        return dto;
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return null;
     }
@@ -174,6 +189,11 @@ public class UserManagementServiceImpl implements UserManagementService {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
             try {
                 certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
+                if (certificate.getStatus().equals(CertificateStatus.NEW)) {
+                    throw new ValidationException(ValidationError.create(
+                            "Cannot create user for certificate with state NEW"
+                    ));
+                }
             } catch (NotFoundException | NoSuchAlgorithmException e) {
                 logger.debug("New Certificate uploaded for the user");
                 certificate = certificateService.createCertificateEntity(x509Cert);
@@ -191,9 +211,9 @@ public class UserManagementServiceImpl implements UserManagementService {
             certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
-        }else {
-            if(!certificateUuid.isEmpty()) requestDto.setCertificateUuid(certificateUuid);
-            if(!certificateFingerPrint.isEmpty()) requestDto.setCertificateFingerprint(certificateFingerPrint);
+        } else {
+            if (!certificateUuid.isEmpty()) requestDto.setCertificateUuid(certificateUuid);
+            if (!certificateFingerPrint.isEmpty()) requestDto.setCertificateFingerprint(certificateFingerPrint);
         }
 
         requestDto.setDescription(request.getDescription());

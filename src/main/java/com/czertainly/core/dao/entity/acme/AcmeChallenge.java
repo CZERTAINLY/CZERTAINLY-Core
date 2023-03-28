@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.acme.Challenge;
 import com.czertainly.api.model.core.acme.ChallengeStatus;
 import com.czertainly.api.model.core.acme.ChallengeType;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
+import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
@@ -128,10 +129,12 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
 
     private String getBaseUrl() {
         if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
-            return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/raProfile/"
+            return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                    + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/"
                     + authorization.getOrder().getAcmeAccount().getRaProfile().getName();
         }
-        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + "/acme/"
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                + ExtendedAcmeHelperService.ACME_URI_HEADER + "/"
                 + authorization.getOrder().getAcmeAccount().getAcmeProfile().getName();
     }
 
