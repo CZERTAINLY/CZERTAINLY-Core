@@ -115,6 +115,11 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
+    public RaProfileScepDetailResponseDto getScepForRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        return raProfileService.getScepForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
+    }
+
+    @Override
     public RaProfileScepDetailResponseDto activateScepForRaProfile(String authorityUuid, String raProfileUuid, String scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException {
         return raProfileService.activateScepForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(scepProfileUuid), request);
     }
