@@ -1,6 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.core.config.AcmeValidationFilter;
+import com.czertainly.core.config.ProtocolValidationFilter;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
@@ -89,8 +89,8 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         if(headers.get(authTokenHeaderName) != null) {
             requestDto.setAuthenticationToken(headers.get(authTokenHeaderName).get(0));
         }
-        if(headers.get(AcmeValidationFilter.SYSTEM_USER_HEADER_NAME) != null){
-            requestDto.setSystemUsername(headers.get(AcmeValidationFilter.SYSTEM_USER_HEADER_NAME).get(0));
+        if(headers.get(ProtocolValidationFilter.SYSTEM_USER_HEADER_NAME) != null){
+            requestDto.setSystemUsername(headers.get(ProtocolValidationFilter.SYSTEM_USER_HEADER_NAME).get(0));
         }
         return requestDto;
     }

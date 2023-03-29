@@ -57,10 +57,12 @@ import java.util.stream.Collectors;
 
 
 @Component
-public class AcmeValidationFilter extends OncePerRequestFilter {
+public class ProtocolValidationFilter extends OncePerRequestFilter {
 
     public static final String SYSTEM_USER_HEADER_NAME = "systemUsername";
-    private static final String SYSTEM_USER_HEADER_VALUE = "acme";
+    private static final String ACME_USER_HEADER_VALUE = "acme";
+
+    private static final String SCEP_USER_HEADER_VALUE = "scep";
 
     @Autowired
     private AcmeAccountRepository acmeAccountRepository;
@@ -90,13 +92,20 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         String requestUri = request.getRequestURI();
         String requestUrl = request.getRequestURL().toString();
         boolean raProfileBased;
-        if (!requestUri.startsWith("/api/v1/protocols/acme/")) {
+
+        if (!requestUri.startsWith("/api/v1/protocols/")) {
+            filterChain.doFilter(requestWrapper, responseWrapper);
+            return;
+        }
+        if (requestUri.startsWith("/api/v1/protocols/scep/")) {
+            logger.info("SCEP Request from " + request.getRemoteAddr() + " for " + requestUri);
+            elevatePermission(SCEP_USER_HEADER_VALUE);
             filterChain.doFilter(requestWrapper, responseWrapper);
             return;
         }
         logger.info("ACME Request from " + request.getRemoteAddr() + " for " + requestUri);
         try {
-            elevatePermission();
+            elevatePermission(ACME_USER_HEADER_VALUE);
             raProfileBased = requestUri.contains("/raProfile/");
             filterChain.doFilter(requestWrapper, responseWrapper);
             @SuppressWarnings("unchecked")
@@ -389,15 +398,15 @@ public class AcmeValidationFilter extends OncePerRequestFilter {
         // For revocation handle the verification inside the service
     }
 
-    private void elevatePermission() {
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(getHeaders());
+    private void elevatePermission(String user) {
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(getHeaders(user));
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
     }
 
-    private HttpHeaders getHeaders() {
+    private HttpHeaders getHeaders(String user) {
         HttpHeaders headers = new HttpHeaders();
-        headers.add(SYSTEM_USER_HEADER_NAME, SYSTEM_USER_HEADER_VALUE);
+        headers.add(SYSTEM_USER_HEADER_NAME, user);
         return headers;
     }
 }
