@@ -20,6 +20,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -116,9 +117,14 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         RaProfileDto dto = new RaProfileDto();
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
+        List<String> enabledProtocols = new ArrayList<>();
         if (acmeProfile != null) {
-            dto.setEnabledProtocols(List.of("ACME"));
+            enabledProtocols.add("ACME");
         }
+        if (scepProfile != null) {
+            enabledProtocols.add("SCEP");
+        }
+        dto.setEnabledProtocols(enabledProtocols);
         dto.setDescription(this.description);
         dto.setAuthorityInstanceName(this.authorityInstanceName);
         try {
