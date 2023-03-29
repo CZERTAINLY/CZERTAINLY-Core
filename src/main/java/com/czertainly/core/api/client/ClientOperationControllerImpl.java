@@ -5,8 +5,8 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.client.ClientOperationController;
 import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
-import com.czertainly.api.model.client.authority.ClientCertificateRevocationDto;
-import com.czertainly.api.model.client.authority.ClientCertificateSignRequestDto;
+import com.czertainly.api.model.client.authority.LegacyClientCertificateRevocationDto;
+import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequestDto;
 import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
@@ -29,13 +29,13 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @Override
     public ClientCertificateSignResponseDto issueCertificate(
             @PathVariable String raProfileName,
-            @RequestBody ClientCertificateSignRequestDto request)
+            @RequestBody LegacyClientCertificateSignRequestDto request)
             throws NotFoundException, CertificateException, AlreadyExistException, ConnectorException, NoSuchAlgorithmException {
         return clientOperationService.issueCertificate(raProfileName, request);
     }
 
     @Override
-    public void revokeCertificate(@PathVariable String raProfileName, @RequestBody ClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
+    public void revokeCertificate(@PathVariable String raProfileName, @RequestBody LegacyClientCertificateRevocationDto request) throws NotFoundException, ConnectorException {
         clientOperationService.revokeCertificate(raProfileName, request);
     }
 
