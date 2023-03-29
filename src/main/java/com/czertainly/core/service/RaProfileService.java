@@ -115,4 +115,6 @@ public interface RaProfileService extends ResourceExtensionService {
      * @return List of RA Profiles associated with the SCEP Profiles
      */
     SecuredList<RaProfile> listRaProfilesAssociatedWithScepProfile(String scepProfileUuid, SecurityFilter filter);
+
+    RaProfileScepDetailResponseDto getScepForRaProfile(SecuredParentUUID authorityInstanceUuid, SecuredUUID raProfileUuid) throws NotFoundException;
 }

@@ -409,6 +409,11 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    public RaProfileScepDetailResponseDto getScepForRaProfile(SecuredParentUUID authorityInstanceUuid, SecuredUUID raProfileUuid) throws NotFoundException {
+        return getRaProfileEntity(raProfileUuid).mapToScepDto();
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return raProfileRepository.findUsingSecurityFilter(filter)
