@@ -1,9 +1,11 @@
 package com.czertainly.core.attribute;
 
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.collection.DigestAlgorithm;
 import com.czertainly.api.model.common.collection.RsaSignatureScheme;
@@ -71,6 +73,25 @@ public class RsaSignatureAttributes {
         attribute.setProperties(attributeProperties);
         // set content
         attribute.setContent(DigestAlgorithm.asStringAttributeContentList());
+
+        return attribute;
+    }
+
+
+    public static RequestAttributeDto buildRequestRsaSigScheme(RsaSignatureScheme value) {
+        RequestAttributeDto attribute = new RequestAttributeDto();
+        attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
+        attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
+        attribute.setContent(List.of(new StringAttributeContent(RsaSignatureScheme.PKCS1V15.name(), RsaSignatureScheme.PKCS1V15.getName())));
+        return attribute;
+    }
+
+    public static RequestAttributeDto buildRequestDigest(String value) {
+        // define Data Attribute
+        RequestAttributeDto attribute = new RequestAttributeDto();
+        attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
+        attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
+        attribute.setContent(List.of(new StringAttributeContent(value)));
 
         return attribute;
     }
