@@ -127,7 +127,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
             scepProfile.setRaProfile(raProfile);
             scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-            scepProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
         }
         scepProfileRepository.save(scepProfile);
 
@@ -150,7 +149,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
                 RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
                 scepProfile.setRaProfile(raProfile);
                 scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-                scepProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
             }
         }
         if (request.getDescription() != null) {
