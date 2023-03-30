@@ -1,13 +1,16 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.service.model.Securable;
+import com.czertainly.core.service.scep.impl.ExtendedScepHelperServiceImpl;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
@@ -17,6 +20,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -57,6 +61,9 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             inverseJoinColumns = @JoinColumn(name = "compliance_profile_uuid"))
     private Set<ComplianceProfile> complianceProfiles;
 
+    @OneToOne(mappedBy = "raProfile")
+    private RaProfileProtocolAttribute protocolAttribute;
+
     /**
      * Acme related objects for RA Profile
      */
@@ -67,11 +74,13 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "acme_profile_uuid")
     private UUID acmeProfileUuid;
 
-    @Column(name = "acme_issue_certificate_attributes")
-    private String issueCertificateAttributes;
+    @OneToOne
+    @JoinColumn(name = "scep_profile_uuid", insertable = false, updatable = false)
+    private ScepProfile scepProfile;
 
-    @Column(name = "acme_revoke_certificate_attributes")
-    private String revokeCertificateAttributes;
+    @Column(name = "scep_profile_uuid")
+    private UUID scepProfileUuid;
+
 
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
@@ -81,10 +90,26 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setName(acmeProfile.getName());
         dto.setUuid(acmeProfile.getUuid().toString());
-        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueCertificateAttributes, DataAttribute.class)));
-        dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(revokeCertificateAttributes, DataAttribute.class)));
+        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), DataAttribute.class)));
+        dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), DataAttribute.class)));
         dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
         dto.setAcmeAvailable(true);
+        return dto;
+    }
+
+
+    public RaProfileScepDetailResponseDto mapToScepDto() {
+        RaProfileScepDetailResponseDto dto = new RaProfileScepDetailResponseDto();
+        if (scepProfile == null) {
+            dto.setScepAvailable(false);
+            return dto;
+        }
+        dto.setScepAvailable(true);
+        dto.setUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                + ExtendedScepHelperServiceImpl.SCEP_URL_PREFIX + "/" + name);
+        dto.setName(scepProfile.getName());
+        dto.setUuid(scepProfile.getUuid().toString());
+        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), DataAttribute.class)));
         return dto;
     }
 
@@ -92,9 +117,14 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         RaProfileDto dto = new RaProfileDto();
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
+        List<String> enabledProtocols = new ArrayList<>();
         if (acmeProfile != null) {
-            dto.setEnabledProtocols(List.of("ACME"));
+            enabledProtocols.add("ACME");
         }
+        if (scepProfile != null) {
+            enabledProtocols.add("SCEP");
+        }
+        dto.setEnabledProtocols(enabledProtocols);
         dto.setDescription(this.description);
         dto.setAuthorityInstanceName(this.authorityInstanceName);
         try {
@@ -212,20 +242,14 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         else this.acmeProfileUuid = null;
     }
 
-    public String getIssueCertificateAttributes() {
-        return issueCertificateAttributes;
+    public ScepProfile getScepProfile() {
+        return scepProfile;
     }
 
-    public void setIssueCertificateAttributes(String issueCertificateAttributes) {
-        this.issueCertificateAttributes = issueCertificateAttributes;
-    }
-
-    public String getRevokeCertificateAttributes() {
-        return revokeCertificateAttributes;
-    }
-
-    public void setRevokeCertificateAttributes(String revokeCertificateAttributes) {
-        this.revokeCertificateAttributes = revokeCertificateAttributes;
+    public void setScepProfile(ScepProfile scepProfile) {
+        this.scepProfile = scepProfile;
+        if (acmeProfile != null) this.scepProfileUuid = acmeProfile.getUuid();
+        else this.scepProfileUuid = null;
     }
 
     public Set<ComplianceProfile> getComplianceProfiles() {
@@ -234,6 +258,17 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setComplianceProfiles(Set<ComplianceProfile> complianceProfiles) {
         this.complianceProfiles = complianceProfiles;
+    }
+
+    public RaProfileProtocolAttribute getProtocolAttribute() {
+        if(protocolAttribute == null) {
+            return new RaProfileProtocolAttribute();
+        }
+        return protocolAttribute;
+    }
+
+    public void setProtocolAttribute(RaProfileProtocolAttribute protocolAttribute) {
+        this.protocolAttribute = protocolAttribute;
     }
 
     @Override

@@ -3,7 +3,9 @@ package com.czertainly.core.service.acme.impl;
 import com.czertainly.api.exception.AcmeProblemDocumentException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.JwsBody;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.authority.RevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
@@ -557,11 +559,11 @@ public class ExtendedAcmeHelperService {
             logger.error(e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_CSR);
         }
-        decodedCsr = decodedCsr.replace("-----BEGIN CERTIFICATE REQUEST-----", "")
-                .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE REQUEST-----", "");
+        decodedCsr = decodedCsr.replace("-----BEGIN CERTIFICATE REQUEST-----", "").replace("-----BEGIN NEW CERTIFICATE REQUEST-----", "")
+                .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE REQUEST-----", "").replace("-----END NEW CERTIFICATE REQUEST-----", "");
         logger.info("Initiating issue Certificate for Order: {}", order);
         ClientCertificateSignRequestDto certificateSignRequestDto = new ClientCertificateSignRequestDto();
-        certificateSignRequestDto.setAttributes(new ArrayList<>());
+        certificateSignRequestDto.setAttributes(getClientOperationAttributes(false, order.getAcmeAccount()));
         certificateSignRequestDto.setPkcs10(decodedCsr);
         order.setStatus(OrderStatus.PROCESSING);
         acmeOrderRepository.save(order);
@@ -671,11 +673,12 @@ public class ExtendedAcmeHelperService {
         }
         PublicKey accountPublicKey;
         PublicKey certPublicKey;
+        AcmeAccount account = null;
         String accountKid = getJwsObject().getHeader().toJSONObject().get("kid").toString();
         logger.info("kid of the Account for revocation: {}", accountKid);
         if (getJwsObject().getHeader().toJSONObject().containsKey("kid")) {
             String accountId = accountKid.split("/")[accountKid.split("/").length - 1];
-            AcmeAccount account = getAcmeAccountEntity(accountId);
+            account = getAcmeAccountEntity(accountId);
             validateAccount(account);
             try {
                 accountPublicKey = AcmePublicKeyProcessor.publicKeyObjectFromString(account.getPublicKey());
@@ -715,7 +718,7 @@ public class ExtendedAcmeHelperService {
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.BAD_REVOCATION_REASON, details);
         }
         revokeRequest.setReason(reason);
-        revokeRequest.setAttributes(List.of());
+        revokeRequest.setAttributes(getClientOperationAttributes(true, account));
         try {
             clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(cert.getRaProfile().getAuthorityInstanceReferenceUuid()), cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest);
             return ResponseEntity
@@ -1070,5 +1073,26 @@ public class ExtendedAcmeHelperService {
                     "Account Deactivated",
                     "The requested account has been deactivated"));
         }
+    }
+
+    private List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke, AcmeAccount acmeAccount) {
+        if(acmeAccount == null) {
+            return List.of();
+        }
+        String attributes;
+        if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
+            if(isRevoke) {
+                attributes = acmeAccount.getRaProfile().getProtocolAttribute().getAcmeRevokeCertificateAttributes();
+            } else {
+                attributes = acmeAccount.getRaProfile().getProtocolAttribute().getAcmeIssueCertificateAttributes();
+            }
+        } else {
+            if(isRevoke) {
+                attributes = acmeAccount.getAcmeProfile().getRevokeCertificateAttributes();
+            } else {
+                attributes = acmeAccount.getAcmeProfile().getIssueCertificateAttributes();
+            }
+        }
+        return AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
     }
 }

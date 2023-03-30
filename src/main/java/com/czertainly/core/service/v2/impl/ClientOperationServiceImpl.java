@@ -757,7 +757,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private boolean isProtocolUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = ((CzertainlyUserDetails) authentication.getPrincipal()).getUsername();
-        if (username.equals("acme")) {
+        if (username.equals("acme") || username.equals("scep")) {
             return true;
         }
         return false;

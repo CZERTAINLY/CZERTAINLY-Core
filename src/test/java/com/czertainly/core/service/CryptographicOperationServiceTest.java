@@ -178,7 +178,8 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 content1.getUuid(),
-                CryptographicAlgorithm.RSA);
+                CryptographicAlgorithm.RSA
+        );
     }
 
     @Test
