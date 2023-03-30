@@ -97,7 +97,6 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setName(name);
         scepProfileDto.setUuid(uuid.toString());
         scepProfileDto.setRequireManualApproval(requireManualApproval);
-        scepProfileDto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(revokeCertificateAttributes, DataAttribute.class)));
         scepProfileDto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueCertificateAttributes, DataAttribute.class)));
         scepProfileDto.setIncludeCaCertificate(includeCaCertificate);
         scepProfileDto.setIncludeCaCertificateChain(includeCaCertificateChain);
