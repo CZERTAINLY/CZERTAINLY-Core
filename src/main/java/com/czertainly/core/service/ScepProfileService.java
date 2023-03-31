@@ -7,6 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -107,4 +108,10 @@ public interface ScepProfileService extends ResourceExtensionService {
      * @throws NotFoundException When the SCEP or RA Profile is not found
      */
     void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException;
+
+    /**
+     * List certificates eligible for CA certificate of SCEP requests
+     * @return List of available CA certificates
+     */
+    List<CertificateDto> listScepCaCertificates();
 }

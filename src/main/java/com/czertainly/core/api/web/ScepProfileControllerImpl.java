@@ -8,6 +8,7 @@ import com.czertainly.api.interfaces.core.web.ScepProfileController;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
@@ -91,5 +92,10 @@ public class ScepProfileControllerImpl implements ScepProfileController {
     @Override
     public void updateRaProfile(String uuid, String raProfileUuid) throws NotFoundException {
         scepProfileService.updateRaProfile(SecuredUUID.fromString(uuid), raProfileUuid);
+    }
+
+    @Override
+    public List<CertificateDto> listScepCaCertificates() {
+        return scepProfileService.listScepCaCertificates();
     }
 }

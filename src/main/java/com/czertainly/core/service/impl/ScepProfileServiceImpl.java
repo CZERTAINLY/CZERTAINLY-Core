@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -280,6 +281,10 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         // Since there are is no parent to the SCEP Profile, exclusive parent permission evaluation need not be done
     }
 
+    @Override
+    public List<CertificateDto> listScepCaCertificates() {
+        return certificateService.listScepCaCertificates(SecurityFilter.create());
+    }
 
     private RaProfile getRaProfile(String uuid) throws NotFoundException {
         return raProfileService.getRaProfileEntity(SecuredUUID.fromString(uuid));
