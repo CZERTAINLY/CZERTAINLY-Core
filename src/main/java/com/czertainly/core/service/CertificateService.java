@@ -9,10 +9,7 @@ import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.core.certificate.CertificateContentDto;
-import com.czertainly.api.model.core.certificate.CertificateDetailDto;
-import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.api.model.core.certificate.CertificateValidationDto;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -247,4 +244,11 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return Certificate entity
      */
     Certificate updateCsrToCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException;
+
+    /**
+     * List certificates eligible for CA certificate of SCEP requests
+     * @param filter Security Filter
+     * @return List of available CA certificates
+     */
+    List<CertificateDto> listScepCaCertificates(SecurityFilter filter);
 }

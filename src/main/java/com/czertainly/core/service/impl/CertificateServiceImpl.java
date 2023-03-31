@@ -932,6 +932,16 @@ public class CertificateServiceImpl implements CertificateService {
         return entity;
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    public List<CertificateDto> listScepCaCertificates(SecurityFilter filter) {
+        filter.setParentRefProperty("raProfileUuid");
+
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
+                (root, cb) -> cb.isNotNull(root.get("keyUuid")));
+        return certificates.stream().map(Certificate::mapToListDto).filter(c -> c.isPrivateKeyAvailability()).collect(Collectors.toList());
+    }
+
     private String getExpiryTime(Date now, Date expiry) {
         long diffInMillies = expiry.getTime() - now.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
