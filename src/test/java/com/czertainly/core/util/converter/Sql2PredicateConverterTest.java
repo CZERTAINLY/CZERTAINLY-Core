@@ -1,11 +1,15 @@
 package com.czertainly.core.util.converter;
 
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.util.BaseSpringBootTest;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -16,17 +20,17 @@ import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.tree.predicate.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Tests for class {@link Sql2PredicateConverter}
  */
-@Disabled
 @SpringBootTest
 public class Sql2PredicateConverterTest extends BaseSpringBootTest {
 
@@ -162,6 +166,91 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
         Assertions.assertTrue(predicateHqlString.endsWith("%"));
     }
 
+
+    @Test
+    public void testFilterMetaOnly() {
+        final List<SearchFieldObject> testSearchableFieldsList = new ArrayList<>();
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CK_NAME.name(), AttributeContentType.STRING, AttributeType.META));
+
+        List<SearchFilterRequestDto> testFilters = new ArrayList<>();
+        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.CK_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy("metadata", SearchableFields.CK_NAME, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
+
+        final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
+                    = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
+        Assertions.assertEquals(1, criteriaQueryDataObject.getPredicate().getExpressions().size());
+
+    }
+
+
+    @Test
+    public void testFilterCustomAttrOnly() {
+
+        final List<SearchFieldObject> testSearchableFieldsList = new ArrayList<>();
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CK_NAME.name(), AttributeContentType.STRING, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NOT_AFTER.name(), AttributeContentType.DATE, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.SERIAL_NUMBER.name(), AttributeContentType.STRING, AttributeType.CUSTOM));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.CUSTOM));
+
+        List<SearchFilterRequestDto> testFilters = new ArrayList<>();
+        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.CK_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy("Custom attribute", SearchableFields.SERIAL_NUMBER, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
+
+        final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
+                = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
+        Assertions.assertEquals(1, criteriaQueryDataObject.getPredicate().getExpressions().size());
+
+
+        List<SearchFilterRequestDto> testFilters2 = new ArrayList<>();
+        testFilters2.add(new SearchFilterRequestDTODummy("property", SearchableFields.CK_NAME, SearchCondition.EQUALS, "test"));
+        testFilters2.add(new SearchFilterRequestDTODummy("Custom attribute", SearchableFields.CKI_LENGTH, AttributeContentType.INTEGER, SearchCondition.EQUALS, 1));
+        testFilters2.add(new SearchFilterRequestDTODummy("Custom attribute", SearchableFields.SERIAL_NUMBER, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
+        final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject2
+                = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters2,  criteriaBuilder, Resource.CERTIFICATE);
+        Assertions.assertEquals(2, criteriaQueryDataObject2.getPredicate().getExpressions().size());
+
+    }
+
+    @Test
+    public void testFilterNoMetaOrCustomAttr() {
+
+        final List<SearchFieldObject> testSearchableFieldsList = new ArrayList<>();
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CK_NAME.name(), AttributeContentType.STRING, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NOT_AFTER.name(), AttributeContentType.DATE, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.SERIAL_NUMBER.name(), AttributeContentType.STRING, AttributeType.CUSTOM));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.META));
+
+        List<SearchFilterRequestDto> testFilters = new ArrayList<>();
+        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.CK_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
+
+        final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
+                = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
+        Assertions.assertEquals(0, criteriaQueryDataObject.getPredicate().getExpressions().size());
+    }
+
+    @Test
+    public void testFilterNoMetaOrCustomAttrWithCorrectAttrContentType() {
+
+        final List<SearchFieldObject> testSearchableFieldsList = new ArrayList<>();
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CK_NAME.name(), AttributeContentType.STRING, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NOT_AFTER.name(), AttributeContentType.DATE, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.SERIAL_NUMBER.name(), AttributeContentType.STRING, AttributeType.CUSTOM));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.META));
+
+        List<SearchFilterRequestDto> testFilters = new ArrayList<>();
+        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.CK_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy("metadata", SearchableFields.CKI_LENGTH, AttributeContentType.STRING, SearchCondition.EQUALS, 1));
+        testFilters.add(new SearchFilterRequestDTODummy("Custom attribute", SearchableFields.SERIAL_NUMBER, AttributeContentType.INTEGER, SearchCondition.EQUALS, "test"));
+
+        final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
+                = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
+        Assertions.assertEquals(0, criteriaQueryDataObject.getPredicate().getExpressions().size());
+    }
+
+
     private void testLikePredicate(final Predicate predicate, final String value) {
         Assertions.assertInstanceOf(SqmLikePredicate.class, predicate);
         Assertions.assertEquals(value, ((SqmLikePredicate) predicate).getPattern().toHqlString());
@@ -173,7 +262,7 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
         final Predicate predicateTest = Sql2PredicateConverter.mapSearchFilter2Predicate(searchFilterRequestDTODummy, criteriaBuilder, root);
         Assertions.assertInstanceOf(SqmLikePredicate.class, predicateTest);
 
-        final String hqlString = ((SqmLikePredicate)predicateTest).getPattern().toHqlString();
+        final String hqlString = ((SqmLikePredicate) predicateTest).getPattern().toHqlString();
         Assertions.assertTrue(hqlString.contains(TEST_VERIFICATION_TEXT.replace("%STATUS%", certificateValidationStatus.getCode())));
         Assertions.assertTrue(hqlString.startsWith("%"));
         Assertions.assertTrue(hqlString.endsWith("%"));
@@ -216,10 +305,31 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
     private SearchCondition conditionTest;
     private Serializable valueTest;
 
+    private String groupName;
+
+    private String fieldIdentifier;
+
     public SearchFilterRequestDTODummy(SearchableFields fieldTest, SearchCondition conditionTest, Serializable valueTest) {
         this.fieldTest = fieldTest;
         this.conditionTest = conditionTest;
         this.valueTest = valueTest;
+        this.fieldIdentifier = fieldTest.name();
+    }
+
+    public SearchFilterRequestDTODummy(String groupName, SearchableFields fieldTest, SearchCondition conditionTest, Serializable valueTest) {
+        this.groupName = groupName;
+        this.fieldTest = fieldTest;
+        this.conditionTest = conditionTest;
+        this.valueTest = valueTest;
+        this.fieldIdentifier = fieldTest.name();
+    }
+
+    public SearchFilterRequestDTODummy(String groupName, SearchableFields fieldTest, AttributeContentType attributeContentType, SearchCondition conditionTest, Serializable valueTest) {
+        this.groupName = groupName;
+        this.fieldTest = fieldTest;
+        this.conditionTest = conditionTest;
+        this.valueTest = valueTest;
+        this.fieldIdentifier = fieldTest.name() + "|" + attributeContentType.name();
     }
 
     public SearchableFields getField() {
@@ -236,6 +346,7 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
 
     public void setFieldTest(SearchableFields fieldTest) {
         this.fieldTest = fieldTest;
+        this.fieldIdentifier = fieldTest.name();
     }
 
     public void setConditionTest(SearchCondition conditionTest) {
@@ -244,5 +355,19 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
 
     public void setValueTest(Serializable valueTest) {
         this.valueTest = valueTest;
+    }
+
+    @Override
+    public String getFieldIdentifier() {
+        return fieldIdentifier;
+    }
+
+    public void setGroupName(String groupName) {
+        this.groupName = groupName;
+    }
+
+    @Override
+    public String getGroupName() {
+        return groupName;
     }
 }

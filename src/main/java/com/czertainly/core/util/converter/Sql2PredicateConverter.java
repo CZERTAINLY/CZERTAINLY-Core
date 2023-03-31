@@ -297,7 +297,7 @@ public class Sql2PredicateConverter {
                     final Predicate predicateOfTheExpression =
                             buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, searchField.isDateTimeFormat(), dto, searchField);
 
-                    subPredicates.add(criteriaBuilder.and(predicateOfTheExpression));
+                    subPredicates.add(predicateOfTheExpression);
                     subquery.where(subPredicates.toArray(new Predicate[]{}));
                     rootPredicates.add(criteriaBuilder.in(root.get("objectUuid")).value(subquery));
                 }
