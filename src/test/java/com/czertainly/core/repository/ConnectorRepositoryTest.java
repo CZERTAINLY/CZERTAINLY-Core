@@ -1,5 +1,6 @@
 package com.czertainly.core.repository;
 
+import com.czertainly.core.Application;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import org.junit.jupiter.api.Assertions;
@@ -11,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 
-@SpringBootTest
+@SpringBootTest(classes = Application.class)
 @Transactional
 @Rollback
 public class ConnectorRepositoryTest {
