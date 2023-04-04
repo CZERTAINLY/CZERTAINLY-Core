@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "Build of CZERTAINLY CORE"
+
 echo "Cleaning containers"
 docker rm czertainly_core_container
 docker rmi prebuild
