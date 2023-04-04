@@ -29,6 +29,8 @@ docker cp czertainlycont:/home/app/docker /tmp
 
 echo "List files"
 ls -la /tmp
+echo "PWD"
+pwd
 
 echo "Build main image"
 docker build -f $DOCKERFILE_PATH -t $IMAGE_NAME .
