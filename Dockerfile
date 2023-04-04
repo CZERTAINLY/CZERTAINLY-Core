@@ -8,8 +8,8 @@ RUN addgroup --system --gid 10001 czertainly && adduser --system --home /opt/cze
 RUN apt-get update && \
     apt-get install -y curl
 
-COPY ../../tmp/docker /
-COPY ../../tmp/target/*.jar /opt/czertainly/app.jar
+COPY /data/docker /
+COPY /data/target/*.jar /opt/czertainly/app.jar
 
 WORKDIR /opt/czertainly
 
@@ -35,4 +35,4 @@ ENV NO_PROXY=
 
 USER 10001
 
-#ENTRYPOINT ["/opt/czertainly/entry.sh"]
+ENTRYPOINT ["/opt/czertainly/entry.sh"]
