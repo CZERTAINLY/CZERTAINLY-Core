@@ -11,8 +11,8 @@ rm -r /tmp/docker
 rm -r /tmp/target
 
 echo "PreBuild build"
-docker build -f $DOCKERFILE_PATH-pre -t prebuild .
-docker run --build-arg SERVER_USERNAME=$SERVER_USERNAME --build-arg SERVER_PASSWORD=$SERVER_PASSWORD -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -it prebuild mvn -f /home/app/pom.xml clean package
+docker build --build-arg SERVER_USERNAME=blausername --build-arg SERVER_PASSWORD=pws123 -f $DOCKERFILE_PATH-pre -t prebuild .
+docker run -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -it prebuild mvn -f /home/app/pom.xml clean package
 
 echo "Starting czertainly_core_container"
 docker start -d --restart=always czertainlycont
