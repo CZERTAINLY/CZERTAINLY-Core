@@ -31,6 +31,8 @@ echo "List files"
 ls -la /tmp
 echo "PWD"
 pwd
+ls -la
+ls -la /
 
 echo "Build main image"
 docker build -f $DOCKERFILE_PATH -t $IMAGE_NAME .
