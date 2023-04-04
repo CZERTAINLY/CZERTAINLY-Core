@@ -20,8 +20,8 @@ echo "Starting czertainlycont"
 docker start -d --restart=always czertainlycont
 
 echo "Copy jar back to Tmp"
-docker cp czertainlycont:/home/app/target /data/target
-docker cp czertainlycont:/home/app/docker /data/docker
+docker cp czertainlycont:/home/app/target data/target
+docker cp czertainlycont:/home/app/docker data/docker
 
 echo "Build main image"
 docker build -f $DOCKERFILE_PATH -t $IMAGE_NAME .
