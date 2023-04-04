@@ -27,5 +27,8 @@ echo "Copy jar back to Tmp"
 docker cp czertainlycont:/home/app/target /tmp
 docker cp czertainlycont:/home/app/docker /tmp
 
+echo "List files"
+ls -la /tmp
+
 echo "Build main image"
 docker build -f $DOCKERFILE_PATH -t $IMAGE_NAME .
