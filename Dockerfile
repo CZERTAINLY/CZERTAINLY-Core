@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:17-jre-alpine
 
 MAINTAINER CZERTAINLY <support@czertainly.com>
 

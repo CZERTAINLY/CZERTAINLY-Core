@@ -1,3 +1,0 @@
-#!/bin/bash
-
-docker build --build-arg SERVER_USERNAME=$SERVER_USERNAME --build-arg SERVER_PASSWORD=$SERVER_PASSWORD -f $DOCKERFILE_PATH -t $IMAGE_NAME .
