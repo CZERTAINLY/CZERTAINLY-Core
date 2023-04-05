@@ -1,0 +1,9 @@
+#!/bin/bash
+
+export SERVER_USERNAME=
+export SERVER_PASSWORD=
+
+export IMAGE_NAME=czertainlycore
+export DOCKERFILE_PATH=Dockerfile
+
+sh hooks/build

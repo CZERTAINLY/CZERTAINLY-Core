@@ -1,3 +1,30 @@
 #!/bin/bash
 
-docker build --build-arg SERVER_USERNAME=$SERVER_USERNAME --build-arg SERVER_PASSWORD=$SERVER_PASSWORD -f $DOCKERFILE_PATH -t $IMAGE_NAME .
+echo "Build of CZERTAINLY CORE"
+
+echo "Cleaning containers"
+docker rm czertainlycont
+docker rmi prebuild
+
+echo "Refreshing directory for data from container"
+rm -r data
+mkdir data
+
+echo "PreBuild build"
+docker build --build-arg SERVER_USERNAME=$SERVER_USERNAME --build-arg SERVER_PASSWORD=$SERVER_PASSWORD -f $DOCKERFILE_PATH-pre -t prebuild .
+
+echo "MVN Build"
+docker run -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml clean package
+
+echo "Starting czertainlycont"
+docker start -d --restart=always czertainlycont
+
+echo "Copy jar back to Tmp"
+docker cp czertainlycont:/home/app/target data/target
+docker cp czertainlycont:/home/app/docker data/docker
+
+echo "Build main image"
+docker build -f $DOCKERFILE_PATH -t $IMAGE_NAME .
+
+echo "Cleaning workspace"
+rm -r data
