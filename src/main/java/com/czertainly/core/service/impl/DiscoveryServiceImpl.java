@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
@@ -28,11 +29,9 @@ import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
-import com.czertainly.core.dao.repository.DiscoveryRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -40,6 +39,8 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -90,6 +91,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private MetadataService metadataService;
     @Autowired
     private AttributeService attributeService;
+    @Autowired
+    private AttributeContentRepository attributeContentRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
@@ -99,7 +105,17 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final BiFunction<Root<DiscoveryHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root);
+        final List<UUID> objectUUIDs = new ArrayList<>();
+        if (!request.getFilters().isEmpty()) {
+            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
+            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
+            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
+
+            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.DISCOVERY);
+            objectUUIDs.addAll(certificateRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
+        }
+
+        final BiFunction<Root<DiscoveryHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(DiscoveryHistory::mapToListDto)
@@ -440,6 +456,17 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
 
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
+
+        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
+        if (metadataSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META.getLabel()));
+        }
+
+        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
+        if (customAttrSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM.getLabel()));
+        }
+
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_STATUS, Arrays.stream(DiscoveryStatus.values()).map(DiscoveryStatus::getCode).collect(Collectors.toList())),
@@ -457,5 +484,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
+    }
+
+    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.DISCOVERY, AttributeType.META);
+    }
+
+    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.DISCOVERY, AttributeType.CUSTOM);
     }
 }
