@@ -3,10 +3,12 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
-import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -15,7 +17,7 @@ import java.util.List;
 
 public interface DiscoveryService extends ResourceExtensionService {
 
-    List<DiscoveryHistoryDto> listDiscoveries(SecurityFilter filter);
+    DiscoveryResponseDto listDiscoveries(final SecurityFilter filter, final SearchRequestDto searchRequestDto);
     DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException;
 
     /**
@@ -40,4 +42,7 @@ public interface DiscoveryService extends ResourceExtensionService {
      * @return Number of discoveries
      */
     Long statisticsDiscoveryCount(SecurityFilter filter);
+
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
+
 }

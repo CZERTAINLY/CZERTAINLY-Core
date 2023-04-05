@@ -4,6 +4,8 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
@@ -90,7 +92,8 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListDiscoveries() {
-        List<DiscoveryHistoryDto> discoveries = discoveryService.listDiscoveries(SecurityFilter.create());
+        final DiscoveryResponseDto discoveryHistoryDTO = discoveryService.listDiscoveries(SecurityFilter.create(), new SearchRequestDto());
+        final List<DiscoveryHistoryDto> discoveries = discoveryHistoryDTO.getDiscoveries();
         Assertions.assertNotNull(discoveries);
         Assertions.assertFalse(discoveries.isEmpty());
         Assertions.assertEquals(1, discoveries.size());
