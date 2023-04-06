@@ -10,6 +10,7 @@ import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
+import com.czertainly.api.model.connector.cryptography.operations.data.CipherResponseData;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -22,6 +23,8 @@ import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.attribute.EncryptionAttributes;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
+import com.czertainly.core.config.CustomCryptographicProvider;
+import com.czertainly.core.config.CustomPrivateKey;
 import com.czertainly.core.config.ScepVerifierProvider;
 import com.czertainly.core.config.TokenContentSigner;
 import com.czertainly.core.dao.entity.Certificate;
@@ -51,6 +54,7 @@ import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
 import org.bouncycastle.cms.jcajce.JceCMSContentEncryptorBuilder;
+import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
@@ -426,19 +430,33 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
             String tokenInstanceUuid = privateKeyItem.getCryptographicKey().getTokenInstanceReference().getTokenInstanceUuid();
             String keyUuid = privateKeyItem.getKeyReferenceUuid().toString();
             ConnectorDto connectorDto = privateKeyItem.getCryptographicKey().getTokenInstanceReference().getConnector().mapToDto();
-            CipherDataRequestDto cipherDataRequestDto = new CipherDataRequestDto();
-            CipherRequestData cipherRequestData = new CipherRequestData();
-            cipherRequestData.setData(scepRequestMessage.getEncryptedData().getEncoded());
-            cipherDataRequestDto.setCipherAttributes(List.of(EncryptionAttributes.buildCmsRequestAttribute(true)));
-            cipherDataRequestDto.setCipherData(List.of(cipherRequestData));
+//            CipherDataRequestDto cipherDataRequestDto = new CipherDataRequestDto();
+//            CipherRequestData cipherRequestData = new CipherRequestData();
+//            cipherRequestData.setData(scepRequestMessage.getEncryptedData().getEncoded());
+//            cipherDataRequestDto.setCipherAttributes(List.of(EncryptionAttributes.buildCmsRequestAttribute(true)));
+//            cipherDataRequestDto.setCipherData(List.of(cipherRequestData));
+//
+//            DecryptDataResponseDto decryptDataResponseDto = cryptographicOperationsApiClient.decryptData(connectorDto, tokenInstanceUuid, keyUuid, cipherDataRequestDto);
 
-            DecryptDataResponseDto decryptDataResponseDto = cryptographicOperationsApiClient.decryptData(connectorDto, tokenInstanceUuid, keyUuid, cipherDataRequestDto);
-            scepRequestMessage.setPkcs10(new JcaPKCS10CertificationRequest(decryptDataResponseDto.getDecryptedData().get(0).getData()));
+            CustomPrivateKey privateKey = new CustomPrivateKey(tokenInstanceUuid, keyUuid, connectorDto);
+            CMSEnvelopedData ed = new CMSEnvelopedData(scepRequestMessage.getEncryptedData().getEncoded());
+            RecipientInformationStore recipients = ed.getRecipientInfos();
+            Collection<RecipientInformation> c = recipients.getRecipients();
+            Iterator<RecipientInformation> it = c.iterator();
+            byte[] decBytes = null;
+            while (it.hasNext()) {
+                RecipientInformation recipient = it.next();
+                JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(privateKey);
+                rec.setProvider(CustomCryptographicProvider.PROVIDER_NAME);
+                rec.setContentProvider(CustomCryptographicProvider.PROVIDER_NAME);
+                rec.setMustProduceEncodableUnwrappedKey(true);
+                recipient.getContent(rec);
+            }
+
+            scepRequestMessage.setPkcs10(new JcaPKCS10CertificationRequest(new byte[0]));
             return "";
-        } catch (IOException e) {
+        } catch (Exception e) {
             return "Error decrypting request message. IO Exception when decrypting the data." + e.getMessage();
-        } catch (ConnectorException e) {
-            return "Error decrypting the scep request. Connector threw error: " + e.getMessage();
         }
     }
 

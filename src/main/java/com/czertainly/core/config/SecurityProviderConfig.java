@@ -29,6 +29,19 @@ public class SecurityProviderConfig {
     }
 
     @Bean
+    public Provider cryptographicProvider() {
+        Provider provider = Security.getProvider(CustomCryptographicProvider.PROVIDER_NAME);
+        if (provider == null) {
+            logger.info("Registering security provider {}.", BouncyCastleProvider.PROVIDER_NAME);
+            provider = new CustomCryptographicProvider(CustomCryptographicProvider.PROVIDER_NAME);
+            Security.addProvider(provider);
+        } else {
+            logger.info("Security provider {} already registered.", BouncyCastleProvider.PROVIDER_NAME);
+        }
+        return provider;
+    }
+
+    @Bean
     public Provider securityPqcProvider() {
         Provider pqcProvider = Security.getProvider(BouncyCastlePQCProvider.PROVIDER_NAME);
         if (pqcProvider == null) {

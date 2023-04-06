@@ -28,8 +28,10 @@ public class CustomCryptographicProvider extends Provider {
 
     private static final long serialVersionUID = 1L;
 
+    public static final String PROVIDER_NAME = "CryptographicConnectorProvider";
+
     public CustomCryptographicProvider(String name) {
-        super(name, 1.0, "CryptographicConnectorProvider");
+        super(name, 1.0, PROVIDER_NAME);
         put("Cipher.RSA" , CryptographicProviderCipher.RSA.class.getName());
     }
 }

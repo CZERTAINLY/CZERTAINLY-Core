@@ -12,7 +12,7 @@ public class CustomPrivateKey implements PrivateKey {
 
     private ConnectorDto connectorDto;
 
-    public CustomPrivateKey(String keyUuid, ConnectorDto connectorDto) {
+    public CustomPrivateKey(String tokenInstanceUuid, String keyUuid, ConnectorDto connectorDto) {
         this.keyUuid = keyUuid;
         this.connectorDto = connectorDto;
     }
