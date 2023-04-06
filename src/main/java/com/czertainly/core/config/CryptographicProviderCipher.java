@@ -1,14 +1,25 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto;
+import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
+import com.czertainly.core.attribute.EncryptionAttributes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import javax.crypto.*;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
+import java.util.List;
 
+@Component
 public class CryptographicProviderCipher extends CipherSpi {
+
+    @Autowired
+    private CryptographicOperationsApiClient apiClient;
 
     private static final Logger log = LoggerFactory.getLogger(CryptographicProviderCipher.class);
 
@@ -31,12 +42,25 @@ public class CryptographicProviderCipher extends CipherSpi {
     }
 
     @Override
-    protected byte[] engineDoFinal(byte[] arg0, int arg1, int arg2) throws IllegalBlockSizeException, BadPaddingException {
-        if (log.isDebugEnabled()) {
-            log.debug("engineDoFinal1: " + this.getClass().getName() + ", opmode=" + this.opmode);
-        }
+    protected byte[] engineDoFinal(byte[] encryptedData, int arg1, int arg2) throws IllegalBlockSizeException, BadPaddingException {
         //TO call cryptography provider
-        CryptographicOperationsApiClient apiClient = new CryptographicOperationsApiClient()
+        CipherDataRequestDto cipherDataRequestDto = new CipherDataRequestDto();
+        CipherRequestData cipherRequestData = new CipherRequestData();
+        cipherRequestData.setData(encryptedData);
+        cipherDataRequestDto.setCipherAttributes(List.of(EncryptionAttributes.buildCmsRequestAttribute(true)));
+        cipherDataRequestDto.setCipherData(List.of(cipherRequestData));
+
+        try {
+            apiClient.decryptData(
+                    privateKey.getConnectorDto(),
+                    privateKey.getTokenInstanceUuid(),
+                    privateKey.getKeyUuid(),
+                    cipherDataRequestDto
+                    );
+        } catch (ConnectorException e) {
+            throw new RuntimeException(e);
+        }
+
         return new byte[0];
     }
 
