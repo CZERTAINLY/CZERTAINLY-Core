@@ -654,12 +654,13 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificateEntity = certificateRepository.findByUuid(certificateUuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
 
-        List<String> locations = locationService.listLocations(SecurityFilter.create(), null)
+        final LocationsResponseDto locationsResponseDto = locationService.listLocations(SecurityFilter.create(), new SearchRequestDto());
+        final List<String> locations = locationsResponseDto.getLocations()
                 .stream()
                 .map(LocationDto::getUuid)
                 .collect(Collectors.toList());
 
-        List<LocationDto> locationsCertificate = certificateEntity.getLocations().stream()
+        final List<LocationDto> locationsCertificate = certificateEntity.getLocations().stream()
                 .map(CertificateLocation::getLocation)
                 .sorted(Comparator.comparing(Location::getCreated).reversed())
                 .map(Location::mapToDtoSimple)
