@@ -1,10 +1,10 @@
-package com.czertainly.core.config;
+package com.czertainly.core.provider.key;
 
 import com.czertainly.api.model.core.connector.ConnectorDto;
 
 import java.security.PrivateKey;
 
-public class CustomPrivateKey implements PrivateKey {
+public class CzertainlyPrivateKey implements PrivateKey {
     private static final long serialVersionUID = 1L;
     private String keyUuid;
 
@@ -12,7 +12,7 @@ public class CustomPrivateKey implements PrivateKey {
 
     private ConnectorDto connectorDto;
 
-    public CustomPrivateKey(String tokenInstanceUuid, String keyUuid, ConnectorDto connectorDto) {
+    public CzertainlyPrivateKey(String tokenInstanceUuid, String keyUuid, ConnectorDto connectorDto) {
         this.keyUuid = keyUuid;
         this.connectorDto = connectorDto;
     }

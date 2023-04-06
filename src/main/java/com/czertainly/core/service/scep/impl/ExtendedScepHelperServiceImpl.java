@@ -7,10 +7,6 @@ import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.common.collection.DigestAlgorithm;
 import com.czertainly.api.model.common.collection.RsaSignatureScheme;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
-import com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto;
-import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
-import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
-import com.czertainly.api.model.connector.cryptography.operations.data.CipherResponseData;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -21,10 +17,9 @@ import com.czertainly.api.model.core.scep.ScepResponseMessage;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.attribute.EncryptionAttributes;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
-import com.czertainly.core.config.CustomCryptographicProvider;
-import com.czertainly.core.config.CustomPrivateKey;
+import com.czertainly.core.provider.CzertainlyProvider;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.config.ScepVerifierProvider;
 import com.czertainly.core.config.TokenContentSigner;
 import com.czertainly.core.dao.entity.Certificate;
@@ -438,7 +433,9 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
 //
 //            DecryptDataResponseDto decryptDataResponseDto = cryptographicOperationsApiClient.decryptData(connectorDto, tokenInstanceUuid, keyUuid, cipherDataRequestDto);
 
-            CustomPrivateKey privateKey = new CustomPrivateKey(tokenInstanceUuid, keyUuid, connectorDto);
+            CzertainlyPrivateKey privateKey = new CzertainlyPrivateKey(tokenInstanceUuid, keyUuid, connectorDto);
+            CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
+
             CMSEnvelopedData ed = new CMSEnvelopedData(scepRequestMessage.getEncryptedData().getEncoded());
             RecipientInformationStore recipients = ed.getRecipientInfos();
             Collection<RecipientInformation> c = recipients.getRecipients();
@@ -447,8 +444,8 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
             while (it.hasNext()) {
                 RecipientInformation recipient = it.next();
                 JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(privateKey);
-                rec.setProvider(CustomCryptographicProvider.PROVIDER_NAME);
-                rec.setContentProvider(CustomCryptographicProvider.PROVIDER_NAME);
+                rec.setProvider(czertainlyProvider);
+                rec.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
                 rec.setMustProduceEncodableUnwrappedKey(true);
                 recipient.getContent(rec);
             }

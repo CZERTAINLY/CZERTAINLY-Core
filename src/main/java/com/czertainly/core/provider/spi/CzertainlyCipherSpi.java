@@ -1,34 +1,29 @@
-package com.czertainly.core.config;
+package com.czertainly.core.provider.spi;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
 import com.czertainly.core.attribute.EncryptionAttributes;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import javax.crypto.*;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.List;
 
-@Component
-public class CryptographicProviderCipher extends CipherSpi {
+public class CzertainlyCipherSpi extends CipherSpi {
 
-    @Autowired
-    private CryptographicOperationsApiClient apiClient;
+    private final CryptographicOperationsApiClient apiClient;
 
-    private static final Logger log = LoggerFactory.getLogger(CryptographicProviderCipher.class);
+    private static final Logger log = LoggerFactory.getLogger(CzertainlyCipherSpi.class);
 
-    private int opmode;
-    private CustomPrivateKey privateKey;
+    private CzertainlyPrivateKey privateKey;
 
-    public static final class RSA extends CryptographicProviderCipher {
-        public RSA() {
-        }
+    public CzertainlyCipherSpi(CryptographicOperationsApiClient apiClient) {
+        this.apiClient = apiClient;
     }
 
     @Override
@@ -95,11 +90,10 @@ public class CryptographicProviderCipher extends CipherSpi {
         if (log.isDebugEnabled()) {
             log.debug("engineInit1: " + this.getClass().getName());
         }
-        this.opmode = opmode;
-        if (this.opmode != Cipher.DECRYPT_MODE && this.opmode != Cipher.UNWRAP_MODE) {
+        if (opmode != Cipher.DECRYPT_MODE && opmode != Cipher.UNWRAP_MODE) {
             throw new IllegalArgumentException("Only DECRYPT_MODE (2) or UNWRAP_MODE (4) can be used: " + opmode);
         }
-        this.privateKey = (CustomPrivateKey) key;
+        this.privateKey = (CzertainlyPrivateKey) key;
     }
 
     @Override
