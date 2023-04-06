@@ -3,17 +3,30 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchGroup;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
+import com.czertainly.core.dao.entity.Location;
+import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
+import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -23,14 +36,26 @@ import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.EntityInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.RequestValidatorHelper;
+import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,6 +68,21 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     private CredentialService credentialService;
     private EntityInstanceApiClient entityInstanceApiClient;
     private AttributeService attributeService;
+    private AttributeContentRepository attributeContentRepository;
+    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Autowired
+    public void setAttributeContent2ObjectRepository(AttributeContent2ObjectRepository attributeContent2ObjectRepository) {
+        this.attributeContent2ObjectRepository = attributeContent2ObjectRepository;
+    }
+
+    @Autowired
+    public void setAttributeContentRepository(AttributeContentRepository attributeContentRepository) {
+        this.attributeContentRepository = attributeContentRepository;
+    }
 
     @Autowired
     public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
@@ -72,11 +112,35 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
-    public List<EntityInstanceDto> listEntityInstances(SecurityFilter filter) {
-        return entityInstanceReferenceRepository.findUsingSecurityFilter(filter)
+    public EntityInstanceResponseDto listEntityInstances(final SecurityFilter filter, final SearchRequestDto request) {
+
+        RequestValidatorHelper.revalidateSearchRequestDto(request);
+        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+
+        final List<UUID> objectUUIDs = new ArrayList<>();
+        if (!request.getFilters().isEmpty()) {
+            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
+            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
+            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
+
+            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.ENTITY);
+            objectUUIDs.addAll(attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
+        }
+
+        final BiFunction<Root<EntityInstanceReference>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final List<EntityInstanceDto> listedKeyDTOs = entityInstanceReferenceRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(EntityInstanceReference::mapToDto)
                 .collect(Collectors.toList());
+        final Long maxItems = entityInstanceReferenceRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+
+        final EntityInstanceResponseDto responseDto = new EntityInstanceResponseDto();
+        responseDto.setEntities(listedKeyDTOs);
+        responseDto.setItemsPerPage(request.getItemsPerPage());
+        responseDto.setPageNumber(request.getPageNumber());
+        responseDto.setTotalItems(maxItems);
+        responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
+        return responseDto;
     }
 
     @Override
@@ -211,10 +275,8 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
     public List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException {
-        EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
-
-        Connector connector = entityInstance.getConnector();
-
+        final EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
+        final Connector connector = entityInstance.getConnector();
         return entityInstanceApiClient.listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());
     }
 
@@ -249,5 +311,43 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     private EntityInstanceReference getEntityInstanceReferenceEntity(SecuredUUID uuid) throws NotFoundException {
         return entityInstanceReferenceRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, uuid));
+    }
+
+    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.ENTITY, AttributeType.META);
+    }
+
+    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.ENTITY, AttributeType.CUSTOM);
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
+
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
+
+        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
+        if (metadataSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META.getLabel()));
+        }
+
+        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
+        if (customAttrSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM.getLabel()));
+        }
+
+        List<SearchFieldDataDto> fields = List.of(
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ENTITY_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ENTITY_CONNECTOR_NAME, entityInstanceReferenceRepository.findDistinctConnectorName()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.ENTITY_KIND, entityInstanceReferenceRepository.findDistinctKind())
+        );
+
+        fields = fields.stream().collect(Collectors.toList());
+        fields.sort(new SearchFieldDataComparator());
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.getLabel()));
+
+        logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
+        return searchFieldDataByGroupDtos;
     }
 }

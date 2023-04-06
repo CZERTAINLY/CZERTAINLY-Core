@@ -4,19 +4,15 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.Connector2FunctionGroup;
-import com.czertainly.core.dao.entity.EntityInstanceReference;
-import com.czertainly.core.dao.entity.FunctionGroup;
-import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -93,7 +89,8 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListEntityInstances() {
-        List<EntityInstanceDto> entityInstances = entityInstanceService.listEntityInstances(SecurityFilter.create());
+        final EntityInstanceResponseDto entityInstanceResponseDto = entityInstanceService.listEntityInstances(SecurityFilter.create(), new SearchRequestDto());
+        final List<EntityInstanceDto> entityInstances = entityInstanceResponseDto.getEntities();
         Assertions.assertNotNull(entityInstances);
         Assertions.assertFalse(entityInstances.isEmpty());
         Assertions.assertEquals(1, entityInstances.size());
