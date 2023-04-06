@@ -70,12 +70,14 @@ public class Sql2PredicateConverter {
 
         final SearchableFields searchableFields = SearchableFields.valueOf(dto.getFieldIdentifier());
         final SearchCondition searchCondition = checkOrReplaceSearchCondition(dto, searchableFields);
-        final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(SearchFieldNameEnum.getEnumBySearchableFields(searchableFields).getFieldTypeEnum());
+        final SearchFieldTypeEnum searchFieldTypeEnum = SearchFieldNameEnum.getEnumBySearchableFields(searchableFields).getFieldTypeEnum();
+        final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(searchFieldTypeEnum) || SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum);
         final Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject, searchableFields);
         if (predicate == null) {
             final Expression expression = prepareExpression(root, searchableFields.getCode());
             final Object expressionValue = prepareValue(valueObject, searchableFields);
-            return buildPredicateByCondition(criteriaBuilder, searchCondition, expression, expressionValue, isDateFormat, dto, null);
+            final SearchFieldObject searchFieldObject = SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum) ? new SearchFieldObject(AttributeContentType.DATETIME) : null;
+            return buildPredicateByCondition(criteriaBuilder, searchCondition, expression, expressionValue, isDateFormat, dto, searchFieldObject);
         }
         return predicate;
     }

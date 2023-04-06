@@ -28,17 +28,23 @@ public enum SearchFieldNameEnum {
     CRL_VALIDATION(SearchableFields.CRL_VALIDATION, "CRL Validation", SearchFieldTypeEnum.LIST),
     SIGNATURE_VALIDATION(SearchableFields.SIGNATURE_VALIDATION, "Signature Validation", SearchFieldTypeEnum.LIST),
     COMPLIANCE_STATUS(SearchableFields.COMPLIANCE_STATUS, "Compliance Status", SearchFieldTypeEnum.LIST),
-    NAME(SearchableFields.CK_NAME, "Name", SearchFieldTypeEnum.STRING),
+    NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING),
     KEY_TYPE(SearchableFields.CKI_TYPE, "Key type", SearchFieldTypeEnum.LIST),
     KEY_FORMAT(SearchableFields.CKI_FORMAT, "Key format", SearchFieldTypeEnum.LIST),
     KEY_STATE(SearchableFields.CKI_STATE, "State", SearchFieldTypeEnum.LIST),
     KEY_CRYPTOGRAPHIC_ALGORITHM(SearchableFields.CKI_CRYPTOGRAPHIC_ALGORITHM, "Cryptographic algorithm", SearchFieldTypeEnum.LIST),
     KEY_TOKEN_PROFILE(SearchableFields.CK_TOKEN_PROFILE, "Token profile", SearchFieldTypeEnum.LIST),
     KEY_TOKEN_INSTANCE_LABEL(SearchableFields.CK_TOKEN_INSTANCE, "Token instance", SearchFieldTypeEnum.LIST),
-    KEY_LENGTH(SearchableFields.CKI_LENGTH,"Key Size", SearchFieldTypeEnum.NUMBER),
-    CK_GROUP(SearchableFields.CK_GROUP,"Group", SearchFieldTypeEnum.LIST),
-    CK_OWNER(SearchableFields.CK_OWNER,"Owner", SearchFieldTypeEnum.STRING),
-    CK_KEY_USAGE(SearchableFields.CKI_USAGE,"Key Usage", SearchFieldTypeEnum.LIST);
+    KEY_LENGTH(SearchableFields.CKI_LENGTH, "Key Size", SearchFieldTypeEnum.NUMBER),
+    CK_GROUP(SearchableFields.CK_GROUP, "Group", SearchFieldTypeEnum.LIST),
+    CK_OWNER(SearchableFields.CK_OWNER, "Owner", SearchFieldTypeEnum.STRING),
+    CK_KEY_USAGE(SearchableFields.CKI_USAGE, "Key Usage", SearchFieldTypeEnum.LIST),
+    START_TIME(SearchableFields.START_TIME, "Start time", SearchFieldTypeEnum.DATETIME),
+    END_TIME(SearchableFields.END_TIME, "End time", SearchFieldTypeEnum.DATETIME),
+    TOTAL_CERT_DISCOVERED(SearchableFields.TOTAL_CERT_DISCOVERED, "Total certificate discovered", SearchFieldTypeEnum.NUMBER),
+    CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Connector name",SearchFieldTypeEnum.STRING),
+    KIND(SearchableFields.KIND, "Kind",SearchFieldTypeEnum.STRING),
+    DISCOVERY_STATUS(SearchableFields.DISCOVERY_STATUS, "Status", SearchFieldTypeEnum.LIST),;
 
     private SearchableFields fieldProperty;
 
@@ -72,4 +78,4 @@ public enum SearchFieldNameEnum {
         }
         return null;
     }
-}
+    }
