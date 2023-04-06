@@ -56,6 +56,10 @@ public class SearchFieldObject<T> {
                 || this.attributeContentType.equals(AttributeContentType.DATETIME);
     }
 
+    public boolean isBooleanFormat() {
+        return this.attributeContentType.equals(AttributeContentType.BOOLEAN);
+    }
+
     public Class getDateTimeFormatClass() {
         Class clazz = null;
         switch (this.attributeContentType) {

@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchGroup;
+import com.czertainly.api.model.core.search.SearchableFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
@@ -77,12 +78,12 @@ public class Sql2PredicateConverter {
             final Expression expression = prepareExpression(root, searchableFields.getCode());
             final Object expressionValue = prepareValue(valueObject, searchableFields);
             final SearchFieldObject searchFieldObject = SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum) ? new SearchFieldObject(AttributeContentType.DATETIME) : null;
-            return buildPredicateByCondition(criteriaBuilder, searchCondition, expression, expressionValue, isDateFormat, dto, searchFieldObject);
+            return buildPredicateByCondition(criteriaBuilder, searchCondition, expression, expressionValue, isDateFormat, SearchableFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()),dto, searchFieldObject);
         }
         return predicate;
     }
 
-    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, Expression expression, Object expressionValue, final boolean isDateFormat, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
+    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, Expression expression, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
         if (expressionValue == null) {
             expressionValue = dto.getValue().toString();
         }
@@ -94,8 +95,19 @@ public class Sql2PredicateConverter {
             return prepareDateTimePredicate(criteriaBuilder, searchCondition, expression, expressionValue.toString(), searchFieldObject);
         }
 
-
         Predicate predicate = null;
+        if (isBoolean) {
+            switch (searchCondition) {
+                case EQUALS -> {
+                    predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                }
+                case NOT_EQUALS -> {
+                    predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                }
+            }
+            return predicate;
+        }
+
         switch (searchCondition) {
             case EQUALS -> {
                 predicate = criteriaBuilder.equal(expression, expressionValue);
@@ -297,7 +309,7 @@ public class Sql2PredicateConverter {
                     jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);
 
                     final Predicate predicateOfTheExpression =
-                            buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, searchField.isDateTimeFormat(), dto, searchField);
+                            buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, searchField.isDateTimeFormat(), searchField.isBooleanFormat(), dto, searchField);
 
                     subPredicates.add(predicateOfTheExpression);
                     subquery.where(subPredicates.toArray(new Predicate[]{}));
