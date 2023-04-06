@@ -43,9 +43,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Autowired
     private LocationService locationService;
 
-
     private EntityInstanceReference entityInstanceReference;
-
 
     private Connector connector;
 
@@ -241,13 +239,6 @@ public class LocationsSearchTest extends BaseSpringBootTest {
         ac2o.setObjectType(Resource.LOCATION);
         attributeContent2ObjectRepository.save(ac2o);
     }
-
-
-
-
-
-
-
 
 
 }
