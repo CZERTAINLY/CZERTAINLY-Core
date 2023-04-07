@@ -6,15 +6,21 @@ import com.czertainly.core.util.ScepCommonHelper;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.cms.*;
+import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.PrivateKey;
+import java.security.Provider;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Enumeration;
+import java.util.Iterator;
 
 public class ScepRequest {
 
@@ -28,6 +34,7 @@ public class ScepRequest {
     private String senderNonce;
     private ContentInfo encapsulatedContent;
     private EnvelopedData envelopedData;
+    private JcaPKCS10CertificationRequest pkcs10Request;
 
     public ScepRequest(byte[] message) throws ScepException {
         this.message = message;
@@ -171,6 +178,28 @@ public class ScepRequest {
             asn1InputStream.close();
         }
         return ContentInfo.getInstance(asn1Sequence);
+    }
+
+    private void decryptData(PrivateKey privateKey, Provider provider) throws IOException, CMSException {
+        // TODO: privateKey and provider cannot be null
+
+        CMSEnvelopedData cmsEnvelopedData = new CMSEnvelopedData(encapsulatedContent.getEncoded());
+        RecipientInformationStore recipientInfos = cmsEnvelopedData.getRecipientInfos();
+        Collection<RecipientInformation> recipients = recipientInfos.getRecipients();
+        Iterator<RecipientInformation> recipientInformationIterator = recipients.iterator();
+        byte[] decryptedData = null;
+
+        if (recipientInformationIterator.hasNext()) {
+            RecipientInformation recipient = recipientInformationIterator.next();
+            JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(privateKey);
+            jceKeyTransEnvelopedRecipient.setProvider(provider);
+            jceKeyTransEnvelopedRecipient.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
+            jceKeyTransEnvelopedRecipient.setMustProduceEncodableUnwrappedKey(true);
+            decryptedData = recipient.getContent(jceKeyTransEnvelopedRecipient);
+        }
+
+        assert decryptedData != null;
+        pkcs10Request = new JcaPKCS10CertificationRequest(decryptedData);
     }
 
 }
