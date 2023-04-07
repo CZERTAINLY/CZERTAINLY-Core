@@ -89,8 +89,11 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
             "POSTPKIOperation",
             "SHA-1",
             "SHA-256",
+            "SHA-512",
             "DES3",
-            "Renewal"
+            "AES",
+            "Renewal",
+            "SCEPStandard"
     );
     private final List<X509Certificate> caCertificateChain = new ArrayList<>();
     private X509Certificate recipient;
