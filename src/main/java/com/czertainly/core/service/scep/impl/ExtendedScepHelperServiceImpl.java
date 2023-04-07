@@ -2,26 +2,16 @@ package com.czertainly.core.service.scep.impl;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
-import com.czertainly.api.model.common.collection.DigestAlgorithm;
-import com.czertainly.api.model.common.collection.RsaSignatureScheme;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.PkiStatus;
-import com.czertainly.api.model.core.scep.ScepRequestMessage;
-import com.czertainly.api.model.core.scep.ScepResponseMessage;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.attribute.RsaSignatureAttributes;
-import com.czertainly.core.provider.CzertainlyProvider;
-import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.config.ScepVerifierProvider;
-import com.czertainly.core.config.TokenContentSigner;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -34,29 +24,22 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.scep.ExtendedScepHelperService;
+import com.czertainly.core.service.scep.exception.ScepException;
+import com.czertainly.core.service.scep.message.ScepRequest;
+import com.czertainly.core.service.scep.message.ScepResponse;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.ScepCommonHelper;
+import com.czertainly.core.service.scep.message.ScepConstants;
 import org.bouncycastle.asn1.*;
-import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
-import org.bouncycastle.asn1.smime.SMIMECapability;
 import org.bouncycastle.asn1.x500.DirectoryString;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.*;
-import org.bouncycastle.cms.jcajce.JcaSignerInfoGeneratorBuilder;
-import org.bouncycastle.cms.jcajce.JceCMSContentEncryptorBuilder;
-import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
-import org.bouncycastle.cms.jcajce.JceKeyTransRecipientInfoGenerator;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
-import org.bouncycastle.util.CollectionStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,15 +50,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.*;
 
@@ -174,17 +154,12 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
         if (!validationResult.isEmpty()) {
             throw new ValidationException(ValidationError.create(validationResult));
         }
-        switch (operation) {
-            case "GetCACert":
-                return caCertificateChain.size() > 1 ? getCaCertChain() : getCaCert();
-            case "GetCACaps":
-                return getCaCaps();
-            case "PKIOperation":
-                return pkiOperation(message);
-            default:
-                return errorReturn(null, FailInfo.BAD_REQUEST, "Unsupported Operation");
-
-        }
+        return switch (operation) {
+            case "GetCACert" -> caCertificateChain.size() > 1 ? getCaCertChain() : getCaCert();
+            case "GetCACaps" -> getCaCaps();
+            case "PKIOperation" -> pkiOperation(message);
+            default -> errorReturn(null, FailInfo.BAD_REQUEST, "Unsupported Operation");
+        };
     }
 
     private void init(String profileName) {
@@ -287,18 +262,14 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
     }
 
     private ResponseEntity<Object> pkiOperation(byte[] body) {
-        ScepRequestMessage scepRequestMessage = null;
-        ScepResponseMessage responseMessage = null;
+        ScepRequest scepRequest = null;
+        ScepResponse scepResponse = null;
         setPrivateKey();
         try {
-            scepRequestMessage = new ScepRequestMessage(body);
-            String requestError = initiateRequestMessageParsing(scepRequestMessage);
-            if (!requestError.isEmpty()) {
-                return errorReturn(scepRequestMessage, FailInfo.BAD_REQUEST, requestError);
-            }
-        } catch (Exception e) {
-            logger.error("Error parsing the Scep Request Message", e.getMessage());
-            errorReturn(scepRequestMessage, FailInfo.BAD_REQUEST, "Error parsing scep request message");
+            scepRequest = new ScepRequest(body);
+        } catch (ScepException e) {
+            logger.error("Exception in SCEP request: " + e);
+            return buildFailedResponse(scepRequest, e);
         }
 
         String decryptError = decrypt(scepRequestMessage);
@@ -319,7 +290,7 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
 
         if (scepTransactionRepository.existsByTransactionIdAndScepProfile(scepRequestMessage.getTransactionId(), scepProfile)) {
             responseMessage = checkGetExistingTransaction(scepRequestMessage);
-        } else if (scepRequestMessage.getMessageType() == ScepCommonHelper.SCEP_TYPE_PKCSREQ) {
+        } else if (scepRequestMessage.getMessageType() == ScepConstants.SCEP_TYPE_PKCSREQ) {
             try {
                 if (scepProfile.getRequireManualApproval() != null && !scepProfile.getRequireManualApproval()) {
                     responseMessage = issueCertificate(scepRequestMessage);
@@ -329,7 +300,7 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
             } catch (Exception e) {
                 return errorReturn(scepRequestMessage, FailInfo.BAD_REQUEST, e.getMessage());
             }
-        } else if (scepRequestMessage.getMessageType() == ScepCommonHelper.SCEP_TYPE_POLL_CERT) {
+        } else if (scepRequestMessage.getMessageType() == ScepConstants.SCEP_TYPE_POLL_CERT) {
             responseMessage = pollCertificate(scepRequestMessage);
         } else {
             return errorReturn(scepRequestMessage, FailInfo.BAD_REQUEST, "Unsupported Operation. The requested operation is not supported");
@@ -342,6 +313,33 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
         scepResponseMessage.setFailInfo(failInfo);
         scepResponseMessage.setFailText(errorText);
         scepResponseMessage.setStatus(PkiStatus.FAILURE);
+        prepareMessage(scepRequestMessage, scepResponseMessage);
+        logger.error("Error in SCEP Request: " + errorText);
+        try {
+            byte[] responseBody = generateResponseBody(scepResponseMessage);
+            return getResponseEntity(responseBody, "application/x-pki-message", responseBody.length);
+        } catch (CertificateEncodingException e) {
+            logger.error(e.getMessage());
+        }
+        return null;
+    }
+
+    private ResponseEntity<Object> buildFailedResponse(ScepRequest scepRequest, ScepException scepException) {
+        ScepResponse scepResponse = new ScepResponse();
+        scepResponse.setPkiStatus(PkiStatus.FAILURE);
+        scepResponse.setFailInfo(scepException.getFailInfo());
+        scepResponse.setFailInfoText(scepException.getMessage());
+
+        if (scepRequest == null) {
+            scepResponse.setRecipientNonce(scepRequest.getSenderNonce());
+            scepResponse.setTransactionId(scepRequest.getTransactionId());
+            scepResponse.setCaCertificate(recipient);
+            scepResponse.setRecipientKeyInfo(scepRequest.getRequestKeyInfo());
+            scepResponse.setDigestAlgorithmOid(scepRequest.getDigestAlgorithmOid());
+            scepResponse.setSenderNonce(ScepConstants.getRandomNonce());
+        }
+
+
         prepareMessage(scepRequestMessage, scepResponseMessage);
         logger.error("Error in SCEP Request: " + errorText);
         try {
@@ -420,46 +418,6 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
         return responseMessage;
     }
 
-    private String decrypt(ScepRequestMessage scepRequestMessage) {
-        if (scepRequestMessage.getMessageType() != ScepCommonHelper.SCEP_TYPE_PKCSREQ) {
-            return "";
-        }
-        try {
-            String tokenInstanceUuid = privateKeyItem.getCryptographicKey().getTokenInstanceReference().getTokenInstanceUuid();
-            String keyUuid = privateKeyItem.getKeyReferenceUuid().toString();
-            ConnectorDto connectorDto = privateKeyItem.getCryptographicKey().getTokenInstanceReference().getConnector().mapToDto();
-//            CipherDataRequestDto cipherDataRequestDto = new CipherDataRequestDto();
-//            CipherRequestData cipherRequestData = new CipherRequestData();
-//            cipherRequestData.setData(scepRequestMessage.getEncryptedData().getEncoded());
-//            cipherDataRequestDto.setCipherAttributes(List.of(EncryptionAttributes.buildCmsRequestAttribute(true)));
-//            cipherDataRequestDto.setCipherData(List.of(cipherRequestData));
-//
-//            DecryptDataResponseDto decryptDataResponseDto = cryptographicOperationsApiClient.decryptData(connectorDto, tokenInstanceUuid, keyUuid, cipherDataRequestDto);
-
-            CzertainlyPrivateKey privateKey = new CzertainlyPrivateKey(tokenInstanceUuid, keyUuid, connectorDto);
-            CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
-
-            CMSEnvelopedData ed = new CMSEnvelopedData(scepRequestMessage.getEncryptedData().getEncoded());
-            RecipientInformationStore recipients = ed.getRecipientInfos();
-            Collection<RecipientInformation> c = recipients.getRecipients();
-            Iterator<RecipientInformation> it = c.iterator();
-            byte[] decBytes = null;
-            while (it.hasNext()) {
-                RecipientInformation recipient = it.next();
-                JceKeyTransEnvelopedRecipient rec = new JceKeyTransEnvelopedRecipient(privateKey);
-                rec.setProvider(czertainlyProvider);
-                rec.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
-                rec.setMustProduceEncodableUnwrappedKey(true);
-                recipient.getContent(rec);
-            }
-
-            scepRequestMessage.setPkcs10(new JcaPKCS10CertificationRequest(new byte[0]));
-            return "";
-        } catch (Exception e) {
-            return "Error decrypting request message. IO Exception when decrypting the data." + e.getMessage();
-        }
-    }
-
     private void addTransactionEntity(String transactionId, String certificateUuid) {
         ScepTransaction scepTransaction = new ScepTransaction();
         scepTransaction.setTransactionId(transactionId);
@@ -496,7 +454,7 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
         responseMessage.setRecipientKeyInfo(requestMessage.getRequestKeyInfo());
         responseMessage.setDigestAlgorithm(requestMessage.getPreferredDigestAlg());
 
-        responseMessage.setSenderNonce(ScepCommonHelper.getRandomNonce());
+        responseMessage.setSenderNonce(ScepConstants.getRandomNonce());
     }
 
     private ScepTransaction getTransaction(String transactionId) {
@@ -511,162 +469,6 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
         String csrChallengePassword = getPassword(scepRequestMessage);
         return csrChallengePassword.equals(scepProfile.getChallengePassword());
     }
-
-    public byte[] generateResponseBody(ScepResponseMessage responseMessage) throws CertificateEncodingException {
-        try {
-            CMSTypedData msg;
-
-            if (responseMessage.getStatus().equals(PkiStatus.SUCCESS)) {
-                CMSEnvelopedDataGenerator edGen = new CMSEnvelopedDataGenerator();
-                List<X509Certificate> certList = new ArrayList<X509Certificate>();
-                if (responseMessage.getCertificate() != null) {
-                    logger.debug("Adding certificates to response message");
-                    certList.add(responseMessage.getCertificate());
-                    if (scepProfile.isIncludeCaCertificate()) {
-                        if (scepProfile.isIncludeCaCertificateChain()) {
-                            certList.addAll(caCertificateChain);
-                        } else {
-                            // If we have an explicit CAcertificate
-                            logger.debug("Including explicitly set CA certificate in SCEP response.");
-                            certList.add(recipient);
-                        }
-                    }
-                }
-                CMSSignedDataGenerator gen = new CMSSignedDataGenerator();
-                gen.addCertificates(new CollectionStore<>(ScepCommonHelper.convertToX509CertificateHolder(certList)));
-                CMSSignedData s = gen.generate(new CMSAbsentContent(), false);
-
-                // Envelope the CMS message
-                if (responseMessage.getRecipientKeyInfo() != null) {
-                    try {
-                        X509Certificate rec = CertificateUtil.getX509Certificate(responseMessage.getRecipientKeyInfo());
-                        logger.debug("Added recipient information - issuer: '" + rec.getIssuerX500Principal().getName() + "', serno: '" + rec.getSerialNumber().toString(16));
-                        edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(rec).setProvider(BouncyCastleProvider.PROVIDER_NAME));
-                    } catch (CertificateParsingException e) {
-                        logger.error(e.getMessage());
-                        throw new IllegalArgumentException("Can not decode recipients self signed certificate!", e);
-                    } catch (CertificateException e) {
-                        throw new IllegalArgumentException("Error when converting the certificate", e);
-                    }
-                } else {
-                    edGen.addRecipientInfoGenerator(new JceKeyTransRecipientInfoGenerator(responseMessage.getCertificate()).setProvider(BouncyCastleProvider.PROVIDER_NAME));
-                }
-                try {
-                    JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(SMIMECapability.dES_EDE3_CBC).setProvider(BouncyCastleProvider.PROVIDER_NAME);
-                    CMSEnvelopedData ed = edGen.generate(new CMSProcessableByteArray(s.getEncoded()), jceCMSContentEncryptorBuilder.build());
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Enveloped data is " + ed.getEncoded().length + " bytes long");
-                    }
-                    msg = new CMSProcessableByteArray(ed.getEncoded());
-                } catch (IOException e) {
-                    throw new IllegalStateException("Unexpected IOException caught", e);
-                }
-            } else {
-                msg = new CMSProcessableByteArray(new byte[0]);
-            }
-            CMSSignedDataGenerator gen1 = new CMSSignedDataGenerator();
-
-            Hashtable<ASN1ObjectIdentifier, Attribute> attributes = new Hashtable<>();
-            ASN1ObjectIdentifier oid;
-            Attribute attr;
-            DERSet value;
-
-            // Message type (certrep)
-            oid = new ASN1ObjectIdentifier(ScepCommonHelper.id_messageType);
-            value = new DERSet(new DERPrintableString("3"));
-            attr = new Attribute(oid, value);
-            attributes.put(attr.getAttrType(), attr);
-
-            // TransactionId
-            if (responseMessage.getTransactionId() != null) {
-                oid = new ASN1ObjectIdentifier(ScepCommonHelper.id_transId);
-                logger.debug("Added transactionId: " + responseMessage.getTransactionId());
-                value = new DERSet(new DERPrintableString(responseMessage.getTransactionId()));
-                attr = new Attribute(oid, value);
-                attributes.put(attr.getAttrType(), attr);
-            }
-
-            // status
-            oid = new ASN1ObjectIdentifier(ScepCommonHelper.id_pkiStatus);
-            value = new DERSet(new DERPrintableString(responseMessage.getStatus().getValue()));
-            attr = new Attribute(oid, value);
-            attributes.put(attr.getAttrType(), attr);
-
-            if (responseMessage.getStatus().equals(PkiStatus.FAILURE)) {
-                oid = new ASN1ObjectIdentifier(ScepCommonHelper.id_failInfo);
-                logger.debug("Added failInfo: " + responseMessage.getFailInfo().getValue());
-                value = new DERSet(new DERPrintableString(responseMessage.getFailInfo().getValue()));
-                attr = new Attribute(oid, value);
-                attributes.put(attr.getAttrType(), attr);
-            }
-
-            if (responseMessage.getStatus().equals(PkiStatus.FAILURE) && responseMessage.getFailText() != null) {
-                oid = new ASN1ObjectIdentifier(ScepCommonHelper.id_scep_failInfoText);
-                logger.debug("Added failInfo: " + responseMessage.getFailText());
-                value = new DERSet(new DERPrintableString(responseMessage.getFailText()));
-                attr = new Attribute(oid, value);
-                attributes.put(attr.getAttrType(), attr);
-            }
-
-            // senderNonce
-            if (responseMessage.getSenderNonce() != null) {
-                oid = new ASN1ObjectIdentifier(ScepCommonHelper.id_senderNonce);
-                logger.debug("Added senderNonce: " + responseMessage.getSenderNonce());
-                value = new DERSet(new DEROctetString(Base64.getDecoder().decode(responseMessage.getSenderNonce().getBytes())));
-                attr = new Attribute(oid, value);
-                attributes.put(attr.getAttrType(), attr);
-            } else {
-                byte[] senderNonce = new byte[16];
-                Random randomSource = new Random();
-                randomSource.nextBytes(senderNonce);
-                responseMessage.setSenderNonce(new String(Base64.getEncoder().encode(senderNonce)));
-            }
-
-            // recipientNonce
-            if (responseMessage.getRecipientNonce() != null) {
-                oid = new ASN1ObjectIdentifier(ScepCommonHelper.id_recipientNonce);
-                logger.debug("Added recipientNonce: " + responseMessage.getRecipientNonce());
-                value = new DERSet(new DEROctetString(Base64.getDecoder().decode(responseMessage.getRecipientNonce().getBytes())));
-                attr = new Attribute(oid, value);
-                attributes.put(attr.getAttrType(), attr);
-            }
-
-            try {
-                if(privateKeyItem != null) {
-                    List<RequestAttributeDto> signatureAttributes = List.of(
-                            RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15),
-                            RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256.name()));
-                    ContentSigner signer = new TokenContentSigner(
-                            cryptographicOperationsApiClient,
-                            privateKeyItem.getCryptographicKey().getTokenInstanceReference().getConnector().mapToDto(),
-                            privateKeyItem.getCryptographicKey().getTokenInstanceReferenceUuid(),
-                            privateKeyItem.getKeyReferenceUuid(),
-                            publicKeyItem.getKeyReferenceUuid(),
-                            publicKeyItem.getKeyData(),
-                            publicKeyItem.getCryptographicAlgorithm(),
-                            signatureAttributes
-                    );
-                    JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
-                    JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
-                    builder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(attributes)));
-                    gen1.addSignerInfoGenerator(builder.build(signer, recipient));
-                }
-            } catch (OperatorCreationException e) {
-                throw new IllegalStateException("BouncyCastle failed in creating signature provider.", e);
-            }
-
-            final CMSSignedData signedData = gen1.generate(msg, true);
-            try {
-                return signedData.getEncoded();
-            } catch (IOException e) {
-                throw new IllegalStateException("Unexpected IOException caught.", e);
-            }
-        } catch (CMSException e) {
-            logger.error("Error creating CMS message: ", e);
-        }
-        return new byte[0];
-    }
-
 
     public String getPassword(ScepRequestMessage scepRequestMessage) {
         String challengePassword = "";
@@ -713,134 +515,18 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
         return challengePassword;
     }
 
-    private String initiateRequestMessageParsing(ScepRequestMessage scepRequestMessage) throws IOException {
-        try {
-            CMSSignedData csd = new CMSSignedData(scepRequestMessage.getScepRequestMessage());
-            SignerInformationStore infoStore = csd.getSignerInfos();
-            Collection<SignerInformation> signers = infoStore.getSigners();
-            Iterator<SignerInformation> iter = signers.iterator();
-            if (iter.hasNext()) {
-                SignerInformation si = iter.next();
-                final String reqAlg = si.getDigestAlgOID();
-                scepRequestMessage.setOriginalDigestAlgorithm(reqAlg);
-                if (reqAlg == CMSSignedGenerator.DIGEST_SHA1 || reqAlg == CMSSignedGenerator.DIGEST_MD5) {
-                    logger.debug("Legacy request digest algorithm will only be used if explicitly allowed in SCEP alias, defaulting to " + scepRequestMessage.getPreferredDigestAlg());
-                } else {
-                    scepRequestMessage.setPreferredDigestAlg(reqAlg);
-                    logger.debug("Set " + reqAlg + " as preferred digest algorithm for SCEP");
-                }
-            }
-        } catch (CMSException e) {
-            logger.error("CMSException trying to get preferred digest algorithm: ", e);
-        }
-        ASN1InputStream seqAsn1InputStream = new ASN1InputStream(new ByteArrayInputStream(scepRequestMessage.getScepRequestMessage()));
-        ASN1Sequence seq;
-        try {
-            seq = ASN1Sequence.getInstance(seqAsn1InputStream.readObject());
-        } finally {
-            seqAsn1InputStream.close();
-        }
-        ContentInfo ci = ContentInfo.getInstance(seq);
-        String ctoid = ci.getContentType().getId();
-
-        if (ctoid.equals(CMSObjectIdentifiers.signedData.getId())) {
-            scepRequestMessage.setSignedData(SignedData.getInstance(ASN1Sequence.getInstance(ci.getContent())));
-            ASN1Set certs = scepRequestMessage.getSignedData().getCertificates();
-            if (certs.size() > 0) {
-                ASN1Encodable dercert = certs.getObjectAt(0);
-                if (dercert != null) {
-                    final ByteArrayOutputStream bOut = new ByteArrayOutputStream();
-                    final ASN1OutputStream dOut = ASN1OutputStream.create(bOut, ASN1Encoding.DER);
-                    dOut.writeObject(dercert);
-                    if (bOut.size() > 0) {
-                        scepRequestMessage.setRequestKeyInfo(bOut.toByteArray());
-                    }
-                    try {
-                        scepRequestMessage.setSignercert(CertificateUtil.getX509Certificate(scepRequestMessage.getRequestKeyInfo()));
-                    } catch (CertificateException e) {
-                        logger.error("Error parsing requestKeyInfo : ", e);
-                    }
-                }
-            }
-
-            Enumeration<?> sis = scepRequestMessage.getSignedData().getSignerInfos().getObjects();
-
-            if (sis.hasMoreElements()) {
-                final SignerInfo si = SignerInfo.getInstance(ASN1Sequence.getInstance(sis.nextElement()));
-                Enumeration<?> attr = si.getAuthenticatedAttributes().getObjects();
-
-                while (attr.hasMoreElements()) {
-                    final Attribute a = Attribute.getInstance(ASN1Sequence.getInstance(attr.nextElement()));
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Found attribute: " + a.getAttrType().getId());
-                    }
-                    if (a.getAttrType().getId().equals(ScepCommonHelper.id_senderNonce)) {
-                        Enumeration<?> values = a.getAttrValues().getObjects();
-                        ASN1OctetString str = ASN1OctetString.getInstance(values.nextElement());
-                        scepRequestMessage.setSenderNonce(new String(Base64.getEncoder().encode(str.getOctets())));
-                    }
-                    if (a.getAttrType().getId().equals(ScepCommonHelper.id_transId)) {
-                        Enumeration<?> values = a.getAttrValues().getObjects();
-                        DERPrintableString str = DERPrintableString.getInstance(values.nextElement());
-                        scepRequestMessage.setTransactionId(str.getString());
-                    }
-                    if (a.getAttrType().getId().equals(ScepCommonHelper.id_messageType)) {
-                        Enumeration<?> values = a.getAttrValues().getObjects();
-                        DERPrintableString str = DERPrintableString.getInstance(values.nextElement());
-                        scepRequestMessage.setMessageType(Integer.parseInt(str.getString()));
-                    }
-                }
-            }
-
-            // If this is a PKCSReq
-            if ((scepRequestMessage.getMessageType() == ScepCommonHelper.SCEP_TYPE_PKCSREQ)) {
-                ci = scepRequestMessage.getSignedData().getEncapContentInfo();
-                ctoid = ci.getContentType().getId();
-
-                if (ctoid.equals(CMSObjectIdentifiers.data.getId())) {
-                    final ASN1OctetString content = ASN1OctetString.getInstance(ci.getContent());
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("envelopedData is " + content.getOctets().length + " bytes.");
-                    }
-                    final ASN1InputStream seq1Asn1InputStream = new ASN1InputStream(new ByteArrayInputStream(content.getOctets()));
-                    ASN1Sequence seq1;
-                    try {
-                        seq1 = ASN1Sequence.getInstance(seq1Asn1InputStream.readObject());
-                    } finally {
-                        seq1Asn1InputStream.close();
-                    }
-                    scepRequestMessage.setEncryptedData(ContentInfo.getInstance(seq1));
-                    ctoid = scepRequestMessage.getEncryptedData().getContentType().getId();
-
-                    if (ctoid.equals(CMSObjectIdentifiers.envelopedData.getId())) {
-                        scepRequestMessage.setEnvelopedData(EnvelopedData.getInstance(ASN1Sequence.getInstance(scepRequestMessage.getEncryptedData().getContent())));
-                    } else {
-                        return "EncapsulatedContentInfo does not contain PKCS7 envelopedData";
-                    }
-                } else {
-                    return "EncapsulatedContentInfo is not of type 'data'";
-                }
-            } else {
-                return "This is not a certification request";
-            }
-        } else {
-            return "PKCSReq does not contain 'signedData'";
-        }
-        return "";
-    }
-
     public String verifySignature(ScepRequestMessage scepRequestMessage) throws CMSException, OperatorCreationException, CertificateException, NoSuchAlgorithmException, InvalidKeyException {
 
-        if (scepRequestMessage.getMessageType() != ScepCommonHelper.SCEP_TYPE_RENEWAL && scepRequestMessage.getMessageType() == ScepCommonHelper.SCEP_TYPE_RENEWAL) {
+        if (scepRequestMessage.getMessageType() != ScepConstants.SCEP_TYPE_RENEWAL && scepRequestMessage.getMessageType() == ScepConstants.SCEP_TYPE_RENEWAL) {
             return "Unsupported Operation";
         }
-        if (scepRequestMessage.getMessageType() == ScepCommonHelper.SCEP_TYPE_PKCSREQ) {
+        if (scepRequestMessage.getMessageType() == ScepConstants.SCEP_TYPE_PKCSREQ) {
             String renewalChecks = renewalValidation(scepRequestMessage);
             if (renewalChecks != "Empty" && !renewalChecks.isEmpty()) {
                 return renewalChecks;
             }
             return "";
-        } else if (scepRequestMessage.getMessageType() == ScepCommonHelper.SCEP_TYPE_RENEWAL) {
+        } else if (scepRequestMessage.getMessageType() == ScepConstants.SCEP_TYPE_RENEWAL) {
             String renewalChecks = renewalValidation(scepRequestMessage);
             if (renewalChecks.equals("Empty")) {
                 return "Unable to find renewal certificate";

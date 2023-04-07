@@ -1,8 +1,8 @@
 package com.czertainly.core.service.scep.message;
 
 import com.czertainly.api.model.core.scep.FailInfo;
+import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.core.service.scep.exception.ScepException;
-import com.czertainly.core.util.ScepCommonHelper;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.cms.*;
@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.PrivateKey;
@@ -26,10 +27,11 @@ public class ScepRequest {
 
     private static final Logger logger = LoggerFactory.getLogger(ScepRequest.class);
 
-    private byte[] message;
+    private final byte[] message;
     private String digestAlgorithmOid;
     private SignedData signedData;
-    private int messageType;
+    private byte[] requestKeyInfo;
+    private MessageType messageType;
     private String transactionId;
     private String senderNonce;
     private ContentInfo encapsulatedContent;
@@ -41,7 +43,15 @@ public class ScepRequest {
         readMessage();
     }
 
-    public int getMessageType() {
+    public String getDigestAlgorithmOid() {
+        return digestAlgorithmOid;
+    }
+
+    public byte[] getRequestKeyInfo() {
+        return requestKeyInfo;
+    }
+
+    public MessageType getMessageType() {
         return messageType;
     }
 
@@ -79,6 +89,14 @@ public class ScepRequest {
         }
 
         readAttributes();
+
+        try {
+            readRequestKeyInfo();
+        } catch (IOException e) {
+            String errorMessage = "Exception trying to read request key info (certificate)";
+            logger.error(errorMessage + ": ", e);
+            throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
+        }
 
         try {
             readRequest();
@@ -122,20 +140,20 @@ public class ScepRequest {
                 logger.debug("SignerInfo Attribute: " + attributeOid);
 
                 // TODO: ifs should be improved
-                if (attributeOid.equals(ScepCommonHelper.id_messageType)) {
+                if (attributeOid.equals(ScepConstants.id_messageType)) {
                     Enumeration<?> attributeValues = attribute.getAttrValues().getObjects();
                     ASN1PrintableString asn1PrintableString = ASN1PrintableString.getInstance(attributeValues.nextElement());
                     // TODO: messageType should be enum according to RFC 8894 (https://www.rfc-editor.org/rfc/rfc8894.html#name-messagetype)
-                    messageType = Integer.parseInt(asn1PrintableString.getString());
+                    messageType = MessageType.resolve(Integer.parseInt(asn1PrintableString.getString()));
                 }
 
-                if (attributeOid.equals(ScepCommonHelper.id_transId)) {
+                if (attributeOid.equals(ScepConstants.id_transactionId)) {
                     Enumeration<?> attributeValues = attribute.getAttrValues().getObjects();
                     ASN1PrintableString asn1PrintableString = ASN1PrintableString.getInstance(attributeValues.nextElement());
                     transactionId = asn1PrintableString.getString();
                 }
 
-                if (attributeOid.equals(ScepCommonHelper.id_senderNonce)) {
+                if (attributeOid.equals(ScepConstants.id_senderNonce)) {
                     Enumeration<?> attributeValues = attribute.getAttrValues().getObjects();
                     ASN1OctetString asn1OctetString = ASN1OctetString.getInstance(attributeValues.nextElement());
                     senderNonce = Base64.getEncoder().encodeToString(asn1OctetString.getOctets());
@@ -145,8 +163,23 @@ public class ScepRequest {
         });
     }
 
+    private void readRequestKeyInfo() throws IOException {
+        ASN1Set certificates = signedData.getCertificates();
+        if (certificates.size() > 0) { // there should be one certificate
+            ASN1Encodable asn1Certificate = certificates.getObjectAt(0);
+            if (asn1Certificate != null) {
+                final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                final ASN1OutputStream asn1OutputStream = ASN1OutputStream.create(byteArrayOutputStream, ASN1Encoding.DER);
+                asn1OutputStream.writeObject(asn1Certificate);
+                if (byteArrayOutputStream.size() > 0) {
+                    requestKeyInfo = byteArrayOutputStream.toByteArray();
+                }
+            }
+        }
+    }
+
     private void readRequest() throws ScepException, IOException {
-        if (! (messageType == ScepCommonHelper.SCEP_TYPE_PKCSREQ) ) {
+        if (! (messageType.equals(MessageType.PKCS_REQ)) ) {
             throw new ScepException("Wrong type of message: " + messageType, FailInfo.BAD_REQUEST);
         }
 
