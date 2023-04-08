@@ -147,7 +147,8 @@ public class ScepServiceImpl implements ScepService {
 
     private ResponseEntity<Object> service(String profileName, String operation, byte[] message) throws ScepException {
         init(profileName);
-        String validationResult = validate();
+        // TODO: why validation relies on Strings?
+        String validationResult = validateProfile();
         if (!validationResult.isEmpty()) {
             throw new ValidationException(ValidationError.create(validationResult));
         }
@@ -187,7 +188,8 @@ public class ScepServiceImpl implements ScepService {
         }
     }
 
-    private String validate() {
+    // TODO: why we return String instead of Ezception?
+    private String validateProfile() {
         String scepProfileValidation = validateScepProfile();
         if (scepProfileValidation.isEmpty()) {
             return validateRaProfile();
@@ -196,6 +198,7 @@ public class ScepServiceImpl implements ScepService {
         }
     }
 
+    // TODO: why we return String instead of Ezception?
     private String validateScepProfile() {
         if (scepProfile == null) {
             return "Requested SCEP Profile not found";
@@ -212,6 +215,7 @@ public class ScepServiceImpl implements ScepService {
         return "";
     }
 
+    // TODO: why we return String instead of Ezception?
     private String validateRaProfile() {
         if (raProfile == null) {
             return "Requested RA Profile not found";
