@@ -8,7 +8,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.service.model.Securable;
-import com.czertainly.core.service.scep.impl.ExtendedScepHelperServiceImpl;
+import com.czertainly.core.service.scep.impl.ScepServiceImpl;
 import com.czertainly.core.util.*;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -104,7 +104,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         if(caCertificate != null) scepProfileDto.setCaCertificate(caCertificate.mapToListDto());
         if(raProfile != null) {
             scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + ExtendedScepHelperServiceImpl.SCEP_URL_PREFIX + "/" + name);
+                    + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name);
         }
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return scepProfileDto;

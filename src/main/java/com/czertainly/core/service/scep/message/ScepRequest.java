@@ -5,9 +5,14 @@ import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.core.service.scep.exception.ScepException;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.operator.ContentVerifierProvider;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
+import org.bouncycastle.pkcs.PKCSException;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,8 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.PrivateKey;
-import java.security.Provider;
+import java.security.*;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -69,6 +73,10 @@ public class ScepRequest {
 
     public EnvelopedData getEnvelopedData() {
         return envelopedData;
+    }
+
+    public JcaPKCS10CertificationRequest getPkcs10Request() {
+        return pkcs10Request;
     }
 
     private void readMessage() throws ScepException {
@@ -213,10 +221,19 @@ public class ScepRequest {
         return ContentInfo.getInstance(asn1Sequence);
     }
 
-    private void decryptData(PrivateKey privateKey, Provider provider) throws IOException, CMSException {
-        // TODO: privateKey and provider cannot be null
+    public void decryptData(PrivateKey privateKey, Provider provider) throws ScepException {
+        if (privateKey == null || provider == null) {
+            throw new ScepException("Private key or provider is null", FailInfo.BAD_REQUEST);
+        }
 
-        CMSEnvelopedData cmsEnvelopedData = new CMSEnvelopedData(encapsulatedContent.getEncoded());
+        CMSEnvelopedData cmsEnvelopedData;
+        try {
+            cmsEnvelopedData = new CMSEnvelopedData(encapsulatedContent.getEncoded());
+        } catch (IOException | CMSException e) {
+            String errorMessage = "Failed to decode encapsulated content";
+            logger.error(errorMessage + ": ", e);
+            throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
+        }
         RecipientInformationStore recipientInfos = cmsEnvelopedData.getRecipientInfos();
         Collection<RecipientInformation> recipients = recipientInfos.getRecipients();
         Iterator<RecipientInformation> recipientInformationIterator = recipients.iterator();
@@ -228,11 +245,60 @@ public class ScepRequest {
             jceKeyTransEnvelopedRecipient.setProvider(provider);
             jceKeyTransEnvelopedRecipient.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
             jceKeyTransEnvelopedRecipient.setMustProduceEncodableUnwrappedKey(true);
-            decryptedData = recipient.getContent(jceKeyTransEnvelopedRecipient);
+            try {
+                decryptedData = recipient.getContent(jceKeyTransEnvelopedRecipient);
+            } catch (CMSException e) {
+                String errorMessage = "Failed to decrypt encapsulated content";
+                logger.error(errorMessage + ": ", e);
+                throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
+            }
+        }
+        assert decryptedData != null;
+        try {
+            pkcs10Request = new JcaPKCS10CertificationRequest(decryptedData);
+        } catch (IOException e) {
+            String errorMessage = "Failed to load decrypted PKCS#10 request";
+            logger.error(errorMessage + ": ", e);
+            throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
+        }
+    }
+
+    // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not only SCEP
+    public String getChallengePassword() {
+        String challengePassword = null;
+
+        // load the challenge password extension, if available
+        org.bouncycastle.asn1.pkcs.Attribute[] attributes = pkcs10Request.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
+        if (attributes.length == 0) {
+            attributes = pkcs10Request.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest);
+        }
+        if (attributes.length == 0) {
+            return null;
         }
 
-        assert decryptedData != null;
-        pkcs10Request = new JcaPKCS10CertificationRequest(decryptedData);
+        // decode and return the challenge password
+        ASN1Set values = attributes[0].getAttrValues();
+
+        ASN1Set attribute = (ASN1Set) values.getObjectAt(1);
+        DERPrintableString passwordValue = (DERPrintableString) attribute.getObjectAt(0);
+        challengePassword = passwordValue.getString();
+
+        return challengePassword;
+    }
+
+    // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not only SCEP
+    public boolean verifyRequest() throws NoSuchAlgorithmException, InvalidKeyException, PKCSException, OperatorCreationException {
+        if (pkcs10Request == null) {
+            return false;
+        }
+        PublicKey publicKey = pkcs10Request.getPublicKey();
+        ContentVerifierProvider contentVerifierProvider = new JcaContentVerifierProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME).build(publicKey);
+        return pkcs10Request.isSignatureValid(contentVerifierProvider);
+    }
+
+    public boolean verifySignature(PublicKey publicKey) throws CMSException, OperatorCreationException {
+        CMSSignedData cmsSignedData = new CMSSignedData(message);
+        return cmsSignedData.verifySignatures(new ScepVerifierProvider(publicKey));
     }
 
 }

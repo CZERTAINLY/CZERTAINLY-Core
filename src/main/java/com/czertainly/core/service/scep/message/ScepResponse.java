@@ -3,6 +3,7 @@ package com.czertainly.core.service.scep.message;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.api.model.core.scep.PkiStatus;
+import com.czertainly.core.service.scep.exception.ScepException;
 import com.czertainly.core.util.AlgorithmUtil;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -48,6 +49,9 @@ public class ScepResponse {
     private byte[] recipientKeyInfo;
     private String digestAlgorithmOid;
 
+    private CMSTypedData responseData;
+
+    private CMSSignedData signedResponseData;
 
     /**
      * The certificate to sign the response with.
@@ -109,91 +113,71 @@ public class ScepResponse {
         this.digestAlgorithmOid = digestAlgorithmOid;
     }
 
+    public CMSSignedData getSignedResponseData() {
+        return signedResponseData;
+    }
+
     public void setSigningAttributes (Certificate signerCertificate, PrivateKey signerPrivateKey, Provider signerProvider) {
         this.signerCertificate = signerCertificate;
         this.signerPrivateKey = signerPrivateKey;
         this.signerProvider = signerProvider;
     }
 
-    public byte[] generate() throws CertificateEncodingException {
+    public void generate() throws ScepException {
+        // Create the response data
         try {
-            CMSTypedData responseData;
-
-            if (pkiStatus.equals(PkiStatus.SUCCESS)) {
-                CMSEnvelopedDataGenerator cmsEnvelopedDataGenerator = new CMSEnvelopedDataGenerator();
-
-                logger.debug("Building the certificate chain for the response message");
-                List<X509Certificate> certificates = createCertificateChain();
-
-                CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
-                // TODO: this part should be improved
-                cmsSignedDataGenerator.addCertificates(new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificates)));
-                CMSSignedData cmsSignedData = cmsSignedDataGenerator.generate(new CMSAbsentContent(), false);
-
-                // Envelope the CMS message
-                if (recipientKeyInfo != null) {
-                    try {
-                        X509Certificate recipient = CertificateUtil.getX509Certificate(recipientKeyInfo);
-                        logger.debug("Recipient certificate subject DN: '" + recipient.getSubjectX500Principal().getName());
-                        logger.debug("Recipient certificate serial number: " + recipient.getSerialNumber().toString(16));
-                        cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
-                                new JceKeyTransRecipientInfoGenerator(recipient)
-                                        .setProvider(BouncyCastleProvider.PROVIDER_NAME));
-                    } catch (CertificateParsingException e) {
-                        logger.error(e.getMessage());
-                        throw new IllegalArgumentException("Can not decode recipients self signed certificate!", e);
-                    } catch (CertificateException e) {
-                        throw new IllegalArgumentException("Error when converting the certificate", e);
-                    }
-                } else {
-                    cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
-                            new JceKeyTransRecipientInfoGenerator((X509Certificate) certificate)
-                                    .setProvider(BouncyCastleProvider.PROVIDER_NAME));
-                }
-                try {
-
-                    // TODO: content encryption algorithm can be DES_EDE3_CBC or AES_128_CBC, it should reflect the algorithm used in the request
-
-                    JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(SMIMECapability.dES_EDE3_CBC).setProvider(BouncyCastleProvider.PROVIDER_NAME);
-                    CMSEnvelopedData cmsEnvelopedData = cmsEnvelopedDataGenerator.generate(
-                            new CMSProcessableByteArray(cmsSignedData.getEncoded()),
-                            jceCMSContentEncryptorBuilder.build());
-                    responseData = new CMSProcessableByteArray(cmsEnvelopedData.getEncoded());
-                } catch (IOException e) {
-                    throw new IllegalStateException("Unexpected IOException caught", e);
-                }
-            } else {
-                responseData = new CMSProcessableByteArray(new byte[0]);
-            }
-
-            // Now build the signed data object
-            CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
-
-            // Create attributes that will be signed
-            Hashtable<ASN1ObjectIdentifier, Attribute> attributes = createAttributes();
-
-            try {
-                String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm());
-
-                ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(signerProvider).build(signerPrivateKey);
-                JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
-                JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
-                builder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(attributes)));
-                cmsSignedDataGenerator.addSignerInfoGenerator(builder.build(contentSigner, (X509Certificate) signerCertificate));
-            } catch (OperatorCreationException | NoSuchAlgorithmException e) {
-                throw new IllegalStateException("Failed to create signature.", e);
-            }
-
-            final CMSSignedData signedData = cmsSignedDataGenerator.generate(responseData, true);
-            try {
-                return signedData.getEncoded();
-            } catch (IOException e) {
-                throw new IllegalStateException("Unexpected IOException caught.", e);
-            }
-        } catch (CMSException e) {
-            logger.error("Error creating CMS message: ", e);
+            createResponseData();
+        } catch (CertificateException | CMSException | IOException e) {
+            String errorMessage = "Exception creating CMS message as response data";
+            logger.error(errorMessage + ": ", e);
+            throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
         }
-        return new byte[0];
+
+        // Sign the response data
+        try {
+            createSignedData();
+        } catch (CertificateEncodingException | NoSuchAlgorithmException | OperatorCreationException | CMSException e) {
+            String errorMessage = "Exception signing CMS response data";
+            logger.error(errorMessage + ": ", e);
+            throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
+        }
+    }
+
+    private void createResponseData() throws CertificateException, CMSException, IOException {
+        if (pkiStatus.equals(PkiStatus.SUCCESS)) {
+            CMSEnvelopedDataGenerator cmsEnvelopedDataGenerator = new CMSEnvelopedDataGenerator();
+
+            logger.debug("Building the certificate chain for the response message");
+            List<X509Certificate> certificates = createCertificateChain();
+
+            CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
+            // TODO: this part should be improved
+            cmsSignedDataGenerator.addCertificates(new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificates)));
+            CMSSignedData cmsSignedData = cmsSignedDataGenerator.generate(new CMSAbsentContent(), false);
+
+            // Envelope the CMS message
+            if (recipientKeyInfo != null) {
+                X509Certificate recipient = CertificateUtil.getX509Certificate(recipientKeyInfo);
+                logger.debug("Recipient certificate subject DN: '" + recipient.getSubjectX500Principal().getName());
+                logger.debug("Recipient certificate serial number: " + recipient.getSerialNumber().toString(16));
+                cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
+                        new JceKeyTransRecipientInfoGenerator(recipient)
+                                .setProvider(BouncyCastleProvider.PROVIDER_NAME));
+            } else {
+                cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
+                        new JceKeyTransRecipientInfoGenerator((X509Certificate) certificate)
+                                .setProvider(BouncyCastleProvider.PROVIDER_NAME));
+            }
+            // TODO: content encryption algorithm can be DES_EDE3_CBC or AES_128_CBC, it should reflect the algorithm used in the request
+
+            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(SMIMECapability.dES_EDE3_CBC).setProvider(BouncyCastleProvider.PROVIDER_NAME);
+            CMSEnvelopedData cmsEnvelopedData = cmsEnvelopedDataGenerator.generate(
+                    new CMSProcessableByteArray(cmsSignedData.getEncoded()),
+                    jceCMSContentEncryptorBuilder.build());
+            responseData = new CMSProcessableByteArray(cmsEnvelopedData.getEncoded());
+        } else {
+            responseData = new CMSProcessableByteArray(new byte[0]);
+        }
     }
 
     private List<X509Certificate> createCertificateChain() {
@@ -209,6 +193,22 @@ public class ScepResponse {
             }
         }
         return certificateChain;
+    }
+
+    private void createSignedData() throws NoSuchAlgorithmException, CertificateEncodingException, OperatorCreationException, CMSException {
+        CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
+        // Create attributes that will be signed
+        Hashtable<ASN1ObjectIdentifier, Attribute> attributes = createAttributes();
+
+        String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm());
+
+        ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(signerProvider).build(signerPrivateKey);
+        JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
+        JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
+        builder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(attributes)));
+        cmsSignedDataGenerator.addSignerInfoGenerator(builder.build(contentSigner, (X509Certificate) signerCertificate));
+
+        signedResponseData = cmsSignedDataGenerator.generate(responseData, true);
     }
 
     private Hashtable<ASN1ObjectIdentifier, Attribute> createAttributes() {
