@@ -414,6 +414,7 @@ public class ScepServiceImpl implements ScepService {
         scepResponse.setRecipientKeyInfo(scepRequest.getRequestKeyInfo());
         scepResponse.setDigestAlgorithmOid(scepRequest.getDigestAlgorithmOid());
         scepResponse.setSenderNonce(RandomUtil.generateRandomNonceBase64(16));
+        scepResponse.setContentEncryptionAlgorithm(scepRequest.getContentEncryptionAlgorithm());
     }
 
     private ScepTransaction getTransaction(String transactionId) {
@@ -490,8 +491,8 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private void checkRenewalTimeframe(Certificate certificate) throws ScepException {
-        // TODO: default value for number of days is 0, so this condition will never be true
-        if (scepProfile.getRenewalThreshold() == null) {
+        // Empty renewal threshold or the value 0 will be considered as null value and the half life of the certificate will be assumed
+        if (scepProfile.getRenewalThreshold() == null || scepProfile.getRenewalThreshold() == 0) {
             // If the renewal timeframe is not given, we consider that renewal is possible only after the certificate
             // crosses its half lime time
             if (certificate.getValidity() / 2 < certificate.getExpiryInDays()) {

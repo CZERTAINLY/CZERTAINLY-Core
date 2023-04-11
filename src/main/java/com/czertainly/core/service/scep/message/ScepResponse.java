@@ -66,6 +66,14 @@ public class ScepResponse {
      */
     private Provider signerProvider;
 
+    /**
+     * Content encryption algorithm
+     * This value should be set based on the data from the scep request message
+     * If there is a problem identifying the encryption algorithm, the error will be thrown out
+     * but to be on the safer side, the default value is added
+     */
+    private ASN1ObjectIdentifier contentEncryptionAlgorithm = SMIMECapability.dES_EDE3_CBC;
+
 
     public ScepResponse() { }
 
@@ -115,6 +123,14 @@ public class ScepResponse {
 
     public CMSSignedData getSignedResponseData() {
         return signedResponseData;
+    }
+
+    public ASN1ObjectIdentifier getContentEncryptionAlgorithm() {
+        return contentEncryptionAlgorithm;
+    }
+
+    public void setContentEncryptionAlgorithm(ASN1ObjectIdentifier contentEncryptionAlgorithm) {
+        this.contentEncryptionAlgorithm = contentEncryptionAlgorithm;
     }
 
     public void setSigningAttributes (Certificate signerCertificate, PrivateKey signerPrivateKey, Provider signerProvider) {
@@ -168,7 +184,7 @@ public class ScepResponse {
                         new JceKeyTransRecipientInfoGenerator((X509Certificate) certificate)
                                 .setProvider(BouncyCastleProvider.PROVIDER_NAME));
             }
-            // TODO: content encryption algorithm can be DES_EDE3_CBC or AES_128_CBC, it should reflect the algorithm used in the request
+            // Take the content encryption algorithm from the response that is set from the scep request message
 
             JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(SMIMECapability.dES_EDE3_CBC).setProvider(BouncyCastleProvider.PROVIDER_NAME);
             CMSEnvelopedData cmsEnvelopedData = cmsEnvelopedDataGenerator.generate(

@@ -122,6 +122,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setEnabled(false);
         scepProfile.setName(request.getName());
         scepProfile.setDescription(request.getDescription());
+        // The value 0 will be considered as half life of the certificate for scep protocol
         scepProfile.setRenewalThreshold(request.getRenewalThreshold());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());

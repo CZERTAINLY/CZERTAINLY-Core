@@ -6,10 +6,12 @@ import com.czertainly.api.model.core.scep.MessageType;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.smime.SMIMECapability;
 import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentVerifierProvider;
+import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.bouncycastle.pkcs.PKCSException;
@@ -41,6 +43,14 @@ public class ScepRequest {
     private ContentInfo encapsulatedContent;
     private EnvelopedData envelopedData;
     private JcaPKCS10CertificationRequest pkcs10Request;
+
+    /**
+     * Content encryption algorithm
+     * This value should be set based on the data from the scep request message
+     * If there is a problem identifying the encryption algorithm, the error will be thrown out
+     * but to be on the safer side, the default value is added
+     */
+    private ASN1ObjectIdentifier contentEncryptionAlgorithm =SMIMECapability.dES_EDE3_CBC;
 
     public ScepRequest(byte[] message) throws ScepException {
         this.message = message;
@@ -79,6 +89,10 @@ public class ScepRequest {
         return pkcs10Request;
     }
 
+    public ASN1ObjectIdentifier getContentEncryptionAlgorithm() {
+        return contentEncryptionAlgorithm;
+    }
+
     private void readMessage() throws ScepException {
         try {
             readDigestAlgorithm();
@@ -113,6 +127,8 @@ public class ScepRequest {
             logger.error(errorMessage + ": ", e);
             throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
         }
+
+        readContentEncryptionAlgorithm();
     }
 
     private void readDigestAlgorithm() throws CMSException {
@@ -132,6 +148,17 @@ public class ScepRequest {
             throw new ScepException("Content type is not signedData", FailInfo.BAD_MESSAGE_CHECK);
         } else {
             signedData = SignedData.getInstance(ASN1Sequence.getInstance(contentInfo.getContent()));
+        }
+    }
+
+    private void readContentEncryptionAlgorithm() throws ScepException {
+        try {
+            CMSEnvelopedData cmsEnvelopedData = new CMSEnvelopedData(encapsulatedContent.getEncoded());
+            this.contentEncryptionAlgorithm = cmsEnvelopedData.getContentEncryptionAlgorithm().getAlgorithm();
+        } catch (IOException | CMSException e) {
+            String errorMessage = "Exception trying to read content encryption algorithm";
+            logger.error(errorMessage + ": ", e);
+            throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
         }
     }
 
