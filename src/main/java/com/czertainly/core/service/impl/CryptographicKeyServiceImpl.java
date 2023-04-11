@@ -33,6 +33,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -63,10 +64,15 @@ import java.util.stream.Collectors;
 public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private static final Logger logger = LoggerFactory.getLogger(CryptographicKeyServiceImpl.class);
-
+    // Permitted usages for the keys
+    private static final Map<KeyType, KeyUsage[]> PERMITTED_USAGES = new HashMap() {{
+        put(KeyType.PRIVATE_KEY, new KeyUsage[]{KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP});
+        put(KeyType.PUBLIC_KEY, new KeyUsage[]{KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP});
+        put(KeyType.SECRET_KEY, KeyUsage.values());
+        put(KeyType.SPLIT_KEY, KeyUsage.values());
+    }};
     @PersistenceContext
     private EntityManager entityManager;
-
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
@@ -85,18 +91,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private TokenProfileRepository tokenProfileRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private GroupRepository groupRepository;
-
     @Autowired
     private AttributeContentRepository attributeContentRepository;
-
-    // Permitted usages for the keys
-    private static final Map<KeyType, KeyUsage[]> PERMITTED_USAGES = new HashMap() {{
-        put(KeyType.PRIVATE_KEY, new KeyUsage[]{KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP});
-        put(KeyType.PUBLIC_KEY, new KeyUsage[]{KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP});
-        put(KeyType.SECRET_KEY, KeyUsage.values());
-        put(KeyType.SPLIT_KEY, KeyUsage.values());
-    }};
-
 
     @Autowired
     public void setAttributeService(AttributeService attributeService) {
@@ -849,6 +845,26 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             return item.getCryptographicKey().getUuid();
         }
         return null;
+    }
+
+    @Override
+    public CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType) {
+        for (CryptographicKeyItem item : key.getItems()) {
+            if (item.getType().equals(KeyType.PRIVATE_KEY)) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public CzertainlyPrivateKey getCzertainlyPrivateKey(CryptographicKey key) {
+        CryptographicKeyItem item = getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
+        return new CzertainlyPrivateKey(
+                key.getTokenInstanceReference().getTokenInstanceUuid(),
+                item.getKeyReferenceUuid().toString(),
+                key.getTokenInstanceReference().getConnector().mapToDto()
+        );
     }
 
     @Override

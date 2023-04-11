@@ -26,6 +26,7 @@ import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.CryptographicKeyService;
 import com.czertainly.core.service.scep.ScepService;
 import com.czertainly.core.service.scep.message.ScepRequest;
 import com.czertainly.core.service.scep.message.ScepResponse;
@@ -85,6 +86,7 @@ public class ScepServiceImpl implements ScepService {
     private ClientOperationService clientOperationService;
     private CertValidationService certValidationService;
     private CertificateService certificateService;
+    private CryptographicKeyService cryptographicKeyService;
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
 
     @Autowired
@@ -118,6 +120,11 @@ public class ScepServiceImpl implements ScepService {
     }
 
     @Autowired
+    public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
+        this.cryptographicKeyService = cryptographicKeyService;
+    }
+
+    @Autowired
     public void setCryptographicOperationsApiClient(CryptographicOperationsApiClient cryptographicOperationsApiClient) {
         this.cryptographicOperationsApiClient = cryptographicOperationsApiClient;
     }
@@ -147,11 +154,7 @@ public class ScepServiceImpl implements ScepService {
 
     private ResponseEntity<Object> service(String profileName, String operation, byte[] message) throws ScepException {
         init(profileName);
-        // TODO: why validation relies on Strings?
-        String validationResult = validateProfile();
-        if (!validationResult.isEmpty()) {
-            throw new ValidationException(ValidationError.create(validationResult));
-        }
+        validateProfile();
         return switch (operation) {
             case "GetCACert" -> caCertificateChain.size() > 1 ? getCaCertChain() : getCaCert();
             case "GetCACaps" -> getCaCaps();
@@ -188,45 +191,36 @@ public class ScepServiceImpl implements ScepService {
         }
     }
 
-    // TODO: why we return String instead of Ezception?
-    private String validateProfile() {
-        String scepProfileValidation = validateScepProfile();
-        if (scepProfileValidation.isEmpty()) {
-            return validateRaProfile();
-        } else {
-            return scepProfileValidation;
-        }
+    private void validateProfile() throws ScepException {
+        validateScepProfile();
+        validateRaProfile();
     }
 
-    // TODO: why we return String instead of Ezception?
-    private String validateScepProfile() {
+    private void validateScepProfile() throws ScepException {
         if (scepProfile == null) {
-            return "Requested SCEP Profile not found";
+            throw new ScepException("Requested SCEP Profile not found", FailInfo.BAD_REQUEST);
         }
         if (!scepProfile.isEnabled()) {
-            return "SCEP Profile is not enabled";
+            throw new ScepException("SCEP Profile is not enabled", FailInfo.BAD_REQUEST);
         }
         if (scepProfile.getCaCertificate() == null) {
-            return "SCEP Profile does not have any associated CA certificate";
+            throw new ScepException("SCEP Profile does not have any associated CA certificate", FailInfo.BAD_REQUEST);
         }
         if (!raProfileBased && scepProfile.getRaProfile() == null) {
-            return "SCEP Profile does not contain associated RA Profile";
+            throw new ScepException("SCEP Profile does not contain associated RA Profile", FailInfo.BAD_REQUEST);
         }
-        return "";
     }
 
-    // TODO: why we return String instead of Ezception?
-    private String validateRaProfile() {
+    private void validateRaProfile() throws ScepException {
         if (raProfile == null) {
-            return "Requested RA Profile not found";
+            throw new ScepException("Requested RA Profile not found", FailInfo.BAD_REQUEST);
         }
         if (!raProfile.getEnabled()) {
-            return "RA Profile is not enabled";
+            throw new ScepException("RA Profile is not enabled", FailInfo.BAD_REQUEST);
         }
         if (raProfileBased && raProfile.getScepProfile() == null) {
-            return "RA Profile does not contain associated SCEP Profile";
+            throw new ScepException("RA Profile does not contain associated SCEP Profile", FailInfo.BAD_REQUEST);
         }
-        return "";
     }
 
     private ResponseEntity<Object> getCaCert() {
@@ -268,19 +262,8 @@ public class ScepServiceImpl implements ScepService {
 
         scepRequest = new ScepRequest(body);
 
-        // TODO: this should go to the cryptographic key service
         // Get the private key from the configuration of SCEP Profile
-        CryptographicKey key = scepProfile.getCaCertificate().getKey();
-        CzertainlyPrivateKey czertainlyPrivateKey = null;
-        for (CryptographicKeyItem item : key.getItems()) {
-            if (item.getType().equals(KeyType.PRIVATE_KEY)) {
-                czertainlyPrivateKey = new CzertainlyPrivateKey(
-                        key.getTokenInstanceReference().getTokenInstanceUuid(),
-                        item.getKeyReferenceUuid().toString(),
-                        key.getTokenInstanceReference().getConnector().mapToDto()
-                );
-            }
-        }
+        CzertainlyPrivateKey czertainlyPrivateKey = cryptographicKeyService.getCzertainlyPrivateKey(scepProfile.getCaCertificate().getKey());
 
         if (czertainlyPrivateKey == null) {
             return buildResponse(scepRequest, buildFailedResponse(new ScepException("Private key not found in SCEP Profile", FailInfo.BAD_REQUEST)));
@@ -304,10 +287,15 @@ public class ScepServiceImpl implements ScepService {
         }
 
         if (scepTransactionRepository.existsByTransactionIdAndScepProfile(scepRequest.getTransactionId(), scepProfile)) {
-            scepResponse = getExistingTransaction(scepRequest.getTransactionId());
+            try {
+                scepResponse = getExistingTransaction(scepRequest.getTransactionId());
+            } catch (CertificateException e) {
+                scepResponse = buildFailedResponse(new ScepException("Error while formatting certificate", FailInfo.BAD_REQUEST));;
+            }
         } else if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
             try {
-                // TODO: where we configure manual approval?
+                // Manual approval for the SCEP clients are configured in the SCEP Profile.
+                // If the SCEP Profile has the manual approval set to true, only the CSR will be generated
                 if (scepProfile.getRequireManualApproval() != null && !scepProfile.getRequireManualApproval()) {
                     scepResponse = issueCertificate(scepRequest);
                 } else {
@@ -375,20 +363,16 @@ public class ScepServiceImpl implements ScepService {
         return scepResponse;
     }
 
-    private ScepResponse getExistingTransaction(String transactionId) {
+    private ScepResponse getExistingTransaction(String transactionId) throws CertificateException {
         ScepTransaction scepTransaction = scepTransactionRepository.findByTransactionIdAndScepProfile(transactionId, scepProfile).orElse(null);
         assert scepTransaction != null;
         Certificate certificate = scepTransaction.getCertificate();
         ScepResponse scepResponse = new ScepResponse();
-        try {
-            if (certificate.getStatus() != CertificateStatus.NEW) {
-                scepResponse.setPkiStatus(PkiStatus.SUCCESS);
-                scepResponse.setCertificate(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
-            } else {
-                scepResponse.setPkiStatus(PkiStatus.PENDING);
-            }
-        } catch (Exception e) {
-            // TODO: why is this catch block empty?
+        if (certificate.getStatus() != CertificateStatus.NEW) {
+            scepResponse.setPkiStatus(PkiStatus.SUCCESS);
+            scepResponse.setCertificate(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
+        } else {
+            scepResponse.setPkiStatus(PkiStatus.PENDING);
         }
         return scepResponse;
     }
@@ -445,13 +429,16 @@ public class ScepServiceImpl implements ScepService {
 
     public void verifyRequest(ScepRequest scepRequest) throws ScepException {
 
-        // TODO: this condition can never happen?
-        if ( !scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ) && scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ) ) {
+        // Throw exception if the request type is not renewal or issuing a new certificate
+        if ( !scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ) && !scepRequest.getMessageType().equals(MessageType.PKCS_REQ) ) {
             throw new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST);
         }
 
         if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
-            // TODO: why we are checking renewal for the new request that are not of type RENEWAL_REQ?
+            // Renewal check must be done for PKCS Request also. According to the RFC Version 3.1.1.2
+            // (https://datatracker.ietf.org/doc/id/draft-nourse-scep-23.txt), RENEWAL_REQ is not part of the message type
+            // Commonly used SCEP clients like JSCEP and SSCEP uses this version of RFC and
+            // may use PKCS_REQ for renewal
             renewalValidation(scepRequest);
             try {
                 scepRequest.verifyRequest();
@@ -470,12 +457,19 @@ public class ScepServiceImpl implements ScepService {
         try {
             cn = pkcs10Request.getSubject().getRDNs(BCStyle.CN)[0].getFirst().getValue().toString();
         } catch (Exception e){
-            // TODO: why we are ignoring this exception?
-            //Do Nothing
+            throw new ScepException("Unable to derive common name from request");
         }
         List<Certificate> certificates = certificateService.getCertificateEntityByCommonName(cn);
         for (Certificate certificate : certificates) {
-            // TODO: subject can be the same but the certificate can be different
+            // To identify the certificate which is requested for renewal, the following steps are followed
+            // 1. Filter the certificates based on common name
+            // 2. Compare the subject name of the certificates and identify matching. This is done in such a way that
+            //    even if CSR and certificate has different way of writing subject principle, we can match. For example,
+            //    certificate object has DN as 'cn=test, c=CZ' and CSR object can have 'c=CZ, cn=test'
+            // 3. For all the certificates with matching DN, we check the SCEP Request if it is signed by the
+            //    any of certificates public key. If any of the certificate matches, then we assume that its the parent
+            //    certificate
+            // 4. If none of the certificate matches, then we assume its for the new certificate and proceed with it
             if(!(new X500Name(certificate.getSubjectDn())).equals(pkcs10Request.getSubject())) {
                 continue;
             }
@@ -487,13 +481,9 @@ public class ScepServiceImpl implements ScepService {
             }
             try {
                 if (scepRequest.verifySignature(x509Certificate.getPublicKey())) {
-                    // TODO: why we are checking for same public key, when this is already done in the rekey method?
-                    if (Arrays.equals(x509Certificate.getPublicKey().getEncoded(), pkcs10Request.getPublicKey().getEncoded())) {
-                        throw new ScepException("Public Key of the renewal certificate and the CSR cannot be same", FailInfo.BAD_REQUEST);
-                    }
                     checkRenewalTimeframe(certificate);
                 }
-            } catch (CMSException | OperatorCreationException | InvalidKeyException | NoSuchAlgorithmException e) {
+            } catch (CMSException | OperatorCreationException e) {
                 throw new ScepException("Failed to verify SCEP request signature", FailInfo.BAD_REQUEST);
             }
         }
@@ -502,7 +492,8 @@ public class ScepServiceImpl implements ScepService {
     private void checkRenewalTimeframe(Certificate certificate) throws ScepException {
         // TODO: default value for number of days is 0, so this condition will never be true
         if (scepProfile.getRenewalThreshold() == null) {
-            // TODO: why we are checking for half life time of the certificate?
+            // If the renewal timeframe is not given, we consider that renewal is possible only after the certificate
+            // crosses its half lime time
             if (certificate.getValidity() / 2 < certificate.getExpiryInDays()) {
                 throw new ScepException("Cannot renew certificate. Validity exceeds the half life time of certificate", FailInfo.BAD_REQUEST);
             }
