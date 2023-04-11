@@ -2,6 +2,7 @@ package com.czertainly.core.dao.repository;
 
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.entity.Location;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -18,5 +19,8 @@ public interface LocationRepository extends SecurityFilterRepository<Location, L
     List<Location> findByEntityInstanceReference(EntityInstanceReference entityInstanceReference);
 
     Optional<Location> findByUuidAndEnabledIsTrue(UUID uuid);
+
+    @Query("SELECT DISTINCT entityInstanceName FROM Location")
+    List<String> findDistinctEntityInstanceName();
 
 }

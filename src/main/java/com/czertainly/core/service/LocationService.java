@@ -5,33 +5,28 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.LocationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.LocationsResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface LocationService extends ResourceExtensionService {
 
     /**
-     * List all locations.
-     * @return List of locations.
-     */
-    List<LocationDto> listLocation(SecurityFilter filter);
-
-    /**
      * List all locations based on the status.
-     * @param enabled If true, only enabled locations are returned.
      * @return List of locations.
      */
-    List<LocationDto> listLocations(SecurityFilter filter, Optional<Boolean> enabled);
+    LocationsResponseDto listLocations(SecurityFilter filter, SearchRequestDto searchRequestDto);
 
     /**
      * Add a new location.
@@ -175,4 +170,9 @@ public interface LocationService extends ResourceExtensionService {
      */
     LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws NotFoundException, LocationException, ConnectorException;
 
+    /**
+     * Get all possible field to be able to search by customer
+     * @return List of {@link SearchFieldDataByGroupDto} object with definition the possible fields
+     */
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 }

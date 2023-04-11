@@ -7,7 +7,6 @@ public enum SearchFieldNameEnum {
     COMMON_NAME(SearchableFields.COMMON_NAME, "Common Name", SearchFieldTypeEnum.STRING),
     SERIAL_NUMBER_LABEL(SearchableFields.SERIAL_NUMBER, "Serial Number", SearchFieldTypeEnum.STRING),
     RA_PROFILE(SearchableFields.RA_PROFILE_NAME, "RA Profile", SearchFieldTypeEnum.LIST),
-    ENTITY(SearchableFields.ENTITY_NAME, "Entity", SearchFieldTypeEnum.LIST),
     STATUS(SearchableFields.STATUS, "Status", SearchFieldTypeEnum.LIST),
     GROUP(SearchableFields.GROUP_NAME, "Group", SearchFieldTypeEnum.LIST),
     OWNER(SearchableFields.OWNER, "Owner", SearchFieldTypeEnum.STRING),
@@ -44,7 +43,18 @@ public enum SearchFieldNameEnum {
     TOTAL_CERT_DISCOVERED(SearchableFields.TOTAL_CERT_DISCOVERED, "Total certificate discovered", SearchFieldTypeEnum.NUMBER),
     CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Connector name",SearchFieldTypeEnum.STRING),
     KIND(SearchableFields.KIND, "Kind",SearchFieldTypeEnum.STRING),
-    DISCOVERY_STATUS(SearchableFields.DISCOVERY_STATUS, "Status", SearchFieldTypeEnum.LIST),;
+    DISCOVERY_STATUS(SearchableFields.DISCOVERY_STATUS, "Status", SearchFieldTypeEnum.LIST),
+
+    ENTITY_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING),
+    ENTITY_CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Connector name", SearchFieldTypeEnum.LIST),
+    ENTITY_KIND(SearchableFields.KIND, "Kind", SearchFieldTypeEnum.LIST),
+
+    LOCATION_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING),
+    LOCATION_INSTANCE_NAME(SearchableFields.ENTITY_INSTANCE_NAME, "Instance name", SearchFieldTypeEnum.LIST),
+    LOCATION_ENABLED(SearchableFields.ENABLED, "Enabled", SearchFieldTypeEnum.BOOLEAN),
+    LOCATION_SUPPORT_MULTIPLE_ENTRIES(SearchableFields.SUPPORT_MULTIPLE_ENTRIES, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN),
+    LOCATION_SUPPORT_KEY_MANAGEMENT(SearchableFields.SUPPORT_KEY_MANAGEMENT, "Support key management", SearchFieldTypeEnum.BOOLEAN);
+
 
     private SearchableFields fieldProperty;
 
@@ -78,4 +88,4 @@ public enum SearchFieldNameEnum {
         }
         return null;
     }
-    }
+}
