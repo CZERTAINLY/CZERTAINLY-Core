@@ -1,15 +1,5 @@
 package com.czertainly.core.attribute;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
-
-import java.util.List;
-
 public class RsaEncryptionAttributes {
 
     public static final String ATTRIBUTE_DATA_RSA_PADDING = "data_rsaPadding"; // this would be OAEP or PKCS1-v1_5 according the RFC 8017
