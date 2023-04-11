@@ -214,8 +214,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         return renewalThreshold;
     }
 
-    public void setRenewalThreshold(Integer retryThreshold) {
-        this.renewalThreshold = retryThreshold;
+    public void setRenewalThreshold(Integer renewThreshold) {
+        this.renewalThreshold = renewThreshold;
     }
 
     public boolean isIncludeCaCertificate() {

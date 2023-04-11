@@ -122,6 +122,10 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setEnabled(false);
         scepProfile.setName(request.getName());
         scepProfile.setDescription(request.getDescription());
+        scepProfile.setRenewalThreshold(request.getRenewalThreshold());
+        scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
+        scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
+        scepProfile.setChallengePassword(request.getChallengePassword());
         scepProfile.setRequireManualApproval(request.getRequireManualApproval() != null && request.getRequireManualApproval());
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
         if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)) {
@@ -143,6 +147,10 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException {
         ScepProfile scepProfile = getScepProfileEntity(uuid);
         if(request.getRequireManualApproval() != null) scepProfile.setRequireManualApproval(request.getRequireManualApproval());
+        scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
+        scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
+        if(request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
+        if(scepProfile.getChallengePassword() != null) scepProfile.setChallengePassword(request.getChallengePassword());
         if (request.getRaProfileUuid() != null) {
             if (request.getRaProfileUuid().equals(NONE_CONSTANT)) {
                 scepProfile.setRaProfile(null);
@@ -152,9 +160,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
                 scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
             }
         }
-        if (request.getDescription() != null) {
-            scepProfile.setDescription(request.getDescription());
-        }
+        if (request.getDescription() != null) scepProfile.setDescription(request.getDescription());
         if (request.getCaCertificateUuid() != null) {
             validateScepCertificateEligibility(request.getCaCertificateUuid());
             scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
