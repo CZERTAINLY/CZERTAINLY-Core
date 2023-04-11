@@ -1,9 +1,9 @@
 package com.czertainly.core.service.scep.message;
 
+import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.api.model.core.scep.PkiStatus;
-import com.czertainly.core.service.scep.exception.ScepException;
 import com.czertainly.core.util.AlgorithmUtil;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;

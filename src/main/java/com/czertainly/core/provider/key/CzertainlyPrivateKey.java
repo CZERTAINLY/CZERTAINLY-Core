@@ -15,6 +15,7 @@ public class CzertainlyPrivateKey implements PrivateKey {
     public CzertainlyPrivateKey(String tokenInstanceUuid, String keyUuid, ConnectorDto connectorDto) {
         this.keyUuid = keyUuid;
         this.connectorDto = connectorDto;
+        this.tokenInstanceUuid = tokenInstanceUuid;
     }
 
     @Override

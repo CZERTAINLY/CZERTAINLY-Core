@@ -1,8 +1,8 @@
 package com.czertainly.core.service.scep.message;
 
+import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
-import com.czertainly.core.service.scep.exception.ScepException;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
