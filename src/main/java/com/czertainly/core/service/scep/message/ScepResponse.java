@@ -174,8 +174,8 @@ public class ScepResponse {
             // Envelope the CMS message
             if (recipientKeyInfo != null) {
                 X509Certificate recipient = CertificateUtil.getX509Certificate(recipientKeyInfo);
-                logger.debug("Recipient certificate subject DN: '" + recipient.getSubjectX500Principal().getName());
-                logger.debug("Recipient certificate serial number: " + recipient.getSerialNumber().toString(16));
+                logger.debug("Recipient certificate subject DN: '" + recipient.getSubjectX500Principal().getName() +
+                    "serial number: " + recipient.getSerialNumber().toString(16));
                 cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
                         new JceKeyTransRecipientInfoGenerator(recipient)
                                 .setProvider(BouncyCastleProvider.PROVIDER_NAME));
@@ -199,7 +199,7 @@ public class ScepResponse {
     private List<X509Certificate> createCertificateChain() {
         List<X509Certificate> certificateChain = new ArrayList<>();
         if (certificate != null) {
-            logger.debug("Adding existing certificate to chain");
+            logger.debug("Adding issued certificate to chain");
             certificateChain.add((X509Certificate) certificate);
             if (includeCaCertificate) {
                 if (caCertificate != null) {
