@@ -27,7 +27,7 @@ import java.io.IOException;
 import java.util.*;
 
 @SpringBootTest
-public class ScepProviderTest {
+public class CryptographicProviderTest {
     @Autowired
     CryptographicOperationsApiClient cryptographicOperationsApiClient;
 
@@ -125,7 +125,7 @@ public class ScepProviderTest {
         mockServer.stop();
     }
     @Test
-    public void TestDecrypt() throws IOException, CMSException, org.bouncycastle.cms.CMSException {
+    public void TestCmsDecrypt() throws IOException, CMSException, org.bouncycastle.cms.CMSException {
         String encapsulatedString = "MIAGCSqGSIb3DQEHA6CAMIACAQAxgcgwgcUCAQAwLjAWMRQwEgYDVQQDDAtuZXdweXRoc3ViMQIUORJlivM+pu04Au0ztZaINDDKIPUwDQYJKoZIhvcNAQEBBQAEgYAIqQOwHgive2n0HZwg+sG98zJM3jpv9p4J5fK2rnZVP4T1KJdj+GnZLziEXudUnDpgwbdKUxijN9krnJpoIm89xmrNezVJe7qZvzcvrpekT1ggpCCqZXBAf+mTVfcB0swlJAHrb3kPSCqPgf5+OMKrH/u16ybB29SbFrY2s3TLCTCABgkqhkiG9w0BBwEwFAYIKoZIhvcNAwcECFsJazuq/HhmoIAEggKg3QLMtXE9/Y/GD9S9eHPIWprG0ej9dFU3+VSGDY5hfAgIGZbq4waToZ8ugnkOybkHE5mwlxbCLRRqAKQvBEbx1xq0oynA+bXdv4EJSTY71PHE04InXtJHKu14MCfsUmbuAVcfyP5SlveeBZ5OJZsvsuB2ayvtqNkOLdwrGIRDstBhCrhGAM3bp0I/2wK/VgJEksBCPezgMGpnwo/17sOyVbNg5BGW2uoi8FoctQpdzzVWjFUqdUBgNT4KhWdbWZO6+UAxBueQWjc/vmK1ht7h66FlEgkWvCcOFDV5T36LkRmC4w7Wmt2TEVlpYce6qQTDJlriaSUhpYL89z2W8TWi+08jOweHKOI3Pz6AswexD2XHEM6IN95xklOLBD7L+v9254eKNeRP7TpTbWB/VsVn6Fu8BPdq0HoU9bt9sgnCTiha6lXbBpWENJyYdyavaMcXL15TS0EsxIRy5zj4e73w+qwQJtBXo/kspgkFZcFfA1raFTM3uFStkGshhjrLecAi0pfookoCqnUiFt8ReNu1Jhl7yIQzldZL/oiFfohXM5v2xGgnwNDm5bOJPhDzbLC/zx6kEcpuIeXMFvBArUSTftJU9ktyZi8pRT9+dlI5oLIr6aXTCS5Tx+BVkWBcjHNaSqeOgk4FP1FitohDLt/1wCeV1sLraN8rE8HIm+fDH+9A+u0OUho5j6XJ+mFVamBJaxCohMvq+a30Bq6ngvPfzBUZQwr6Q4wNDAzOFncRAzl7ITjDCaUDuuTg4rr4lg7IFSHs9MkLvtJIZ5v8im0rgs/kaoIUIFaKH8uVC5er953ERKqU3uKoJUS19yJ9bZ0V3JKT0IMU1PT4IlzygFqy4w/LrV/hMJiEVJhQ08kC2ncs3Lx9FA8GOti3a5wL62U3AAAAAAAAAAAAAA==";
         byte[] cmsDataStream = Base64.getDecoder().decode(encapsulatedString);
 
