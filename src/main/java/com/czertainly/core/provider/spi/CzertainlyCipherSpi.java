@@ -87,7 +87,7 @@ public class CzertainlyCipherSpi extends CipherSpi {
 
     @Override
     protected void engineInit(int operationMode, Key key, SecureRandom random) throws InvalidKeyException {
-        if (operationMode != Cipher.DECRYPT_MODE && operationMode != Cipher.UNWRAP_MODE) {
+        if (operationMode != Cipher.DECRYPT_MODE && operationMode != Cipher.ENCRYPT_MODE) {
             throw new IllegalArgumentException("Unsupported Operation Mode: " + operationMode);
         }
         this.privateKey = (CzertainlyPrivateKey) key;
