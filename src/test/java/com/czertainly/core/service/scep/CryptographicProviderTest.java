@@ -13,15 +13,20 @@ import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.service.CryptographicKeyService;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.cms.CMSEnvelopedData;
+import org.bouncycastle.cms.Recipient;
 import org.bouncycastle.cms.RecipientInformation;
 import org.bouncycastle.cms.RecipientInformationStore;
+import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.testcontainers.shaded.org.bouncycastle.cms.CMSException;
+import org.testcontainers.shaded.org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.io.IOException;
 import java.util.*;
@@ -139,10 +144,10 @@ public class CryptographicProviderTest {
 
         if (recipientInformationIterator.hasNext()) {
             RecipientInformation recipient = recipientInformationIterator.next();
-            org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient(privateKey);
-            jceKeyTransEnvelopedRecipient.setProvider(czertainlyProvider);
-            jceKeyTransEnvelopedRecipient.setContentProvider(org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME);
-            jceKeyTransEnvelopedRecipient.setMustProduceEncodableUnwrappedKey(true);
+            Recipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(privateKey)
+                    .setProvider(czertainlyProvider)
+                    .setContentProvider(BouncyCastleProvider.PROVIDER_NAME)
+                    .setMustProduceEncodableUnwrappedKey(true);
             byte[] decryptedBytes = recipient.getContent(jceKeyTransEnvelopedRecipient);
         }
     }

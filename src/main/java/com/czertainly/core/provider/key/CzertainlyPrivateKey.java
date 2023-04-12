@@ -20,12 +20,12 @@ public class CzertainlyPrivateKey implements PrivateKey {
 
     @Override
     public String getAlgorithm() {
-        return null;
+        return "RSA";
     }
 
     @Override
     public String getFormat() {
-        return null;
+        return "PKCS#8";
     }
 
     @Override

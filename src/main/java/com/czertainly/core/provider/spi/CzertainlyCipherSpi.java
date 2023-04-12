@@ -32,12 +32,12 @@ public class CzertainlyCipherSpi extends CipherSpi {
     }
 
     @Override
-    protected int engineUpdate(byte[] arg0, int arg1, int arg2, byte[] arg3, int arg4) throws ShortBufferException {
+    protected int engineUpdate(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException {
         return 0;
     }
 
     @Override
-    protected byte[] engineDoFinal(byte[] encryptedData, int arg1, int arg2) throws IllegalBlockSizeException, BadPaddingException {
+    protected byte[] engineDoFinal(byte[] encryptedData, int inputOffset, int inputLen) throws IllegalBlockSizeException, BadPaddingException {
         //TO call cryptography provider
         CipherDataRequestDto cipherDataRequestDto = new CipherDataRequestDto();
         CipherRequestData cipherRequestData = new CipherRequestData();
@@ -76,7 +76,7 @@ public class CzertainlyCipherSpi extends CipherSpi {
     }
 
     @Override
-    protected int engineGetOutputSize(int arg0) {
+    protected int engineGetOutputSize(int value) {
         return 0;
     }
 
@@ -86,32 +86,29 @@ public class CzertainlyCipherSpi extends CipherSpi {
     }
 
     @Override
-    protected void engineInit(int opmode, Key key, SecureRandom random) throws InvalidKeyException {
-        if (log.isDebugEnabled()) {
-            log.debug("engineInit1: " + this.getClass().getName());
-        }
-        if (opmode != Cipher.DECRYPT_MODE && opmode != Cipher.UNWRAP_MODE) {
-            throw new IllegalArgumentException("Only DECRYPT_MODE (2) or UNWRAP_MODE (4) can be used: " + opmode);
+    protected void engineInit(int operationMode, Key key, SecureRandom random) throws InvalidKeyException {
+        if (operationMode != Cipher.DECRYPT_MODE && operationMode != Cipher.UNWRAP_MODE) {
+            throw new IllegalArgumentException("Unsupported Operation Mode: " + operationMode);
         }
         this.privateKey = (CzertainlyPrivateKey) key;
     }
 
     @Override
-    protected void engineInit(int opmode, Key arg1, AlgorithmParameterSpec arg2, SecureRandom arg3)
+    protected void engineInit(int operationMode, Key key, AlgorithmParameterSpec arg2, SecureRandom arg3)
             throws InvalidKeyException, InvalidAlgorithmParameterException {
     }
 
     @Override
-    protected void engineInit(int opmode, Key arg1, AlgorithmParameters arg2, SecureRandom arg3)
+    protected void engineInit(int operationMode, Key key, AlgorithmParameters arg2, SecureRandom arg3)
             throws InvalidKeyException, InvalidAlgorithmParameterException {
     }
 
     @Override
-    protected void engineSetMode(String mode) throws NoSuchAlgorithmException {
+    protected void engineSetMode(String operationMode) throws NoSuchAlgorithmException {
     }
 
     @Override
-    protected void engineSetPadding(String arg0) throws NoSuchPaddingException {
+    protected void engineSetPadding(String operationMode) throws NoSuchPaddingException {
     }
 
 }
