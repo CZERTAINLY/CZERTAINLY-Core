@@ -117,7 +117,8 @@ public class AuditLogServiceImpl implements AuditLogService {
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.LIST)
     public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
 
-        AuditLogResponseDto response = new AuditLogResponseDto();;
+        AuditLogResponseDto response = new AuditLogResponseDto();
+        response.setItems(new ArrayList<>());
 
         if (auditLogRepository.count() <= 0) {
             return response;
@@ -130,8 +131,6 @@ public class AuditLogServiceImpl implements AuditLogService {
         response.setTotalPages(result.getTotalPages());
         if(result.getSize() > 0) {
             response.setItems(result.get().map(AuditLog::mapToDto).collect(Collectors.toList()));
-        } else {
-            response.setItems(new ArrayList<>());
         }
 
         return response;
