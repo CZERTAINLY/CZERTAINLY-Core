@@ -41,16 +41,16 @@ public enum SearchFieldNameEnum {
     START_TIME(SearchableFields.START_TIME, "Start time", SearchFieldTypeEnum.DATETIME),
     END_TIME(SearchableFields.END_TIME, "End time", SearchFieldTypeEnum.DATETIME),
     TOTAL_CERT_DISCOVERED(SearchableFields.TOTAL_CERT_DISCOVERED, "Total certificate discovered", SearchFieldTypeEnum.NUMBER),
-    CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Connector name",SearchFieldTypeEnum.STRING),
+    CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Discovery provider",SearchFieldTypeEnum.LIST),
     KIND(SearchableFields.KIND, "Kind",SearchFieldTypeEnum.STRING),
     DISCOVERY_STATUS(SearchableFields.DISCOVERY_STATUS, "Status", SearchFieldTypeEnum.LIST),
 
     ENTITY_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING),
-    ENTITY_CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Connector name", SearchFieldTypeEnum.LIST),
+    ENTITY_CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Entity provider", SearchFieldTypeEnum.LIST),
     ENTITY_KIND(SearchableFields.KIND, "Kind", SearchFieldTypeEnum.LIST),
 
     LOCATION_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING),
-    LOCATION_INSTANCE_NAME(SearchableFields.ENTITY_INSTANCE_NAME, "Instance name", SearchFieldTypeEnum.LIST),
+    LOCATION_INSTANCE_NAME(SearchableFields.ENTITY_INSTANCE_NAME, "Entity instance", SearchFieldTypeEnum.LIST),
     LOCATION_ENABLED(SearchableFields.ENABLED, "Enabled", SearchFieldTypeEnum.BOOLEAN),
     LOCATION_SUPPORT_MULTIPLE_ENTRIES(SearchableFields.SUPPORT_MULTIPLE_ENTRIES, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN),
     LOCATION_SUPPORT_KEY_MANAGEMENT(SearchableFields.SUPPORT_KEY_MANAGEMENT, "Support key management", SearchFieldTypeEnum.BOOLEAN);
