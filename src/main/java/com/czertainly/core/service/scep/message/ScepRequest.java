@@ -1,8 +1,11 @@
 package com.czertainly.core.service.scep.message;
 
 import com.czertainly.api.exception.ScepException;
+import com.czertainly.api.model.core.cryptography.key.RsaPadding;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
+import com.czertainly.core.attribute.RsaEncryptionAttributes;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -24,10 +27,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.*;
-import java.util.Base64;
-import java.util.Collection;
-import java.util.Enumeration;
-import java.util.Iterator;
+import java.util.*;
 
 public class ScepRequest {
 
@@ -248,7 +248,7 @@ public class ScepRequest {
         return ContentInfo.getInstance(asn1Sequence);
     }
 
-    public void decryptData(PrivateKey privateKey, Provider provider) throws ScepException {
+    public void decryptData(CzertainlyPrivateKey privateKey, Provider provider) throws ScepException {
         if (privateKey == null || provider == null) {
             throw new ScepException("Private key or provider is null", FailInfo.BAD_REQUEST);
         }
@@ -267,11 +267,16 @@ public class ScepRequest {
         byte[] decryptedData = null;
 
         if (recipientInformationIterator.hasNext()) {
+
+            //TODO check for the algorithm
+
+            privateKey.setEncryptionAttributes(List.of(RsaEncryptionAttributes.buildPadding(RsaPadding.PKCS1_v1_5)));
             RecipientInformation recipient = recipientInformationIterator.next();
             JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(privateKey);
             jceKeyTransEnvelopedRecipient.setProvider(provider);
             jceKeyTransEnvelopedRecipient.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
             jceKeyTransEnvelopedRecipient.setMustProduceEncodableUnwrappedKey(true);
+
             try {
                 decryptedData = recipient.getContent(jceKeyTransEnvelopedRecipient);
             } catch (CMSException e) {

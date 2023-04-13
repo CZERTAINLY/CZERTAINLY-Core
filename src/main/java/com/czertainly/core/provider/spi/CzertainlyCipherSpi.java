@@ -3,8 +3,8 @@ package com.czertainly.core.provider.spi;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto;
+import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
-import com.czertainly.core.attribute.EncryptionAttributes;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,21 +42,21 @@ public class CzertainlyCipherSpi extends CipherSpi {
         CipherDataRequestDto cipherDataRequestDto = new CipherDataRequestDto();
         CipherRequestData cipherRequestData = new CipherRequestData();
         cipherRequestData.setData(encryptedData);
-        cipherDataRequestDto.setCipherAttributes(List.of(EncryptionAttributes.buildCmsRequestAttribute(true)));
+        cipherDataRequestDto.setCipherAttributes(privateKey.getEncryptionAttributes());
         cipherDataRequestDto.setCipherData(List.of(cipherRequestData));
 
         try {
-            apiClient.decryptData(
+            DecryptDataResponseDto responseDto = apiClient.decryptData(
                     privateKey.getConnectorDto(),
                     privateKey.getTokenInstanceUuid(),
                     privateKey.getKeyUuid(),
                     cipherDataRequestDto
                     );
+            return responseDto.getDecryptedData().get(0).getData();
         } catch (ConnectorException e) {
+            //TODO Change the exception type
             throw new RuntimeException(e);
         }
-
-        return new byte[0];
     }
 
     @Override
@@ -87,7 +87,7 @@ public class CzertainlyCipherSpi extends CipherSpi {
 
     @Override
     protected void engineInit(int operationMode, Key key, SecureRandom random) throws InvalidKeyException {
-        if (operationMode != Cipher.DECRYPT_MODE && operationMode != Cipher.ENCRYPT_MODE) {
+        if (operationMode != Cipher.DECRYPT_MODE && operationMode != Cipher.UNWRAP_MODE) {
             throw new IllegalArgumentException("Unsupported Operation Mode: " + operationMode);
         }
         this.privateKey = (CzertainlyPrivateKey) key;

@@ -5,8 +5,6 @@ import com.czertainly.core.provider.spi.CzertainlyCipherSpi;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.security.Provider;
 import java.security.Security;
 
@@ -15,9 +13,13 @@ import java.security.Security;
  */
 public class CzertainlyProvider extends Provider {
 
+    public static final String PROVIDER_NAME = "CzertainlyCryptographyProvider";
     private static final Logger logger = LoggerFactory.getLogger(CzertainlyProvider.class);
 
-    public static final String PROVIDER_NAME = "CzertainlyCryptographyProvider";
+    private CzertainlyProvider(String name, CryptographicOperationsApiClient apiClient) {
+        super(name, 1.0, "CZERTAINLY Cryptography Provider");
+        this.init(apiClient);
+    }
 
     public static CzertainlyProvider getInstance(String name, boolean registerProvider, CryptographicOperationsApiClient apiClient) {
         String instanceName = String.format("%s-%s", PROVIDER_NAME, name);
@@ -35,16 +37,8 @@ public class CzertainlyProvider extends Provider {
         return provider;
     }
 
-    private CzertainlyProvider(String name, CryptographicOperationsApiClient apiClient) {
-        super(name, 1.0, "CZERTAINLY Cryptography Provider");
-        this.init(apiClient);
-    }
-
     void init(CryptographicOperationsApiClient apiClient) {
-        AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
-            this.setupServices(apiClient);
-            return null;
-        });
+        this.setupServices(apiClient);
     }
 
     void setupServices(CryptographicOperationsApiClient apiClient) {

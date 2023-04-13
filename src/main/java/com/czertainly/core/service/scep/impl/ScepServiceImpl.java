@@ -449,7 +449,6 @@ public class ScepServiceImpl implements ScepService {
         } else if (scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ)) {
             renewalValidation(scepRequest);
         }
-        throw new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST);
     }
 
     private void renewalValidation(ScepRequest scepRequest) throws ScepException {
