@@ -4,9 +4,10 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 
 import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.util.List;
 
-public class CzertainlyPrivateKey implements PrivateKey {
+public class CzertainlyPublicKey implements PublicKey {
     private static final long serialVersionUID = 1L;
     private String keyUuid;
 
@@ -18,7 +19,9 @@ public class CzertainlyPrivateKey implements PrivateKey {
 
     private List<RequestAttributeDto> signatureAttributes;
 
-    public CzertainlyPrivateKey(String tokenInstanceUuid, String keyUuid, ConnectorDto connectorDto) {
+    private byte[] data;
+
+    public CzertainlyPublicKey(String tokenInstanceUuid, String keyUuid, ConnectorDto connectorDto) {
         this.keyUuid = keyUuid;
         this.connectorDto = connectorDto;
         this.tokenInstanceUuid = tokenInstanceUuid;
@@ -65,5 +68,13 @@ public class CzertainlyPrivateKey implements PrivateKey {
 
     public void setSignatureAttributes(List<RequestAttributeDto> signatureAttributes) {
         this.signatureAttributes = signatureAttributes;
+    }
+
+    public byte[] getData() {
+        return data;
+    }
+
+    public void setData(byte[] data) {
+        this.data = data;
     }
 }
