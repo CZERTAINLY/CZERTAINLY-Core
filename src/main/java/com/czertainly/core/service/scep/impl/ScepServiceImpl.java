@@ -53,6 +53,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -472,40 +473,27 @@ public class ScepServiceImpl implements ScepService {
 
     private void renewalValidation(ScepRequest scepRequest) throws ScepException {
         JcaPKCS10CertificationRequest pkcs10Request = scepRequest.getPkcs10Request();
-        String cn = null;
+        Certificate extCertificate = null;
         try {
-            cn = pkcs10Request.getSubject().getRDNs(BCStyle.CN)[0].getFirst().getValue().toString();
-        } catch (Exception e){
-            throw new ScepException("Unable to derive common name from request");
+            extCertificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(scepRequest.getSignerCertificate()));
+        } catch (NotFoundException e) {
+            // Certificate is not found with the fingerprint. Meaning its not a renewal request. So do nothing
+            return;
+        } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
+            throw new ScepException("Unable to parse the signer certificate");
         }
-        List<Certificate> certificates = certificateService.getCertificateEntityByCommonName(cn);
-        for (Certificate certificate : certificates) {
-            // To identify the certificate which is requested for renewal, the following steps are followed
-            // 1. Filter the certificates based on common name
-            // 2. Compare the subject name of the certificates and identify matching. This is done in such a way that
-            //    even if CSR and certificate has different way of writing subject principle, we can match. For example,
-            //    certificate object has DN as 'cn=test, c=CZ' and CSR object can have 'c=CZ, cn=test'
-            // 3. For all the certificates with matching DN, we check the SCEP Request if it is signed by the
-            //    any of certificates public key. If any of the certificate matches, then we assume that its the parent
-            //    certificate
-            // 4. If none of the certificate matches, then we assume its for the new certificate and proceed with it
-            if(!(new X500Name(certificate.getSubjectDn())).equals(pkcs10Request.getSubject())) {
-                continue;
-            }
-            X509Certificate x509Certificate;
-            try {
-                x509Certificate = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
-            } catch (CertificateException e) {
-                throw new ScepException("Failed to parse certificate", FailInfo.BAD_REQUEST);
-            }
-            try {
-                if (scepRequest.verifySignature(x509Certificate.getPublicKey())) {
-                    checkRenewalTimeframe(certificate);
-                }
-            } catch (CMSException | OperatorCreationException e) {
-                throw new ScepException("Failed to verify SCEP request signature", FailInfo.BAD_REQUEST);
-            }
+        if(!(new X500Name(extCertificate.getSubjectDn())).equals(pkcs10Request.getSubject())) {
+            throw new ScepException("Subject DN for the renewal request does not match the original certificate");
         }
+        try {
+            if (!scepRequest.verifySignature(scepRequest.getSignerCertificate().getPublicKey())) {
+                throw new ScepException("SCEP Request signature verification failed");
+            }
+        } catch (OperatorCreationException | CMSException e) {
+            throw new ScepException("Exception when verifying signature." + e.getMessage());
+        }
+        // No need to verify the same key pair used in request since it is already handled by the rekey method in client operations
+        checkRenewalTimeframe(extCertificate);
     }
 
     private void checkRenewalTimeframe(Certificate certificate) throws ScepException {

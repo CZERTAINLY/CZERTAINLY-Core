@@ -95,6 +95,10 @@ public class ScepRequest {
         return envelopedData;
     }
 
+    public X509Certificate getSignerCertificate() {
+        return signerCertificate;
+    }
+
     public JcaPKCS10CertificationRequest getPkcs10Request() {
         return pkcs10Request;
     }
