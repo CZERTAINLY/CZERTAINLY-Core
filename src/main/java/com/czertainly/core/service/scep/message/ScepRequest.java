@@ -1,11 +1,13 @@
 package com.czertainly.core.service.scep.message;
 
+import com.czertainly.api.exception.CertificateException;
 import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.core.cryptography.key.RsaPadding;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.core.attribute.RsaEncryptionAttributes;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
+import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -13,6 +15,8 @@ import org.bouncycastle.asn1.smime.SMIMECapability;
 import org.bouncycastle.asn1.x500.DirectoryString;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -21,6 +25,7 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.bouncycastle.pkcs.PKCSException;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.util.Store;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,6 +34,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.*;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.X509Certificate;
 import java.util.*;
 
 public class ScepRequest {
@@ -45,6 +52,7 @@ public class ScepRequest {
     private ContentInfo encapsulatedContent;
     private EnvelopedData envelopedData;
     private JcaPKCS10CertificationRequest pkcs10Request;
+    private X509Certificate signerCertificate;
 
     /**
      * Content encryption algorithm
@@ -133,7 +141,7 @@ public class ScepRequest {
         readContentEncryptionAlgorithm();
     }
 
-    private void readDigestAlgorithm() throws CMSException {
+    private void readDigestAlgorithm() throws CMSException, ScepException {
         CMSSignedData cmsSignedData = new CMSSignedData(message);
         SignerInformationStore signerInformationStore = cmsSignedData.getSignerInfos();
         Collection<SignerInformation> signerInformation = signerInformationStore.getSigners();
@@ -141,6 +149,26 @@ public class ScepRequest {
             digestAlgorithmOid = signerInformationElement.getDigestAlgOID();
             logger.debug("Identified digest algorithm: " + digestAlgorithmOid);
         });
+        readSignerCertificate(cmsSignedData);
+    }
+
+    private void readSignerCertificate(CMSSignedData cmsSignedData) throws ScepException {
+        Store<X509CertificateHolder> certStore = cmsSignedData.getCertificates();
+        SignerInformationStore signerInfos = cmsSignedData.getSignerInfos();
+        Collection<SignerInformation> signers = signerInfos.getSigners();
+        List<X509Certificate> certificates = new ArrayList<>();
+        for (SignerInformation signer : signers) {
+            try {
+                Collection<X509CertificateHolder> matches = certStore.getMatches(signer.getSID());
+                for (X509CertificateHolder holder : matches) {
+                    certificates.add(new JcaX509CertificateConverter().getCertificate(holder));
+                }
+            } catch (java.security.cert.CertificateException e) {
+                logger.error(e.getMessage());
+            }
+        }
+        if(certificates.isEmpty()) throw new ScepException("No Signer Information available on the request");
+        this.signerCertificate = certificates.get(0);
     }
 
     private void checkContentType() throws IOException, ScepException {
@@ -299,7 +327,6 @@ public class ScepRequest {
 
     // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not only SCEP
     public String getChallengePassword() {
-        String challengePassword = null;
         // Try to get the challenge password using the direct challenge password extemsion
         org.bouncycastle.asn1.pkcs.Attribute[] attributes = this.pkcs10Request.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
         // If there are no values, there is a possibility that its inside the CSR extensions.
@@ -314,13 +341,13 @@ public class ScepRequest {
             Extensions exts = Extensions.getInstance(asn1Encodables.getObjectAt(0));
             Extension ext = exts.getExtension(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
             if (ext == null) return null;
-            return extractPasswordFromAs1(ext.getExtnValue());
+            return extractPasswordFromAsn1(ext.getExtnValue());
         } else {
-            return extractPasswordFromAs1(attributes[0].getAttrValues().getObjectAt(0));
+            return extractPasswordFromAsn1(attributes[0].getAttrValues().getObjectAt(0));
         }
     }
 
-    private String extractPasswordFromAs1(Object extnValue) {
+    private String extractPasswordFromAsn1(Object extnValue) {
         if(extnValue == null) { return null; }
         Object challengePassword;
         try {
