@@ -56,7 +56,7 @@ public class ScepResponse {
     /**
      * The certificate to sign the response with.
      */
-    private Certificate signerCertificate;
+    private X509Certificate signerCertificate;
     /**
      * The private key to sign the response.
      */
@@ -133,7 +133,7 @@ public class ScepResponse {
         this.contentEncryptionAlgorithm = contentEncryptionAlgorithm;
     }
 
-    public void setSigningAttributes (Certificate signerCertificate, PrivateKey signerPrivateKey, Provider signerProvider) {
+    public void setSigningAttributes (X509Certificate signerCertificate, PrivateKey signerPrivateKey, Provider signerProvider) {
         this.signerCertificate = signerCertificate;
         this.signerPrivateKey = signerPrivateKey;
         this.signerProvider = signerProvider;
@@ -216,7 +216,7 @@ public class ScepResponse {
         // Create attributes that will be signed
         Hashtable<ASN1ObjectIdentifier, Attribute> attributes = createAttributes();
 
-        String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm());
+        String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm()).replace("SHA-","SHA").replace("WITH","with");
 
         ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(signerProvider).build(signerPrivateKey);
         JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);

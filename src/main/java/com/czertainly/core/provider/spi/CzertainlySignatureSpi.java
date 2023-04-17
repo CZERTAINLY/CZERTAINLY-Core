@@ -51,7 +51,7 @@ public class CzertainlySignatureSpi extends SignatureSpi {
         }
         this.privateKey = (CzertainlyPrivateKey) privateKey;
         this.isSign = true;
-        this.verifyBuffer = new byte[0];
+        this.buffer = new byte[0];
     }
 
     @Override
@@ -61,16 +61,10 @@ public class CzertainlySignatureSpi extends SignatureSpi {
 
     @Override
     protected void engineUpdate(byte[] bytes, int off, int len) throws SignatureException {
-        byte[] data = new byte[len - off];
-        System.arraycopy(bytes, off, data, 0, len);
-
-        byte[] newBuffer = new byte[this.buffer.length + data.length];
-        newBuffer = ArrayUtils.addAll(newBuffer, this.buffer);
-        newBuffer = ArrayUtils.addAll(newBuffer, data);
         if (isSign) {
-            this.buffer = newBuffer;
+            this.buffer = bytes;
         } else if (isVerify) {
-            this.verifyBuffer = newBuffer;
+            this.verifyBuffer = bytes;
         } else {
             throw new SignatureException("Invalid Operation");
         }
@@ -105,11 +99,11 @@ public class CzertainlySignatureSpi extends SignatureSpi {
             throw new InvalidKeyException("Public key is null");
         }
         if (!(publicKey instanceof CzertainlyPublicKey)) {
-            throw new InvalidKeyException("Private key must be CzertainlyPublicKey. Cannot be " + publicKey.getClass().getName());
+            throw new InvalidKeyException("Public key must be CzertainlyPublicKey. Cannot be " + publicKey.getClass().getName());
         }
         this.publicKey = (CzertainlyPublicKey) publicKey;
-        this.isSign = true;
-        this.buffer = new byte[0];
+        this.isVerify = true;
+        this.verifyBuffer = new byte[0];
     }
 
     @Override

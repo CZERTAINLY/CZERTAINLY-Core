@@ -10,11 +10,13 @@ import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.smime.SMIMECapability;
+import org.bouncycastle.asn1.x500.DirectoryString;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentVerifierProvider;
-import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder;
 import org.bouncycastle.pkcs.PKCSException;
@@ -298,24 +300,36 @@ public class ScepRequest {
     // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not only SCEP
     public String getChallengePassword() {
         String challengePassword = null;
-
-        // load the challenge password extension, if available
-        org.bouncycastle.asn1.pkcs.Attribute[] attributes = pkcs10Request.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
+        // Try to get the challenge password using the direct challenge password extemsion
+        org.bouncycastle.asn1.pkcs.Attribute[] attributes = this.pkcs10Request.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
+        // If there are no values, there is a possibility that its inside the CSR extensions.
+        // Iterate and gather the value from the CSR extension
         if (attributes.length == 0) {
-            attributes = pkcs10Request.getAttributes(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest);
+            attributes = this.getPkcs10Request().getAttributes(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest);
+            if (attributes.length == 0) return null;
+
+            ASN1Set asn1Encodables = attributes[0].getAttrValues();
+            if (asn1Encodables.size() == 0) return null;
+
+            Extensions exts = Extensions.getInstance(asn1Encodables.getObjectAt(0));
+            Extension ext = exts.getExtension(PKCSObjectIdentifiers.pkcs_9_at_challengePassword);
+            if (ext == null) return null;
+            return extractPasswordFromAs1(ext.getExtnValue());
+        } else {
+            return extractPasswordFromAs1(attributes[0].getAttrValues().getObjectAt(0));
         }
-        if (attributes.length == 0) {
-            return null;
+    }
+
+    private String extractPasswordFromAs1(Object extnValue) {
+        if(extnValue == null) { return null; }
+        Object challengePassword;
+        try {
+            challengePassword = DirectoryString.getInstance(extnValue);
+        } catch (IllegalArgumentException e) {
+            challengePassword = DERIA5String.getInstance(extnValue);
         }
-
-        // decode and return the challenge password
-        ASN1Set values = attributes[0].getAttrValues();
-
-        ASN1Set attribute = (ASN1Set) values.getObjectAt(1);
-        DERPrintableString passwordValue = (DERPrintableString) attribute.getObjectAt(0);
-        challengePassword = passwordValue.getString();
-
-        return challengePassword;
+        if (challengePassword != null) return ((ASN1String) challengePassword).getString();
+        return "";
     }
 
     // TODO: this method should have own implementation in PKCS#10 request, as it is general for all such requests, not only SCEP

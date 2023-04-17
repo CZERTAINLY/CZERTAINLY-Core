@@ -3,6 +3,8 @@ package com.czertainly.core.service.scep.impl;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
+import com.czertainly.api.model.common.collection.DigestAlgorithm;
+import com.czertainly.api.model.common.collection.RsaSignatureScheme;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
@@ -12,6 +14,7 @@ import com.czertainly.api.model.core.scep.PkiStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -324,6 +327,22 @@ public class ScepServiceImpl implements ScepService {
 
     private ResponseEntity<Object> buildResponse(ScepRequest scepRequest, ScepResponse scepResponse) throws ScepException {
         prepareMessage(scepRequest, scepResponse);
+        CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
+        CzertainlyPrivateKey czertainlyPrivateKey = cryptographicKeyService.getCzertainlyPrivateKey(scepProfile.getCaCertificate().getKey());
+        czertainlyPrivateKey.setSignatureAttributes(List.of(
+                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512.name()),
+                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15)));
+        // TODO - Improve
+        try {
+            scepResponse.setSigningAttributes(
+                    CertificateUtil.getX509Certificate(scepProfile.getCaCertificate().getCertificateContent().getContent()),
+                    czertainlyPrivateKey,
+                    czertainlyProvider
+
+            );
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+        }
         scepResponse.generate();
         byte[] responseBody;
         try {

@@ -2,6 +2,7 @@ package com.czertainly.core.provider;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.core.provider.spi.CzertainlyCipherSpi;
+import com.czertainly.core.provider.spi.CzertainlySignatureSpi;
 
 import java.security.Provider;
 
@@ -17,6 +18,6 @@ public class CzertainlySignatureService extends Provider.Service {
 
     @Override
     public Object newInstance(Object constructorParameter) {
-        return new CzertainlyCipherSpi(this.apiClient);
+        return new CzertainlySignatureSpi(this.apiClient);
     }
 }
