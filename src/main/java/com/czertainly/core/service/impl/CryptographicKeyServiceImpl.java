@@ -1227,7 +1227,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         usages = new ArrayList<>(usages);
         if (!new HashSet<>(List.of(PERMITTED_USAGES.get(content.getType()))).containsAll(usages)) {
             usages.removeAll(List.of(PERMITTED_USAGES.get(content.getType())));
-            String nonAllowedUsages = String.join(", ", usages.stream().map(KeyUsage::getName).collect(Collectors.toList()));
+            String nonAllowedUsages = String.join(", ", usages.stream().map(KeyUsage::getCode).collect(Collectors.toList()));
             keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.FAILED,
                     "Unsupported Key usages: " + nonAllowedUsages, null, content);
             throw new ValidationException(
@@ -1236,10 +1236,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     )
             );
         }
-        String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
+        String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getCode).collect(Collectors.toList()));
         content.setUsage(usages);
         cryptographicKeyItemRepository.save(content);
-        String newUsage = String.join(", ", usages.stream().map(KeyUsage::getName).collect(Collectors.toList()));
+        String newUsage = String.join(", ", usages.stream().map(KeyUsage::getCode).collect(Collectors.toList()));
         keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
                 "Update Key Usage from " + oldUsage + " to " + newUsage, null, content);
     }
@@ -1308,12 +1308,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_LENGTH),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getName).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getName).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()))
         );
