@@ -1,5 +1,6 @@
 package com.czertainly.core.messaging.listeners;
 
+import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.producers.NotificationProducer;
@@ -17,7 +18,7 @@ public class EventListener {
     @Autowired
     private NotificationProducer notificationProducer;
 
-    @RabbitListener(queues = "core.events", messageConverter = "jsonMessageConverter")
+    @RabbitListener(queues = RabbitMQConstants.QUEUE_EVENTS_NAME, messageConverter = "jsonMessageConverter")
     public void processMessage(EventMessage eventMessage) {
         logger.info("Received event message: {}", eventMessage);
 
