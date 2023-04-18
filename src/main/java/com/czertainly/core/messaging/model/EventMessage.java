@@ -4,12 +4,11 @@ import com.czertainly.core.messaging.model.enums.EventTypeEnum;
 import com.czertainly.core.messaging.model.enums.ResourceTypeEnum;
 import com.czertainly.core.messaging.model.enums.ServiceEnum;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 import java.util.UUID;
 
+@NoArgsConstructor
 @Getter(AccessLevel.PROTECTED)
 @Setter(AccessLevel.PROTECTED)
 public class EventMessage {
