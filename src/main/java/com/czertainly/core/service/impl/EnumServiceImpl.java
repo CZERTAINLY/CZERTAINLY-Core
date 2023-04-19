@@ -36,30 +36,5 @@ public class EnumServiceImpl implements EnumService {
         }
 
         return enumsMap;
-
-        /* REFLECTIONS Approach
-
-        ArrayList<PlatformEnumsDto> enums = new ArrayList<>();
-        Reflections reflections = new Reflections("com.czertainly.api.model");
-        Set<Class<? extends IPlatformEnum>> classes = reflections.getSubTypesOf(IPlatformEnum.class);
-        for (Class<? extends IPlatformEnum> platformEnum :classes) {
-            if (!platformEnum.isEnum()) continue;
-
-            ArrayList<EnumItemDto> enumItems = new ArrayList<>();
-            PlatformEnumsDto platformEnumDto = new PlatformEnumsDto();
-            platformEnumDto.setName(platformEnum.getSimpleName());
-
-            IPlatformEnum[] enumConstants = platformEnum.getEnumConstants();
-            for (IPlatformEnum enumConstant : enumConstants) {
-                EnumItemDto enumItem = new EnumItemDto();
-                enumItem.setCode(enumConstant.getCode());
-                enumItem.setLabel(enumConstant.getLabel());
-                enumItem.setDescription(enumConstant.getDescription());
-                enumItems.add(enumItem);
-            }
-            platformEnumDto.setItems(enumItems);
-            enums.add(platformEnumDto);
-        }
-         */
     }
 }
