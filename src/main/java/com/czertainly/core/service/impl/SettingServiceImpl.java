@@ -2,7 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
-import com.czertainly.api.model.core.settings.Section;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.UtilsSettingsDto;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
@@ -36,7 +36,7 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public PlatformSettingsDto getPlatformSettings() {
-        List<Setting> settings = settingRepository.findBySection(Section.PLATFORM);
+        List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
         PlatformSettingsDto platformSettings = new PlatformSettingsDto();
@@ -53,7 +53,7 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updatePlatformSettings(PlatformSettingsDto platformSettings) {
-        List<Setting> settings = settingRepository.findBySection(Section.PLATFORM);
+        List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
         // utils
@@ -61,7 +61,7 @@ public class SettingServiceImpl implements SettingService {
         Map<String, Setting> utilsSettings = mappedSettings.get("utils");
         if(utilsSettings == null || (setting = utilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
             setting = new Setting();
-            setting.setSection(Section.PLATFORM);
+            setting.setSection(SettingsSection.PLATFORM);
             setting.setCategory("utils");
             setting.setName(UTILS_SERVICE_URL_NAME);
         }

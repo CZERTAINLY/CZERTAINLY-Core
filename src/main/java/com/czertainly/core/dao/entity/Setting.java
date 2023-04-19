@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.settings.Section;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
@@ -13,7 +13,7 @@ public class Setting extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "section", nullable = false)
     @Enumerated(EnumType.STRING)
-    private Section section;
+    private SettingsSection section;
 
     @Column(name = "category")
     private String category;
@@ -24,11 +24,11 @@ public class Setting extends UniquelyIdentifiedAndAudited {
     @Column(name = "value", length = Integer.MAX_VALUE)
     private String value;
 
-    public Section getSection() {
+    public SettingsSection getSection() {
         return section;
     }
 
-    public void setSection(Section section) {
+    public void setSection(SettingsSection section) {
         this.section = section;
     }
 

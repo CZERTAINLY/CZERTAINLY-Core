@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.search.SearchCondition;
+import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -173,8 +174,8 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NAME.name(), AttributeContentType.STRING, AttributeType.META));
 
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.NAME, SearchCondition.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy("metadata", SearchableFields.NAME, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.PROPERTY, SearchableFields.NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.META, SearchableFields.NAME, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
 
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
                     = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
@@ -193,9 +194,9 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.CUSTOM));
 
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.NAME, SearchCondition.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy("Custom attribute", SearchableFields.SERIAL_NUMBER, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.PROPERTY, SearchableFields.NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.PROPERTY, SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.CUSTOM, SearchableFields.SERIAL_NUMBER, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
 
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
                 = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
@@ -203,9 +204,9 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
 
 
         List<SearchFilterRequestDto> testFilters2 = new ArrayList<>();
-        testFilters2.add(new SearchFilterRequestDTODummy("property", SearchableFields.NAME, SearchCondition.EQUALS, "test"));
-        testFilters2.add(new SearchFilterRequestDTODummy("Custom attribute", SearchableFields.CKI_LENGTH, AttributeContentType.INTEGER, SearchCondition.EQUALS, 1));
-        testFilters2.add(new SearchFilterRequestDTODummy("Custom attribute", SearchableFields.SERIAL_NUMBER, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
+        testFilters2.add(new SearchFilterRequestDTODummy(SearchGroup.PROPERTY, SearchableFields.NAME, SearchCondition.EQUALS, "test"));
+        testFilters2.add(new SearchFilterRequestDTODummy(SearchGroup.CUSTOM, SearchableFields.CKI_LENGTH, AttributeContentType.INTEGER, SearchCondition.EQUALS, 1));
+        testFilters2.add(new SearchFilterRequestDTODummy(SearchGroup.CUSTOM, SearchableFields.SERIAL_NUMBER, AttributeContentType.STRING, SearchCondition.EQUALS, "test"));
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject2
                 = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters2,  criteriaBuilder, Resource.CERTIFICATE);
         Assertions.assertEquals(2, criteriaQueryDataObject2.getPredicate().getExpressions().size());
@@ -222,8 +223,8 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.META));
 
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.NAME, SearchCondition.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.PROPERTY, SearchableFields.NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.PROPERTY, SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
 
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
                 = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
@@ -240,10 +241,10 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.META));
 
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.NAME, SearchCondition.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy("property", SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy("metadata", SearchableFields.CKI_LENGTH, AttributeContentType.STRING, SearchCondition.EQUALS, 1));
-        testFilters.add(new SearchFilterRequestDTODummy("Custom attribute", SearchableFields.SERIAL_NUMBER, AttributeContentType.INTEGER, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.PROPERTY, SearchableFields.NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.PROPERTY, SearchableFields.COMMON_NAME, SearchCondition.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.META, SearchableFields.CKI_LENGTH, AttributeContentType.STRING, SearchCondition.EQUALS, 1));
+        testFilters.add(new SearchFilterRequestDTODummy(SearchGroup.CUSTOM, SearchableFields.SERIAL_NUMBER, AttributeContentType.INTEGER, SearchCondition.EQUALS, "test"));
 
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
                 = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
@@ -305,7 +306,7 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
     private SearchCondition conditionTest;
     private Serializable valueTest;
 
-    private String groupName;
+    private SearchGroup searchGroup;
 
     private String fieldIdentifier;
 
@@ -316,16 +317,16 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
         this.fieldIdentifier = fieldTest.name();
     }
 
-    public SearchFilterRequestDTODummy(String groupName, SearchableFields fieldTest, SearchCondition conditionTest, Serializable valueTest) {
-        this.groupName = groupName;
+    public SearchFilterRequestDTODummy(SearchGroup searchGroup, SearchableFields fieldTest, SearchCondition conditionTest, Serializable valueTest) {
+        this.searchGroup = searchGroup;
         this.fieldTest = fieldTest;
         this.conditionTest = conditionTest;
         this.valueTest = valueTest;
         this.fieldIdentifier = fieldTest.name();
     }
 
-    public SearchFilterRequestDTODummy(String groupName, SearchableFields fieldTest, AttributeContentType attributeContentType, SearchCondition conditionTest, Serializable valueTest) {
-        this.groupName = groupName;
+    public SearchFilterRequestDTODummy(SearchGroup searchGroup, SearchableFields fieldTest, AttributeContentType attributeContentType, SearchCondition conditionTest, Serializable valueTest) {
+        this.searchGroup = searchGroup;
         this.fieldTest = fieldTest;
         this.conditionTest = conditionTest;
         this.valueTest = valueTest;
@@ -362,12 +363,12 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
         return fieldIdentifier;
     }
 
-    public void setGroupName(String groupName) {
-        this.groupName = groupName;
+    public void setSearchGroup(SearchGroup searchGroup) {
+        this.searchGroup = searchGroup;
     }
 
     @Override
-    public String getGroupName() {
-        return groupName;
+    public SearchGroup getSearchGroup() {
+        return searchGroup;
     }
 }
