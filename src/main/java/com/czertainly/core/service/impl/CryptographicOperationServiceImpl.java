@@ -479,7 +479,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         // Build bouncy castle p10 builder
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
                 principal,
-                CsrUtil.publicKeyObjectFromString(key, publicKeyItem.getCryptographicAlgorithm().getName())
+                CsrUtil.publicKeyObjectFromString(key, publicKeyItem.getCryptographicAlgorithm().getCode())
         );
 
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
