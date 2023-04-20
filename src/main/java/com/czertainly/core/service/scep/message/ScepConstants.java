@@ -1,11 +1,5 @@
 package com.czertainly.core.service.scep.message;
 
-import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
-
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.X509Certificate;
-import java.util.*;
-
 public class ScepConstants {
 
     /**

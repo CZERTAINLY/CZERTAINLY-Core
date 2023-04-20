@@ -2,6 +2,7 @@ package com.czertainly.core.provider.key;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
 
 import java.security.PrivateKey;
 import java.util.List;
@@ -14,19 +15,22 @@ public class CzertainlyPrivateKey implements PrivateKey {
 
     private ConnectorDto connectorDto;
 
+    private String algorithm;
+
     private List<RequestAttributeDto> encryptionAttributes;
 
     private List<RequestAttributeDto> signatureAttributes;
 
-    public CzertainlyPrivateKey(String tokenInstanceUuid, String keyUuid, ConnectorDto connectorDto) {
+    public CzertainlyPrivateKey(String tokenInstanceUuid, String keyUuid, ConnectorDto connectorDto, String algorithm) {
         this.keyUuid = keyUuid;
         this.connectorDto = connectorDto;
         this.tokenInstanceUuid = tokenInstanceUuid;
+        this.algorithm = algorithm;
     }
 
     @Override
     public String getAlgorithm() {
-        return "RSA";
+        return algorithm;
     }
 
     @Override

@@ -319,6 +319,4 @@ public class ExceptionHandlingAdvice {
         LOG.error("General error occurred: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("Internal server error.");
     }
-
-    //TODO - Add handling of SCEP Exception
 }

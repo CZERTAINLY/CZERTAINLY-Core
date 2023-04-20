@@ -863,7 +863,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         return new CzertainlyPrivateKey(
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
-                key.getTokenInstanceReference().getConnector().mapToDto()
+                key.getTokenInstanceReference().getConnector().mapToDto(),
+                item.getCryptographicAlgorithm().getName()
         );
     }
 

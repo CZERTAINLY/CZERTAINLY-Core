@@ -1,9 +1,13 @@
 package com.czertainly.core.service.scep.message;
 
 import com.czertainly.api.exception.ScepException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.collection.RsaSignatureScheme;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.api.model.core.scep.PkiStatus;
+import com.czertainly.core.attribute.RsaSignatureAttributes;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.util.AlgorithmUtil;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
@@ -28,10 +32,15 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.security.Provider;
-import java.security.cert.*;
-import java.util.*;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateEncodingException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Hashtable;
+import java.util.List;
 
 public class ScepResponse {
 
@@ -60,7 +69,7 @@ public class ScepResponse {
     /**
      * The private key to sign the response.
      */
-    private PrivateKey signerPrivateKey;
+    private CzertainlyPrivateKey signerPrivateKey;
     /**
      * The provider to use for signing the response.
      */
@@ -75,49 +84,50 @@ public class ScepResponse {
     private ASN1ObjectIdentifier contentEncryptionAlgorithm = SMIMECapability.dES_EDE3_CBC;
 
 
-    public ScepResponse() { }
+    public ScepResponse() {
+    }
 
-    public void setFailInfo (FailInfo failInfo) {
+    public void setFailInfo(FailInfo failInfo) {
         this.failInfo = failInfo;
     }
 
-    public void setPkiStatus (PkiStatus pkiStatus) {
+    public void setPkiStatus(PkiStatus pkiStatus) {
         this.pkiStatus = pkiStatus;
     }
 
-    public void setFailInfoText (String failInfoText) {
+    public void setFailInfoText(String failInfoText) {
         this.failInfoText = failInfoText;
     }
 
-    public void setRecipientNonce (String recipientNonce) {
+    public void setRecipientNonce(String recipientNonce) {
         this.recipientNonce = recipientNonce;
     }
 
-    public void setSenderNonce (String senderNonce) {
+    public void setSenderNonce(String senderNonce) {
         this.senderNonce = senderNonce;
     }
 
-    public void setTransactionId (String transactionId) {
+    public void setTransactionId(String transactionId) {
         this.transactionId = transactionId;
     }
 
-    public void setIncludeCaCertificate (boolean includeCaCertificate) {
+    public void setIncludeCaCertificate(boolean includeCaCertificate) {
         this.includeCaCertificate = includeCaCertificate;
     }
 
-    public void setCaCertificate (Certificate caCertificate) {
+    public void setCaCertificate(Certificate caCertificate) {
         this.caCertificate = caCertificate;
     }
 
-    public void setCertificate (Certificate certificate) {
+    public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
     }
 
-    public void setRecipientKeyInfo (byte[] recipientKeyInfo) {
+    public void setRecipientKeyInfo(byte[] recipientKeyInfo) {
         this.recipientKeyInfo = recipientKeyInfo;
     }
 
-    public void setDigestAlgorithmOid (String digestAlgorithmOid) {
+    public void setDigestAlgorithmOid(String digestAlgorithmOid) {
         this.digestAlgorithmOid = digestAlgorithmOid;
     }
 
@@ -133,7 +143,7 @@ public class ScepResponse {
         this.contentEncryptionAlgorithm = contentEncryptionAlgorithm;
     }
 
-    public void setSigningAttributes (X509Certificate signerCertificate, PrivateKey signerPrivateKey, Provider signerProvider) {
+    public void setSigningAttributes(X509Certificate signerCertificate, CzertainlyPrivateKey signerPrivateKey, Provider signerProvider) {
         this.signerCertificate = signerCertificate;
         this.signerPrivateKey = signerPrivateKey;
         this.signerProvider = signerProvider;
@@ -167,7 +177,6 @@ public class ScepResponse {
             List<X509Certificate> certificates = createCertificateChain();
 
             CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
-            // TODO: this part should be improved
             cmsSignedDataGenerator.addCertificates(new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificates)));
             CMSSignedData cmsSignedData = cmsSignedDataGenerator.generate(new CMSAbsentContent(), false);
 
@@ -175,7 +184,7 @@ public class ScepResponse {
             if (recipientKeyInfo != null) {
                 X509Certificate recipient = CertificateUtil.getX509Certificate(recipientKeyInfo);
                 logger.debug("Recipient certificate subject DN: '" + recipient.getSubjectX500Principal().getName() +
-                    "serial number: " + recipient.getSerialNumber().toString(16));
+                        "serial number: " + recipient.getSerialNumber().toString(16));
                 cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
                         new JceKeyTransRecipientInfoGenerator(recipient)
                                 .setProvider(BouncyCastleProvider.PROVIDER_NAME));
@@ -216,13 +225,20 @@ public class ScepResponse {
         // Create attributes that will be signed
         Hashtable<ASN1ObjectIdentifier, Attribute> attributes = createAttributes();
 
-        String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm()).replace("SHA-","SHA").replace("WITH","with");
+        if(pkiStatus.equals(PkiStatus.FAILURE)) {
 
+        }
+        String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm()).replace("SHA-", "SHA").replace("WITH", "with");
+        List<RequestAttributeDto> signatureAttributes = new ArrayList<>();
+        signatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)));
+        if (signerPrivateKey.getAlgorithm().equals("RSA"))
+            signatureAttributes.add(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15));
+        signerPrivateKey.setSignatureAttributes(signatureAttributes);
         ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(signerProvider).build(signerPrivateKey);
         JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
         JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());
         builder.setSignedAttributeGenerator(new DefaultSignedAttributeTableGenerator(new AttributeTable(attributes)));
-        cmsSignedDataGenerator.addSignerInfoGenerator(builder.build(contentSigner, (X509Certificate) signerCertificate));
+        cmsSignedDataGenerator.addSignerInfoGenerator(builder.build(contentSigner, signerCertificate));
 
         signedResponseData = cmsSignedDataGenerator.generate(responseData, true);
     }

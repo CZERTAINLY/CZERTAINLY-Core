@@ -276,7 +276,16 @@ public class ScepServiceImpl implements ScepService {
         CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
 
         // decrypt the PKCS#10 request
-        scepRequest.decryptData(czertainlyPrivateKey, czertainlyProvider);
+        try {
+            scepRequest.decryptData(
+                    czertainlyPrivateKey,
+                    czertainlyProvider,
+                    cryptographicKeyService.getKeyItemFromKey(scepProfile.getCaCertificate().getKey(), KeyType.PRIVATE_KEY).getCryptographicAlgorithm(),
+                    scepProfile.getChallengePassword()
+            );
+        } catch (CMSException e) {
+            return buildResponse(scepRequest, buildFailedResponse(new ScepException("Unable to decrypt the data. " + e.getMessage(), FailInfo.BAD_REQUEST)));
+        }
 
         // validate challenge password, if configured
         if (!validateScepChallengePassword(scepRequest.getChallengePassword())) {
@@ -330,10 +339,6 @@ public class ScepServiceImpl implements ScepService {
         prepareMessage(scepRequest, scepResponse);
         CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
         CzertainlyPrivateKey czertainlyPrivateKey = cryptographicKeyService.getCzertainlyPrivateKey(scepProfile.getCaCertificate().getKey());
-        czertainlyPrivateKey.setSignatureAttributes(List.of(
-                RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512.name()),
-                RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15)));
-        // TODO - Improve
         try {
             scepResponse.setSigningAttributes(
                     CertificateUtil.getX509Certificate(scepProfile.getCaCertificate().getCertificateContent().getContent()),
@@ -427,7 +432,8 @@ public class ScepServiceImpl implements ScepService {
         if (scepRequest == null) {
             return;
         }
-        // TODO: what if some of the request field are null?
+        // As per the scep RFC the fields are not to be null. EVen if they are null, these
+        // are handled when generating the attributes for the CMS signed data for the response
         scepResponse.setRecipientNonce(scepRequest.getSenderNonce());
         scepResponse.setTransactionId(scepRequest.getTransactionId());
         scepResponse.setCaCertificate(recipient);
@@ -487,7 +493,7 @@ public class ScepServiceImpl implements ScepService {
         }
         try {
             if (!scepRequest.verifySignature(scepRequest.getSignerCertificate().getPublicKey())) {
-                throw new ScepException("SCEP Request signature verification failed");
+                throw new                                                                                                                                                            ScepException("SCEP Request signature verification failed");
             }
         } catch (OperatorCreationException | CMSException e) {
             throw new ScepException("Exception when verifying signature." + e.getMessage());

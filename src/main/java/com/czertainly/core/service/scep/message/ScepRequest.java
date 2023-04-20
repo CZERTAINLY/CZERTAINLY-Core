@@ -2,6 +2,8 @@ package com.czertainly.core.service.scep.message;
 
 import com.czertainly.api.exception.CertificateException;
 import com.czertainly.api.exception.ScepException;
+import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.cryptography.key.RsaPadding;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
@@ -19,6 +21,7 @@ import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cms.*;
 import org.bouncycastle.cms.jcajce.JceKeyTransEnvelopedRecipient;
+import org.bouncycastle.cms.jcajce.JcePasswordEnvelopedRecipient;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentVerifierProvider;
 import org.bouncycastle.operator.OperatorCreationException;
@@ -208,11 +211,12 @@ public class ScepRequest {
                 String attributeOid = attribute.getAttrType().getId();
                 logger.debug("SignerInfo Attribute: " + attributeOid);
 
-                // TODO: ifs should be improved
+                // According to SCEP RFC, all the attributes are represented by the string format of the integer.
+                // Check if the attribute oid is of the specified type and if it is, then get the constant from
+                // the enum
                 if (attributeOid.equals(ScepConstants.id_messageType)) {
                     Enumeration<?> attributeValues = attribute.getAttrValues().getObjects();
                     ASN1PrintableString asn1PrintableString = ASN1PrintableString.getInstance(attributeValues.nextElement());
-                    // TODO: messageType should be enum according to RFC 8894 (https://www.rfc-editor.org/rfc/rfc8894.html#name-messagetype)
                     messageType = MessageType.resolve(Integer.parseInt(asn1PrintableString.getString()));
                 }
 
@@ -282,11 +286,7 @@ public class ScepRequest {
         return ContentInfo.getInstance(asn1Sequence);
     }
 
-    public void decryptData(CzertainlyPrivateKey privateKey, Provider provider) throws ScepException {
-        if (privateKey == null || provider == null) {
-            throw new ScepException("Private key or provider is null", FailInfo.BAD_REQUEST);
-        }
-
+    public void decryptData(CzertainlyPrivateKey privateKey, Provider provider, CryptographicAlgorithm algorithm, String challengePassword) throws ScepException, CMSException {
         CMSEnvelopedData cmsEnvelopedData;
         try {
             cmsEnvelopedData = new CMSEnvelopedData(encapsulatedContent.getEncoded());
@@ -301,22 +301,28 @@ public class ScepRequest {
         byte[] decryptedData = null;
 
         if (recipientInformationIterator.hasNext()) {
-
-            //TODO check for the algorithm
-
-            privateKey.setEncryptionAttributes(List.of(RsaEncryptionAttributes.buildPadding(RsaPadding.PKCS1_v1_5)));
             RecipientInformation recipient = recipientInformationIterator.next();
-            JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(privateKey);
-            jceKeyTransEnvelopedRecipient.setProvider(provider);
-            jceKeyTransEnvelopedRecipient.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
-            jceKeyTransEnvelopedRecipient.setMustProduceEncodableUnwrappedKey(true);
+            if(algorithm.equals(CryptographicAlgorithm.RSA)) {
+                if (privateKey == null || provider == null) {
+                    throw new ScepException("Private key or provider is null", FailInfo.BAD_REQUEST);
+                }
+                privateKey.setEncryptionAttributes(List.of(RsaEncryptionAttributes.buildPadding(RsaPadding.PKCS1_v1_5)));
+                JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(privateKey);
+                jceKeyTransEnvelopedRecipient.setProvider(provider);
+                jceKeyTransEnvelopedRecipient.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
+                jceKeyTransEnvelopedRecipient.setMustProduceEncodableUnwrappedKey(true);
 
-            try {
-                decryptedData = recipient.getContent(jceKeyTransEnvelopedRecipient);
-            } catch (CMSException e) {
-                String errorMessage = "Failed to decrypt encapsulated content";
-                logger.error(errorMessage + ": ", e);
-                throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
+                try {
+                    decryptedData = recipient.getContent(jceKeyTransEnvelopedRecipient);
+                } catch (CMSException e) {
+                    String errorMessage = "Failed to decrypt encapsulated content";
+                    logger.error(errorMessage + ": ", e);
+                    throw new ScepException(errorMessage, e, FailInfo.BAD_REQUEST);
+                }
+            } else {
+                JcePasswordEnvelopedRecipient jcePasswordEnvelopedRecipient = new JcePasswordEnvelopedRecipient(challengePassword.toCharArray());
+                jcePasswordEnvelopedRecipient.setProvider(BouncyCastleProvider.PROVIDER_NAME);
+                decryptedData = recipient.getContent(jcePasswordEnvelopedRecipient);
             }
         }
         assert decryptedData != null;

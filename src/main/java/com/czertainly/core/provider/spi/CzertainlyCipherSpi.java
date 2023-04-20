@@ -54,8 +54,8 @@ public class CzertainlyCipherSpi extends CipherSpi {
                     );
             return responseDto.getDecryptedData().get(0).getData();
         } catch (ConnectorException e) {
-            //TODO Change the exception type
-            throw new RuntimeException(e);
+            log.error(e.getMessage());
+            return new byte[0];
         }
     }
 

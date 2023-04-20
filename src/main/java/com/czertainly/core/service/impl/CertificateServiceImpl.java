@@ -956,15 +956,22 @@ public class CertificateServiceImpl implements CertificateService {
         // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
         // It is required to check RSA for public key since only RSA keys are encryption capable
         // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
-        // TODO check if the public key needs verification permission as well
         for (CryptographicKeyItem item : certificate.getKey().getItems()) {
             if (item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)
                     && item.getType().equals(KeyType.PUBLIC_KEY)) {
-                if (!item.getUsage().contains(KeyUsage.ENCRYPT)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
                     return false;
                 }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY)) {
-                if (item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)) {
+                if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.SIGN))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PUBLIC_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.VERIFY))) {
                     return false;
                 }
             }
