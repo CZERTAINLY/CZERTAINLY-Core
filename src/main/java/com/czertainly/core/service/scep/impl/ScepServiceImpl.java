@@ -79,7 +79,7 @@ public class ScepServiceImpl implements ScepService {
             "Renewal",
             "SCEPStandard"
     );
-    private final List<X509Certificate> caCertificateChain = new ArrayList<>();
+    private List<X509Certificate> caCertificateChain = new ArrayList<>();
     private X509Certificate recipient;
     private boolean raProfileBased;
     private RaProfile raProfile;
@@ -185,6 +185,7 @@ public class ScepServiceImpl implements ScepService {
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
         setRecipient(scepCaCertificate.getCertificateContent().getContent());
+        this.caCertificateChain = new ArrayList<>();
         for (Certificate certificate : certValidationService.getCertificateChain(scepCaCertificate)) {
             try {
                 this.caCertificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));

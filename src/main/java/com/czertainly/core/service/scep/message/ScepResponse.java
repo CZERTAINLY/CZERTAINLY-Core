@@ -2,6 +2,7 @@ package com.czertainly.core.service.scep.message;
 
 import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.collection.DigestAlgorithm;
 import com.czertainly.api.model.common.collection.RsaSignatureScheme;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
@@ -230,7 +231,7 @@ public class ScepResponse {
         }
         String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm()).replace("SHA-", "SHA").replace("WITH", "with");
         List<RequestAttributeDto> signatureAttributes = new ArrayList<>();
-        signatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)));
+        signatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.findByCode(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)).name()));
         if (signerPrivateKey.getAlgorithm().equals("RSA"))
             signatureAttributes.add(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15));
         signerPrivateKey.setSignatureAttributes(signatureAttributes);
