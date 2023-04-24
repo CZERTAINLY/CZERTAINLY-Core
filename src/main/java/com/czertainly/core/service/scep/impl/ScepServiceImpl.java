@@ -35,7 +35,9 @@ import com.czertainly.core.service.scep.message.ScepRequest;
 import com.czertainly.core.service.scep.message.ScepResponse;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.CsrUtil;
 import com.czertainly.core.util.RandomUtil;
+import com.microsoft.intune.scepvalidation.IntuneScepServiceClient;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
@@ -61,6 +63,7 @@ import java.security.NoSuchProviderException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Service
@@ -163,7 +166,8 @@ public class ScepServiceImpl implements ScepService {
             case "GetCACert" -> caCertificateChain.size() > 1 ? getCaCertChain() : getCaCert();
             case "GetCACaps" -> getCaCaps();
             case "PKIOperation" -> pkiOperation(message);
-            default -> buildResponse(null, buildFailedResponse(new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST)));
+            default ->
+                    buildResponse(null, buildFailedResponse(new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST)));
         };
     }
 
@@ -264,6 +268,7 @@ public class ScepServiceImpl implements ScepService {
     private ResponseEntity<Object> pkiOperation(byte[] body) throws ScepException {
         ScepRequest scepRequest;
         ScepResponse scepResponse;
+        IntuneScepServiceClient intuneClient = null;
 
         scepRequest = new ScepRequest(body);
 
@@ -288,6 +293,11 @@ public class ScepServiceImpl implements ScepService {
             return buildResponse(scepRequest, buildFailedResponse(new ScepException("Unable to decrypt the data. " + e.getMessage(), FailInfo.BAD_REQUEST)));
         }
 
+        if (scepProfile.getIntuneTenant() != null) {
+            Properties properties = getIntuneConfiguration();
+            intuneClient = buildIntuneClient(properties);
+        }
+
         // validate challenge password, if configured
         if (!validateScepChallengePassword(scepRequest.getChallengePassword())) {
             return buildResponse(scepRequest, buildFailedResponse(new ScepException("Challenge password validation failed.", FailInfo.BAD_MESSAGE_CHECK)));
@@ -304,24 +314,32 @@ public class ScepServiceImpl implements ScepService {
             try {
                 scepResponse = getExistingTransaction(scepRequest.getTransactionId());
             } catch (CertificateException e) {
-                scepResponse = buildFailedResponse(new ScepException("Error while formatting certificate", FailInfo.BAD_REQUEST));;
+                scepResponse = buildFailedResponse(new ScepException("Error while formatting certificate", FailInfo.BAD_REQUEST));
             }
         } else if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
             try {
                 // Manual approval for the SCEP clients are configured in the SCEP Profile.
                 // If the SCEP Profile has the manual approval set to true, only the CSR will be generated
                 if (scepProfile.getRequireManualApproval() != null && !scepProfile.getRequireManualApproval()) {
-                    scepResponse = issueCertificate(scepRequest);
+                    scepResponse = issueCertificate(scepRequest, intuneClient);
                 } else {
-                    scepResponse = generateCsr(scepRequest);
+                    scepResponse = generateCsr(scepRequest, intuneClient);
                 }
             } catch (Exception e) {
-                scepResponse =  buildFailedResponse(new ScepException("Failed to process SCEP request", e, FailInfo.BAD_REQUEST));
+                scepResponse = buildFailedResponse(new ScepException("Failed to process SCEP request", e, FailInfo.BAD_REQUEST));
+                if (scepProfile.getIntuneTenant() != null) {
+                    sendIntuneFailureMessage(
+                            intuneClient,
+                            scepRequest,
+                            1L,
+                            e.getMessage()
+                    );
+                }
             }
         } else if (scepRequest.getMessageType().equals(MessageType.CERT_POLL)) {
-            scepResponse = pollCertificate(scepRequest);
+            scepResponse = pollCertificate(scepRequest, intuneClient);
         } else {
-            scepResponse =  buildFailedResponse(new ScepException("Unsupported Operation. The requested operation is not supported", FailInfo.BAD_REQUEST));
+            scepResponse = buildFailedResponse(new ScepException("Unsupported Operation. The requested operation is not supported", FailInfo.BAD_REQUEST));
         }
         return buildResponse(scepRequest, scepResponse);
     }
@@ -360,7 +378,13 @@ public class ScepServiceImpl implements ScepService {
         return getResponseEntity(responseBody, "application/x-pki-message", responseBody.length);
     }
 
-    private ScepResponse issueCertificate(ScepRequest scepRequest) throws CertificateException, ConnectorException, NoSuchAlgorithmException, AlreadyExistException, IOException {
+    private ScepResponse issueCertificate(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) throws Exception {
+        if (scepProfile.getIntuneTenant() != null) {
+            validateIntuneRequest(
+                    intuneClient,
+                    scepRequest
+            );
+        }
         ClientCertificateSignRequestDto requestDto = new ClientCertificateSignRequestDto();
         ScepResponse scepResponse = new ScepResponse();
 
@@ -369,17 +393,27 @@ public class ScepServiceImpl implements ScepService {
         scepResponse.setCertificate(CertificateUtil.parseCertificate(response.getCertificateData()));
         addTransactionEntity(scepRequest.getTransactionId(), response.getUuid());
         scepResponse.setPkiStatus(PkiStatus.SUCCESS);
-
+        sendIntuneSuccessNotification(
+                intuneClient,
+                scepRequest,
+                scepResponse.getIssuedCertificate()
+        );
         return scepResponse;
     }
 
 
-    private ScepResponse generateCsr(ScepRequest scepRequest) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
+    private ScepResponse generateCsr(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) throws Exception {
+        if (scepProfile.getIntuneTenant() != null) {
+            validateIntuneRequest(
+                    intuneClient,
+                    scepRequest
+            );
+        }
         ClientCertificateRequestDto requestDto = new ClientCertificateRequestDto();
         ScepResponse scepResponse = new ScepResponse();
-
         requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
         CertificateDetailDto response = clientOperationService.createCsr(requestDto);
+        scepResponse.setIssuedCertificate(certificateService.getCertificateEntity(SecuredUUID.fromString(response.getUuid())));
         CertificateUpdateObjectsDto updateObjectsRequest = new CertificateUpdateObjectsDto();
         updateObjectsRequest.setRaProfileUuid(raProfile.getUuid().toString());
         certificateService.updateCertificateObjects(SecuredUUID.fromString(response.getUuid()), updateObjectsRequest);
@@ -397,6 +431,7 @@ public class ScepServiceImpl implements ScepService {
         if (certificate.getStatus() != CertificateStatus.NEW) {
             scepResponse.setPkiStatus(PkiStatus.SUCCESS);
             scepResponse.setCertificate(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
+            scepResponse.setIssuedCertificate(certificate);
         } else {
             scepResponse.setPkiStatus(PkiStatus.PENDING);
         }
@@ -411,13 +446,19 @@ public class ScepServiceImpl implements ScepService {
         scepTransactionRepository.save(scepTransaction);
     }
 
-    private ScepResponse pollCertificate(ScepRequest scepRequest) {
+    private ScepResponse pollCertificate(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) {
         ScepResponse scepResponse = new ScepResponse();
         try {
             ScepTransaction transaction = getTransaction(scepRequest.getTransactionId());
             if (!transaction.getCertificate().getStatus().equals(CertificateStatus.NEW)) {
                 scepResponse.setCertificate(CertificateUtil.parseCertificate(transaction.getCertificate().getCertificateContent().getContent()));
                 scepResponse.setPkiStatus(PkiStatus.SUCCESS);
+                scepResponse.setIssuedCertificate(transaction.getCertificate());
+                sendIntuneSuccessNotification(
+                        intuneClient,
+                        scepRequest,
+                        scepResponse.getIssuedCertificate()
+                );
             } else {
                 scepResponse.setPkiStatus(PkiStatus.PENDING);
             }
@@ -458,7 +499,7 @@ public class ScepServiceImpl implements ScepService {
     public void verifyRequest(ScepRequest scepRequest) throws ScepException {
 
         // Throw exception if the request type is not renewal or issuing a new certificate
-        if ( !scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ) && !scepRequest.getMessageType().equals(MessageType.PKCS_REQ) ) {
+        if (!scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ) && !scepRequest.getMessageType().equals(MessageType.PKCS_REQ)) {
             throw new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST);
         }
 
@@ -489,12 +530,12 @@ public class ScepServiceImpl implements ScepService {
         } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
             throw new ScepException("Unable to parse the signer certificate");
         }
-        if(!(new X500Name(extCertificate.getSubjectDn())).equals(pkcs10Request.getSubject())) {
+        if (!(new X500Name(extCertificate.getSubjectDn())).equals(pkcs10Request.getSubject())) {
             throw new ScepException("Subject DN for the renewal request does not match the original certificate");
         }
         try {
             if (!scepRequest.verifySignature(scepRequest.getSignerCertificate().getPublicKey())) {
-                throw new                                                                                                                                                            ScepException("SCEP Request signature verification failed");
+                throw new ScepException("SCEP Request signature verification failed");
             }
         } catch (OperatorCreationException | CMSException e) {
             throw new ScepException("Exception when verifying signature." + e.getMessage());
@@ -517,6 +558,73 @@ public class ScepServiceImpl implements ScepService {
             if (certificate.getExpiryInDays() > scepProfile.getRenewalThreshold()) {
                 throw new ScepException("Cannot renew certificate. Validity exceeds the configured value in SCEP profile", FailInfo.BAD_REQUEST);
             }
+        }
+    }
+
+    private Properties getIntuneConfiguration() {
+        // Create the properties based on the scep profile Intune properties
+        Properties configProperties = new Properties();
+        configProperties.put("AAD_APP_ID", scepProfile.getIntuneApplicationId());
+        configProperties.put("AAD_APP_KEY", scepProfile.getIntuneApplicationKey());
+        configProperties.put("TENANT", scepProfile.getIntuneTenant());
+        configProperties.put("PROVIDER_NAME_AND_VERSION", "CZERTAINLY-V2.7.2");
+        return configProperties;
+    }
+
+    private IntuneScepServiceClient buildIntuneClient(Properties configProperties) {
+        return new IntuneScepServiceClient(configProperties);
+    }
+
+    private void validateIntuneRequest(IntuneScepServiceClient client, ScepRequest scepRequest) throws Exception {
+        if (scepRequest.getTransactionId() == null || scepRequest.getTransactionId().isEmpty()) {
+            throw new ScepException("Transaction ID cannot be empty for Intune requests");
+        }
+        if (scepRequest.getPkcs10Request() == null) {
+            throw new ScepException("Cannot initiate Intune validation. PKCS#10 request is empty");
+        }
+        client.ValidateRequest(
+                scepRequest.getTransactionId(),
+                CsrUtil.byteArrayCsrToString(scepRequest.getPkcs10Request().getEncoded())
+        );
+    }
+
+    private void sendIntuneSuccessNotification(
+            IntuneScepServiceClient client,
+            ScepRequest request,
+            Certificate certificate) {
+        String pattern = "YYYY-MM-DDThh:mm:ss.sssTZD";
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
+        String expiryDate = simpleDateFormat.format(certificate.getNotAfter());
+        String serialNumber = certificate.getSerialNumber();
+        String issuingAuthority = certificate.getIssuerCommonName();
+
+        try {
+            String sha1Thumbprint = CertificateUtil.getSha1Thumbprint(CertificateUtil.getX509Certificate(certificate.getCertificateContent().getContent()).getEncoded());
+            client.SendSuccessNotification(
+                    request.getTransactionId(),
+                    CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
+                    sha1Thumbprint,
+                    serialNumber,
+                    expiryDate,
+                    issuingAuthority,
+                    "",
+                    ""
+            );
+        } catch (Exception e) {
+            logger.error("Unable to update Intune with success notification. " + e.getMessage());
+        }
+    }
+
+    private void sendIntuneFailureMessage(IntuneScepServiceClient client, ScepRequest request, long errorCode, String error) {
+        try {
+            client.SendFailureNotification(
+                    request.getTransactionId(),
+                    CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
+                    errorCode,
+                    error
+            );
+        } catch (Exception e) {
+            logger.error("Unable to update Intune with failed notification. " + e.getMessage());
         }
     }
 }

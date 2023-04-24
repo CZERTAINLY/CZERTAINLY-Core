@@ -220,6 +220,15 @@ public class CertificateUtil {
         return thumbprint;
     }
 
+    public static String getSha1Thumbprint(byte[] encodedContent)
+            throws NoSuchAlgorithmException {
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
+        messageDigest.update(encodedContent);
+        byte[] digest = messageDigest.digest();
+        String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
+        return thumbprint;
+    }
+
     public static String getThumbprint(X509Certificate certificate)
             throws NoSuchAlgorithmException, CertificateEncodingException {
         return getThumbprint(certificate.getEncoded());

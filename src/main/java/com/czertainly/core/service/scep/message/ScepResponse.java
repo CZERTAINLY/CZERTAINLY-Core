@@ -84,6 +84,8 @@ public class ScepResponse {
      */
     private ASN1ObjectIdentifier contentEncryptionAlgorithm = SMIMECapability.dES_EDE3_CBC;
 
+    private com.czertainly.core.dao.entity.Certificate issuedCertificate;
+
 
     public ScepResponse() {
     }
@@ -142,6 +144,14 @@ public class ScepResponse {
 
     public void setContentEncryptionAlgorithm(ASN1ObjectIdentifier contentEncryptionAlgorithm) {
         this.contentEncryptionAlgorithm = contentEncryptionAlgorithm;
+    }
+
+    public com.czertainly.core.dao.entity.Certificate getIssuedCertificate() {
+        return issuedCertificate;
+    }
+
+    public void setIssuedCertificate(com.czertainly.core.dao.entity.Certificate issuedCertificate) {
+        this.issuedCertificate = issuedCertificate;
     }
 
     public void setSigningAttributes(X509Certificate signerCertificate, CzertainlyPrivateKey signerPrivateKey, Provider signerProvider) {

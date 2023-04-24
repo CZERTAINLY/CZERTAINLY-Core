@@ -69,6 +69,15 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "challenge_password")
     private String challengePassword;
 
+    @Column(name = "intune_tenant")
+    private String intuneTenant;
+
+    @Column(name = "intune_application_id")
+    private String intuneApplicationId;
+
+    @Column(name = "intune_application_key")
+    private String intuneApplicationKey;
+
     @Override
     public ScepProfileDto mapToDto() {
         ScepProfileDto scepProfileDto = new ScepProfileDto();
@@ -106,6 +115,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
             scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name);
         }
+        scepProfileDto.setIntuneTenant(intuneTenant);
+        scepProfileDto.setIntuneApplicationId(intuneApplicationId);
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return scepProfileDto;
     }
@@ -247,5 +258,29 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         } else {
             this.challengePassword = null;
         }
+    }
+
+    public String getIntuneTenant() {
+        return intuneTenant;
+    }
+
+    public void setIntuneTenant(String intuneTenant) {
+        this.intuneTenant = intuneTenant;
+    }
+
+    public String getIntuneApplicationId() {
+        return intuneApplicationId;
+    }
+
+    public void setIntuneApplicationId(String intuneApplicationId) {
+        this.intuneApplicationId = intuneApplicationId;
+    }
+
+    public String getIntuneApplicationKey() {
+        return intuneApplicationKey;
+    }
+
+    public void setIntuneApplicationKey(String intuneApplicationKey) {
+        this.intuneApplicationKey = intuneApplicationKey;
     }
 }
