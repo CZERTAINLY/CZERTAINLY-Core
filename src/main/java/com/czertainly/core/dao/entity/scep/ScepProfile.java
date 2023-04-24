@@ -113,7 +113,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         if(caCertificate != null) scepProfileDto.setCaCertificate(caCertificate.mapToListDto());
         if(raProfile != null) {
             scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name);
+                    + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
         scepProfileDto.setIntuneTenant(intuneTenant);
         scepProfileDto.setIntuneApplicationId(intuneApplicationId);

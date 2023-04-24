@@ -106,7 +106,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setScepAvailable(true);
         dto.setUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name);
+                + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         dto.setName(scepProfile.getName());
         dto.setUuid(scepProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), DataAttribute.class)));

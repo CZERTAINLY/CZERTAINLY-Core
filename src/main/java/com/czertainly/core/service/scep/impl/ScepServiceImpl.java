@@ -70,7 +70,7 @@ import java.util.*;
 @Transactional
 public class ScepServiceImpl implements ScepService {
 
-    public static final String SCEP_URL_PREFIX = "/v1/protocol/scep";
+    public static final String SCEP_URL_PREFIX = "/v1/protocols/scep";
     private static final Logger logger = LoggerFactory.getLogger(ScepServiceImpl.class);
     private static final List<String> SCEP_CA_CAPABILITIES = List.of(
             "POSTPKIOperation",
