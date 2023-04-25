@@ -203,6 +203,7 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
         setRecipient(scepCaCertificate.getCertificateContent().getContent());
+        this.caCertificateChain = new ArrayList<>();
         for (Certificate certificate : certValidationService.getCertificateChain(scepCaCertificate)) {
             try {
                 this.caCertificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
