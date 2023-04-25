@@ -93,7 +93,7 @@ public class ExtendedScepHelperServiceImpl implements ExtendedScepHelperService 
             "DES3",
             "Renewal"
     );
-    private final List<X509Certificate> caCertificateChain = new ArrayList<>();
+    private List<X509Certificate> caCertificateChain = new ArrayList<>();
     private X509Certificate recipient;
     private boolean raProfileBased;
     private RaProfile raProfile;
