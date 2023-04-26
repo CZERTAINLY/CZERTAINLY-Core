@@ -48,6 +48,7 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -69,6 +70,9 @@ import java.util.*;
 @Service
 @Transactional
 public class ScepServiceImpl implements ScepService {
+
+    @Value("${app.version}")
+    private String appVersion;
 
     public static final String SCEP_URL_PREFIX = "/v1/protocols/scep";
     private static final Logger logger = LoggerFactory.getLogger(ScepServiceImpl.class);
@@ -163,7 +167,7 @@ public class ScepServiceImpl implements ScepService {
         init(profileName);
         validateProfile();
         return switch (operation) {
-            case "GetCACert" -> caCertificateChain.size() > 1 ? getCaCertChain() : getCaCert();
+            case "GetCACert" -> getCaCerts();
             case "GetCACaps" -> getCaCaps();
             case "PKIOperation" -> pkiOperation(message);
             default ->
@@ -232,26 +236,22 @@ public class ScepServiceImpl implements ScepService {
         }
     }
 
-    private ResponseEntity<Object> getCaCert() {
+    private ResponseEntity<Object> getCaCerts() {
+        byte[] encoded;
         try {
-            byte[] encoded = recipient.getEncoded();
-            return getResponseEntity(encoded, "application/x-x509-ca-cert", encoded.length);
-        } catch (CertificateException e) {
+            if(caCertificateChain.size() > 1) {
+                encoded = recipient.getEncoded();
+                return getResponseEntity(encoded, "application/x-x509-ca-cert", encoded.length);
+            } else {
+                CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
+                generator.addCertificates(new JcaCertStore(caCertificateChain));
+                encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
+                return getResponseEntity(encoded, "application/x-x509-ca-ra-cert", encoded.length);
+            }
+        } catch (CertificateException | CMSException | IOException e) {
             // This should not happen
             throw new IllegalArgumentException("Error converting the certificate to x509 object");
         }
-    }
-
-    private ResponseEntity<Object> getCaCertChain() throws ScepException {
-        byte[] encoded;
-        CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
-        try {
-            generator.addCertificates(new JcaCertStore(caCertificateChain));
-            encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
-        } catch (CertificateEncodingException | IOException | CMSException e) {
-            return buildResponse(null, buildFailedResponse(new ScepException("Error generating CA certificate chain", e, FailInfo.BAD_REQUEST)));
-        }
-        return getResponseEntity(encoded, "application/x-x509-ca-ra-cert", encoded.length);
     }
 
     private ResponseEntity<Object> getCaCaps() {
@@ -271,9 +271,15 @@ public class ScepServiceImpl implements ScepService {
         IntuneScepServiceClient intuneClient = null;
 
         scepRequest = new ScepRequest(body);
-
+        CryptographicKey key = scepProfile.getCaCertificate().getKey();
+        CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
         // Get the private key from the configuration of SCEP Profile
-        CzertainlyPrivateKey czertainlyPrivateKey = cryptographicKeyService.getCzertainlyPrivateKey(scepProfile.getCaCertificate().getKey());
+        CzertainlyPrivateKey czertainlyPrivateKey = new CzertainlyPrivateKey(
+                key.getTokenInstanceReference().getTokenInstanceUuid(),
+                item.getKeyReferenceUuid().toString(),
+                key.getTokenInstanceReference().getConnector().mapToDto(),
+                item.getCryptographicAlgorithm().getName()
+        );
 
         if (czertainlyPrivateKey == null) {
             return buildResponse(scepRequest, buildFailedResponse(new ScepException("Private key not found in SCEP Profile", FailInfo.BAD_REQUEST)));
@@ -327,7 +333,7 @@ public class ScepServiceImpl implements ScepService {
                 }
             } catch (Exception e) {
                 scepResponse = buildFailedResponse(new ScepException("Failed to process SCEP request", e, FailInfo.BAD_REQUEST));
-                if (scepProfile.getIntuneTenant() != null) {
+                if (scepProfile.isIntuneEnabled()) {
                     sendIntuneFailureMessage(
                             intuneClient,
                             scepRequest,
@@ -357,7 +363,15 @@ public class ScepServiceImpl implements ScepService {
     private ResponseEntity<Object> buildResponse(ScepRequest scepRequest, ScepResponse scepResponse) throws ScepException {
         prepareMessage(scepRequest, scepResponse);
         CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
-        CzertainlyPrivateKey czertainlyPrivateKey = cryptographicKeyService.getCzertainlyPrivateKey(scepProfile.getCaCertificate().getKey());
+        CryptographicKey key = scepProfile.getCaCertificate().getKey();
+        CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
+        // Get the private key from the configuration of SCEP Profile
+        CzertainlyPrivateKey czertainlyPrivateKey = new CzertainlyPrivateKey(
+                key.getTokenInstanceReference().getTokenInstanceUuid(),
+                item.getKeyReferenceUuid().toString(),
+                key.getTokenInstanceReference().getConnector().mapToDto(),
+                item.getCryptographicAlgorithm().getName()
+        );
         try {
             scepResponse.setSigningAttributes(
                     CertificateUtil.getX509Certificate(scepProfile.getCaCertificate().getCertificateContent().getContent()),
@@ -379,7 +393,7 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private ScepResponse issueCertificate(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) throws Exception {
-        if (scepProfile.getIntuneTenant() != null) {
+        if (scepProfile.isIntuneEnabled()) {
             validateIntuneRequest(
                     intuneClient,
                     scepRequest
@@ -393,7 +407,7 @@ public class ScepServiceImpl implements ScepService {
         scepResponse.setCertificate(CertificateUtil.parseCertificate(response.getCertificateData()));
         addTransactionEntity(scepRequest.getTransactionId(), response.getUuid());
         scepResponse.setPkiStatus(PkiStatus.SUCCESS);
-        sendIntuneSuccessNotification(
+        if (scepProfile.isIntuneEnabled()) sendIntuneSuccessNotification(
                 intuneClient,
                 scepRequest,
                 scepResponse.getIssuedCertificate()
@@ -403,7 +417,7 @@ public class ScepServiceImpl implements ScepService {
 
 
     private ScepResponse generateCsr(ScepRequest scepRequest, IntuneScepServiceClient intuneClient) throws Exception {
-        if (scepProfile.getIntuneTenant() != null) {
+        if (scepProfile.isIntuneEnabled()) {
             validateIntuneRequest(
                     intuneClient,
                     scepRequest
@@ -474,7 +488,7 @@ public class ScepServiceImpl implements ScepService {
         if (scepRequest == null) {
             return;
         }
-        // As per the scep RFC the fields are not to be null. EVen if they are null, these
+        // As per the SCEP RFC the fields are not to be null. EVen if they are null, these
         // are handled when generating the attributes for the CMS signed data for the response
         scepResponse.setRecipientNonce(scepRequest.getSenderNonce());
         scepResponse.setTransactionId(scepRequest.getTransactionId());
@@ -562,12 +576,12 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private Properties getIntuneConfiguration() {
-        // Create the properties based on the scep profile Intune properties
+        // Create the properties based on the SCEP profile Intune properties
         Properties configProperties = new Properties();
         configProperties.put("AAD_APP_ID", scepProfile.getIntuneApplicationId());
         configProperties.put("AAD_APP_KEY", scepProfile.getIntuneApplicationKey());
         configProperties.put("TENANT", scepProfile.getIntuneTenant());
-        configProperties.put("PROVIDER_NAME_AND_VERSION", "CZERTAINLY-V2.7.2");
+        configProperties.put("PROVIDER_NAME_AND_VERSION", "CZERTAINLY-V" + appVersion);
         return configProperties;
     }
 

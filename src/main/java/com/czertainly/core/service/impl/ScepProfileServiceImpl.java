@@ -122,7 +122,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setEnabled(false);
         scepProfile.setName(request.getName());
         scepProfile.setDescription(request.getDescription());
-        // The value 0 will be considered as half life of the certificate for scep protocol
+        // The value 0 will be considered as half life of the certificate for SCEP protocol
         scepProfile.setRenewalThreshold(request.getRenewalThreshold());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
@@ -279,7 +279,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             try {
                 scepProfile = getScepProfileEntity(uuid);
                 SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithScepProfile(scepProfile.getUuid().toString(), SecurityFilter.create());
-                // scep profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent scep profile.
+                // SCEP profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent SCEP profile.
                 raProfileService.bulkRemoveAssociatedScepProfile(raProfiles.getAll().stream().map(UniquelyIdentifiedAndAudited::getSecuredParentUuid).collect(Collectors.toList()));
                 deleteScepProfile(scepProfile);
             } catch (Exception e) {

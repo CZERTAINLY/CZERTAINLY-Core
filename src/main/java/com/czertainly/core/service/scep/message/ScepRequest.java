@@ -55,7 +55,7 @@ public class ScepRequest {
 
     /**
      * Content encryption algorithm
-     * This value should be set based on the data from the scep request message
+     * This value should be set based on the data from the SCEP request message
      * If there is a problem identifying the encryption algorithm, the error will be thrown out
      * but to be on the safer side, the default value is added
      */

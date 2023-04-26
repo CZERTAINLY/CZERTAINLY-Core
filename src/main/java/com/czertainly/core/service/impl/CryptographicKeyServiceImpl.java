@@ -850,22 +850,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Override
     public CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType) {
         for (CryptographicKeyItem item : key.getItems()) {
-            if (item.getType().equals(KeyType.PRIVATE_KEY)) {
+            if (item.getType().equals(keyType)) {
                 return item;
             }
         }
         return null;
-    }
-
-    @Override
-    public CzertainlyPrivateKey getCzertainlyPrivateKey(CryptographicKey key) {
-        CryptographicKeyItem item = getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
-        return new CzertainlyPrivateKey(
-                key.getTokenInstanceReference().getTokenInstanceUuid(),
-                item.getKeyReferenceUuid().toString(),
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                item.getCryptographicAlgorithm().getName()
-        );
     }
 
     @Override

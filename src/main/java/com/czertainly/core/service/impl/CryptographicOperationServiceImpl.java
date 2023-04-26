@@ -527,9 +527,6 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             case RSA -> {
                 return RsaEncryptionAttributes.getRsaEncryptionAttributes();
             }
-            case FALCON, DILITHIUM, SPHINCSPLUS,ECDSA -> {
-                return List.of();
-            }
             default -> throw new ValidationException(
                     ValidationError.create(
                             "Cryptographic algorithm not supported"

@@ -317,11 +317,4 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @return Key Item
      */
     CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType);
-
-    /**
-     * Frame CZERTAINLY private key object from cryptographic key
-     * @param key Cryptographic Key object
-     * @return Czertainly private key
-     */
-    CzertainlyPrivateKey getCzertainlyPrivateKey(CryptographicKey key);
 }

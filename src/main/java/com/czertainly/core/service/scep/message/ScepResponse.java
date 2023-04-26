@@ -78,7 +78,7 @@ public class ScepResponse {
 
     /**
      * Content encryption algorithm
-     * This value should be set based on the data from the scep request message
+     * This value should be set based on the data from the SCEP request message
      * If there is a problem identifying the encryption algorithm, the error will be thrown out
      * but to be on the safer side, the default value is added
      */
@@ -204,7 +204,7 @@ public class ScepResponse {
                         new JceKeyTransRecipientInfoGenerator((X509Certificate) certificate)
                                 .setProvider(BouncyCastleProvider.PROVIDER_NAME));
             }
-            // Take the content encryption algorithm from the response that is set from the scep request message
+            // Take the content encryption algorithm from the response that is set from the SCEP request message
 
             JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(SMIMECapability.dES_EDE3_CBC).setProvider(BouncyCastleProvider.PROVIDER_NAME);
             CMSEnvelopedData cmsEnvelopedData = cmsEnvelopedDataGenerator.generate(
