@@ -459,12 +459,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
         if (metadataSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META.getLabel()));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
         }
 
         final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
         if (customAttrSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM.getLabel()));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
         }
 
         List<SearchFieldDataDto> fields = List.of(
@@ -473,14 +473,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.START_TIME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.END_TIME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.TOTAL_CERT_DISCOVERED),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CONNECTOR_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CONNECTOR_NAME, discoveryRepository.findDistinctConnectorName()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KIND)
         );
 
         fields = fields.stream().collect(Collectors.toList());
         fields.sort(new SearchFieldDataComparator());
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.getLabel()));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;

@@ -214,7 +214,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByNameContains() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.NAME.name(), SearchCondition.CONTAINS, "test_discovery"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.NAME.name(), SearchCondition.CONTAINS, "test_discovery"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(4, responseDto.getDiscoveries().size());
     }
@@ -222,7 +222,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByNameEquals() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.NAME.name(), SearchCondition.EQUALS, "test_discovery2"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.NAME.name(), SearchCondition.EQUALS, "test_discovery2"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -230,7 +230,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByStartTime() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.START_TIME.name(), SearchCondition.GREATER, "2020-05-06T10:10:10.000Z"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.START_TIME.name(), SearchCondition.GREATER, "2020-05-06T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getDiscoveries().size());
     }
@@ -238,7 +238,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByEndTime() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.END_TIME.name(), SearchCondition.LESSER, "2020-02-02T10:10:10.000Z"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.END_TIME.name(), SearchCondition.LESSER, "2020-02-02T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -246,7 +246,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByStatus() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.DISCOVERY_STATUS.name(), SearchCondition.NOT_EQUALS, DiscoveryStatus.COMPLETED.getCode()));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.DISCOVERY_STATUS.name(), SearchCondition.NOT_EQUALS, DiscoveryStatus.COMPLETED.getCode()));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getDiscoveries().size());
     }
@@ -254,7 +254,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByTotalCertificateDiscovered() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.TOTAL_CERT_DISCOVERED.name(), SearchCondition.GREATER, 10));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.TOTAL_CERT_DISCOVERED.name(), SearchCondition.GREATER, 10));
         final SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(filters);
         final DiscoveryResponseDto responseDto = discoveryService.listDiscoveries(SecurityFilter.create(), searchRequestDto);
@@ -264,7 +264,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByKind() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.KIND.name(), SearchCondition.NOT_CONTAINS, "TEST3"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.KIND.name(), SearchCondition.NOT_CONTAINS, "TEST3"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getDiscoveries().size());
     }
@@ -272,7 +272,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByConnectorName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(3, responseDto.getDiscoveries().size());
     }
@@ -280,8 +280,8 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByConnectorNameAndStatus() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.DISCOVERY_STATUS.name(), SearchCondition.EQUALS, DiscoveryStatus.COMPLETED.getCode()));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.DISCOVERY_STATUS.name(), SearchCondition.EQUALS, DiscoveryStatus.COMPLETED.getCode()));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -289,9 +289,9 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByConnectorNameAndKind() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.KIND.name(), SearchCondition.STARTS_WITH, "kindTEST"));
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY.getLabel(), SearchableFields.START_TIME.name(), SearchCondition.LESSER, "2020-02-01T10:10:10.000Z"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.KIND.name(), SearchCondition.STARTS_WITH, "kindTEST"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.START_TIME.name(), SearchCondition.LESSER, "2020-02-01T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -299,7 +299,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.META.getLabel(), "attributeMeta1|TEXT", SearchCondition.CONTAINS, "-meta-"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.META, "attributeMeta1|TEXT", SearchCondition.CONTAINS, "-meta-"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -307,7 +307,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.META.getLabel(), "attributeCustom1|TEXT", SearchCondition.CONTAINS, "-custom-"));
+        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.META, "attributeCustom1|TEXT", SearchCondition.CONTAINS, "-custom-"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }

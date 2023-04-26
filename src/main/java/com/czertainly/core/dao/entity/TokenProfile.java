@@ -123,7 +123,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
                 ",",
                 usage.stream().map(
                         i -> String.valueOf(
-                                i.getId()
+                                i.getBitmask()
                         )
                 ).collect(
                         Collectors.toList()

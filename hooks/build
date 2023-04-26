@@ -23,6 +23,9 @@ echo "Copy jar back to Tmp"
 docker cp czertainlycont:/home/app/target data/target
 docker cp czertainlycont:/home/app/docker data/docker
 
+echo "Removing previous image"
+docker rmi $IMAGE_NAME
+
 echo "Build main image"
 docker build -f $DOCKERFILE_PATH -t $IMAGE_NAME .
 

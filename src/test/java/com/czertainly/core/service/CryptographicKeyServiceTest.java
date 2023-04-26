@@ -173,7 +173,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair"))
-                .willReturn(WireMock.okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{\"type\":\"Private key\", \"format\":\"Raw\", \"value\":\"something\"}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\",  \"keyData\":{\"type\":\"Private key\", \"format\":\"Raw\", \"value\":\"something\"}}}")));
+                .willReturn(WireMock.okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{\"type\":\"private\", \"format\":\"Raw\", \"value\":\"something\"}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\",  \"keyData\":{\"type\":\"private\", \"format\":\"Raw\", \"value\":\"something\"}}}")));
 
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testRaProfile2");
@@ -401,7 +401,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120002\",\n" +
                         "        \"association\":\"\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Secret key\",\n" +
+                        "            \"type\":\"secret\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -413,7 +413,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120003\",\n" +
                         "        \"association\":\"\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Private key\",\n" +
+                        "            \"type\":\"private\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -425,7 +425,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120004\",\n" +
                         "        \"association\":\"\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Public key\",\n" +
+                        "            \"type\":\"public\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -437,7 +437,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120005\",\n" +
                         "        \"association\":\"sampleKeyPair\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Private key\",\n" +
+                        "            \"type\":\"private\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -449,7 +449,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120006\",\n" +
                         "        \"association\":\"sampleKeyPair\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Public key\",\n" +
+                        "            \"type\":\"public\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -474,7 +474,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"" + content.getUuid().toString() + "\",\n" +
                         "        \"association\":\"\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Secret key\",\n" +
+                        "            \"type\":\"secret\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -486,7 +486,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"" + content1.getUuid().toString() + "\",\n" +
                         "        \"association\":\"\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Private key\",\n" +
+                        "            \"type\":\"private\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -498,7 +498,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120004\",\n" +
                         "        \"association\":\"\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Public key\",\n" +
+                        "            \"type\":\"public\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -510,7 +510,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120005\",\n" +
                         "        \"association\":\"sampleKeyPair\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Private key\",\n" +
+                        "            \"type\":\"private\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
@@ -522,7 +522,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "        \"uuid\":\"e7426f1e-8ccc-11ed-a1eb-0242ac120006\",\n" +
                         "        \"association\":\"sampleKeyPair\",\n" +
                         "        \"keyData\":{\n" +
-                        "            \"type\":\"Public key\",\n" +
+                        "            \"type\":\"public\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
                         "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
