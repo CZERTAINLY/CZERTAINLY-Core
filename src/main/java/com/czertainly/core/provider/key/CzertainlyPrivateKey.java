@@ -2,7 +2,6 @@ package com.czertainly.core.provider.key;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
 
 import java.security.PrivateKey;
 import java.util.List;
@@ -17,7 +16,7 @@ public class CzertainlyPrivateKey implements PrivateKey {
 
     private String algorithm;
 
-    private List<RequestAttributeDto> encryptionAttributes;
+    private List<RequestAttributeDto> cipherAttributes;
 
     private List<RequestAttributeDto> signatureAttributes;
 
@@ -55,12 +54,12 @@ public class CzertainlyPrivateKey implements PrivateKey {
         return tokenInstanceUuid;
     }
 
-    public List<RequestAttributeDto> getEncryptionAttributes() {
-        return encryptionAttributes;
+    public List<RequestAttributeDto> getCipherAttributes() {
+        return cipherAttributes;
     }
 
-    public void setEncryptionAttributes(List<RequestAttributeDto> encryptionAttributes) {
-        this.encryptionAttributes = encryptionAttributes;
+    public void setCipherAttributes(List<RequestAttributeDto> cipherAttributes) {
+        this.cipherAttributes = cipherAttributes;
     }
 
     public List<RequestAttributeDto> getSignatureAttributes() {

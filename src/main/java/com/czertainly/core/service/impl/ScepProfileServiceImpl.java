@@ -5,12 +5,12 @@ import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
-import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
+import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -129,6 +129,11 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setChallengePassword(request.getChallengePassword());
         scepProfile.setRequireManualApproval(request.getRequireManualApproval() != null && request.getRequireManualApproval());
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
+        if (request.getEnableIntune() != null) {
+            scepProfile.setIntuneEnabled(request.getEnableIntune());
+        } else {
+            scepProfile.setIntuneEnabled(false);
+        }
         scepProfile.setIntuneTenant(request.getIntuneTenant());
         scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
         scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
@@ -150,11 +155,16 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.UPDATE)
     public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException {
         ScepProfile scepProfile = getScepProfileEntity(uuid);
-        if(request.getRequireManualApproval() != null) scepProfile.setRequireManualApproval(request.getRequireManualApproval());
+        if (request.getRequireManualApproval() != null)
+            scepProfile.setRequireManualApproval(request.getRequireManualApproval());
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
-        if(request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
-        if(scepProfile.getChallengePassword() != null) scepProfile.setChallengePassword(request.getChallengePassword());
+        if (request.getEnableIntune() != null) {
+            scepProfile.setIntuneEnabled(request.getEnableIntune());
+        }
+        if (request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
+        if (scepProfile.getChallengePassword() != null)
+            scepProfile.setChallengePassword(request.getChallengePassword());
         if (request.getRaProfileUuid() != null) {
             if (request.getRaProfileUuid().equals(NONE_CONSTANT)) {
                 scepProfile.setRaProfile(null);
@@ -169,13 +179,15 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             validateScepCertificateEligibility(request.getCaCertificateUuid());
             scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
         }
-        if(request.getCustomAttributes() != null) {
+        if (request.getCustomAttributes() != null) {
             attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.SCEP_PROFILE);
             attributeService.updateAttributeContent(scepProfile.getUuid(), request.getCustomAttributes(), Resource.SCEP_PROFILE);
         }
-        if(request.getIntuneTenant() != null) scepProfile.setIntuneTenant(request.getIntuneTenant());
-        if(request.getIntuneApplicationId() != null) scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
-        if(request.getIntuneApplicationKey() != null) scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
+        if (request.getIntuneTenant() != null) scepProfile.setIntuneTenant(request.getIntuneTenant());
+        if (request.getIntuneApplicationId() != null)
+            scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
+        if (request.getIntuneApplicationKey() != null)
+            scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
         scepProfileRepository.save(scepProfile);
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(scepProfile.getUuid(), Resource.SCEP_PROFILE));

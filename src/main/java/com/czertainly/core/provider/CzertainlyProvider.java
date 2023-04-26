@@ -14,11 +14,11 @@ import java.security.Security;
  */
 public class CzertainlyProvider extends Provider {
 
-    public static final String PROVIDER_NAME = "CzertainlyCryptographyProvider";
+    public static final String PROVIDER_NAME = "CzertainlyProvider";
     private static final Logger logger = LoggerFactory.getLogger(CzertainlyProvider.class);
 
     private CzertainlyProvider(String name, CryptographicOperationsApiClient apiClient) {
-        super(name, 1.0, "CZERTAINLY Cryptography Provider");
+        super(name, 1.0, "CZERTAINLY Provider");
         this.init(apiClient);
     }
 
@@ -44,24 +44,23 @@ public class CzertainlyProvider extends Provider {
 
     void setupServices(CryptographicOperationsApiClient apiClient) {
         // Register RSA Cipher for encryption and decryption
-        this.putService(new CzertainlyCipherService(this, "Cipher", "RSA", CzertainlyCipherSpi.class.getName(), apiClient));
+        putService(new CzertainlyCipherService(this, "Cipher", "RSA", CzertainlyCipherSpi.class.getName(), apiClient));
 
         // Register Signature Ciphers
 
-        putService(new CzertainlySignatureService(this, "Signature", "NonewithRSA", CzertainlySignatureSpi.class.getName(), apiClient));
+        putService(new CzertainlySignatureService(this, "Signature", "NONEwithRSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA1withRSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA224withRSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA256withRSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA384withRSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA512withRSA", CzertainlySignatureSpi.class.getName(), apiClient));
-        putService(new CzertainlySignatureService(this, "Signature", "NonewithRSA/PSS", CzertainlySignatureSpi.class.getName(), apiClient));
+        putService(new CzertainlySignatureService(this, "Signature", "NONEwithRSA/PSS", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA1withRSA/PSS", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA224withRSA/PSS", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA256withRSA/PSS", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA384withRSA/PSS", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA512withRSA/PSS", CzertainlySignatureSpi.class.getName(), apiClient));
-        putService(new CzertainlySignatureService(this, "Signature", "RMD160withRSA/PSS", CzertainlySignatureSpi.class.getName(), apiClient));
-        putService(new CzertainlySignatureService(this, "Signature", "NonewithECDSA", CzertainlySignatureSpi.class.getName(), apiClient));
+        putService(new CzertainlySignatureService(this, "Signature", "NONEwithECDSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA1withECDSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA224withECDSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA256withECDSA", CzertainlySignatureSpi.class.getName(), apiClient));

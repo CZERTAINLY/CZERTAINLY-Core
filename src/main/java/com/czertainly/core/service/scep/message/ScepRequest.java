@@ -1,15 +1,12 @@
 package com.czertainly.core.service.scep.message;
 
-import com.czertainly.api.exception.CertificateException;
 import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.cryptography.key.RsaPadding;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.core.attribute.RsaEncryptionAttributes;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
-import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -37,7 +34,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.*;
-import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.*;
 
@@ -306,7 +302,7 @@ public class ScepRequest {
                 if (privateKey == null || provider == null) {
                     throw new ScepException("Private key or provider is null", FailInfo.BAD_REQUEST);
                 }
-                privateKey.setEncryptionAttributes(List.of(RsaEncryptionAttributes.buildPadding(RsaPadding.PKCS1_v1_5)));
+                privateKey.setCipherAttributes(List.of(RsaEncryptionAttributes.buildPadding(RsaPadding.PKCS1_v1_5)));
                 JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(privateKey);
                 jceKeyTransEnvelopedRecipient.setProvider(provider);
                 jceKeyTransEnvelopedRecipient.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);

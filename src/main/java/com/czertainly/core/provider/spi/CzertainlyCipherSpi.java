@@ -42,7 +42,7 @@ public class CzertainlyCipherSpi extends CipherSpi {
         CipherDataRequestDto cipherDataRequestDto = new CipherDataRequestDto();
         CipherRequestData cipherRequestData = new CipherRequestData();
         cipherRequestData.setData(encryptedData);
-        cipherDataRequestDto.setCipherAttributes(privateKey.getEncryptionAttributes());
+        cipherDataRequestDto.setCipherAttributes(privateKey.getCipherAttributes());
         cipherDataRequestDto.setCipherData(List.of(cipherRequestData));
 
         try {
@@ -54,8 +54,7 @@ public class CzertainlyCipherSpi extends CipherSpi {
                     );
             return responseDto.getDecryptedData().get(0).getData();
         } catch (ConnectorException e) {
-            log.error(e.getMessage());
-            return new byte[0];
+            throw new RuntimeException(e.getMessage());
         }
     }
 

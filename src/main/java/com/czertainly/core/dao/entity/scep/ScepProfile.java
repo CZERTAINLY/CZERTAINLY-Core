@@ -69,6 +69,9 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "challenge_password")
     private String challengePassword;
 
+    @Column(name = "intune_enabled")
+    private boolean intuneEnabled;
+
     @Column(name = "intune_tenant")
     private String intuneTenant;
 
@@ -93,6 +96,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setIncludeCaCertificate(includeCaCertificate);
         scepProfileDto.setIncludeCaCertificateChain(includeCaCertificateChain);
         scepProfileDto.setRenewThreshold(renewalThreshold);
+        scepProfileDto.setEnableIntune(intuneEnabled);
         return scepProfileDto;
     }
 
@@ -115,6 +119,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
             scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
+        scepProfileDto.setEnableIntune(intuneEnabled);
         scepProfileDto.setIntuneTenant(intuneTenant);
         scepProfileDto.setIntuneApplicationId(intuneApplicationId);
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
@@ -282,5 +287,13 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setIntuneApplicationKey(String intuneApplicationKey) {
         this.intuneApplicationKey = intuneApplicationKey;
+    }
+
+    public boolean isIntuneEnabled() {
+        return intuneEnabled;
+    }
+
+    public void setIntuneEnabled(boolean intuneEnabled) {
+        this.intuneEnabled = intuneEnabled;
     }
 }
