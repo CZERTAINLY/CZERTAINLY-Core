@@ -7,7 +7,7 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
-import com.czertainly.api.model.core.cryptography.key.OaepHash;
+import com.czertainly.api.model.common.collection.DigestAlgorithm;
 import com.czertainly.api.model.core.cryptography.key.RsaPadding;
 
 import java.util.List;
@@ -89,7 +89,7 @@ public class RsaEncryptionAttributes {
         attribute.setDescription(ATTRIBUTE_DATA_RSA_OAEP_HASH_DESCRIPTION);
         attribute.setType(AttributeType.DATA);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(OaepHash.asStringAttributeContentList());
+        attribute.setContent(DigestAlgorithm.asStringAttributeContentList());
         // create properties
         DataAttributeProperties attributeProperties = new DataAttributeProperties();
         attributeProperties.setLabel(ATTRIBUTE_DATA_RSA_OAEP_HASH_LABEL);

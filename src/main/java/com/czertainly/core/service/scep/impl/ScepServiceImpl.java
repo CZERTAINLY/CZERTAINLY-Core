@@ -1,10 +1,9 @@
 package com.czertainly.core.service.scep.impl;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
-import com.czertainly.api.model.common.collection.DigestAlgorithm;
-import com.czertainly.api.model.common.collection.RsaSignatureScheme;
 import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
@@ -14,7 +13,6 @@ import com.czertainly.api.model.core.scep.PkiStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -39,9 +37,10 @@ import com.czertainly.core.util.CsrUtil;
 import com.czertainly.core.util.RandomUtil;
 import com.microsoft.intune.scepvalidation.IntuneScepServiceClient;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
-import org.bouncycastle.cms.*;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSProcessableByteArray;
+import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.pkcs.PKCSException;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
@@ -56,11 +55,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -70,9 +67,6 @@ import java.util.*;
 @Service
 @Transactional
 public class ScepServiceImpl implements ScepService {
-
-    @Value("${app.version}")
-    private String appVersion;
 
     public static final String SCEP_URL_PREFIX = "/v1/protocols/scep";
     private static final Logger logger = LoggerFactory.getLogger(ScepServiceImpl.class);
@@ -86,6 +80,10 @@ public class ScepServiceImpl implements ScepService {
             "Renewal",
             "SCEPStandard"
     );
+
+    @Value("${app.version}")
+    private String appVersion;
+
     private List<X509Certificate> caCertificateChain = new ArrayList<>();
     private X509Certificate recipient;
     private boolean raProfileBased;
@@ -239,7 +237,7 @@ public class ScepServiceImpl implements ScepService {
     private ResponseEntity<Object> getCaCerts() {
         byte[] encoded;
         try {
-            if(caCertificateChain.size() > 1) {
+            if (caCertificateChain.size() > 1) {
                 encoded = recipient.getEncoded();
                 return getResponseEntity(encoded, "application/x-x509-ca-cert", encoded.length);
             } else {
@@ -278,7 +276,7 @@ public class ScepServiceImpl implements ScepService {
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
                 key.getTokenInstanceReference().getConnector().mapToDto(),
-                item.getCryptographicAlgorithm().getName()
+                item.getCryptographicAlgorithm().getLabel()
         );
 
         if (czertainlyPrivateKey == null) {
@@ -370,7 +368,7 @@ public class ScepServiceImpl implements ScepService {
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
                 key.getTokenInstanceReference().getConnector().mapToDto(),
-                item.getCryptographicAlgorithm().getName()
+                item.getCryptographicAlgorithm().getLabel()
         );
         try {
             scepResponse.setSigningAttributes(
