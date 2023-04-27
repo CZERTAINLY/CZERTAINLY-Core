@@ -78,14 +78,6 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.microsoft.intune.scep</groupId>
-            <artifactId>csr-validation</artifactId>
-            <version>0.0.1-SNAPSHOT</version>
-            <scope>system</scope>
-            <systemPath>${basedir}/lib/csr-validation.jar</systemPath>
-        </dependency>
-
         <!-- DB -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -154,6 +146,22 @@
             <artifactId>postgresql</artifactId>
             <version>1.17.6</version>
             <scope>test</scope>
+        </dependency>
+
+        <!-- dependencies for Intune client-->
+        <dependency>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>adal4j</artifactId>
+            <version>1.6.7</version>
+        </dependency>
+        <dependency>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>msal4j</artifactId>
+            <version>1.13.5</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
         </dependency>
     </dependencies>
 
