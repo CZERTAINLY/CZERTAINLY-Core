@@ -23,6 +23,10 @@
         <sonar.projectKey>3KeyCompany_CZERTAINLY-Core</sonar.projectKey>
     </properties>
 
+    <modules>
+        <module>Intune-Client</module>
+    </modules>
+
     <dependencies>
         <dependency>
             <groupId>com.czertainly</groupId>
