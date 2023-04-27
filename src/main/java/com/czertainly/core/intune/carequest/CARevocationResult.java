@@ -21,9 +21,15 @@
 //OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //THE SOFTWARE.
 
-package com.czertainly.core.intune.carequest;
+/*
+This class was updated for the integration of the platform with the Intune server.
+It is placed under the package `com.czertainly.core.intune` and further maintained by
+the development team.
 
-import com.microsoft.intune.carequest.CARequestErrorCodes;
+The important modification are marked with the comment "MODIFICATION"
+*/
+
+package com.czertainly.core.intune.carequest;
 
 /**
 * CARevocationRequest - Class defining a Certificate Authority Request.

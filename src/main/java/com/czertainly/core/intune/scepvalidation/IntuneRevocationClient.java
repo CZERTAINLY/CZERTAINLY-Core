@@ -21,6 +21,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+/*
+This class was updated for the integration of the platform with the Intune server.
+It is placed under the package `com.czertainly.core.intune` and further maintained by
+the development team.
+
+The important modification are marked with the comment "MODIFICATION"
+*/
 package com.czertainly.core.intune.scepvalidation;
 
 import java.util.HashMap;
@@ -28,9 +35,10 @@ import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +52,8 @@ import com.czertainly.core.intune.carequest.CARevocationResult;
  */
 public class IntuneRevocationClient extends IntuneClient
 {
+
+    private ObjectMapper objectMapper = new ObjectMapper();
     private String serviceVersion = "5019-05-05";
     public final static String CONNECTOR_SERVICE_NAME = "PkiConnectorFEService";
     public final static String DOWNLOADREVOCATIONREQUESTS_URL = "CertificateAuthorityRequests/downloadRevocationRequests";
@@ -55,7 +65,7 @@ public class IntuneRevocationClient extends IntuneClient
     
     private HashMap<String,String> additionalHeaders = new HashMap<String, String>();;
     
-    final Logger log = LoggerFactory.getLogger(IntuneRevocationClient.class);
+    private static final Logger log = LoggerFactory.getLogger(IntuneRevocationClient.class);
     
     /**
      * IntuneScepService Client constructor
@@ -100,7 +110,7 @@ public class IntuneRevocationClient extends IntuneClient
      * @param transactionId The transactionId 
      * @param maxCARequestsToDownload Maximum number of requests to download from Intune
      * @param issuerName Optional filter for the issuer name
-     * @throws com.microsoft.intune.scepvalidation.IntuneClientException The service reported a failure in processing the notification examine the exception error code.
+     * @throws IntuneClientException The service reported a failure in processing the notification examine the exception error code.
      * @throws IllegalArgumentException
      */
     public List<CARevocationRequest> DownloadCARevocationRequests(String transactionId, int maxCARequestsToDownload, String issuerName) throws IntuneScepServiceException, Exception
@@ -114,16 +124,17 @@ public class IntuneRevocationClient extends IntuneClient
         {
             throw new IllegalArgumentException("The argument 'maxCARequestsToDownload' should be between 1 and " + MAXREQUESTS_MAXVALUE + ". Value received: " + maxCARequestsToDownload);
         }
-        
+
+        ObjectNode requestBody = objectMapper.createObjectNode();
         // Create Request Body 
-        JSONObject requestBody = new JSONObject().put(
-                "downloadParameters", (new JSONObject())
+        requestBody.put(
+                "downloadParameters", (objectMapper.createObjectNode())
                     .put("maxRequests", maxCARequestsToDownload)
-                    .put("issuerName", issuerName == null ? JSONObject.NULL : issuerName));
+                    .put("issuerName", issuerName == null ? null : issuerName));
         UUID activityId = UUID.randomUUID();
         
         // Send the POST request to Intune
-        JSONObject result = this.PostRequest(CONNECTOR_SERVICE_NAME, 
+        JsonNode result = this.PostRequest(CONNECTOR_SERVICE_NAME,
         		 DOWNLOADREVOCATIONREQUESTS_URL, 
                  serviceVersion, 
                  requestBody,
@@ -133,7 +144,7 @@ public class IntuneRevocationClient extends IntuneClient
         log.info(result.toString());
         
         // Parse the results and return
-        List<CARevocationRequest> revokeRequests = new Gson().fromJson(result.getJSONArray("value").toString(), new TypeToken<List<CARevocationRequest>>() {}.getType());
+        List<CARevocationRequest> revokeRequests = new Gson().fromJson(result.get("value").asText(), new TypeToken<List<CARevocationRequest>>() {}.getType());
         return revokeRequests;
     }
 
@@ -143,7 +154,7 @@ public class IntuneRevocationClient extends IntuneClient
      * @param transactionId The transactionId 
      * @param revocationResults List of CARevocationResult objects to send to Intune
      * @throws IllegalArgumentException
-     * @throws com.microsoft.intune.scepvalidation.IntuneClientException The service reported a failure in processing the notification examine the exception error code.
+     * @throws IntuneClientException The service reported a failure in processing the notification examine the exception error code.
      */
     public void UploadRevocationResults(String transactionId, List<CARevocationResult> revocationResults) throws IntuneScepServiceException, Exception
     {
@@ -157,16 +168,17 @@ public class IntuneRevocationClient extends IntuneClient
             throw new IllegalArgumentException("The argument 'revocationResults' may not be null or empty.");
         }
         
-        // Create Request Body 
+        // Create Request Body
+        ObjectNode requestBody = objectMapper.createObjectNode();
         String revocationResultsJson =  new Gson().toJsonTree(revocationResults).getAsJsonArray().toString();
-        JSONObject requestBody = new JSONObject().put(
-                "results", new JSONArray(revocationResultsJson));
+        requestBody.put(
+                "results", objectMapper.readTree(revocationResultsJson));
         UUID activityId = UUID.randomUUID();
         
         // Send the POST request to Intune
-        JSONObject result = this.PostRequest(CONNECTOR_SERVICE_NAME, 
+        JsonNode result = this.PostRequest(CONNECTOR_SERVICE_NAME,
         		 UPLOADREVOCATIONRESULTS_URL, 
-                 serviceVersion, 
+                 serviceVersion,
                  requestBody,
                  activityId,
                  additionalHeaders);
@@ -174,7 +186,7 @@ public class IntuneRevocationClient extends IntuneClient
         log.info(result.toString());
         
         // Parse the result and fail if the result is not true
-        if (!result.getBoolean("value"))
+        if (!result.get("value").asBoolean())
         {
         	throw new IntuneClientException("Intune failed to process the upload results.");
         }

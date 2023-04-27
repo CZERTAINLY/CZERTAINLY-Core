@@ -1,4 +1,4 @@
-package com.czertainly.core.intune;// Copyright (c) Microsoft Corporation.
+// Copyright (c) Microsoft Corporation.
 // All rights reserved.
 //
 // This code is licensed under the MIT License.
@@ -20,6 +20,16 @@ package com.czertainly.core.intune;// Copyright (c) Microsoft Corporation.
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+
+/*
+This class was updated for the integration of the platform with the Intune server.
+It is placed under the package `com.czertainly.core.intune` and further maintained by
+the development team.
+
+The important modification are marked with the comment "MODIFICATION"
+*/
+
+package com.czertainly.core.intune;
 
 import static org.junit.Assert.*;
 

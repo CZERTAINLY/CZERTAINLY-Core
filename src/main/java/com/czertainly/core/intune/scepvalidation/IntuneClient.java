@@ -21,6 +21,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+/*
+This class was updated for the integration of the platform with the Intune server.
+It is placed under the package `com.czertainly.core.intune` and further maintained by
+the development team.
+
+The important modification are marked with the comment "MODIFICATION"
+*/
+
 package com.czertainly.core.intune.scepvalidation;
 
 import java.io.IOException;
@@ -41,6 +49,9 @@ import java.util.concurrent.ExecutionException;
 import javax.naming.ServiceUnavailableException;
 import javax.net.ssl.SSLSocketFactory;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.JsonParser;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.StatusLine;
@@ -66,8 +77,6 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,7 +114,7 @@ class IntuneClient
     
     private HashMap<String,String> serviceMap = new HashMap<String,String>();
     
-    final Logger log = LoggerFactory.getLogger(IntuneClient.class);
+    private static final Logger log = LoggerFactory.getLogger(IntuneClient.class);
     
     /**
      * Constructs an IntuneClient object which can be used to make requests to Intune services.
@@ -250,7 +259,7 @@ class IntuneClient
      * @throws IllegalArgumentException 
      * @throws IntuneClientException
      */
-    public JSONObject PostRequest(String serviceName, String urlSuffix, String apiVersion, JSONObject json, UUID activityId) throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
+    public JsonNode PostRequest(String serviceName, String urlSuffix, String apiVersion, JsonNode json, UUID activityId) throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
     {
         return this.PostRequest(serviceName, urlSuffix, apiVersion, json, activityId, null);
     }
@@ -273,7 +282,7 @@ class IntuneClient
      * @throws IllegalArgumentException 
      * @throws IntuneClientException 
      */
-    public JSONObject PostRequest(String serviceName, String urlSuffix, String apiVersion, JSONObject json, UUID activityId, Map<String,String> additionalHeaders) throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
+    public JsonNode PostRequest(String serviceName, String urlSuffix, String apiVersion, JsonNode json, UUID activityId, Map<String,String> additionalHeaders) throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
     {
         if(serviceName == null || serviceName.isEmpty())
         {
@@ -328,7 +337,7 @@ class IntuneClient
         httpPost.setEntity(new StringEntity(json.toString()));
         
         CloseableHttpResponse intuneResponse = null;
-        JSONObject jsonResult = null;
+        JsonNode jsonResult = null;
         try 
         {
             intuneResponse = httpclient.execute(httpPost);
@@ -416,17 +425,15 @@ class IntuneClient
         {
             graphResponse = httpclient.execute(httpGet);
 
-            JSONObject jsonResult = ParseResponseToJSON(graphResponse, graphRequest, activityId);
+            JsonNode jsonResult = ParseResponseToJSON(graphResponse, graphRequest, activityId);
             
-            for(Object obj:jsonResult.getJSONArray("value"))
+            for(JsonNode obj:jsonResult.get("value"))
             {
-                JSONObject jObj = (JSONObject)obj;
-                
-                String name = msalFailed ? jObj.getString("serviceName").toLowerCase() : jObj.getString("providerName").toLowerCase();
+                String name = msalFailed ? obj.get("serviceName").textValue().toLowerCase() : obj.get("providerName").textValue().toLowerCase();
                 
                 if(!serviceMap.containsKey(name)) 
                 {
-                    serviceMap.put(name, jObj.getString("uri"));
+                    serviceMap.put(name, obj.get("uri").textValue());
                 }
             } 
         } 
@@ -439,9 +446,9 @@ class IntuneClient
         }
     }
     
-    private JSONObject ParseResponseToJSON(CloseableHttpResponse response, String requestUrl, UUID activityId) throws IntuneClientException, IOException
+    private JsonNode ParseResponseToJSON(CloseableHttpResponse response, String requestUrl, UUID activityId) throws IntuneClientException, IOException
     {
-        JSONObject jsonResult = null;
+        JsonNode jsonResult = null;
         HttpEntity httpEntity = null;
         try 
         {
@@ -461,15 +468,10 @@ class IntuneClient
             {
                 throw new IntuneClientException("ActivityId: " + activityId + " Unable to convert httpEntity from response to string", e);
             }
-            
-            try
-            {
-                jsonResult = new JSONObject(httpEntityStr);
-            }
-            catch(JSONException e)
-            {
-                throw new IntuneClientException("ActivityId: " + activityId + " Unable to parse response from Intune to JSON", e);
-            }
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            String canonicalFormat = JsonParser.parseString(httpEntityStr).toString();
+            jsonResult = objectMapper.readTree(canonicalFormat);
             
             StatusLine statusLine = response.getStatusLine();
             if(statusLine == null)

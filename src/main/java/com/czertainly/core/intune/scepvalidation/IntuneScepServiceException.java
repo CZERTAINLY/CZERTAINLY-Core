@@ -25,18 +25,24 @@ package com.czertainly.core.intune.scepvalidation;
 
 import java.util.UUID;
 
-import com.microsoft.intune.scepvalidation.IntuneClientException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/*
+This class was updated for the integration of the platform with the Intune server.
+It is placed under the package `com.czertainly.core.intune` and further maintained by
+the development team.
+
+The important modification are marked with the comment "MODIFICATION"
+*/
 /**
  * Exception thrown when the SCEP Service returns an error.
  */
 public class IntuneScepServiceException extends IntuneClientException
 {
     private static final long serialVersionUID = 2018_04_24_001L;
-    
-    final Logger log = LoggerFactory.getLogger(IntuneScepServiceException.class);
+
+    private static final Logger log = LoggerFactory.getLogger(IntuneScepServiceException.class);
     
     private UUID activityId = null;
     private String errorCode = null;

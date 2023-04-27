@@ -27,18 +27,29 @@ import java.util.HashMap;
 import java.util.Properties;
 import java.util.UUID;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.czertainly.core.intune.scepvalidation.IntuneScepServiceException.ErrorCode;
 
+/*
+This class was updated for the integration of the platform with the Intune server.
+It is placed under the package `com.czertainly.core.intune` and further maintained by
+the development team.
+
+The important modification are marked with the comment "MODIFICATION"
+*/
 /**
  * Client to access the ScepRequestValidationFEService in Intune
  */
 public class IntuneScepServiceClient extends IntuneClient
 {
+
+    private ObjectMapper objectMapper = new ObjectMapper();
     private String serviceVersion = "2018-02-20";
     public final static String VALIDATION_SERVICE_NAME = "ScepRequestValidationFEService";
     private final static String VALIDATION_URL = "ScepActions/validateRequest";
@@ -49,8 +60,8 @@ public class IntuneScepServiceClient extends IntuneClient
     
     private String providerNameAndVersion = null;
     private HashMap<String,String> additionalHeaders = new HashMap<String, String>();;
-    
-    final Logger log = LoggerFactory.getLogger(IntuneScepServiceClient.class);
+
+    private static final Logger log = LoggerFactory.getLogger(IntuneScepServiceClient.class);
     
     /**
      * IntuneScepService Client constructor
@@ -110,10 +121,11 @@ public class IntuneScepServiceClient extends IntuneClient
         if(certificateRequest == null || certificateRequest.isEmpty())
         {
             throw new IllegalArgumentException("The argument 'certificateRequest' is missing");
-        }     
-        
-        JSONObject requestBody = new JSONObject().put(
-                "request", (new JSONObject())
+        }
+        ObjectNode requestBody = objectMapper.createObjectNode();
+
+        requestBody.put(
+                "request", (objectMapper.createObjectNode())
                     .put("transactionId", transactionId)
                     .put("certificateRequest", certificateRequest)
                     .put("callerInfo", this.providerNameAndVersion));
@@ -168,9 +180,9 @@ public class IntuneScepServiceClient extends IntuneClient
         {
             throw new IllegalArgumentException("The argument 'certIssuingAuthority' is missing");
         }     
-        
-        JSONObject requestBody = new JSONObject().put(
-                "notification", (new JSONObject())
+        ObjectNode requestBody = objectMapper.createObjectNode();
+        requestBody.put(
+                "notification", (objectMapper.createObjectNode())
                     .put("transactionId", transactionId)
                     .put("certificateRequest", certificateRequest)
                     .put("certificateThumbprint", certThumbprint)
@@ -214,9 +226,11 @@ public class IntuneScepServiceClient extends IntuneClient
         {
             throw new IllegalArgumentException("The argument 'errorDescription' is missing");
         }  
-        
-        JSONObject requestBody = new JSONObject().put(
-                "notification", (new JSONObject())
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectNode requestBody = objectMapper.createObjectNode();
+        requestBody.put(
+                "notification", (objectMapper.createObjectNode())
                     .put("transactionId", transactionId)
                     .put("certificateRequest", certificateRequest)
                     .put("hResult", hResult)
@@ -226,13 +240,13 @@ public class IntuneScepServiceClient extends IntuneClient
         Post(requestBody, NOTIFY_FAILURE_URL, transactionId);
     }
     
-    private void Post(JSONObject requestBody, String urlSuffix, String transactionId) throws IntuneScepServiceException, Exception
+    private void Post(JsonNode requestBody, String urlSuffix, String transactionId) throws IntuneScepServiceException, Exception
     {
         UUID activityId = UUID.randomUUID();
         
         try 
         {
-            JSONObject result = this.PostRequest(VALIDATION_SERVICE_NAME, 
+            JsonNode result = this.PostRequest(VALIDATION_SERVICE_NAME,
                      urlSuffix, 
                      serviceVersion, 
                      requestBody,
@@ -242,14 +256,14 @@ public class IntuneScepServiceClient extends IntuneClient
             log.info("Activity " + activityId + " has completed.");
             log.info(result.toString());
             
-            String code = result.getString("code");
-            String errorDescription = result.getString("errorDescription");
-            
+            String code = result.get("code").asText();
+            String errorDescription = result.get("errorDescription").asText();
+
             IntuneScepServiceException e = new IntuneScepServiceException(code, errorDescription, transactionId, activityId);
 
-            if (e.getParsedErrorCode() != ErrorCode.Success)
+            if (!e.getParsedErrorCode().equals(ErrorCode.Success))
             {
-                
+
                 log.warn(e.getMessage());
                 throw e;
             }

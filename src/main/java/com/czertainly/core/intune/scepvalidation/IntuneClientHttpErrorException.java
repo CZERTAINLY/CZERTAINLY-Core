@@ -21,13 +21,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+/*
+This class was updated for the integration of the platform with the Intune server.
+It is placed under the package `com.czertainly.core.intune` and further maintained by
+the development team.
+
+The important modification are marked with the comment "MODIFICATION"
+*/
 package com.czertainly.core.intune.scepvalidation;
 
 import java.util.UUID;
 
-import com.microsoft.intune.scepvalidation.IntuneClientException;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.apache.http.StatusLine;
-import org.json.JSONObject;
 
 public class IntuneClientHttpErrorException extends IntuneClientException
 {
@@ -36,14 +42,14 @@ public class IntuneClientHttpErrorException extends IntuneClientException
     
     private UUID activityId = null;
     private StatusLine statusLine = null;
-    private JSONObject response = null;
+    private JsonNode response = null;
     
     public int getStatusCode()
     {
         return this.statusLine.getStatusCode();
     }
     
-    public JSONObject getResponse()
+    public JsonNode getResponse()
     {
         return this.response;
     }
@@ -53,7 +59,7 @@ public class IntuneClientHttpErrorException extends IntuneClientException
         return this.activityId;
     }
     
-    public IntuneClientHttpErrorException(StatusLine statusLine, JSONObject response, UUID activityId)
+    public IntuneClientHttpErrorException(StatusLine statusLine, JsonNode response, UUID activityId)
     {
         super(response.toString());
         this.activityId = activityId;
