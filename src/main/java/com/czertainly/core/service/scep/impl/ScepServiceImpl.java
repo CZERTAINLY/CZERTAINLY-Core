@@ -238,13 +238,13 @@ public class ScepServiceImpl implements ScepService {
         byte[] encoded;
         try {
             if (caCertificateChain.size() > 1) {
-                encoded = recipient.getEncoded();
-                return getResponseEntity(encoded, "application/x-x509-ca-cert", encoded.length);
-            } else {
                 CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
                 generator.addCertificates(new JcaCertStore(caCertificateChain));
                 encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
                 return getResponseEntity(encoded, "application/x-x509-ca-ra-cert", encoded.length);
+            } else {
+                encoded = recipient.getEncoded();
+                return getResponseEntity(encoded, "application/x-x509-ca-cert", encoded.length);
             }
         } catch (CertificateException | CMSException | IOException e) {
             // This should not happen
