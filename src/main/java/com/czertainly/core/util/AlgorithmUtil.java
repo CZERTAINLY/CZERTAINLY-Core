@@ -35,8 +35,8 @@ public class AlgorithmUtil {
         try {
             MessageDigest md = MessageDigest.getInstance(
                     digestAlgorithmOID, BouncyCastleProvider.PROVIDER_NAME);
-            String digestAlgorithmName = DigestAlgorithm.findByCode(md.getAlgorithm()).name();
-            if(!List.of("SHA-1", "SHA-256", "SHA-384", "SHA-512").contains(digestAlgorithmName)) {
+            String digestAlgorithmName = md.getAlgorithm();
+            if(!List.of("SHA-1", "SHA-256", "SHA-384", "SHA-512", "MD5").contains(digestAlgorithmName)) {
                 throw new ValidationException("Unsupported digest algorithm");
             }
             return digestAlgorithmName;

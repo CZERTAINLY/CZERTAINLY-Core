@@ -49,6 +49,7 @@ public class CzertainlyProvider extends Provider {
         // Register Signature Ciphers
 
         putService(new CzertainlySignatureService(this, "Signature", "NONEwithRSA", CzertainlySignatureSpi.class.getName(), apiClient));
+        putService(new CzertainlySignatureService(this, "Signature", "MD5withRSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA1withRSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA224withRSA", CzertainlySignatureSpi.class.getName(), apiClient));
         putService(new CzertainlySignatureService(this, "Signature", "SHA256withRSA", CzertainlySignatureSpi.class.getName(), apiClient));

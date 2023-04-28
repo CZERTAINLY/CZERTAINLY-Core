@@ -319,4 +319,12 @@ public class ExceptionHandlingAdvice {
         LOG.error("General error occurred: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("Internal server error.");
     }
+
+    @ExceptionHandler(ScepException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<byte[]> handleScepException(ScepException ex) {
+        Integer statusCode = HttpStatus.BAD_REQUEST.value();
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(statusCode);
+        return response.body(ex.getFailInfo().getName().getBytes());
+    }
 }
