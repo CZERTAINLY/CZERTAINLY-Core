@@ -32,7 +32,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.Provider;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
@@ -241,7 +243,16 @@ public class ScepResponse {
         }
         String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm()).replace("SHA-", "SHA").replace("WITH", "with");
         List<RequestAttributeDto> signatureAttributes = new ArrayList<>();
-        signatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.findByCode(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)).name()));
+        String digestAlgorithmName;
+
+        try {
+            MessageDigest md = MessageDigest.getInstance(
+                    digestAlgorithmOid, BouncyCastleProvider.PROVIDER_NAME);
+            digestAlgorithmName = md.getAlgorithm();
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e ){
+            digestAlgorithmName = DigestAlgorithm.findByCode(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)).name()
+        }
+        signatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(digestAlgorithmName));
         if (signerPrivateKey.getAlgorithm().equals("RSA"))
             signatureAttributes.add(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15));
         signerPrivateKey.setSignatureAttributes(signatureAttributes);
