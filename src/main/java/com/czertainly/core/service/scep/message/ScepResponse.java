@@ -235,10 +235,6 @@ public class ScepResponse {
         CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
         // Create attributes that will be signed
         Hashtable<ASN1ObjectIdentifier, Attribute> attributes = createAttributes();
-
-        if(pkiStatus.equals(PkiStatus.FAILURE)) {
-
-        }
         String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm()).replace("SHA-", "SHA").replace("WITH", "with");
         List<RequestAttributeDto> signatureAttributes = new ArrayList<>();
         signatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.findByCode(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)).name()));

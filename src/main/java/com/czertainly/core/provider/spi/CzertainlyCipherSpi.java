@@ -59,28 +59,42 @@ public class CzertainlyCipherSpi extends CipherSpi {
     }
 
     @Override
-    protected int engineDoFinal(byte[] arg0, int arg1, int arg2, byte[] arg3, int arg4)
-            throws ShortBufferException, IllegalBlockSizeException, BadPaddingException {
+    protected int engineDoFinal(byte[] input, int inputOffset, int inputLen, byte[] output, int outputOffset) throws ShortBufferException, IllegalBlockSizeException, BadPaddingException {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
         return 0;
     }
 
     @Override
     protected int engineGetBlockSize() {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
         return 0;
     }
 
     @Override
     protected byte[] engineGetIV() {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
         return null;
     }
 
     @Override
     protected int engineGetOutputSize(int value) {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
         return 0;
     }
 
     @Override
     protected AlgorithmParameters engineGetParameters() {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
         return null;
     }
 
@@ -95,19 +109,31 @@ public class CzertainlyCipherSpi extends CipherSpi {
     @Override
     protected void engineInit(int operationMode, Key key, AlgorithmParameterSpec arg2, SecureRandom arg3)
             throws InvalidKeyException, InvalidAlgorithmParameterException {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
     }
 
     @Override
     protected void engineInit(int operationMode, Key key, AlgorithmParameters arg2, SecureRandom arg3)
             throws InvalidKeyException, InvalidAlgorithmParameterException {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
     }
 
     @Override
     protected void engineSetMode(String operationMode) throws NoSuchAlgorithmException {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
     }
 
     @Override
     protected void engineSetPadding(String operationMode) throws NoSuchPaddingException {
+        //Method is not implemented. The current implementation involves only for SCEP related items
+        // And this method is not used.
+        // This method should be implemented when the complete encryption and decryption is processed through the CZERTAINLY Provider
     }
 
 }
