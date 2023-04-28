@@ -11,8 +11,6 @@ RUN apk update && \
 COPY data/docker /
 COPY data/target/*.jar /opt/czertainly/app.jar
 
-WORKDIR /opt/czertainly
-
 ENV JDBC_URL=
 ENV JDBC_USERNAME=
 ENV JDBC_PASSWORD=
