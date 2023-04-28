@@ -248,9 +248,9 @@ public class ScepResponse {
         try {
             MessageDigest md = MessageDigest.getInstance(
                     digestAlgorithmOid, BouncyCastleProvider.PROVIDER_NAME);
-            digestAlgorithmName = md.getAlgorithm();
+            digestAlgorithmName = DigestAlgorithm.findByCode(md.getAlgorithm()).name();
         } catch (NoSuchAlgorithmException | NoSuchProviderException e ){
-            digestAlgorithmName = DigestAlgorithm.findByCode(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)).name()
+            digestAlgorithmName = DigestAlgorithm.findByCode(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)).name();
         }
         signatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(digestAlgorithmName));
         if (signerPrivateKey.getAlgorithm().equals("RSA"))
