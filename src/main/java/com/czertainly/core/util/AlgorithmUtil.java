@@ -1,8 +1,18 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.common.collection.DigestAlgorithm;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.List;
 
 public class AlgorithmUtil {
+
+    private static final Logger logger = LoggerFactory.getLogger(AlgorithmUtil.class);
 
     public static String getSignatureAlgorithmName(String digestAlgorithmOID, String privateKeyAlgorithm) throws NoSuchAlgorithmException {
         // Map digest algorithm OID to digest algorithm name
@@ -21,6 +31,20 @@ public class AlgorithmUtil {
     }
 
     public static String getDigestAlgorithm(String digestAlgorithmOID) throws NoSuchAlgorithmException {
+        // Try to identify the digest algorithm from the bouncy castle provider
+        try {
+            MessageDigest md = MessageDigest.getInstance(
+                    digestAlgorithmOID, BouncyCastleProvider.PROVIDER_NAME);
+            String digestAlgorithmName = DigestAlgorithm.findByCode(md.getAlgorithm()).name();
+            if(!List.of("SHA-1", "SHA-256", "SHA-384", "SHA-512").contains(digestAlgorithmName)) {
+                throw new ValidationException("Unsupported digest algorithm");
+            }
+            return digestAlgorithmName;
+        } catch (Exception e) {
+            logger.warn("Unable to find algorithm from the Bouncycastle provider");
+        }
+        // If the algorithm is not found then fallback to the below IOD identification since
+        // they are not available in the bouncycastle provider
         if (digestAlgorithmOID.equals("1.2.840.113549.1.1.5")) { // SHA1 OID
             return "SHA-1";
         } else if (digestAlgorithmOID.equals("2.16.840.1.101.3.4.2.1")) { // SHA256 OID
