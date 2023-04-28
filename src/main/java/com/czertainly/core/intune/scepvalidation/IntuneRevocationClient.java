@@ -125,6 +125,7 @@ public class IntuneRevocationClient extends IntuneClient
             throw new IllegalArgumentException("The argument 'maxCARequestsToDownload' should be between 1 and " + MAXREQUESTS_MAXVALUE + ". Value received: " + maxCARequestsToDownload);
         }
 
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         ObjectNode requestBody = objectMapper.createObjectNode();
         // Create Request Body 
         requestBody.put(
@@ -169,6 +170,7 @@ public class IntuneRevocationClient extends IntuneClient
         }
         
         // Create Request Body
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         ObjectNode requestBody = objectMapper.createObjectNode();
         String revocationResultsJson =  new Gson().toJsonTree(revocationResults).getAsJsonArray().toString();
         requestBody.put(

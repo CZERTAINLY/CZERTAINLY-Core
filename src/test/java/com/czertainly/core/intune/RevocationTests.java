@@ -65,6 +65,7 @@ public class RevocationTests {
         list.add(new CARevocationRequest("requestContext1", "serialNumber1", "issuerName1", "caConfig1"));
         list.add(new CARevocationRequest("requestContext2", "serialNumber2", "issuerName2", "caConfig2"));
         JsonArray jsonArray = new Gson().toJsonTree(list).getAsJsonArray();
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode jsonResponse = objectMapper.createObjectNode();
         jsonResponse.put("@odata.context", "https://manage.microsoft.com/RACerts/StatelessPkiConnectorService/$metadata#Collection(microsoft.management.services.api.caRevocationRequest)")

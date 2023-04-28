@@ -242,6 +242,7 @@ public class IntuneScepServiceClient extends IntuneClient
     
     private void Post(JsonNode requestBody, String urlSuffix, String transactionId) throws IntuneScepServiceException, Exception
     {
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         UUID activityId = UUID.randomUUID();
         
         try 

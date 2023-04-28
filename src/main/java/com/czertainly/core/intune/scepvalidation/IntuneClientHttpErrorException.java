@@ -42,6 +42,7 @@ public class IntuneClientHttpErrorException extends IntuneClientException
     
     private UUID activityId = null;
     private StatusLine statusLine = null;
+    //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
     private JsonNode response = null;
     
     public int getStatusCode()
@@ -61,6 +62,7 @@ public class IntuneClientHttpErrorException extends IntuneClientException
     
     public IntuneClientHttpErrorException(StatusLine statusLine, JsonNode response, UUID activityId)
     {
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         super(response.toString());
         this.activityId = activityId;
         this.statusLine = statusLine;

@@ -261,6 +261,7 @@ class IntuneClient
      */
     public JsonNode PostRequest(String serviceName, String urlSuffix, String apiVersion, JsonNode json, UUID activityId) throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
     {
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         return this.PostRequest(serviceName, urlSuffix, apiVersion, json, activityId, null);
     }
     
@@ -284,6 +285,7 @@ class IntuneClient
      */
     public JsonNode PostRequest(String serviceName, String urlSuffix, String apiVersion, JsonNode json, UUID activityId, Map<String,String> additionalHeaders) throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
     {
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         if(serviceName == null || serviceName.isEmpty())
         {
             throw new IllegalArgumentException("The argument 'serviceName' is missing");
@@ -337,6 +339,7 @@ class IntuneClient
         httpPost.setEntity(new StringEntity(json.toString()));
         
         CloseableHttpResponse intuneResponse = null;
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         JsonNode jsonResult = null;
         try 
         {
@@ -425,6 +428,7 @@ class IntuneClient
         {
             graphResponse = httpclient.execute(httpGet);
 
+            //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
             JsonNode jsonResult = ParseResponseToJSON(graphResponse, graphRequest, activityId);
             
             for(JsonNode obj:jsonResult.get("value"))
@@ -448,6 +452,7 @@ class IntuneClient
     
     private JsonNode ParseResponseToJSON(CloseableHttpResponse response, String requestUrl, UUID activityId) throws IntuneClientException, IOException
     {
+        //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         JsonNode jsonResult = null;
         HttpEntity httpEntity = null;
         try 
