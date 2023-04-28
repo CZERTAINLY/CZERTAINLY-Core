@@ -474,6 +474,7 @@ class IntuneClient
                 throw new IntuneClientException("ActivityId: " + activityId + " Unable to convert httpEntity from response to string", e);
             }
 
+            //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
             ObjectMapper objectMapper = new ObjectMapper();
             String canonicalFormat = JsonParser.parseString(httpEntityStr).toString();
             jsonResult = objectMapper.readTree(canonicalFormat);
