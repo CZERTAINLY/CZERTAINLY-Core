@@ -1,12 +1,7 @@
 package com.czertainly.core.dao.entity.scep;
 
-import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
-import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 

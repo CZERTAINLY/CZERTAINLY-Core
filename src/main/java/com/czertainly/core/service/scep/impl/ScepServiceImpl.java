@@ -402,13 +402,15 @@ public class ScepServiceImpl implements ScepService {
 
         requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
         ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), requestDto);
-        scepResponse.setCertificate(CertificateUtil.parseCertificate(response.getCertificateData()));
+
+        X509Certificate certificate = CertificateUtil.parseCertificate(response.getCertificateData());
+        scepResponse.setCertificate(certificate);
         addTransactionEntity(scepRequest.getTransactionId(), response.getUuid());
         scepResponse.setPkiStatus(PkiStatus.SUCCESS);
         if (scepProfile.isIntuneEnabled()) sendIntuneSuccessNotification(
                 intuneClient,
                 scepRequest,
-                scepResponse.getIssuedCertificate()
+                certificate
         );
         return scepResponse;
     }
@@ -425,7 +427,6 @@ public class ScepServiceImpl implements ScepService {
         ScepResponse scepResponse = new ScepResponse();
         requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
         CertificateDetailDto response = clientOperationService.createCsr(requestDto);
-        scepResponse.setIssuedCertificate(certificateService.getCertificateEntity(SecuredUUID.fromString(response.getUuid())));
         CertificateUpdateObjectsDto updateObjectsRequest = new CertificateUpdateObjectsDto();
         updateObjectsRequest.setRaProfileUuid(raProfile.getUuid().toString());
         certificateService.updateCertificateObjects(SecuredUUID.fromString(response.getUuid()), updateObjectsRequest);
@@ -443,7 +444,6 @@ public class ScepServiceImpl implements ScepService {
         if (certificate.getStatus() != CertificateStatus.NEW) {
             scepResponse.setPkiStatus(PkiStatus.SUCCESS);
             scepResponse.setCertificate(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
-            scepResponse.setIssuedCertificate(certificate);
         } else {
             scepResponse.setPkiStatus(PkiStatus.PENDING);
         }
@@ -463,13 +463,13 @@ public class ScepServiceImpl implements ScepService {
         try {
             ScepTransaction transaction = getTransaction(scepRequest.getTransactionId());
             if (!transaction.getCertificate().getStatus().equals(CertificateStatus.NEW)) {
-                scepResponse.setCertificate(CertificateUtil.parseCertificate(transaction.getCertificate().getCertificateContent().getContent()));
+                X509Certificate certificate = CertificateUtil.parseCertificate(transaction.getCertificate().getCertificateContent().getContent());
+                scepResponse.setCertificate(certificate);
                 scepResponse.setPkiStatus(PkiStatus.SUCCESS);
-                scepResponse.setIssuedCertificate(transaction.getCertificate());
                 sendIntuneSuccessNotification(
                         intuneClient,
                         scepRequest,
-                        scepResponse.getIssuedCertificate()
+                        certificate
                 );
             } else {
                 scepResponse.setPkiStatus(PkiStatus.PENDING);
@@ -603,15 +603,15 @@ public class ScepServiceImpl implements ScepService {
     private void sendIntuneSuccessNotification(
             IntuneScepServiceClient client,
             ScepRequest request,
-            Certificate certificate) {
+            X509Certificate certificate) {
         String pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
         String expiryDate = simpleDateFormat.format(certificate.getNotAfter());
-        String serialNumber = certificate.getSerialNumber();
-        String issuingAuthority = certificate.getIssuerCommonName();
+        String serialNumber = certificate.getSerialNumber().toString(16);
+        String issuingAuthority = certificate.getIssuerX500Principal().getName();
 
         try {
-            String sha1Thumbprint = CertificateUtil.getSha1Thumbprint(CertificateUtil.getX509Certificate(certificate.getCertificateContent().getContent()).getEncoded());
+            String sha1Thumbprint = CertificateUtil.getSha1Thumbprint(certificate.getEncoded());
             client.SendSuccessNotification(
                     request.getTransactionId(),
                     CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
