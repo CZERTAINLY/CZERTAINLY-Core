@@ -604,7 +604,7 @@ public class ScepServiceImpl implements ScepService {
             IntuneScepServiceClient client,
             ScepRequest request,
             Certificate certificate) {
-        String pattern = "YYYY-MM-DDThh:mm:ss.sssTZD";
+        String pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat(pattern);
         String expiryDate = simpleDateFormat.format(certificate.getNotAfter());
         String serialNumber = certificate.getSerialNumber();
