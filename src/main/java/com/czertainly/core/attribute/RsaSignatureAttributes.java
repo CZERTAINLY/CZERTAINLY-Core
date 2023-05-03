@@ -86,6 +86,16 @@ public class RsaSignatureAttributes {
         return attribute;
     }
 
+    public static RequestAttributeDto buildRequestDigest(DigestAlgorithm value) {
+        // define Data Attribute
+        RequestAttributeDto attribute = new RequestAttributeDto();
+        attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
+        attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
+        attribute.setContent(List.of(new StringAttributeContent(value.getName())));
+
+        return attribute;
+    }
+
     public static RequestAttributeDto buildRequestDigest(String value) {
         // define Data Attribute
         RequestAttributeDto attribute = new RequestAttributeDto();

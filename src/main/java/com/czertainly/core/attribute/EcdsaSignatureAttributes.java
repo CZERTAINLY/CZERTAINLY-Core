@@ -1,9 +1,11 @@
 package com.czertainly.core.attribute;
 
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.collection.DigestAlgorithm;
 
@@ -42,6 +44,14 @@ public class EcdsaSignatureAttributes {
         // set content
         attribute.setContent(DigestAlgorithm.asStringAttributeContentList());
 
+        return attribute;
+    }
+
+    public static RequestAttributeDto buildRequestDigest(DigestAlgorithm value) {
+        RequestAttributeDto attribute = new RequestAttributeDto();
+        attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
+        attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
+        attribute.setContent(List.of(new StringAttributeContent(value.getName())));
         return attribute;
     }
 
