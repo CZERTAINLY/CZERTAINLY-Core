@@ -152,6 +152,7 @@ public class ScepServiceImpl implements ScepService {
 
     @Override
     public ResponseEntity<Object> handleGet(String profileName, String operation, String message) throws ScepException {
+        logger.debug("SCEP GET request received for profile: {}, operation: {}, message: {}", profileName, operation, message);
         byte[] encoded = new byte[0];
         if (message != null) {
             encoded = message.getBytes();
@@ -161,12 +162,14 @@ public class ScepServiceImpl implements ScepService {
 
     @Override
     public ResponseEntity<Object> handlePost(String profileName, String operation, byte[] message) throws ScepException {
+        logger.debug("SCEP POST request received for profile: {}, operation: {}, message: {}", profileName, operation, Base64.getEncoder().encodeToString(message));
         return service(profileName, operation, message);
     }
 
     private ResponseEntity<Object> service(String profileName, String operation, byte[] message) throws ScepException {
         init(profileName);
         validateProfile();
+        logger.info("SCEP request received for profile: {}, operation: {}", profileName, operation);
         return switch (operation) {
             case "GetCACert" -> getCaCerts();
             case "GetCACaps" -> getCaCaps();
@@ -203,6 +206,8 @@ public class ScepServiceImpl implements ScepService {
                 throw new IllegalArgumentException("Error converting the certificate to x509 object");
             }
         }
+
+        logger.debug("SCEP service initialized: isRaProfileBased: {}, raProfile: {}, scepProfile: {}", raProfileBased, raProfile, scepProfile);
     }
 
     private void validateProfile() throws ScepException {
@@ -241,11 +246,13 @@ public class ScepServiceImpl implements ScepService {
         byte[] encoded;
         try {
             if (caCertificateChain.size() > 1) {
+                logger.debug("Certificate chain is more than one, returning CA-RA certificate");
                 CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
                 generator.addCertificates(new JcaCertStore(caCertificateChain));
                 encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
                 return getResponseEntity(encoded, "application/x-x509-ca-ra-cert", encoded.length);
             } else {
+                logger.debug("Certificate chain is one, returning CA certificate");
                 encoded = recipient.getEncoded();
                 return getResponseEntity(encoded, "application/x-x509-ca-cert", encoded.length);
             }
@@ -256,6 +263,7 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private ResponseEntity<Object> getCaCaps() {
+        logger.debug("Returning CA capabilities");
         return getResponseEntity(String.join(System.lineSeparator(), SCEP_CA_CAPABILITIES), "text/plain", null);
     }
 
@@ -272,6 +280,9 @@ public class ScepServiceImpl implements ScepService {
         IntuneScepServiceClient intuneClient = null;
 
         scepRequest = new ScepRequest(body);
+
+        logger.debug("Processing SCEP request: transactionId={}", scepRequest.getTransactionId());
+
         CryptographicKey key = scepProfile.getCaCertificate().getKey();
         CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
         // Get the private key from the configuration of SCEP Profile
