@@ -95,7 +95,7 @@ public class ScepProfileControllerImpl implements ScepProfileController {
     }
 
     @Override
-    public List<CertificateDto> listScepCaCertificates() {
-        return scepProfileService.listScepCaCertificates();
+    public List<CertificateDto> listScepCaCertificates(boolean intuneEnabled) {
+        return scepProfileService.listScepCaCertificates(intuneEnabled);
     }
 }

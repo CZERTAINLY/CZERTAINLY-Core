@@ -246,7 +246,8 @@ public interface CertificateService extends ResourceExtensionService  {
     /**
      * List certificates eligible for CA certificate of SCEP requests
      * @param filter Security Filter
+     * @param intuneEnabled flag to return certificates that are eligible for Intune integration
      * @return List of available CA certificates
      */
-    List<CertificateDto> listScepCaCertificates(SecurityFilter filter);
+    List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled);
 }

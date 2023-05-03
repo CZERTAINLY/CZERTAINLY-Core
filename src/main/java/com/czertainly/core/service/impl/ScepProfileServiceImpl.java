@@ -307,8 +307,8 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    public List<CertificateDto> listScepCaCertificates() {
-        return certificateService.listScepCaCertificates(SecurityFilter.create());
+    public List<CertificateDto> listScepCaCertificates(boolean intuneEnabled) {
+        return certificateService.listScepCaCertificates(SecurityFilter.create(), intuneEnabled);
     }
 
     private RaProfile getRaProfile(String uuid) throws NotFoundException {
