@@ -1,13 +1,9 @@
 package com.czertainly.core.service.scep.message;
 
 import com.czertainly.api.exception.ScepException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.collection.DigestAlgorithm;
-import com.czertainly.api.model.common.collection.RsaSignatureScheme;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.api.model.core.scep.PkiStatus;
-import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.util.AlgorithmUtil;
 import com.czertainly.core.util.CertificateUtil;
@@ -224,11 +220,7 @@ public class ScepResponse {
         // Create attributes that will be signed
         Hashtable<ASN1ObjectIdentifier, Attribute> attributes = createAttributes();
         String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(digestAlgorithmOid, signerPrivateKey.getAlgorithm()).replace("SHA-", "SHA").replace("WITH", "with");
-        List<RequestAttributeDto> signatureAttributes = new ArrayList<>();
-        signatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.findByCode(AlgorithmUtil.getDigestAlgorithm(digestAlgorithmOid)).name()));
-        if (signerPrivateKey.getAlgorithm().equals("RSA"))
-            signatureAttributes.add(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15));
-        signerPrivateKey.setSignatureAttributes(signatureAttributes);
+
         ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName).setProvider(signerProvider).build(signerPrivateKey);
         JcaDigestCalculatorProviderBuilder calculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder().setProvider(BouncyCastleProvider.PROVIDER_NAME);
         JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(calculatorProviderBuilder.build());

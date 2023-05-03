@@ -5,6 +5,7 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.collection.DigestAlgorithm;
@@ -108,7 +109,24 @@ public class RsaEncryptionAttributes {
         attribute.setUuid(ATTRIBUTE_DATA_RSA_PADDING_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_PADDING_NAME);
         attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
+        return attribute;
+    }
 
+    public static RequestAttributeDto buildOaepHash(DigestAlgorithm value) {
+        // define Data Attribute
+        RequestAttributeDto attribute = new RequestAttributeDto();
+        attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
+        attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
+        attribute.setContent(List.of(new StringAttributeContent(value.getName())));
+        return attribute;
+    }
+
+    public static RequestAttributeDto buildOaepMgf(boolean value) {
+        // define Data Attribute
+        RequestAttributeDto attribute = new RequestAttributeDto();
+        attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
+        attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
+        attribute.setContent(List.of(new BooleanAttributeContent(value)));
         return attribute;
     }
 }

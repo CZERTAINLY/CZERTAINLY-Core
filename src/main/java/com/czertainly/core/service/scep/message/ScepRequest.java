@@ -2,10 +2,8 @@ package com.czertainly.core.service.scep.message;
 
 import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.core.cryptography.key.RsaPadding;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
-import com.czertainly.core.attribute.RsaEncryptionAttributes;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cms.*;
@@ -302,7 +300,6 @@ public class ScepRequest {
                 if (privateKey == null || provider == null) {
                     throw new ScepException("Private key or provider is null", FailInfo.BAD_REQUEST);
                 }
-                privateKey.setCipherAttributes(List.of(RsaEncryptionAttributes.buildPadding(RsaPadding.PKCS1_v1_5)));
                 JceKeyTransEnvelopedRecipient jceKeyTransEnvelopedRecipient = new JceKeyTransEnvelopedRecipient(privateKey);
                 jceKeyTransEnvelopedRecipient.setProvider(provider);
                 jceKeyTransEnvelopedRecipient.setContentProvider(BouncyCastleProvider.PROVIDER_NAME);
