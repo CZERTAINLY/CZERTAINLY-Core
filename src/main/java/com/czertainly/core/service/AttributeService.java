@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataResponseDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
@@ -32,10 +33,17 @@ public interface AttributeService {
      * Function to list the available custom attributes stored in the database
      *
      * @param filter : Secutry filter for Access Control
-     * @param type:  Type of the attribute, either custom or meta
      * @return - List of Custom Attributes stored in the database
      */
-    List<AttributeDefinitionDto> listAttributes(SecurityFilter filter, AttributeType type);
+    List<CustomAttributeDefinitionDto> listAttributes(SecurityFilter filter);
+
+    /**
+     * Function to list the available global metadata stored in the database
+     *
+     * @param filter : Secutry filter for Access Control
+     * @return - List of Global Metadata stored in the database
+     */
+    List<AttributeDefinitionDto> listGlobalMetadata(SecurityFilter filter);
 
     /**
      * Function to get the detail of the custom attribute by providing the UUID
