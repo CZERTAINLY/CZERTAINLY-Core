@@ -3,9 +3,9 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -102,7 +102,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListAttributes() {
-        List<AttributeDefinitionDto> attributes = attributeService.listAttributes(SecurityFilter.create(), AttributeType.CUSTOM);
+        List<CustomAttributeDefinitionDto> attributes = attributeService.listAttributes(SecurityFilter.create());
         Assertions.assertNotNull(attributes);
         Assertions.assertFalse(attributes.isEmpty());
         Assertions.assertEquals(1, attributes.size());
