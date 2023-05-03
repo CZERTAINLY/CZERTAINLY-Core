@@ -359,11 +359,13 @@ public class ScepServiceImpl implements ScepService {
             scepResponse.setTransactionId(transactionId);
         }
 
-        logger.debug("SCEP request failed: {}, failInfo={}, cause={}, transactionId={}",
+        logger.debug("SCEP request failed: {}, failInfo={}, cause={}, transactionId={}, scepProfile={}, raProfile={}",
                 scepException.getMessage(),
                 scepException.getFailInfo(),
                 scepException.getCause() != null ? scepException.getCause().getMessage() : null,
-                transactionId
+                transactionId,
+                this.scepProfile.getName(),
+                this.raProfileBased ? this.raProfile.getName() : null
         );
 
         return scepResponse;
@@ -388,8 +390,8 @@ public class ScepServiceImpl implements ScepService {
                     czertainlyProvider
 
             );
-        } catch (Exception e) {
-            logger.error(e.getMessage());
+        } catch (CertificateException e) {
+            throw new ScepException("Unable to set certificate for signing SCEP response", e, FailInfo.BAD_REQUEST);
         }
         scepResponse.generate();
         byte[] responseBody;

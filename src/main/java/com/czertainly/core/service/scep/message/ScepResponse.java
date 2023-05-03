@@ -194,8 +194,7 @@ public class ScepResponse {
                                 .setProvider(BouncyCastleProvider.PROVIDER_NAME));
             }
             // Take the content encryption algorithm from the response that is set from the SCEP request message
-
-            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(SMIMECapability.dES_EDE3_CBC).setProvider(BouncyCastleProvider.PROVIDER_NAME);
+            JceCMSContentEncryptorBuilder jceCMSContentEncryptorBuilder = new JceCMSContentEncryptorBuilder(contentEncryptionAlgorithm).setProvider(BouncyCastleProvider.PROVIDER_NAME);
             CMSEnvelopedData cmsEnvelopedData = cmsEnvelopedDataGenerator.generate(
                     new CMSProcessableByteArray(cmsSignedData.getEncoded()),
                     jceCMSContentEncryptorBuilder.build());

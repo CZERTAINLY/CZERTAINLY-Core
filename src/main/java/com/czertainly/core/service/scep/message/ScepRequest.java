@@ -59,7 +59,7 @@ public class ScepRequest {
      * If there is a problem identifying the encryption algorithm, the error will be thrown out
      * but to be on the safer side, the default value is added
      */
-    private ASN1ObjectIdentifier contentEncryptionAlgorithm =SMIMECapability.dES_EDE3_CBC;
+    private ASN1ObjectIdentifier contentEncryptionAlgorithm = SMIMECapability.dES_EDE3_CBC;
 
     public ScepRequest(byte[] message) throws ScepException {
         this.message = message;
