@@ -2,13 +2,9 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.InfoAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
@@ -159,24 +155,24 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         this.reference = reference;
     }
 
-    public AttributeDefinitionDto mapToListDto(AttributeType type) {
+    public CustomAttributeDefinitionDto mapToCustomAttributeDefinitionDto() {
+        CustomAttributeDefinitionDto dto = new CustomAttributeDefinitionDto();
+        CustomAttribute attribute = getAttributeDefinition(CustomAttribute.class);
+        dto.setUuid(attribute.getUuid());
+        dto.setName(attribute.getName());
+        dto.setDescription(attribute.getDescription());
+        dto.setContentType(attribute.getContentType());
+        dto.setEnabled(enabled);
+        return dto;
+    }
+
+    public AttributeDefinitionDto mapToGlobalMetadataDefinitionDto() {
         AttributeDefinitionDto dto = new AttributeDefinitionDto();
-        if (type.equals(AttributeType.CUSTOM)) {
-            CustomAttribute attribute = getAttributeDefinition(CustomAttribute.class);
-            dto.setUuid(attribute.getUuid());
-            dto.setName(attribute.getName());
-            dto.setDescription(attribute.getDescription());
-            dto.setContentType(attribute.getContentType());
-            dto.setEnabled(enabled);
-        } else if (type.equals(AttributeType.META)) {
-            MetadataAttribute attribute = getAttributeDefinition(MetadataAttribute.class);
-            dto.setUuid(uuid.toString());
-            dto.setName(attribute.getName());
-            dto.setContentType(attribute.getContentType());
-            dto.setDescription(attribute.getDescription());
-        } else {
-            return null;
-        }
+        MetadataAttribute attribute = getAttributeDefinition(MetadataAttribute.class);
+        dto.setUuid(uuid.toString());
+        dto.setName(attribute.getName());
+        dto.setContentType(attribute.getContentType());
+        dto.setDescription(attribute.getDescription());
         return dto;
     }
 
