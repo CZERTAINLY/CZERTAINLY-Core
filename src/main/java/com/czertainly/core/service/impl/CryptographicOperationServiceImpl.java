@@ -19,7 +19,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.EcdsaSignatureAttributes;
-import com.czertainly.core.attribute.EncryptionAttributes;
+import com.czertainly.core.attribute.RsaEncryptionAttributes;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.config.TokenContentSigner;
 import com.czertainly.core.dao.entity.CryptographicKey;
@@ -118,7 +118,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.info("Requesting to list cipher attributes for Key: {} and Algorithm {}", keyItemUuid, algorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
         logger.debug("Key details: {}", key);
-        return listEncryptionAttributes();
+        return listEncryptionAttributes(algorithm);
     }
 
     @Override
@@ -522,8 +522,17 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
 
-    public List<BaseAttribute> listEncryptionAttributes() {
-        return EncryptionAttributes.getEncryptionAttributes();
+    public List<BaseAttribute> listEncryptionAttributes(CryptographicAlgorithm algorithm) {
+        switch (algorithm) {
+            case RSA -> {
+                return RsaEncryptionAttributes.getRsaEncryptionAttributes();
+            }
+            default -> throw new ValidationException(
+                    ValidationError.create(
+                            "Cryptographic algorithm not supported"
+                    )
+            );
+        }
     }
 
     public boolean validateSignatureAttributes(CryptographicAlgorithm algorithm, List<RequestAttributeDto> attributes) throws NotFoundException {
