@@ -1,5 +1,6 @@
 package com.czertainly.core.service.scep;
 
+import com.czertainly.api.exception.ScepException;
 import org.springframework.http.ResponseEntity;
 
 public interface ScepService {
@@ -11,7 +12,7 @@ public interface ScepService {
      * @param message SCEP Message
      * @return SCEP response
      */
-    ResponseEntity<Object> handleGet(String scepProfileName, String operation, String message);
+    ResponseEntity<Object> handleGet(String scepProfileName, String operation, String message) throws ScepException;
 
     /**
      * Handle the POST request from the SCEP client
@@ -20,5 +21,5 @@ public interface ScepService {
      * @param message SCEP Message
      * @return SCEP response
      */
-    ResponseEntity<Object> handlePost(String scepProfileName, String operation, byte[] message);
+    ResponseEntity<Object> handlePost(String scepProfileName, String operation, byte[] message) throws ScepException;
 }
