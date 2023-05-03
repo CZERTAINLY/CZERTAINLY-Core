@@ -13,11 +13,15 @@ import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.cryptography.key.KeyDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyDto;
 import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.core.dao.entity.CryptographicKey;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -305,4 +309,12 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @return Cryptographic Key UUID
      */
     UUID findKeyByFingerprint(String fingerprint);
+
+    /**
+     * Get the key item of specified type based on the cryptographic key
+     * @param key Cryptographic Key wrapper object
+     * @param keyType Key type
+     * @return Key Item
+     */
+    CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType);
 }

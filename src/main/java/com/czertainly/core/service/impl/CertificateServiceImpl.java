@@ -10,12 +10,15 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -951,7 +954,40 @@ public class CertificateServiceImpl implements CertificateService {
 
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
                 (root, cb) -> cb.isNotNull(root.get("keyUuid")));
-        return certificates.stream().map(Certificate::mapToListDto).filter(c -> c.isPrivateKeyAvailability()).collect(Collectors.toList());
+        return certificates
+                .stream()
+                .filter(c -> c.getKey() != null)
+                .filter(this::isScepCaCertPermissible)
+                .map(Certificate::mapToListDto)
+                .filter(c -> c.isPrivateKeyAvailability())
+                .collect(Collectors.toList());
+    }
+
+    private boolean isScepCaCertPermissible(Certificate certificate) {
+        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
+        // It is required to check RSA for public key since only RSA keys are encryption capable
+        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
+        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
+            if (item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)
+                    && item.getType().equals(KeyType.PUBLIC_KEY)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)) {
+                if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.SIGN))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PUBLIC_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.VERIFY))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private String getExpiryTime(Date now, Date expiry) {

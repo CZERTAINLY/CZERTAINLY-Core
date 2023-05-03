@@ -1,25 +1,10 @@
 package com.czertainly.core.dao.entity.scep;
 
-import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
-import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
-import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
-import com.czertainly.core.service.model.Securable;
-import com.czertainly.core.service.scep.impl.ExtendedScepHelperServiceImpl;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.DtoMapper;
-import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.io.Serializable;
 import java.util.UUID;
 
 @Entity

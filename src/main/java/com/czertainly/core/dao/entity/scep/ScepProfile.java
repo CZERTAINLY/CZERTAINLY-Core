@@ -8,7 +8,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.service.model.Securable;
-import com.czertainly.core.service.scep.impl.ExtendedScepHelperServiceImpl;
+import com.czertainly.core.service.scep.impl.ScepServiceImpl;
 import com.czertainly.core.util.*;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -69,6 +69,18 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "challenge_password")
     private String challengePassword;
 
+    @Column(name = "intune_enabled")
+    private boolean intuneEnabled;
+
+    @Column(name = "intune_tenant")
+    private String intuneTenant;
+
+    @Column(name = "intune_application_id")
+    private String intuneApplicationId;
+
+    @Column(name = "intune_application_key")
+    private String intuneApplicationKey;
+
     @Override
     public ScepProfileDto mapToDto() {
         ScepProfileDto scepProfileDto = new ScepProfileDto();
@@ -84,6 +96,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setIncludeCaCertificate(includeCaCertificate);
         scepProfileDto.setIncludeCaCertificateChain(includeCaCertificateChain);
         scepProfileDto.setRenewThreshold(renewalThreshold);
+        scepProfileDto.setEnableIntune(intuneEnabled);
         return scepProfileDto;
     }
 
@@ -104,8 +117,11 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         if(caCertificate != null) scepProfileDto.setCaCertificate(caCertificate.mapToListDto());
         if(raProfile != null) {
             scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + ExtendedScepHelperServiceImpl.SCEP_URL_PREFIX + "/" + name);
+                    + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
+        scepProfileDto.setEnableIntune(intuneEnabled);
+        scepProfileDto.setIntuneTenant(intuneTenant);
+        scepProfileDto.setIntuneApplicationId(intuneApplicationId);
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return scepProfileDto;
     }
@@ -214,8 +230,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         return renewalThreshold;
     }
 
-    public void setRenewalThreshold(Integer retryThreshold) {
-        this.renewalThreshold = retryThreshold;
+    public void setRenewalThreshold(Integer renewThreshold) {
+        this.renewalThreshold = renewThreshold;
     }
 
     public boolean isIncludeCaCertificate() {
@@ -247,5 +263,37 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         } else {
             this.challengePassword = null;
         }
+    }
+
+    public String getIntuneTenant() {
+        return intuneTenant;
+    }
+
+    public void setIntuneTenant(String intuneTenant) {
+        this.intuneTenant = intuneTenant;
+    }
+
+    public String getIntuneApplicationId() {
+        return intuneApplicationId;
+    }
+
+    public void setIntuneApplicationId(String intuneApplicationId) {
+        this.intuneApplicationId = intuneApplicationId;
+    }
+
+    public String getIntuneApplicationKey() {
+        return intuneApplicationKey;
+    }
+
+    public void setIntuneApplicationKey(String intuneApplicationKey) {
+        this.intuneApplicationKey = intuneApplicationKey;
+    }
+
+    public boolean isIntuneEnabled() {
+        return intuneEnabled;
+    }
+
+    public void setIntuneEnabled(boolean intuneEnabled) {
+        this.intuneEnabled = intuneEnabled;
     }
 }
