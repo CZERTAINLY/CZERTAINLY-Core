@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
 
     private static final String JOB_NAME = "updateCertificateStatusJob";
-    private static  final String CRON_EXPRESSION = "0 * * ? * *"; //TODO lukas.rejha - need to be change on 0 0 * ? * *
+    private static  final String CRON_EXPRESSION = "0 0 * ? * *";
 
     private CertificateService certificateService;
 
