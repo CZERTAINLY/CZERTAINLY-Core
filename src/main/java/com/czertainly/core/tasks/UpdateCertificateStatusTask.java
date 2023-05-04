@@ -1,19 +1,45 @@
 package com.czertainly.core.tasks;
 
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.service.CertificateService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
-public class UpdateCertificateStatusTask {
+@Component
+@NoArgsConstructor
+public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
 
-    @Autowired
+    private static final String JOB_NAME = "updateCertificateStatusJob";
+    private static  final String CRON_EXPRESSION = "0 * * ? * *"; //TODO lukas.rejha - need to be change on 0 0 * ? * *
+
     private CertificateService certificateService;
 
-    // scheduled for every hour, to process 1/24 of eligible certificates for status update
-    @Scheduled(fixedRate = 1000*60*60, initialDelay = 10000)
-    public void performTask() {
+    @Override
+    String getJobName() {
+        return JOB_NAME;
+    }
+
+    @Override
+    String getCronExpression() {
+        return CRON_EXPRESSION;
+    }
+
+    @Override
+    String getJobClassName() {
+        return this.getClass().getName();
+    }
+
+    @Override
+    SchedulerJobExecutionStatus performJob() {
         certificateService.updateCertificatesStatusScheduled();
+        return SchedulerJobExecutionStatus.SUCCESS;
+    }
+
+    // SETTERs
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
     }
 }

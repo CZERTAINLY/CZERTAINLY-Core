@@ -33,6 +33,11 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
+    public Queue queueScheduler() {
+        return new Queue(RabbitMQConstants.QUEUE_SCHEDULER_NAME, true);
+    }
+
+    @Bean
     public Binding eventQueueBinding() {
         return BindingBuilder.bind(queueEvents()).to(czertainlyExchange()).with(RabbitMQConstants.EVENT_ROUTING_KEY);
     }
@@ -40,6 +45,11 @@ public class RabbitMQConfiguration {
     @Bean
     public Binding notificationQueueBinding() {
         return BindingBuilder.bind(queueNotifications()).to(czertainlyExchange()).with(RabbitMQConstants.NOTIFICATION_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding schedulerQueueBinding() {
+        return BindingBuilder.bind(queueScheduler()).to(czertainlyExchange()).with(RabbitMQConstants.SCHEDULER_ROUTING_KEY);
     }
 
 
