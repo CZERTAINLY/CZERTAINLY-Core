@@ -3,8 +3,8 @@ package com.czertainly.core.provider;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.collection.DigestAlgorithm;
-import com.czertainly.api.model.common.collection.RsaSignatureScheme;
+import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto;
@@ -38,42 +38,42 @@ public class CzertainlySignatureService {
         switch (algorithm) {
             case "NONEwithRSA" -> {
                 return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15)
+                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5)
                 );
             }
             case "MD5withRSA" -> {
                 return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15),
+                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
                         RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.MD5)
                 );
             }
             case "SHA1withRSA" -> {
                 return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15),
+                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
                         RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_1)
                 );
             }
             case "SHA224withRSA" -> {
                 return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15),
+                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
                         RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_224)
                 );
             }
             case "SHA256withRSA" -> {
                 return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15),
+                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
                         RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_256)
                 );
             }
             case "SHA384withRSA" -> {
                 return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15),
+                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
                         RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_384)
                 );
             }
             case "SHA512withRSA" -> {
                 return List.of(
-                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1V15),
+                        RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5),
                         RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA_512)
                 );
             }

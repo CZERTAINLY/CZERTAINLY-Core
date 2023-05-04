@@ -10,8 +10,8 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -956,22 +956,22 @@ public class CertificateServiceImpl implements CertificateService {
         // It is required to check RSA for public key since only RSA keys are encryption capable
         // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
         for (CryptographicKeyItem item : certificate.getKey().getItems()) {
-            if (!item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA) && !item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
+            if (!item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && !item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
                 return false;
-            } else if (item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)
                     && item.getType().equals(KeyType.PUBLIC_KEY)) {
                 if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
                     return false;
                 }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)) {
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)) {
                 if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
                     return false;
                 }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
                 if (!item.getUsage().containsAll(List.of(KeyUsage.SIGN))) {
                     return false;
                 }
-            } else if (item.getType().equals(KeyType.PUBLIC_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
+            } else if (item.getType().equals(KeyType.PUBLIC_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
                 if (!item.getUsage().containsAll(List.of(KeyUsage.VERIFY))) {
                     return false;
                 }
@@ -985,7 +985,7 @@ public class CertificateServiceImpl implements CertificateService {
         // It is required to check RSA for public key since only RSA keys are encryption capable
         // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
         for (CryptographicKeyItem item : certificate.getKey().getItems()) {
-            if (!item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)) {
+            if (!item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)) {
                 return false;
             } else if (item.getType().equals(KeyType.PUBLIC_KEY)) {
                 if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
