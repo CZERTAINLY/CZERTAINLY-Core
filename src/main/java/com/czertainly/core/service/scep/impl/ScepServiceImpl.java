@@ -6,7 +6,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.scep.FailInfo;
@@ -290,7 +290,7 @@ public class ScepServiceImpl implements ScepService {
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
                 key.getTokenInstanceReference().getConnector().mapToDto(),
-                item.getCryptographicAlgorithm().getLabel()
+                item.getKeyAlgorithm().getLabel()
         );
 
         CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
@@ -300,7 +300,7 @@ public class ScepServiceImpl implements ScepService {
             scepRequest.decryptData(
                     czertainlyPrivateKey,
                     czertainlyProvider,
-                    cryptographicKeyService.getKeyItemFromKey(scepProfile.getCaCertificate().getKey(), KeyType.PRIVATE_KEY).getCryptographicAlgorithm(),
+                    cryptographicKeyService.getKeyItemFromKey(scepProfile.getCaCertificate().getKey(), KeyType.PRIVATE_KEY).getKeyAlgorithm(),
                     scepProfile.getChallengePassword()
             );
         } catch (CMSException e) {
@@ -392,7 +392,7 @@ public class ScepServiceImpl implements ScepService {
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
                 key.getTokenInstanceReference().getConnector().mapToDto(),
-                item.getCryptographicAlgorithm().getLabel()
+                item.getKeyAlgorithm().getLabel()
         );
         try {
             scepResponse.setSigningAttributes(

@@ -5,7 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto;
@@ -37,7 +37,7 @@ public class TokenContentSigner implements ContentSigner {
     private final UUID publicKeyUuid;
     //Used to determine the signature algorithm for the PQC Items
     private final String publicKey;
-    private final CryptographicAlgorithm algorithm;
+    private final KeyAlgorithm keyAlgorithm;
     private final UUID tokenInstanceUuid;
     private final List<RequestAttributeDto> signatureAttributes;
 
@@ -50,7 +50,7 @@ public class TokenContentSigner implements ContentSigner {
                               UUID privateKeyUuid,
                               UUID publicKeyUuid,
                               String publicKey,
-                              CryptographicAlgorithm algorithm,
+                              KeyAlgorithm keyAlgorithm,
                               List<RequestAttributeDto> signatureAttributes) {
         this.connector = connector;
         this.privateKeyUuid = privateKeyUuid;
@@ -58,7 +58,7 @@ public class TokenContentSigner implements ContentSigner {
         this.tokenInstanceUuid = tokenInstanceUuid;
         this.signatureAttributes = signatureAttributes;
         this.apiClient = apiClient;
-        this.algorithm = algorithm;
+        this.keyAlgorithm = keyAlgorithm;
         this.publicKey = publicKey;
 
         this.outputStream = new ByteArrayOutputStream();
@@ -67,7 +67,7 @@ public class TokenContentSigner implements ContentSigner {
     @Override
     public AlgorithmIdentifier getAlgorithmIdentifier() {
         return CryptographyUtil.prepareSignatureAlgorithm(
-                algorithm,
+                keyAlgorithm,
                 publicKey,
                 signatureAttributes
         );

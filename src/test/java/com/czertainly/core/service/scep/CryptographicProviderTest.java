@@ -1,9 +1,9 @@
 package com.czertainly.core.service.scep;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.core.dao.entity.*;
@@ -14,8 +14,6 @@ import com.czertainly.core.service.CryptographicKeyService;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.cms.CMSEnvelopedData;
 import org.bouncycastle.cms.Recipient;
 import org.bouncycastle.cms.RecipientInformation;
@@ -103,7 +101,7 @@ public class CryptographicProviderTest {
         content.setFormat(KeyFormat.PRKI);
         content.setState(KeyState.ACTIVE);
         content.setEnabled(true);
-        content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content.setKeyAlgorithm(KeyAlgorithm.RSA);
         cryptographicKeyItemRepository.save(content);
 
         content1 = new CryptographicKeyItem();
@@ -115,7 +113,7 @@ public class CryptographicProviderTest {
         content1.setFormat(KeyFormat.SPKI);
         content1.setState(KeyState.ACTIVE);
         content1.setEnabled(true);
-        content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content1.setKeyAlgorithm(KeyAlgorithm.RSA);
         cryptographicKeyItemRepository.save(content1);
 
         content.setKeyReferenceUuid(content.getUuid());
