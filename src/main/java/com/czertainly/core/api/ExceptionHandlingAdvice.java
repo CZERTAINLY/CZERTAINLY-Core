@@ -307,6 +307,30 @@ public class ExceptionHandlingAdvice {
         return response.body(ex.getException());
     }
 
+    /**
+     * Handler for {@link ScepException}.
+     *
+     * @return {@link ResponseEntity}
+     */
+    @ExceptionHandler(ScepException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleScepException(ScepException ex) {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("SCEP error occurred: ")
+                .append(ex.getMessage())
+                .append(", ")
+                .append("failInfo=").append(ex.getFailInfo().getName());
+
+        if (ex.getCause() != null) {
+            messageBuilder
+                    .append(", ")
+                    .append("cause=").append(ex.getCause().getMessage())
+                    .append(". ");
+        }
+
+        LOG.info("HTTP 400: {}", messageBuilder);
+        return ErrorMessageDto.getInstance(messageBuilder.toString());
+    }
 
     /**
      * Handler for {@link Exception}.

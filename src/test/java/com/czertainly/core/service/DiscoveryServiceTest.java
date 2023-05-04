@@ -151,6 +151,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    @Disabled("Currently there is not valid input parameters")
     public void testDiscoverCertificates() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))

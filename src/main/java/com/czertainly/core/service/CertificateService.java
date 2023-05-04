@@ -12,7 +12,6 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -22,7 +21,6 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
-import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -248,7 +246,8 @@ public interface CertificateService extends ResourceExtensionService  {
     /**
      * List certificates eligible for CA certificate of SCEP requests
      * @param filter Security Filter
+     * @param intuneEnabled flag to return certificates that are eligible for Intune integration
      * @return List of available CA certificates
      */
-    List<CertificateDto> listScepCaCertificates(SecurityFilter filter);
+    List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled);
 }

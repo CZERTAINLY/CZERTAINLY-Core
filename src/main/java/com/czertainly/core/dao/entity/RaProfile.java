@@ -10,7 +10,7 @@ import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.service.model.Securable;
-import com.czertainly.core.service.scep.impl.ExtendedScepHelperServiceImpl;
+import com.czertainly.core.service.scep.impl.ScepServiceImpl;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
@@ -106,7 +106,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setScepAvailable(true);
         dto.setUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + ExtendedScepHelperServiceImpl.SCEP_URL_PREFIX + "/" + name);
+                + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         dto.setName(scepProfile.getName());
         dto.setUuid(scepProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), DataAttribute.class)));

@@ -5,12 +5,12 @@ import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
-import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
+import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -122,8 +122,21 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setEnabled(false);
         scepProfile.setName(request.getName());
         scepProfile.setDescription(request.getDescription());
+        // The value 0 will be considered as half life of the certificate for SCEP protocol
+        scepProfile.setRenewalThreshold(request.getRenewalThreshold());
+        scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
+        scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
+        scepProfile.setChallengePassword(request.getChallengePassword());
         scepProfile.setRequireManualApproval(request.getRequireManualApproval() != null && request.getRequireManualApproval());
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
+        if (request.getEnableIntune() != null) {
+            scepProfile.setIntuneEnabled(request.getEnableIntune());
+        } else {
+            scepProfile.setIntuneEnabled(false);
+        }
+        scepProfile.setIntuneTenant(request.getIntuneTenant());
+        scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
+        scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
         if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)) {
             RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
             scepProfile.setRaProfile(raProfile);
@@ -142,7 +155,16 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.UPDATE)
     public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException {
         ScepProfile scepProfile = getScepProfileEntity(uuid);
-        if(request.getRequireManualApproval() != null) scepProfile.setRequireManualApproval(request.getRequireManualApproval());
+        if (request.getRequireManualApproval() != null)
+            scepProfile.setRequireManualApproval(request.getRequireManualApproval());
+        scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
+        scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
+        if (request.getEnableIntune() != null) {
+            scepProfile.setIntuneEnabled(request.getEnableIntune());
+        }
+        if (request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
+        if (scepProfile.getChallengePassword() != null)
+            scepProfile.setChallengePassword(request.getChallengePassword());
         if (request.getRaProfileUuid() != null) {
             if (request.getRaProfileUuid().equals(NONE_CONSTANT)) {
                 scepProfile.setRaProfile(null);
@@ -152,17 +174,20 @@ public class ScepProfileServiceImpl implements ScepProfileService {
                 scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
             }
         }
-        if (request.getDescription() != null) {
-            scepProfile.setDescription(request.getDescription());
-        }
+        if (request.getDescription() != null) scepProfile.setDescription(request.getDescription());
         if (request.getCaCertificateUuid() != null) {
             validateScepCertificateEligibility(request.getCaCertificateUuid());
             scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
         }
-        if(request.getCustomAttributes() != null) {
+        if (request.getCustomAttributes() != null) {
             attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.SCEP_PROFILE);
             attributeService.updateAttributeContent(scepProfile.getUuid(), request.getCustomAttributes(), Resource.SCEP_PROFILE);
         }
+        if (request.getIntuneTenant() != null) scepProfile.setIntuneTenant(request.getIntuneTenant());
+        if (request.getIntuneApplicationId() != null)
+            scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
+        if (request.getIntuneApplicationKey() != null)
+            scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
         scepProfileRepository.save(scepProfile);
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(scepProfile.getUuid(), Resource.SCEP_PROFILE));
@@ -254,7 +279,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             try {
                 scepProfile = getScepProfileEntity(uuid);
                 SecuredList<RaProfile> raProfiles = raProfileService.listRaProfilesAssociatedWithScepProfile(scepProfile.getUuid().toString(), SecurityFilter.create());
-                // scep profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent scep profile.
+                // SCEP profile only from allowed ones, but that would make the forbidden ra profiles point to nonexistent SCEP profile.
                 raProfileService.bulkRemoveAssociatedScepProfile(raProfiles.getAll().stream().map(UniquelyIdentifiedAndAudited::getSecuredParentUuid).collect(Collectors.toList()));
                 deleteScepProfile(scepProfile);
             } catch (Exception e) {
@@ -282,8 +307,8 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    public List<CertificateDto> listScepCaCertificates() {
-        return certificateService.listScepCaCertificates(SecurityFilter.create());
+    public List<CertificateDto> listScepCaCertificates(boolean intuneEnabled) {
+        return certificateService.listScepCaCertificates(SecurityFilter.create(), intuneEnabled);
     }
 
     private RaProfile getRaProfile(String uuid) throws NotFoundException {

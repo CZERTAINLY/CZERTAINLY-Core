@@ -1,5 +1,6 @@
 package com.czertainly.core.api.scep;
 
+import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.interfaces.core.scep.ScepController;
 import com.czertainly.core.service.scep.ScepService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,12 +19,12 @@ public class ScepControllerImpl implements ScepController {
     }
 
     @Override
-    public ResponseEntity<Object> doGet(String scepProfileName, String operation, String message) {
+    public ResponseEntity<Object> doGet(String scepProfileName, String operation, String message) throws ScepException {
         return scepService.handleGet(scepProfileName, operation, message);
     }
 
     @Override
-    public ResponseEntity<Object> doPost(String scepProfileName, String operation, byte[] request) {
+    public ResponseEntity<Object> doPost(String scepProfileName, String operation, byte[] request) throws ScepException {
         return scepService.handlePost(scepProfileName, operation, request);
     }
 }

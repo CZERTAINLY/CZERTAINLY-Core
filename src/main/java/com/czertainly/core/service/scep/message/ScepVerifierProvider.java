@@ -1,4 +1,4 @@
-package com.czertainly.core.config;
+package com.czertainly.core.service.scep.message;
 
 import org.bouncycastle.cms.SignerId;
 import org.bouncycastle.cms.SignerInformationVerifier;

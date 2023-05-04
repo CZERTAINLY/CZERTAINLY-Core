@@ -14,6 +14,7 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
@@ -62,8 +63,8 @@ public class CertificateUtil {
     }
 
     static {
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", CryptographicAlgorithm.SPHINCSPLUS.getName());
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", CryptographicAlgorithm.DILITHIUM.getName());
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", CryptographicAlgorithm.SPHINCSPLUS.getCode());
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", CryptographicAlgorithm.DILITHIUM.getCode());
     }
 
     static {
@@ -213,6 +214,15 @@ public class CertificateUtil {
     public static String getThumbprint(byte[] encodedContent)
             throws NoSuchAlgorithmException {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+        messageDigest.update(encodedContent);
+        byte[] digest = messageDigest.digest();
+        String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
+        return thumbprint;
+    }
+
+    public static String getSha1Thumbprint(byte[] encodedContent)
+            throws NoSuchAlgorithmException {
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
         messageDigest.update(encodedContent);
         byte[] digest = messageDigest.digest();
         String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
@@ -382,6 +392,14 @@ public class CertificateUtil {
         String name = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
         if (name != null) return name;
         return providerName;
+    }
+
+    public static List<JcaX509CertificateHolder> convertToX509CertificateHolder(List<X509Certificate> certificateChain) throws CertificateEncodingException {
+        List<JcaX509CertificateHolder> certificateHolderChain = new ArrayList<>();
+        for (X509Certificate certificate : certificateChain) {
+            certificateHolderChain.add(new JcaX509CertificateHolder(certificate));
+        }
+        return certificateHolderChain;
     }
 
 }

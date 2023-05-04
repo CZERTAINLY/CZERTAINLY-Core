@@ -2,15 +2,10 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.certificate.CertificateResponseDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
-import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
-import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.Group;
@@ -67,7 +62,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
         certificate = new Certificate();
         certificate.setSubjectDn("testCertificate");
-        certificate.setIssuerDn("testCertificate");
+        certificate.setIssuerDn("testCercertificatetificate");
         certificate.setSerialNumber("123456789");
         certificate.setStatus(CertificateStatus.VALID);
         certificate.setCertificateContent(certificateContent);
@@ -247,6 +242,6 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
         certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
 
-        Assertions.assertAll(() -> certificateService.getCertificate(certificate.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getSecuredUuid()));
     }
 }
