@@ -307,6 +307,30 @@ public class ExceptionHandlingAdvice {
         return response.body(ex.getException());
     }
 
+    /**
+     * Handler for {@link ScepException}.
+     *
+     * @return {@link ResponseEntity}
+     */
+    @ExceptionHandler(ScepException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleScepException(ScepException ex) {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("SCEP error occurred: ")
+                .append(ex.getMessage())
+                .append(", ")
+                .append("failInfo=").append(ex.getFailInfo().getName());
+
+        if (ex.getCause() != null) {
+            messageBuilder
+                    .append(", ")
+                    .append("cause=").append(ex.getCause().getMessage())
+                    .append(". ");
+        }
+
+        LOG.info("HTTP 400: {}", messageBuilder);
+        return ErrorMessageDto.getInstance(messageBuilder.toString());
+    }
 
     /**
      * Handler for {@link Exception}.
@@ -318,13 +342,5 @@ public class ExceptionHandlingAdvice {
     public ErrorMessageDto handleException(Exception ex) {
         LOG.error("General error occurred: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("Internal server error.");
-    }
-
-    @ExceptionHandler(ScepException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ResponseEntity<byte[]> handleScepException(ScepException ex) {
-        Integer statusCode = HttpStatus.BAD_REQUEST.value();
-        ResponseEntity.BodyBuilder response = ResponseEntity.status(statusCode);
-        return response.body(ex.getFailInfo().getName().getBytes());
     }
 }

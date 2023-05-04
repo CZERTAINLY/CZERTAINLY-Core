@@ -111,7 +111,8 @@ public interface ScepProfileService extends ResourceExtensionService {
 
     /**
      * List certificates eligible for CA certificate of SCEP requests
+     * @param intuneEnabled flag to return certificates that are eligible for Intune integration
      * @return List of available CA certificates
      */
-    List<CertificateDto> listScepCaCertificates();
+    List<CertificateDto> listScepCaCertificates(boolean intuneEnabled);
 }

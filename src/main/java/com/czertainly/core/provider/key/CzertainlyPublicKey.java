@@ -8,16 +8,12 @@ import java.security.PublicKey;
 import java.util.List;
 
 public class CzertainlyPublicKey implements PublicKey {
-    private static final long serialVersionUID = 1L;
-    private String keyUuid;
 
-    private String tokenInstanceUuid;
+    private final String keyUuid;
 
-    private ConnectorDto connectorDto;
+    private final String tokenInstanceUuid;
 
-    private List<RequestAttributeDto> encryptionAttributes;
-
-    private List<RequestAttributeDto> signatureAttributes;
+    private final ConnectorDto connectorDto;
 
     private byte[] data;
 
@@ -52,22 +48,6 @@ public class CzertainlyPublicKey implements PublicKey {
 
     public String getTokenInstanceUuid() {
         return tokenInstanceUuid;
-    }
-
-    public List<RequestAttributeDto> getEncryptionAttributes() {
-        return encryptionAttributes;
-    }
-
-    public void setEncryptionAttributes(List<RequestAttributeDto> encryptionAttributes) {
-        this.encryptionAttributes = encryptionAttributes;
-    }
-
-    public List<RequestAttributeDto> getSignatureAttributes() {
-        return signatureAttributes;
-    }
-
-    public void setSignatureAttributes(List<RequestAttributeDto> signatureAttributes) {
-        this.signatureAttributes = signatureAttributes;
     }
 
     public byte[] getData() {
