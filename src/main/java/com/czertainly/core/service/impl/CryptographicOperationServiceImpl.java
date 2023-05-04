@@ -8,8 +8,8 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
@@ -113,12 +113,12 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listCipherAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, CryptographicAlgorithm algorithm) throws ConnectorException {
+    public List<BaseAttribute> listCipherAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
-        logger.info("Requesting to list cipher attributes for Key: {} and Algorithm {}", keyItemUuid, algorithm);
+        logger.info("Requesting to list cipher attributes for Key: {} and Algorithm {}", keyItemUuid, keyAlgorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
         logger.debug("Key details: {}", key);
-        return listEncryptionAttributes(algorithm);
+        return listEncryptionAttributes(keyAlgorithm);
     }
 
     @Override
@@ -233,12 +233,12 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     @Override
     @AuditLogged(originator = ObjectType.CRYPTOGRAPHIC_OPERATIONS, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, CryptographicAlgorithm algorithm) throws ConnectorException {
+    public List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
-        logger.info("Requesting to list the Signature Attributes for key: {} and Algorithm: {}", keyItemUuid, algorithm);
+        logger.info("Requesting to list the Signature Attributes for key: {} and Algorithm: {}", keyItemUuid, keyAlgorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
         logger.debug("Key details: {}", key);
-        return listSignatureAttributes(key.getCryptographicAlgorithm());
+        return listSignatureAttributes(key.getKeyAlgorithm());
     }
 
     @Override
@@ -259,7 +259,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     )
             );
         }
-        validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
+        validateSignatureAttributes(key.getKeyAlgorithm(), request.getSignatureAttributes());
         com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         requestDto.setData(request.getData().stream().map(e -> {
@@ -307,7 +307,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         if (request.getSignatures() == null) {
             throw new ValidationException(ValidationError.create("Cannot verify empty data"));
         }
-        validateSignatureAttributes(key.getCryptographicAlgorithm(), request.getSignatureAttributes());
+        validateSignatureAttributes(key.getKeyAlgorithm(), request.getSignatureAttributes());
         if (!key.getUsage().contains(KeyUsage.VERIFY)) {
             throw new ValidationException(
                     ValidationError.create(
@@ -479,7 +479,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         // Build bouncy castle p10 builder
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
                 principal,
-                CsrUtil.publicKeyObjectFromString(key, publicKeyItem.getCryptographicAlgorithm().getCode())
+                CsrUtil.publicKeyObjectFromString(key, publicKeyItem.getKeyAlgorithm().getCode())
         );
 
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
@@ -490,7 +490,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 privateKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyData(),
-                publicKeyItem.getCryptographicAlgorithm(),
+                publicKeyItem.getKeyAlgorithm(),
                 signatureAttributes
         );
 
@@ -501,9 +501,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return CsrUtil.byteArrayCsrToString(csr.getEncoded());
     }
 
-    public List<BaseAttribute> listSignatureAttributes(CryptographicAlgorithm algorithm) {
+    public List<BaseAttribute> listSignatureAttributes(KeyAlgorithm keyAlgorithm) {
         // we need to list based on the key algorithm
-        switch (algorithm) {
+        switch (keyAlgorithm) {
             case RSA -> {
                 return RsaSignatureAttributes.getRsaSignatureAttributes();
             }
@@ -515,32 +515,32 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             }
             default -> throw new ValidationException(
                     ValidationError.create(
-                            "Cryptographic algorithm not supported"
+                            "Cryptographic key algorithm not supported"
                     )
             );
         }
     }
 
 
-    public List<BaseAttribute> listEncryptionAttributes(CryptographicAlgorithm algorithm) {
-        switch (algorithm) {
+    public List<BaseAttribute> listEncryptionAttributes(KeyAlgorithm keyAlgorithm) {
+        switch (keyAlgorithm) {
             case RSA -> {
                 return RsaEncryptionAttributes.getRsaEncryptionAttributes();
             }
             default -> throw new ValidationException(
                     ValidationError.create(
-                            "Cryptographic algorithm not supported"
+                            "Cryptographic key algorithm not supported"
                     )
             );
         }
     }
 
-    public boolean validateSignatureAttributes(CryptographicAlgorithm algorithm, List<RequestAttributeDto> attributes) throws NotFoundException {
+    public boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttributeDto> attributes) throws NotFoundException {
         if (attributes == null) {
             return false;
         }
 
-        switch (algorithm) {
+        switch (keyAlgorithm) {
             case RSA ->
                     AttributeDefinitionUtils.validateAttributes(RsaSignatureAttributes.getRsaSignatureAttributes(), attributes);
             case ECDSA ->
@@ -549,7 +549,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             }
             default -> throw new ValidationException(
                     ValidationError.create(
-                            "Cryptographic algorithm not supported"
+                            "Cryptographic key algorithm not supported"
                     )
             );
         }

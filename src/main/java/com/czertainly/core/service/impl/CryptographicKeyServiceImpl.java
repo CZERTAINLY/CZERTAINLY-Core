@@ -10,9 +10,9 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.czertainly.api.model.connector.cryptography.key.KeyData;
 import com.czertainly.api.model.connector.cryptography.key.KeyDataResponseDto;
@@ -935,7 +935,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setName(referenceName);
         content.setCryptographicKey(cryptographicKey);
         content.setType(keyData.getType());
-        content.setCryptographicAlgorithm(keyData.getAlgorithm());
+        content.setKeyAlgorithm(keyData.getAlgorithm());
         content.setKeyData(keyData.getFormat(), keyData.getValue());
         content.setFormat(keyData.getFormat());
         content.setLength(keyData.getLength());
@@ -1319,7 +1319,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((KeyAlgorithm.values())).map(KeyAlgorithm::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()))
         );

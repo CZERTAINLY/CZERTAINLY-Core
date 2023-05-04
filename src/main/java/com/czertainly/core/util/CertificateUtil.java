@@ -3,7 +3,7 @@ package com.czertainly.core.util;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.core.dao.entity.Certificate;
@@ -63,15 +63,15 @@ public class CertificateUtil {
     }
 
     static {
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", CryptographicAlgorithm.SPHINCSPLUS.getCode());
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", CryptographicAlgorithm.DILITHIUM.getCode());
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", KeyAlgorithm.SPHINCSPLUS.getCode());
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", KeyAlgorithm.DILITHIUM.getCode());
     }
 
     static {
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", CryptographicAlgorithm.ECDSA.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("SPHINCS+", CryptographicAlgorithm.SPHINCSPLUS.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Dilithium", CryptographicAlgorithm.DILITHIUM.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", CryptographicAlgorithm.FALCON.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("SPHINCS+", KeyAlgorithm.SPHINCSPLUS.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Dilithium", KeyAlgorithm.DILITHIUM.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON.toString());
     }
 
     private CertificateUtil() {
