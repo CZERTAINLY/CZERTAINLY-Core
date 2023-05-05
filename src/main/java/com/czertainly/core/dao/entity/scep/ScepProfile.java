@@ -87,6 +87,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         if(raProfile != null) {
             scepProfileDto.setRaProfileName(raProfile.getName());
             scepProfileDto.setRaProfileUuid(raProfile.getUuid().toString());
+            scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                    + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
         scepProfileDto.setDescription(description);
         scepProfileDto.setEnabled(isEnabled);
