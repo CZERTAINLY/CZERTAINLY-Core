@@ -307,7 +307,7 @@ public class ScepServiceImpl implements ScepService {
             return buildResponse(scepRequest, buildFailedResponse(new ScepException("Unable to decrypt the data. " + e.getMessage(), FailInfo.BAD_REQUEST), scepRequest.getTransactionId()));
         }
 
-        if (scepProfile.getIntuneTenant() != null) {
+        if (scepProfile.isIntuneEnabled()) {
             Properties properties = getIntuneConfiguration();
             intuneClient = buildIntuneClient(properties);
         }
