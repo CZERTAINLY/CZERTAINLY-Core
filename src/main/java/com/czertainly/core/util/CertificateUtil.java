@@ -141,17 +141,7 @@ public class CertificateUtil {
 
     @SuppressWarnings("unchecked")
     public static Map<String, Object> getSAN(X509Certificate certificate) {
-        @SuppressWarnings("serial")
-        Map<String, Object> sans = new HashMap<>();
-        sans.put("otherName", new ArrayList<String>());
-        sans.put("rfc822Name", new ArrayList<String>());
-        sans.put("dNSName", new ArrayList<String>());
-        sans.put("x400Address", new ArrayList<String>());
-        sans.put("directoryName", new ArrayList<String>());
-        sans.put("ediPartyName", new ArrayList<String>());
-        sans.put("uniformResourceIdentifier", new ArrayList<String>());
-        sans.put("iPAddress", new ArrayList<String>());
-        sans.put("registeredID", new ArrayList<String>());
+        Map<String, Object> sans = buildEmptySans();
 
         try {
             for (List<?> san : certificate.getSubjectAlternativeNames()) {
@@ -167,8 +157,37 @@ public class CertificateUtil {
     }
 
 
+    @SuppressWarnings("unchecked")
     private static Map<String, Object> getSAN(JcaPKCS10CertificationRequest csr) {
+        Map<String, Object> sans = buildEmptySans();
 
+        Attribute[] certAttributes = csr.getAttributes();
+        for (Attribute attribute : certAttributes) {
+            if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
+                Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
+                GeneralNames gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+                if (gns != null) {
+                    GeneralName[] names = gns.getNames();
+                    for (GeneralName name : names) {
+                        switch (name.getTagNo()) {
+                            case GeneralName.dNSName -> ((ArrayList<String>) sans.get("dNSName")).add(name.getName().toString());
+                            case GeneralName.iPAddress -> ((ArrayList<String>) sans.get("iPAddress")).add(name.getName().toString());
+                            case GeneralName.otherName -> ((ArrayList<String>) sans.get("otherName")).add(name.getName().toString());
+                            case GeneralName.directoryName -> ((ArrayList<String>) sans.get("directoryName")).add(name.getName().toString());
+                            case GeneralName.registeredID -> ((ArrayList<String>) sans.get("registeredID")).add(name.getName().toString());
+                            case GeneralName.x400Address -> ((ArrayList<String>) sans.get("x400Address")).add(name.getName().toString());
+                            case GeneralName.uniformResourceIdentifier -> ((ArrayList<String>) sans.get("uniformResourceIdentifier")).add(name.getName().toString());
+                            case GeneralName.ediPartyName -> ((ArrayList<String>) sans.get("ediPartyName")).add(name.getName().toString());
+                            case GeneralName.rfc822Name -> ((ArrayList<String>) sans.get("rfc822Name")).add(name.getName().toString());
+                        }
+                    }
+                }
+            }
+        }
+        return sans;
+    }
+
+    private static Map<String, Object> buildEmptySans() {
         Map<String, Object> sans = new HashMap<>();
         sans.put("otherName", new ArrayList<>());
         sans.put("rfc822Name", new ArrayList<>());
@@ -180,27 +199,6 @@ public class CertificateUtil {
         sans.put("iPAddress", new ArrayList<>());
         sans.put("registeredID", new ArrayList<>());
 
-        Attribute[] certAttributes = csr.getAttributes();
-        for (Attribute attribute : certAttributes) {
-            if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
-                Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
-                GeneralNames gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
-                GeneralName[] names = gns.getNames();
-                for (GeneralName name : names) {
-                    switch (name.getTagNo()){
-                        case GeneralName.dNSName: ((ArrayList<String>) sans.get("dNSName")).add(name.getName().toString());
-                        case GeneralName.iPAddress: ((ArrayList<String>) sans.get("iPAddress")).add(name.getName().toString());
-                        case GeneralName.otherName: ((ArrayList<String>) sans.get("otherName")).add(name.getName().toString());
-                        case GeneralName.directoryName: ((ArrayList<String>) sans.get("directoryName")).add(name.getName().toString());
-                        case GeneralName.registeredID: ((ArrayList<String>) sans.get("registeredID")).add(name.getName().toString());
-                        case GeneralName.x400Address: ((ArrayList<String>) sans.get("x400Address")).add(name.getName().toString());
-                        case GeneralName.uniformResourceIdentifier: ((ArrayList<String>) sans.get("uniformResourceIdentifier")).add(name.getName().toString());
-                        case GeneralName.ediPartyName: ((ArrayList<String>) sans.get("ediPartyName")).add(name.getName().toString());
-                        case GeneralName.rfc822Name: ((ArrayList<String>) sans.get("rfc822Name")).add(name.getName().toString());
-                    }
-                }
-            }
-        }
         return sans;
     }
 
