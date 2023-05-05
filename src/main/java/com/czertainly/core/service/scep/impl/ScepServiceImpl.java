@@ -349,7 +349,7 @@ public class ScepServiceImpl implements ScepService {
                             intuneClient,
                             scepRequest,
                             errorCode,
-                            e.getMessage().substring(0, 255)
+                            e.getMessage().substring(0, Math.min(e.getMessage().length(), 255))
                     );
                 }
             }
