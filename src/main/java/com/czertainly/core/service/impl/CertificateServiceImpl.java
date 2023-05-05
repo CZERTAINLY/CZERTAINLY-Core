@@ -10,12 +10,15 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -140,7 +143,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Lazy
     @Autowired
     private CryptographicKeyService cryptographicKeyService;
-    
+
     @Autowired
     private PermissionEvaluator permissionEvaluator;
 
@@ -373,12 +376,12 @@ public class CertificateServiceImpl implements CertificateService {
 
         final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
         if (metadataSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META.getLabel()));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
         }
 
         final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
         if (customAttrSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM.getLabel()));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
         }
 
         List<SearchFieldDataDto> fields = List.of(
@@ -409,7 +412,7 @@ public class CertificateServiceImpl implements CertificateService {
         fields = fields.stream().collect(Collectors.toList());
         fields.sort(new SearchFieldDataComparator());
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.getLabel()));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
@@ -718,7 +721,7 @@ public class CertificateServiceImpl implements CertificateService {
     public void updateCertificatesStatusScheduled() {
         List<CertificateStatus> skipStatuses = List.of(CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
-        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float)24));
+        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
         LocalDateTime before = LocalDateTime.now().minusDays(1);
 
@@ -881,7 +884,7 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST)
     public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
         List<CertificateContentDto> response = new ArrayList<>();
-        for(String uuid: uuids) {
+        for (String uuid : uuids) {
             try {
                 SecuredUUID securedUUID = SecuredUUID.fromString(uuid);
                 permissionEvaluator.certificate(securedUUID);
@@ -893,7 +896,7 @@ public class CertificateServiceImpl implements CertificateService {
                 dto.setCertificateContent(certificate.getCertificateContent().getContent());
                 response.add(dto);
             } catch (Exception e) {
-                logger.error("Unable to get the certificate content {}. Exception: ",uuid, e.getMessage());
+                logger.error("Unable to get the certificate content {}. Exception: ", uuid, e.getMessage());
             }
         }
         return response;
@@ -935,12 +938,66 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
-    public List<CertificateDto> listScepCaCertificates(SecurityFilter filter) {
+    public List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled) {
         filter.setParentRefProperty("raProfileUuid");
 
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
                 (root, cb) -> cb.isNotNull(root.get("keyUuid")));
-        return certificates.stream().map(Certificate::mapToListDto).filter(c -> c.isPrivateKeyAvailability()).collect(Collectors.toList());
+        return certificates
+                .stream()
+                .filter(intuneEnabled ? this::isScepCaCertIntunePermissible : this::isScepCaCertPermissible)
+                .map(Certificate::mapToListDto)
+                .filter(c -> c.isPrivateKeyAvailability())
+                .collect(Collectors.toList());
+    }
+
+    private boolean isScepCaCertPermissible(Certificate certificate) {
+        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
+        // It is required to check RSA for public key since only RSA keys are encryption capable
+        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
+        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
+            if (!item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && !item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
+                return false;
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)
+                    && item.getType().equals(KeyType.PUBLIC_KEY)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)) {
+                if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.SIGN))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PUBLIC_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.VERIFY))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean isScepCaCertIntunePermissible(Certificate certificate) {
+        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
+        // It is required to check RSA for public key since only RSA keys are encryption capable
+        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
+        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
+            if (!item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)) {
+                return false;
+            } else if (item.getType().equals(KeyType.PUBLIC_KEY)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
+                    return false;
+                }
+            } else if (item.getType().equals(KeyType.PRIVATE_KEY)) {
+                if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private String getExpiryTime(Date now, Date expiry) {

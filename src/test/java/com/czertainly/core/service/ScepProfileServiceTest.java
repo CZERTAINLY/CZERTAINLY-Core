@@ -7,9 +7,9 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
@@ -107,7 +107,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
         content.setFormat(KeyFormat.PRKI);
         content.setState(KeyState.ACTIVE);
         content.setEnabled(true);
-        content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content.setKeyAlgorithm(KeyAlgorithm.RSA);
         cryptographicKeyItemRepository.save(content);
 
         content1 = new CryptographicKeyItem();
@@ -119,7 +119,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
         content1.setFormat(KeyFormat.SPKI);
         content1.setState(KeyState.ACTIVE);
         content1.setEnabled(true);
-        content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content1.setKeyAlgorithm(KeyAlgorithm.RSA);
         cryptographicKeyItemRepository.save(content1);
 
         content.setKeyReferenceUuid(content.getUuid());

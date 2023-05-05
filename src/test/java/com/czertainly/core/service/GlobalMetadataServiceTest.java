@@ -17,11 +17,7 @@ import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttribute
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
-import com.czertainly.core.dao.repository.AttributeContentRepository;
-import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
-import com.czertainly.core.dao.repository.AttributeRelationRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -138,7 +134,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListGlobalMetadata() {
-        List<AttributeDefinitionDto> metadata = attributeService.listAttributes(SecurityFilter.create(), AttributeType.META);
+        List<AttributeDefinitionDto> metadata = attributeService.listGlobalMetadata(SecurityFilter.create());
         Assertions.assertNotNull(metadata);
         Assertions.assertFalse(metadata.isEmpty());
         Assertions.assertEquals(1, metadata.size());
@@ -253,7 +249,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
     @Test
     public void promoteConnectorMetadata() throws NotFoundException {
         attributeService.promoteConnectorMetadata(UUID.fromString(connectorMetaAttribute.getUuid()), connector.getUuid());
-        List<AttributeDefinitionDto> dto = attributeService.listAttributes(SecurityFilter.create(), AttributeType.META);
+        List<AttributeDefinitionDto> dto = attributeService.listGlobalMetadata(SecurityFilter.create());
         Assertions.assertEquals(2, dto.size());
     }
 }

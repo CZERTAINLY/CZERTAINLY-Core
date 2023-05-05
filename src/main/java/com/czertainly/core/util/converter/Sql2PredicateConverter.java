@@ -2,7 +2,7 @@ package com.czertainly.core.util.converter;
 
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.connector.cryptography.enums.IAbstractSearchableEnum;
+import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.SearchCondition;
@@ -30,8 +30,7 @@ public class Sql2PredicateConverter {
         final List<Predicate> predicates = new ArrayList<>();
         boolean hasFilteredAttributes = false;
         for (final SearchFilterRequestDto dto : dtos) {
-            final Optional<SearchGroup> group = Arrays.stream(SearchGroup.values()).filter(groupTemp -> groupTemp.getEnumLabel().toUpperCase().equals(dto.getGroupName().toUpperCase())).findFirst();
-            if (group.isPresent() && SearchGroup.PROPERTY.equals(group.get())) {
+            if (dto.getSearchGroup() == SearchGroup.PROPERTY) {
                 predicates.add(mapSearchFilter2Predicate(dto, criteriaBuilder, root));
             } else {
                 hasFilteredAttributes = true;
@@ -223,7 +222,7 @@ public class Sql2PredicateConverter {
         if (searchableFields.getEnumClass() != null) {
             if (searchableFields.getEnumClass().equals(KeyUsage.class)) {
                 final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(valueObject, searchableFields);
-                return keyUsage.getId();
+                return keyUsage.getBitmask();
             }
             return findEnumByCustomValue(valueObject, searchableFields);
         }
@@ -231,7 +230,7 @@ public class Sql2PredicateConverter {
     }
 
     private static Object findEnumByCustomValue(Object valueObject, final SearchableFields searchableFields) {
-        Optional<? extends IAbstractSearchableEnum> enumItem = Arrays.stream(searchableFields.getEnumClass().getEnumConstants()).filter(enumValue -> enumValue.getEnumLabel().equals(valueObject.toString())).findFirst();
+        Optional<? extends IPlatformEnum> enumItem = Arrays.stream(searchableFields.getEnumClass().getEnumConstants()).filter(enumValue -> enumValue.getCode().equals(valueObject.toString())).findFirst();
         return enumItem.isPresent() ? enumItem.get() : null;
     }
 
@@ -279,10 +278,8 @@ public class Sql2PredicateConverter {
         final List<Predicate> rootPredicates = new ArrayList<>();
 
         for (final SearchFilterRequestDto dto : dtos) {
-            final Optional<SearchGroup> group = Arrays.stream(SearchGroup.values()).filter(groupTemp -> groupTemp.getEnumLabel().toUpperCase().equals(dto.getGroupName().toUpperCase())).findFirst();
-            if (group.isPresent() &&
-                    (SearchGroup.CUSTOM.equals(group.get()) || SearchGroup.META.equals(group.get()))) {
-                final SearchGroup searchGroup = group.get();
+            final SearchGroup searchGroup = dto.getSearchGroup();
+            if (searchGroup == SearchGroup.CUSTOM || searchGroup == SearchGroup.META) {
 
                 // --- SUB QUERY ---
                 final Subquery<UUID> subquery = criteriaQuery.subquery(UUID.class);

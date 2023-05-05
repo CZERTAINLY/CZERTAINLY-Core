@@ -10,9 +10,9 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.czertainly.api.model.connector.cryptography.key.KeyData;
 import com.czertainly.api.model.connector.cryptography.key.KeyDataResponseDto;
@@ -33,6 +33,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -63,10 +64,15 @@ import java.util.stream.Collectors;
 public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private static final Logger logger = LoggerFactory.getLogger(CryptographicKeyServiceImpl.class);
-
+    // Permitted usages for the keys
+    private static final Map<KeyType, KeyUsage[]> PERMITTED_USAGES = new HashMap() {{
+        put(KeyType.PRIVATE_KEY, new KeyUsage[]{KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP});
+        put(KeyType.PUBLIC_KEY, new KeyUsage[]{KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP});
+        put(KeyType.SECRET_KEY, KeyUsage.values());
+        put(KeyType.SPLIT_KEY, KeyUsage.values());
+    }};
     @PersistenceContext
     private EntityManager entityManager;
-
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
@@ -85,18 +91,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private TokenProfileRepository tokenProfileRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private GroupRepository groupRepository;
-
     @Autowired
     private AttributeContentRepository attributeContentRepository;
-
-    // Permitted usages for the keys
-    private static final Map<KeyType, KeyUsage[]> PERMITTED_USAGES = new HashMap() {{
-        put(KeyType.PRIVATE_KEY, new KeyUsage[]{KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP});
-        put(KeyType.PUBLIC_KEY, new KeyUsage[]{KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP});
-        put(KeyType.SECRET_KEY, KeyUsage.values());
-        put(KeyType.SPLIT_KEY, KeyUsage.values());
-    }};
-
 
     @Autowired
     public void setAttributeService(AttributeService attributeService) {
@@ -852,6 +848,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    public CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType) {
+        for (CryptographicKeyItem item : key.getItems()) {
+            if (item.getType().equals(keyType)) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return null;
     }
@@ -929,7 +935,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setName(referenceName);
         content.setCryptographicKey(cryptographicKey);
         content.setType(keyData.getType());
-        content.setCryptographicAlgorithm(keyData.getAlgorithm());
+        content.setKeyAlgorithm(keyData.getAlgorithm());
         content.setKeyData(keyData.getFormat(), keyData.getValue());
         content.setFormat(keyData.getFormat());
         content.setLength(keyData.getLength());
@@ -1227,7 +1233,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         usages = new ArrayList<>(usages);
         if (!new HashSet<>(List.of(PERMITTED_USAGES.get(content.getType()))).containsAll(usages)) {
             usages.removeAll(List.of(PERMITTED_USAGES.get(content.getType())));
-            String nonAllowedUsages = String.join(", ", usages.stream().map(KeyUsage::getName).collect(Collectors.toList()));
+            String nonAllowedUsages = String.join(", ", usages.stream().map(KeyUsage::getCode).collect(Collectors.toList()));
             keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.FAILED,
                     "Unsupported Key usages: " + nonAllowedUsages, null, content);
             throw new ValidationException(
@@ -1236,10 +1242,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     )
             );
         }
-        String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getName).collect(Collectors.toList()));
+        String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getCode).collect(Collectors.toList()));
         content.setUsage(usages);
         cryptographicKeyItemRepository.save(content);
-        String newUsage = String.join(", ", usages.stream().map(KeyUsage::getName).collect(Collectors.toList()));
+        String newUsage = String.join(", ", usages.stream().map(KeyUsage::getCode).collect(Collectors.toList()));
         keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
                 "Update Key Usage from " + oldUsage + " to " + newUsage, null, content);
     }
@@ -1296,30 +1302,30 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
         final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
         if (metadataSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META.getLabel()));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
         }
 
         final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
         if (customAttrSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM.getLabel()));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
         }
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_LENGTH),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getName).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getName).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((KeyAlgorithm.values())).map(KeyAlgorithm::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()))
         );
         fields = fields.stream().collect(Collectors.toList());
         fields.sort(new SearchFieldDataComparator());
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.getLabel()));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
         logger.debug("Searchable CryptographicKey Fields groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;

@@ -4,12 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.GlobalMetadataController;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataPromotionRequestDto;
-import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataResponseDto;
-import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
-import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
-import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.client.attribute.metadata.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
@@ -35,7 +30,7 @@ public class GlobalMetadataControllerImpl implements GlobalMetadataController {
 
     @Override
     public List<AttributeDefinitionDto> listGlobalMetadata() {
-        return attributeService.listAttributes(SecurityFilter.create(), AttributeType.META);
+        return attributeService.listGlobalMetadata(SecurityFilter.create());
     }
 
     @Override
