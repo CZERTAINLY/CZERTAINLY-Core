@@ -179,7 +179,7 @@ public class ScepServiceImpl implements ScepService {
         };
     }
 
-    private void init(String profileName) {
+    private void init(String profileName) throws ScepException {
         this.raProfileBased = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
         if (raProfileBased) {
             raProfile = raProfileRepository.findByName(profileName).orElse(null);
@@ -199,6 +199,10 @@ public class ScepServiceImpl implements ScepService {
         setRecipient(scepCaCertificate.getCertificateContent().getContent());
         this.caCertificateChain = new ArrayList<>();
         for (Certificate certificate : certValidationService.getCertificateChain(scepCaCertificate)) {
+            // only certificate with valid status should be used
+            if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
+                throw new ScepException("SCEP CA certificate is not valid", FailInfo.BAD_REQUEST);
+            }
             try {
                 this.caCertificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
             } catch (CertificateException e) {

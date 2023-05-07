@@ -952,6 +952,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private boolean isScepCaCertPermissible(Certificate certificate) {
+        if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
+            return false;
+        }
         // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
         // It is required to check RSA for public key since only RSA keys are encryption capable
         // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
@@ -981,6 +984,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private boolean isScepCaCertIntunePermissible(Certificate certificate) {
+        if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
+            return false;
+        }
         // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
         // It is required to check RSA for public key since only RSA keys are encryption capable
         // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
