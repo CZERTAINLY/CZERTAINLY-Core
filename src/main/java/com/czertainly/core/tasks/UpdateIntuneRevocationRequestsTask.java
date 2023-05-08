@@ -3,6 +3,7 @@ package com.czertainly.core.tasks;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.authority.RevocationReason;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
@@ -46,7 +47,7 @@ public class UpdateIntuneRevocationRequestsTask {
     private ClientOperationService clientOperationService;
 
     // scheduled for every hour, to process revocation requests from Intune enabled SCEP profiles
-    @Scheduled(fixedRate = 1000*60, initialDelay = 10000)
+    @Scheduled(fixedRate = 1000*60*60, initialDelay = 10000)
     public void performTask() {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Executing Intune revocation requests update task");
         List<ScepProfile> scepProfiles = scepProfileRepository.findByIntuneEnabled(true);
@@ -63,8 +64,7 @@ public class UpdateIntuneRevocationRequestsTask {
 
             List<CARevocationRequest> revocationRequests;
             try {
-                //revocationRequests = downloadRevocationRequests(intuneRevocationClient, scepProfile.getCaCertificate().getIssuerDn());
-                revocationRequests = downloadRevocationRequests(intuneRevocationClient, null);
+                revocationRequests = downloadRevocationRequests(intuneRevocationClient);
             } catch (Exception e) {
                 logger.error(MarkerFactory.getMarker("scheduleInfo"), "Error downloading CA revocation requests", e);
                 return;
@@ -80,18 +80,18 @@ public class UpdateIntuneRevocationRequestsTask {
         }
     }
 
-    private List<CARevocationRequest> downloadRevocationRequests(IntuneRevocationClient intuneRevocationClient, String issuerDn) throws Exception {
+    private List<CARevocationRequest> downloadRevocationRequests(IntuneRevocationClient intuneRevocationClient) throws Exception {
         String downloadTransactionId = UUID.randomUUID().toString();
 
         if (logger.isDebugEnabled()) {
             logger.debug(MarkerFactory.getMarker("scheduleInfo"), "Downloading CA revocation requests: transactionId={}, maxCARequestsToDownload={}, issuerDN={}",
-                    downloadTransactionId, MAX_CA_REQUESTS_TO_DOWNLOAD, issuerDn);
+                    downloadTransactionId, MAX_CA_REQUESTS_TO_DOWNLOAD, null);
         }
 
         List<CARevocationRequest> revocationRequests = intuneRevocationClient.DownloadCARevocationRequests(
                 downloadTransactionId,
                 MAX_CA_REQUESTS_TO_DOWNLOAD,
-                issuerDn
+                null
         );
 
         if (logger.isDebugEnabled()) {
@@ -110,6 +110,30 @@ public class UpdateIntuneRevocationRequestsTask {
                         revocationRequest.issuerName,
                         revocationRequest.serialNumber
                 );
+                // TODO: Improve handling of certificate status and revocation reason
+                // there may be different certificate status we need to handle
+                // when the certificate is already revoked, we just need to send the message to Intune
+                if (certificate.getStatus().equals(CertificateStatus.REVOKED)) {
+                    revocationResults.add(new CARevocationResult(
+                                    revocationRequest.requestContext,
+                                    true,
+                                    CARequestErrorCodes.None,
+                                    ""
+                            )
+                    );
+                    continue;
+                }
+                // this should not happen, but if the certificate is expired, Intune should not try to revoke it
+                if (certificate.getStatus().equals(CertificateStatus.EXPIRED)) {
+                    revocationResults.add(new CARevocationResult(
+                                    revocationRequest.requestContext,
+                                    false,
+                                    CARequestErrorCodes.NonRetryableServiceException,
+                                    "Certificate already expired"
+                            )
+                    );
+                    continue;
+                }
 
                 ClientCertificateRevocationDto revocationDto = new ClientCertificateRevocationDto();
                 revocationDto.setReason(RevocationReason.UNSPECIFIED);
