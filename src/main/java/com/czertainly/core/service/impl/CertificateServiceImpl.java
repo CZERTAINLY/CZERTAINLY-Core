@@ -276,16 +276,13 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error("Failed to remove Certificate {} from Locations", uuid);
         }
 
-        if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
-            CertificateContent content = certificateContentRepository
-                    .findById(certificate.getCertificateContent().getId()).orElse(null);
+        if (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
+            CertificateContent content = certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null);
             if (content != null) {
-                certificateRepository.delete(certificate);
                 certificateContentRepository.delete(content);
             }
-        } else {
-            certificateRepository.delete(certificate);
         }
+        certificateRepository.delete(certificate);
         attributeService.deleteAttributeContent(uuid.getValue(), Resource.CERTIFICATE);
     }
 
