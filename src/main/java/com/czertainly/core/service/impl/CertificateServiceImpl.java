@@ -617,7 +617,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes, UUID connectorUuid) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
@@ -629,8 +629,8 @@ public class CertificateServiceImpl implements CertificateService {
         entity.setCsrAttributes(csrAttributes);
         entity.setSignatureAttributes(signatureAttributes);
         certificateRepository.save(entity);
-        metadataService.createMetadataDefinitions(null, meta);
-        metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
+        metadataService.createMetadataDefinitions(connectorUuid, meta);
+        metadataService.createMetadata(connectorUuid, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
         certificateComplianceCheck(entity);
         return entity;
     }
