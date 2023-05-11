@@ -26,12 +26,12 @@ public class CryptographyUtil {
 
         switch (keyAlgorithm) {
             case RSA -> {
-                final RsaSignatureScheme scheme = RsaSignatureScheme.valueOf(
+                final RsaSignatureScheme scheme = RsaSignatureScheme.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                                         RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, signatureAttributes, StringAttributeContent.class)
                                 .getReference()
                 );
-                final DigestAlgorithm digest = DigestAlgorithm.valueOf(
+                final DigestAlgorithm digest = DigestAlgorithm.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                                         RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContent.class)
                                 .getReference()
@@ -45,7 +45,7 @@ public class CryptographyUtil {
                 return getAlgorithmIdentifierInstance(signatureAlgorithm);
             }
             case ECDSA -> {
-                final DigestAlgorithm digest = DigestAlgorithm.valueOf(
+                final DigestAlgorithm digest = DigestAlgorithm.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                                         EcdsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContent.class)
                                 .getReference()
