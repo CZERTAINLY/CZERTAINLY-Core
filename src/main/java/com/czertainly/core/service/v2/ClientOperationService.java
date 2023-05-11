@@ -3,13 +3,8 @@ package com.czertainly.core.service.v2;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.v2.*;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 
@@ -36,6 +31,12 @@ public interface ClientOperationService {
     CertificateDetailDto createCsr(
             ClientCertificateRequestDto request
     ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException;
+
+    ClientCertificateDataResponseDto issueCertificate(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
+            SecuredUUID certificateUuid
+    ) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     ClientCertificateDataResponseDto issueCertificate(
             SecuredParentUUID authorityUuid,
