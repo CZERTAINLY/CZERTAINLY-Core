@@ -942,68 +942,12 @@ public class CertificateServiceImpl implements CertificateService {
         filter.setParentRefProperty("raProfileUuid");
 
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
-                (root, cb) -> cb.isNotNull(root.get("keyUuid")));
+                (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.or(cb.equal(root.get("status"), CertificateStatus.VALID), cb.equal(root.get("status"), CertificateStatus.EXPIRING))));
         return certificates
                 .stream()
-                .filter(intuneEnabled ? this::isScepCaCertIntunePermissible : this::isScepCaCertPermissible)
+                .filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled))
                 .map(Certificate::mapToListDto)
-                .filter(c -> c.isPrivateKeyAvailability())
                 .collect(Collectors.toList());
-    }
-
-    private boolean isScepCaCertPermissible(Certificate certificate) {
-        if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
-            return false;
-        }
-        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
-        // It is required to check RSA for public key since only RSA keys are encryption capable
-        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
-        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
-            if (!item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && !item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
-                return false;
-            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)
-                    && item.getType().equals(KeyType.PUBLIC_KEY)) {
-                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
-                    return false;
-                }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)) {
-                if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
-                    return false;
-                }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
-                if (!item.getUsage().containsAll(List.of(KeyUsage.SIGN))) {
-                    return false;
-                }
-            } else if (item.getType().equals(KeyType.PUBLIC_KEY) && item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA)) {
-                if (!item.getUsage().containsAll(List.of(KeyUsage.VERIFY))) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private boolean isScepCaCertIntunePermissible(Certificate certificate) {
-        if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
-            return false;
-        }
-        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
-        // It is required to check RSA for public key since only RSA keys are encryption capable
-        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
-        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
-            if (!item.getKeyAlgorithm().equals(KeyAlgorithm.RSA)) {
-                return false;
-            } else if (item.getType().equals(KeyType.PUBLIC_KEY)) {
-                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
-                    return false;
-                }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY)) {
-                if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 
     private String getExpiryTime(Date now, Date expiry) {

@@ -196,6 +196,10 @@ public class ScepServiceImpl implements ScepService {
         }
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
+        if (scepCaCertificate == null) {
+            throw new ScepException("SCEP Profile does not have any associated CA certificate", FailInfo.BAD_REQUEST);
+        }
+
         setRecipient(scepCaCertificate.getCertificateContent().getContent());
         this.caCertificateChain = new ArrayList<>();
         for (Certificate certificate : certValidationService.getCertificateChain(scepCaCertificate)) {
@@ -228,6 +232,9 @@ public class ScepServiceImpl implements ScepService {
         }
         if (scepProfile.getCaCertificate() == null) {
             throw new ScepException("SCEP Profile does not have any associated CA certificate", FailInfo.BAD_REQUEST);
+        }
+        if (!CertificateUtil.isCertificateScepCaCertAcceptable(scepProfile.getCaCertificate(), scepProfile.isIntuneEnabled())) {
+            throw new ScepException("SCEP Profile does not have associated acceptable CA certificate", FailInfo.BAD_REQUEST);
         }
         if (!raProfileBased && scepProfile.getRaProfile() == null) {
             throw new ScepException("SCEP Profile does not contain associated RA Profile", FailInfo.BAD_REQUEST);
