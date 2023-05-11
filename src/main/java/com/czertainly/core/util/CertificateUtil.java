@@ -4,9 +4,13 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -398,6 +402,42 @@ public class CertificateUtil {
             certificateHolderChain.add(new JcaX509CertificateHolder(certificate));
         }
         return certificateHolderChain;
+    }
+
+    public static boolean isCertificateScepCaCertAcceptable(Certificate certificate, boolean intuneEnabled) {
+        if (certificate.getKey() == null || (!certificate.getStatus().equals(CertificateStatus.VALID) && !certificate.getStatus().equals(CertificateStatus.EXPIRING))) {
+            return false;
+        }
+
+        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
+        // It is required to check RSA for public key since only RSA keys are encryption capable
+        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
+        boolean privateKeyAvailable = false;
+        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
+            if ((intuneEnabled && !item.getKeyAlgorithm().equals(KeyAlgorithm.RSA))
+                    || (!intuneEnabled && !item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && !item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA))) {
+                return false;
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && item.getType().equals(KeyType.PUBLIC_KEY)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
+                    return false;
+                }
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && item.getType().equals(KeyType.PRIVATE_KEY)) {
+                if (item.getState() != KeyState.ACTIVE || !item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
+                    return false;
+                }
+                privateKeyAvailable = true;
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA) && item.getType().equals(KeyType.PUBLIC_KEY)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.VERIFY))) {
+                    return false;
+                }
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA) && item.getType().equals(KeyType.PRIVATE_KEY)) {
+                if (item.getState() != KeyState.ACTIVE || !item.getUsage().containsAll(List.of(KeyUsage.SIGN))) {
+                    return false;
+                }
+                privateKeyAvailable = true;
+            }
+        }
+        return privateKeyAvailable;
     }
 
 }

@@ -25,6 +25,7 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.CertificateUtil;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,9 +115,20 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         if (request.getCaCertificateUuid() == null || request.getCaCertificateUuid().isEmpty()) {
             throw new ValidationException(ValidationError.create("CA Certificate cannot be empty"));
         }
-        logger.info("Creating a new SCEP Profile");
-        validateScepCertificateEligibility(request.getCaCertificateUuid());
+
+        boolean intuneEnabled = Boolean.TRUE.equals(request.getEnableIntune());
+        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getCaCertificateUuid()));
+        if (!CertificateUtil.isCertificateScepCaCertAcceptable(certificate, intuneEnabled)) {
+            throw new ValidationException(ValidationError.create("CA Certificate is not acceptable as SCEP CA certificate for this profile"));
+        }
+
+        if (intuneEnabled && (request.getIntuneTenant() == null || request.getIntuneApplicationId() == null || request.getIntuneApplicationKey() == null)) {
+            throw new ValidationException(ValidationError.create("Invalid Intune configuration. Missing Intune tenant and/or intune app identification"));
+        }
+
         attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.SCEP_PROFILE);
+
+        logger.info("Creating a new SCEP Profile");
 
         ScepProfile scepProfile = new ScepProfile();
         scepProfile.setEnabled(false);
@@ -129,11 +141,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setChallengePassword(request.getChallengePassword());
         scepProfile.setRequireManualApproval(request.getRequireManualApproval() != null && request.getRequireManualApproval());
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
-        if (request.getEnableIntune() != null) {
-            scepProfile.setIntuneEnabled(request.getEnableIntune());
-        } else {
-            scepProfile.setIntuneEnabled(false);
-        }
+        scepProfile.setIntuneEnabled(intuneEnabled);
         scepProfile.setIntuneTenant(request.getIntuneTenant());
         scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
         scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
@@ -154,14 +162,25 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.UPDATE)
     public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException {
+        if (request.getCaCertificateUuid() == null || request.getCaCertificateUuid().isEmpty()) {
+            throw new ValidationException(ValidationError.create("CA Certificate cannot be empty"));
+        }
+
+        boolean intuneEnabled = Boolean.TRUE.equals(request.getEnableIntune());
+        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getCaCertificateUuid()));
+        if(!CertificateUtil.isCertificateScepCaCertAcceptable(certificate, intuneEnabled)) {
+            throw new ValidationException(ValidationError.create("CA Certificate is not acceptable as SCEP CA certificate for this profile"));
+        }
+
+        if (intuneEnabled && (request.getIntuneTenant() == null || request.getIntuneApplicationId() == null || request.getIntuneApplicationKey() == null)) {
+            throw new ValidationException(ValidationError.create("Invalid Intune configuration. Missing Intune tenant and/or intune app identification"));
+        }
+
         ScepProfile scepProfile = getScepProfileEntity(uuid);
         if (request.getRequireManualApproval() != null)
             scepProfile.setRequireManualApproval(request.getRequireManualApproval());
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
-        if (request.getEnableIntune() != null) {
-            scepProfile.setIntuneEnabled(request.getEnableIntune());
-        }
         if (request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
         if (scepProfile.getChallengePassword() != null)
             scepProfile.setChallengePassword(request.getChallengePassword());
@@ -174,20 +193,14 @@ public class ScepProfileServiceImpl implements ScepProfileService {
                 scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
             }
         }
-        if (request.getDescription() != null) scepProfile.setDescription(request.getDescription());
-        if (request.getCaCertificateUuid() != null) {
-            validateScepCertificateEligibility(request.getCaCertificateUuid());
-            scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
-        }
-        if (request.getCustomAttributes() != null) {
-            attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.SCEP_PROFILE);
-            attributeService.updateAttributeContent(scepProfile.getUuid(), request.getCustomAttributes(), Resource.SCEP_PROFILE);
-        }
-        if (request.getIntuneTenant() != null) scepProfile.setIntuneTenant(request.getIntuneTenant());
-        if (request.getIntuneApplicationId() != null)
-            scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
-        if (request.getIntuneApplicationKey() != null)
-            scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
+        scepProfile.setDescription(request.getDescription());
+        scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
+        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.SCEP_PROFILE);
+        attributeService.updateAttributeContent(scepProfile.getUuid(), request.getCustomAttributes(), Resource.SCEP_PROFILE);
+        scepProfile.setIntuneEnabled(intuneEnabled);
+        scepProfile.setIntuneTenant(request.getIntuneTenant());
+        scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
+        scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
         scepProfileRepository.save(scepProfile);
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(scepProfile.getUuid(), Resource.SCEP_PROFILE));
@@ -346,26 +359,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         } else {
             attributeService.deleteAttributeContent(scepProfile.getUuid(), Resource.SCEP_PROFILE);
             scepProfileRepository.delete(scepProfile);
-        }
-    }
-
-    private void validateScepCertificateEligibility(String caCertificateUuid) throws NotFoundException {
-        Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(caCertificateUuid));
-        if (!certificate.mapToDto().isPrivateKeyAvailability()) {
-            throw new ValidationException(
-                    ValidationError.create("Selected Certificate does not contain private key")
-            );
-        }
-        if (certificate.getKey() == null) {
-            throw new ValidationException(
-                    ValidationError.create("Selected Certificate does not contain key")
-            );
-        }
-
-        if (certificate.getKey().getTokenProfile() == null) {
-            throw new ValidationException(
-                    ValidationError.create("Key associated to the certificate does not contain token profile")
-            );
         }
     }
 

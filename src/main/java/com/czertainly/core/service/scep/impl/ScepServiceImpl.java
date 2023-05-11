@@ -179,7 +179,7 @@ public class ScepServiceImpl implements ScepService {
         };
     }
 
-    private void init(String profileName) {
+    private void init(String profileName) throws ScepException {
         this.raProfileBased = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
         if (raProfileBased) {
             raProfile = raProfileRepository.findByName(profileName).orElse(null);
@@ -196,9 +196,17 @@ public class ScepServiceImpl implements ScepService {
         }
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
+        if (scepCaCertificate == null) {
+            throw new ScepException("SCEP Profile does not have any associated CA certificate", FailInfo.BAD_REQUEST);
+        }
+
         setRecipient(scepCaCertificate.getCertificateContent().getContent());
         this.caCertificateChain = new ArrayList<>();
         for (Certificate certificate : certValidationService.getCertificateChain(scepCaCertificate)) {
+            // only certificate with valid status should be used
+            if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
+                throw new ScepException("SCEP CA certificate is not valid", FailInfo.BAD_REQUEST);
+            }
             try {
                 this.caCertificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
             } catch (CertificateException e) {
@@ -224,6 +232,9 @@ public class ScepServiceImpl implements ScepService {
         }
         if (scepProfile.getCaCertificate() == null) {
             throw new ScepException("SCEP Profile does not have any associated CA certificate", FailInfo.BAD_REQUEST);
+        }
+        if (!CertificateUtil.isCertificateScepCaCertAcceptable(scepProfile.getCaCertificate(), scepProfile.isIntuneEnabled())) {
+            throw new ScepException("SCEP Profile does not have associated acceptable CA certificate", FailInfo.BAD_REQUEST);
         }
         if (!raProfileBased && scepProfile.getRaProfile() == null) {
             throw new ScepException("SCEP Profile does not contain associated RA Profile", FailInfo.BAD_REQUEST);
