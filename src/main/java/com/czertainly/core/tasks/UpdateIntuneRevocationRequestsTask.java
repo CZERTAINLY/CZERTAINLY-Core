@@ -139,12 +139,15 @@ public class UpdateIntuneRevocationRequestsTask {
                 revocationDto.setReason(RevocationReason.UNSPECIFIED);
                 revocationDto.setAttributes(new ArrayList<>());
 
-                clientOperationService.revokeCertificate(
-                        SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()),
-                        SecuredUUID.fromUUID(certificate.getRaProfileUuid()),
-                        certificate.getUuid().toString(),
-                        revocationDto
-                );
+                // if certificate is already revoked, do not try to revoke by CA
+                if (certificate.getStatus() != CertificateStatus.REVOKED) {
+                    clientOperationService.revokeCertificate(
+                            SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()),
+                            SecuredUUID.fromUUID(certificate.getRaProfileUuid()),
+                            certificate.getUuid().toString(),
+                            revocationDto
+                    );
+                }
 
                 revocationResults.add(new CARevocationResult(
                                 revocationRequest.requestContext,
