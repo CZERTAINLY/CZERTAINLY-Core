@@ -30,14 +30,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenProfileUuid,
             String uuid,
             String keyItemUuid,
-            KeyAlgorithm keyAlgorithm
+            KeyAlgorithm algorithm
     ) throws ConnectorException {
         return cryptographicOperationService.listCipherAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
                 UUID.fromString(keyItemUuid),
-                keyAlgorithm
+                algorithm
         );
     }
 
@@ -79,14 +79,14 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenProfileUuid,
             String uuid,
             String keyItemUuid,
-            KeyAlgorithm keyAlgorithm
+            KeyAlgorithm algorithm
     ) throws ConnectorException {
         return cryptographicOperationService.listSignatureAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
                 UUID.fromString(uuid),
                 UUID.fromString(keyItemUuid),
-                keyAlgorithm
+                algorithm
         );
     }
 
