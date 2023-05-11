@@ -145,7 +145,7 @@ public class IntuneRevocationClient extends IntuneClient
         log.info(result.toString());
         
         // Parse the results and return
-        List<CARevocationRequest> revokeRequests = new Gson().fromJson(result.get("value").asText(), new TypeToken<List<CARevocationRequest>>() {}.getType());
+        List<CARevocationRequest> revokeRequests = new Gson().fromJson(result.get("value").toString(), new TypeToken<List<CARevocationRequest>>() {}.getType());
         return revokeRequests;
     }
 
