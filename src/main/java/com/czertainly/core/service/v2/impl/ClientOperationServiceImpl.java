@@ -170,12 +170,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final SecuredUUID certificateUuid) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+    public ClientCertificateDataResponseDto issueNewCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final String certificateUuid) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         final RaProfile raProfile = getRaProfile(raProfileUuid);
 
-        final Certificate csrCertificate = certificateService.getCertificateEntity(certificateUuid);
+        final Certificate csrCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         if (csrCertificate.getStatus() != CertificateStatus.NEW) {
-            logger.warn("Issuing New certificate with wrong status: {}", csrCertificate.getStatus());
+            throw new ValidationException(ValidationError.create("Cannot issue New certificate with status: " + csrCertificate.getStatus().getLabel()));
         }
         String pkcs10 = csrCertificate.getCsr();
         CertificateDataResponseDto caResponse = issueCertificate(pkcs10, null, raProfile); // TODO - issue attributes will be passed after implementation of storing issue attributes for certificate

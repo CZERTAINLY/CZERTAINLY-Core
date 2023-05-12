@@ -32,10 +32,10 @@ public interface ClientOperationService {
             ClientCertificateRequestDto request
     ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException;
 
-    ClientCertificateDataResponseDto issueCertificate(
+    ClientCertificateDataResponseDto issueNewCertificate(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
-            SecuredUUID certificateUuid
+            String certificateUuid
     ) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     ClientCertificateDataResponseDto issueCertificate(
