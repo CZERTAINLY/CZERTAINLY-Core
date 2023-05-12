@@ -37,6 +37,14 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
+    public ClientCertificateDataResponseDto issueNewCertificate(
+            String authorityUuid,
+            String raProfileUuid,
+            String certificateUuid) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+        return clientOperationService.issueNewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid);
+    }
+
+    @Override
     public ClientCertificateDataResponseDto issueCertificate(
             String authorityUuid,
             String raProfileUuid,
