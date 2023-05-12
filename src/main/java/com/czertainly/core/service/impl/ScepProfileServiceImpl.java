@@ -139,7 +139,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
         scepProfile.setChallengePassword(request.getChallengePassword());
-        scepProfile.setRequireManualApproval(request.getRequireManualApproval() != null && request.getRequireManualApproval());
+        scepProfile.setRequireManualApproval(false);
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
         scepProfile.setIntuneEnabled(intuneEnabled);
         scepProfile.setIntuneTenant(request.getIntuneTenant());
@@ -177,8 +177,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         }
 
         ScepProfile scepProfile = getScepProfileEntity(uuid);
-        if (request.getRequireManualApproval() != null)
-            scepProfile.setRequireManualApproval(request.getRequireManualApproval());
+        scepProfile.setRequireManualApproval(false);
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
         scepProfile.setIncludeCaCertificateChain(request.isIncludeCaCertificateChain());
         if (request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
