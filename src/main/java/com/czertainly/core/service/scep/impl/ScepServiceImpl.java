@@ -5,7 +5,9 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ScepException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
@@ -35,6 +37,7 @@ import com.czertainly.core.service.scep.ScepService;
 import com.czertainly.core.service.scep.message.ScepRequest;
 import com.czertainly.core.service.scep.message.ScepResponse;
 import com.czertainly.core.service.v2.ClientOperationService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CsrUtil;
 import com.czertainly.core.util.RandomUtil;
@@ -91,6 +94,7 @@ public class ScepServiceImpl implements ScepService {
     private X509Certificate recipient;
     private boolean raProfileBased;
     private RaProfile raProfile;
+    private List<RequestAttributeDto> issueAttributes;
     private ScepProfile scepProfile;
     private RaProfileRepository raProfileRepository;
     private ScepProfileRepository scepProfileRepository;
@@ -180,6 +184,7 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private void init(String profileName) throws ScepException {
+        String attributes;
         this.raProfileBased = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
         if (raProfileBased) {
             raProfile = raProfileRepository.findByName(profileName).orElse(null);
@@ -187,13 +192,16 @@ public class ScepServiceImpl implements ScepService {
                 return;
             }
             scepProfile = raProfile.getScepProfile();
+            attributes = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getScepIssueCertificateAttributes() : null;
         } else {
             scepProfile = scepProfileRepository.findByName(profileName).orElse(null);
             if (scepProfile == null) {
                 return;
             }
             raProfile = scepProfile.getRaProfile();
+            attributes = scepProfile.getIssueCertificateAttributes();
         }
+        issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
         if (scepCaCertificate == null) {
@@ -437,6 +445,7 @@ public class ScepServiceImpl implements ScepService {
 
         try {
             requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setAttributes(issueAttributes);
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
         }
