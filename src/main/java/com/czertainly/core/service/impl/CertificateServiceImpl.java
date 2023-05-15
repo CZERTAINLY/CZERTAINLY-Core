@@ -10,15 +10,12 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
-import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -282,13 +279,13 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error("Failed to remove Certificate {} from Locations", uuid);
         }
 
-        if (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
-            CertificateContent content = certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null);
-            if (content != null) {
-                certificateContentRepository.delete(content);
-            }
-        }
+        CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty())
+                ? certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null)
+                : null;
         certificateRepository.delete(certificate);
+        if (content != null) {
+            certificateContentRepository.delete(content);
+        }
         attributeService.deleteAttributeContent(uuid.getValue(), Resource.CERTIFICATE);
     }
 
