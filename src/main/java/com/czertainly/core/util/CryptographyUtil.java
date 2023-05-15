@@ -29,12 +29,12 @@ public class CryptographyUtil {
                 final RsaSignatureScheme scheme = RsaSignatureScheme.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                                         RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, signatureAttributes, StringAttributeContent.class)
-                                .getReference()
+                                .getData()
                 );
                 final DigestAlgorithm digest = DigestAlgorithm.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                                         RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContent.class)
-                                .getReference()
+                                .getData()
                 );
 
                 signatureAlgorithm = digest.getProviderName() + "WITHRSA";
@@ -48,7 +48,7 @@ public class CryptographyUtil {
                 final DigestAlgorithm digest = DigestAlgorithm.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                                         EcdsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContent.class)
-                                .getReference()
+                                .getData()
                 );
 
                 signatureAlgorithm = digest.getProviderName() + "WITHECDSA";
