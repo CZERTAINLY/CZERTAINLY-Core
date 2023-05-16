@@ -24,6 +24,7 @@ import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
 import com.czertainly.core.util.AcmeJsonProcessor;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
+import com.czertainly.core.util.AuthHelper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.crypto.ECDSAVerifier;
@@ -59,11 +60,6 @@ import java.util.stream.Collectors;
 @Component
 public class ProtocolValidationFilter extends OncePerRequestFilter {
 
-    public static final String SYSTEM_USER_HEADER_NAME = "systemUsername";
-    private static final String ACME_USER_HEADER_VALUE = "acme";
-
-    private static final String SCEP_USER_HEADER_VALUE = "scep";
-
     @Autowired
     private AcmeAccountRepository acmeAccountRepository;
     @Autowired
@@ -81,8 +77,6 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
     @Autowired
     @Qualifier("handlerExceptionResolver")
     private HandlerExceptionResolver resolver;
-    @Autowired
-    private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
@@ -99,13 +93,13 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
         }
         if (requestUri.startsWith("/api/v1/protocols/scep/")) {
             logger.info("SCEP Request from " + request.getRemoteAddr() + " for " + requestUri);
-            elevatePermission(SCEP_USER_HEADER_VALUE);
+            AuthHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
             return;
         }
         logger.info("ACME Request from " + request.getRemoteAddr() + " for " + requestUri);
         try {
-            elevatePermission(ACME_USER_HEADER_VALUE);
+            AuthHelper.authenticateAsSystemUser(AuthHelper.ACME_USERNAME);
             raProfileBased = requestUri.contains("/raProfile/");
             filterChain.doFilter(requestWrapper, responseWrapper);
             @SuppressWarnings("unchecked")
@@ -397,16 +391,5 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
         }
         // For revocation handle the verification inside the service
     }
-
-    private void elevatePermission(String user) {
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(getHeaders(user));
-        SecurityContext securityContext = SecurityContextHolder.getContext();
-        securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
-    }
-
-    private HttpHeaders getHeaders(String user) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(SYSTEM_USER_HEADER_NAME, user);
-        return headers;
-    }
+    
 }

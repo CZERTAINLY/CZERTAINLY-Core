@@ -5,6 +5,7 @@ import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
 import com.czertainly.core.security.authn.client.dto.UserDetailsDto;
+import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CertificateUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -89,8 +90,11 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         if(headers.get(authTokenHeaderName) != null) {
             requestDto.setAuthenticationToken(headers.get(authTokenHeaderName).get(0));
         }
-        if(headers.get(ProtocolValidationFilter.SYSTEM_USER_HEADER_NAME) != null){
-            requestDto.setSystemUsername(headers.get(ProtocolValidationFilter.SYSTEM_USER_HEADER_NAME).get(0));
+        if(headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME) != null){
+            requestDto.setSystemUsername(headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME).get(0));
+        }
+        if(headers.get(AuthHelper.USER_UUID_HEADER_NAME) != null){
+            requestDto.setUserUuid(headers.get(AuthHelper.USER_UUID_HEADER_NAME).get(0));
         }
         return requestDto;
     }
