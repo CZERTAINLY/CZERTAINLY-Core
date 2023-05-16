@@ -40,6 +40,7 @@ public class V202303211718__Scep_Roles extends BaseJavaMigration {
             ResourceAction.DETAIL.getCode(),
             ResourceAction.UPDATE.getCode(),
             ResourceAction.RENEW.getCode(),
+            ResourceAction.REVOKE.getCode(),
             ResourceAction.LIST.getCode());
     private final Map<String, String> detailPermissionObjectsListingEndpoints = Map.of(
             Resource.SCEP_PROFILE.getCode(), "/v1/scepProfiles",

@@ -16,6 +16,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
+import com.czertainly.core.util.AuthHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
@@ -50,6 +51,8 @@ public class UpdateIntuneRevocationRequestsTask {
     @Scheduled(fixedRate = 1000*60*60, initialDelay = 10000)
     public void performTask() {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Executing Intune revocation requests update task");
+        AuthHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
+
         List<ScepProfile> scepProfiles = scepProfileRepository.findByIntuneEnabled(true);
         for (ScepProfile scepProfile : scepProfiles) {
             logger.info(MarkerFactory.getMarker("scheduleInfo"), "Processing Intune revocation requests for SCEP profile: {}", scepProfile.getName());
@@ -106,8 +109,10 @@ public class UpdateIntuneRevocationRequestsTask {
 
         for (CARevocationRequest revocationRequest : revocationRequests) {
             try {
+                // TODO: Workaround to map to issuer DN in DB - redone correctly storing DN in correct sanitized format.
+                String issuerName = revocationRequest.issuerName.replace(",", ", ");
                 Certificate certificate = certificateService.getCertificateEntityByIssuerDnAndSerialNumber(
-                        revocationRequest.issuerName,
+                        issuerName,
                         revocationRequest.serialNumber
                 );
                 // TODO: Improve handling of certificate status and revocation reason
