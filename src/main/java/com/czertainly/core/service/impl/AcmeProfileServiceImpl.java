@@ -1,10 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -29,12 +25,12 @@ import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -45,8 +41,6 @@ import java.util.stream.Collectors;
 public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     private static final Logger logger = LoggerFactory.getLogger(AcmeProfileServiceImpl.class);
-    private static final String NONE_CONSTANT = "NONE";
-
     private final AcmeProfileRepository acmeProfileRepository;
     private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
@@ -128,7 +122,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setDisableNewOrders(false);
 
-        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)) {
+        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
             RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
             acmeProfile.setRaProfile(raProfile);
             acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
@@ -158,14 +152,12 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
         if (request.getRaProfileUuid() != null) {
-            if (request.getRaProfileUuid().equals(NONE_CONSTANT)) {
-                acmeProfile.setRaProfile(null);
-            } else {
-                RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
-                acmeProfile.setRaProfile(raProfile);
-                acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-                acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
-            }
+            RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
+            acmeProfile.setRaProfile(raProfile);
+            acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
+            acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
+        } else {
+            acmeProfile.setRaProfile(null);
         }
         if (request.getDescription() != null) {
             acmeProfile.setDescription(request.getDescription());

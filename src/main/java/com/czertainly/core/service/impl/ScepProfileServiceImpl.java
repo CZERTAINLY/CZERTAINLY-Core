@@ -42,8 +42,6 @@ import java.util.stream.Collectors;
 public class ScepProfileServiceImpl implements ScepProfileService {
 
     private static final Logger logger = LoggerFactory.getLogger(ScepProfileServiceImpl.class);
-    private static final String NONE_CONSTANT = "NONE";
-
     private final ScepProfileRepository scepProfileRepository;
     private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
@@ -145,7 +143,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setIntuneTenant(request.getIntuneTenant());
         scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
         scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
-        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty() && !request.getRaProfileUuid().equals(NONE_CONSTANT)) {
+        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
             RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
             scepProfile.setRaProfile(raProfile);
             scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
@@ -184,13 +182,11 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         if (scepProfile.getChallengePassword() != null)
             scepProfile.setChallengePassword(request.getChallengePassword());
         if (request.getRaProfileUuid() != null) {
-            if (request.getRaProfileUuid().equals(NONE_CONSTANT)) {
-                scepProfile.setRaProfile(null);
-            } else {
-                RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
-                scepProfile.setRaProfile(raProfile);
-                scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-            }
+            RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
+            scepProfile.setRaProfile(raProfile);
+            scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
+        } else {
+            scepProfile.setRaProfile(null);
         }
         scepProfile.setDescription(request.getDescription());
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
