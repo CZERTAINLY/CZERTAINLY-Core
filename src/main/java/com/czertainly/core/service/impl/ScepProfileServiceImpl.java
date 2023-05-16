@@ -187,6 +187,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
         } else {
             scepProfile.setRaProfile(null);
+            scepProfile.setIssueCertificateAttributes(null);
         }
         scepProfile.setDescription(request.getDescription());
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));

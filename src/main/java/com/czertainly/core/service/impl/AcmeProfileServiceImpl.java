@@ -158,6 +158,8 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
         } else {
             acmeProfile.setRaProfile(null);
+            acmeProfile.setIssueCertificateAttributes(null);
+            acmeProfile.setRevokeCertificateAttributes(null);
         }
         if (request.getDescription() != null) {
             acmeProfile.setDescription(request.getDescription());
