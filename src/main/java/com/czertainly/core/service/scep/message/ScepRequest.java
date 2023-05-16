@@ -1,7 +1,7 @@
 package com.czertainly.core.service.scep.message;
 
 import com.czertainly.api.exception.ScepException;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
@@ -280,7 +280,7 @@ public class ScepRequest {
         return ContentInfo.getInstance(asn1Sequence);
     }
 
-    public void decryptData(CzertainlyPrivateKey privateKey, Provider provider, CryptographicAlgorithm algorithm, String challengePassword) throws ScepException, CMSException {
+    public void decryptData(CzertainlyPrivateKey privateKey, Provider provider, KeyAlgorithm keyAlgorithm, String challengePassword) throws ScepException, CMSException {
         CMSEnvelopedData cmsEnvelopedData;
         try {
             cmsEnvelopedData = new CMSEnvelopedData(encapsulatedContent.getEncoded());
@@ -296,7 +296,7 @@ public class ScepRequest {
 
         if (recipientInformationIterator.hasNext()) {
             RecipientInformation recipient = recipientInformationIterator.next();
-            if(algorithm.equals(CryptographicAlgorithm.RSA)) {
+            if(keyAlgorithm.equals(KeyAlgorithm.RSA)) {
                 if (privateKey == null || provider == null) {
                     throw new ScepException("Private key or provider is null", FailInfo.BAD_REQUEST);
                 }

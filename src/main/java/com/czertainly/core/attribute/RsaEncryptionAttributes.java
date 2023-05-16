@@ -8,17 +8,19 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
-import com.czertainly.api.model.common.collection.DigestAlgorithm;
-import com.czertainly.api.model.core.cryptography.key.RsaPadding;
+import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.RsaEncryptionScheme;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class RsaEncryptionAttributes {
 
-    public static final String ATTRIBUTE_DATA_RSA_PADDING_NAME = "data_rsaPadding"; // this would be OAEP or PKCS1-v1_5 according the RFC 8017
-    public static final String ATTRIBUTE_DATA_RSA_PADDING_UUID = "6a93364c-d9d4-11ed-afa1-0242ac120002";
-    public static final String ATTRIBUTE_DATA_RSA_PADDING_LABEL = "RSA Padding Scheme";
-    public static final String ATTRIBUTE_DATA_RSA_PADDING_DESCRIPTION = "RSA Padding Scheme to use";
+    public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME = "data_rsaEncScheme"; // this would be OAEP or PKCS1-v1_5 according the RFC 8017
+    public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID = "6a93364c-d9d4-11ed-afa1-0242ac120002";
+    public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_LABEL = "RSA Encryption Scheme";
+    public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_DESCRIPTION = "RSA Encryption Scheme to use";
 
     // additional attributes for OAEP only
 
@@ -35,24 +37,28 @@ public class RsaEncryptionAttributes {
 
     public static List<BaseAttribute> getRsaEncryptionAttributes() {
         return List.of(
-                buildPadding(),
-                buildOaepHash(),
-                buildOaepMgf()
+                buildDataEncryptionScheme(),
+                buildDataOaepHash(),
+                buildDataOaepMgf()
         );
     }
 
-    public static BaseAttribute buildPadding() {
+    public static BaseAttribute buildDataEncryptionScheme() {
         // define Data Attribute
         DataAttribute attribute = new DataAttribute();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_PADDING_UUID);
-        attribute.setName(ATTRIBUTE_DATA_RSA_PADDING_NAME);
-        attribute.setDescription(ATTRIBUTE_DATA_RSA_PADDING_DESCRIPTION);
+        attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
+        attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
+        attribute.setDescription(ATTRIBUTE_DATA_RSA_ENC_SCHEME_DESCRIPTION);
         attribute.setType(AttributeType.DATA);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(RsaPadding.asStringAttributeContentList());
+        attribute.setContent(
+                Stream.of(RsaEncryptionScheme.values())
+                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .collect(Collectors.toList())
+        );
         // create properties
         DataAttributeProperties attributeProperties = new DataAttributeProperties();
-        attributeProperties.setLabel(ATTRIBUTE_DATA_RSA_PADDING_LABEL);
+        attributeProperties.setLabel(ATTRIBUTE_DATA_RSA_ENC_SCHEME_LABEL);
         attributeProperties.setRequired(false);
         attributeProperties.setVisible(true);
         attributeProperties.setList(true);
@@ -62,7 +68,7 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static BaseAttribute buildOaepMgf() {
+    public static BaseAttribute buildDataOaepMgf() {
         // define Data Attribute
         DataAttribute attribute = new DataAttribute();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
@@ -82,7 +88,7 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static BaseAttribute buildOaepHash() {
+    public static BaseAttribute buildDataOaepHash() {
         // define Data Attribute
         DataAttribute attribute = new DataAttribute();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
@@ -90,7 +96,11 @@ public class RsaEncryptionAttributes {
         attribute.setDescription(ATTRIBUTE_DATA_RSA_OAEP_HASH_DESCRIPTION);
         attribute.setType(AttributeType.DATA);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(DigestAlgorithm.asStringAttributeContentList());
+        attribute.setContent(
+                Stream.of(DigestAlgorithm.values())
+                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .collect(Collectors.toList())
+        );
         // create properties
         DataAttributeProperties attributeProperties = new DataAttributeProperties();
         attributeProperties.setLabel(ATTRIBUTE_DATA_RSA_OAEP_HASH_LABEL);
@@ -103,25 +113,25 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static RequestAttributeDto buildPadding(RsaPadding value) {
+    public static RequestAttributeDto buildRequestEncryptionScheme(RsaEncryptionScheme value) {
         // define Data Attribute
         RequestAttributeDto attribute = new RequestAttributeDto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_PADDING_UUID);
-        attribute.setName(ATTRIBUTE_DATA_RSA_PADDING_NAME);
+        attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
+        attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
         attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeDto buildOaepHash(DigestAlgorithm value) {
+    public static RequestAttributeDto buildRequestOaepHash(DigestAlgorithm value) {
         // define Data Attribute
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
-        attribute.setContent(List.of(new StringAttributeContent(value.getName())));
+        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeDto buildOaepMgf(boolean value) {
+    public static RequestAttributeDto buildRequestOaepMgf(boolean value) {
         // define Data Attribute
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);

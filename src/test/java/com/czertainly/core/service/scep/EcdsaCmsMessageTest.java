@@ -1,7 +1,7 @@
 package com.czertainly.core.service.scep;
 
 import com.czertainly.api.exception.ScepException;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.core.service.scep.message.ScepConstants;
 import com.czertainly.core.service.scep.message.ScepRequest;
@@ -46,7 +46,7 @@ public class EcdsaCmsMessageTest {
         CMSProcessableByteArray cmsProcessableByteArray = generateEnvelopedData();
         CMSSignedData signedData = createSignedData(cmsProcessableByteArray);
         ScepRequest scepRequest = new ScepRequest(signedData.getEncoded());
-        scepRequest.decryptData(null, null, CryptographicAlgorithm.ECDSA, "mysecretpassword");
+        scepRequest.decryptData(null, null, KeyAlgorithm.ECDSA, "mysecretpassword");
         Assertions.assertEquals(scepRequest.getMessageType(), MessageType.PKCS_REQ);
         Assertions.assertEquals("CN=x11", scepRequest.getPkcs10Request().getSubject().toString());
     }
@@ -56,7 +56,7 @@ public class EcdsaCmsMessageTest {
         CMSProcessableByteArray cmsProcessableByteArray = generateEnvelopedData();
         CMSSignedData signedData = createSignedData(cmsProcessableByteArray);
         ScepRequest scepRequest = new ScepRequest(signedData.getEncoded());
-        Assertions.assertThrows(CMSException.class, () -> scepRequest.decryptData(null, null, CryptographicAlgorithm.ECDSA, "wrongpassword"));
+        Assertions.assertThrows(CMSException.class, () -> scepRequest.decryptData(null, null, KeyAlgorithm.ECDSA, "wrongpassword"));
     }
 
     private static CMSProcessableByteArray generateEnvelopedData() throws IOException, CMSException {

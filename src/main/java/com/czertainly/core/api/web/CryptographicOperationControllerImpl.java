@@ -4,7 +4,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.interfaces.core.web.CryptographicOperationsController;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CryptographicOperationService;
@@ -30,7 +30,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenProfileUuid,
             String uuid,
             String keyItemUuid,
-            CryptographicAlgorithm algorithm
+            KeyAlgorithm algorithm
     ) throws ConnectorException {
         return cryptographicOperationService.listCipherAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
@@ -79,7 +79,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String tokenProfileUuid,
             String uuid,
             String keyItemUuid,
-            CryptographicAlgorithm algorithm
+            KeyAlgorithm algorithm
     ) throws ConnectorException {
         return cryptographicOperationService.listSignatureAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),

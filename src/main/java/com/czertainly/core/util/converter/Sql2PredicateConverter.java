@@ -77,12 +77,17 @@ public class Sql2PredicateConverter {
             final Expression expression = prepareExpression(root, searchableFields.getCode());
             final Object expressionValue = prepareValue(valueObject, searchableFields);
             final SearchFieldObject searchFieldObject = SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum) ? new SearchFieldObject(AttributeContentType.DATETIME) : null;
-            return buildPredicateByCondition(criteriaBuilder, searchCondition, expression, expressionValue, isDateFormat, SearchableFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()),dto, searchFieldObject);
+            return buildPredicateByCondition(criteriaBuilder, searchCondition, null, root, searchableFields, expressionValue, isDateFormat, SearchableFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()),dto, searchFieldObject);
         }
         return predicate;
     }
 
-    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, Expression expression, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
+    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, Expression expression, Root root, SearchableFields searchableFields, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
+
+        if (expression == null) {
+            expression = prepareExpression(root, searchableFields.getCode());
+        }
+
         if (expressionValue == null) {
             expressionValue = dto.getValue().toString();
         }
@@ -119,9 +124,9 @@ public class Sql2PredicateConverter {
             case CONTAINS -> predicate = criteriaBuilder.like(expression, "%" + expressionValue + "%");
             case NOT_CONTAINS -> predicate = criteriaBuilder.or(
                     criteriaBuilder.notLike(expression, "%" + expressionValue + "%"),
-                    criteriaBuilder.isNull(expression)
+                    retrievePredicateForNull(criteriaBuilder, root, searchableFields, expression)
             );
-            case EMPTY -> predicate = criteriaBuilder.isNull(expression);
+            case EMPTY -> predicate = retrievePredicateForNull(criteriaBuilder, root, searchableFields, expression);
             case NOT_EMPTY -> predicate = criteriaBuilder.isNotNull(expression);
             case GREATER, LESSER -> {
                 if (searchCondition.equals(SearchCondition.GREATER)) {
@@ -132,6 +137,17 @@ public class Sql2PredicateConverter {
             }
         }
         return predicate;
+    }
+
+    private static Predicate retrievePredicateForNull(final CriteriaBuilder criteriaBuilder, final Root root, final SearchableFields searchableFields, final Expression expression) {
+        if (searchableFields.getCode().contains(".")) {
+            int indexOfDot = searchableFields.getCode().indexOf(".");
+            final String mainPropertyString = searchableFields.getCode().substring(0, indexOfDot);
+            final Expression mainExpression = prepareExpression(root, mainPropertyString);
+            return criteriaBuilder.isNull(mainExpression);
+        } else {
+            return criteriaBuilder.isNull(expression);
+        }
     }
 
     private static Predicate prepareDateTimePredicate(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, final Expression expression, final String value, final SearchFieldObject searchFieldObject) {
@@ -306,7 +322,7 @@ public class Sql2PredicateConverter {
                     jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);
 
                     final Predicate predicateOfTheExpression =
-                            buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, searchField.isDateTimeFormat(), searchField.isBooleanFormat(), dto, searchField);
+                            buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, null, null, searchField.isDateTimeFormat(), searchField.isBooleanFormat(), dto, searchField);
 
                     subPredicates.add(predicateOfTheExpression);
                     subquery.where(subPredicates.toArray(new Predicate[]{}));

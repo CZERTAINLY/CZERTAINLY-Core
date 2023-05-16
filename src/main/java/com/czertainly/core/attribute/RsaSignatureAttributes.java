@@ -7,10 +7,12 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
-import com.czertainly.api.model.common.collection.DigestAlgorithm;
-import com.czertainly.api.model.common.collection.RsaSignatureScheme;
+import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class RsaSignatureAttributes {
 
@@ -49,7 +51,11 @@ public class RsaSignatureAttributes {
         attributeProperties.setReadOnly(false);
         attribute.setProperties(attributeProperties);
         // set content
-        attribute.setContent(RsaSignatureScheme.asStringAttributeContentList());
+        attribute.setContent(
+                Stream.of(RsaSignatureScheme.values())
+                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .collect(Collectors.toList())
+        );
 
         return attribute;
     }
@@ -72,7 +78,11 @@ public class RsaSignatureAttributes {
         attributeProperties.setReadOnly(false);
         attribute.setProperties(attributeProperties);
         // set content
-        attribute.setContent(DigestAlgorithm.asStringAttributeContentList());
+        attribute.setContent(
+                Stream.of(DigestAlgorithm.values())
+                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .collect(Collectors.toList())
+        );
 
         return attribute;
     }
@@ -82,7 +92,7 @@ public class RsaSignatureAttributes {
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
-        attribute.setContent(List.of(new StringAttributeContent(RsaSignatureScheme.PKCS1V15.name(), RsaSignatureScheme.PKCS1V15.getName())));
+        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
         return attribute;
     }
 
@@ -91,19 +101,8 @@ public class RsaSignatureAttributes {
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
-        attribute.setContent(List.of(new StringAttributeContent(value.getName())));
+        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
 
         return attribute;
     }
-
-    public static RequestAttributeDto buildRequestDigest(String value) {
-        // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
-        attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
-        attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
-        attribute.setContent(List.of(new StringAttributeContent(value)));
-
-        return attribute;
-    }
-
 }

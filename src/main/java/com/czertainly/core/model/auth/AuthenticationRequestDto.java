@@ -15,6 +15,9 @@ public class AuthenticationRequestDto {
     @Schema(description = "System Username")
     private String systemUsername;
 
+    @Schema(description = "User UUID")
+    private String userUuid;
+
     public String getCertificateContent() {
         return certificateContent;
     }
@@ -39,12 +42,21 @@ public class AuthenticationRequestDto {
         this.systemUsername = systemUsername;
     }
 
+    public String getUserUuid() {
+        return userUuid;
+    }
+
+    public void setUserUuid(String userUuid) {
+        this.userUuid = userUuid;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("certificateContent", certificateContent)
                 .append("authenticationToken", authenticationToken)
                 .append("systemUsername", systemUsername)
+                .append("userUuid", userUuid)
                 .toString();
     }
 }

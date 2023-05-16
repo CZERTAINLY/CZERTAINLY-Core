@@ -90,7 +90,7 @@ public class CzertainlyCipherSpi extends CipherSpi {
         if (operationMode != Cipher.DECRYPT_MODE && operationMode != Cipher.UNWRAP_MODE) {
             throw new IllegalArgumentException("Unsupported Operation Mode: " + operationMode);
         }
-        if (privateKey == null) {
+        if (key == null) {
             throw new InvalidKeyException("Invalid null private key");
         }
         this.operationMode = operationMode;

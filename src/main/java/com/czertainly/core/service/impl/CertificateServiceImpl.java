@@ -10,15 +10,12 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -247,6 +244,12 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
+        return certificateRepository.findByIssuerDnAndSerialNumber(issuerDn, serialNumber)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, issuerDn + " " + serialNumber));
+    }
+
+    @Override
     public Boolean checkCertificateExistsByFingerprint(String fingerprint) {
         try {
             return certificateRepository.findByFingerprint(fingerprint).isPresent();
@@ -280,15 +283,12 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error("Failed to remove Certificate {} from Locations", uuid);
         }
 
-        if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
-            CertificateContent content = certificateContentRepository
-                    .findById(certificate.getCertificateContent().getId()).orElse(null);
-            if (content != null) {
-                certificateRepository.delete(certificate);
-                certificateContentRepository.delete(content);
-            }
-        } else {
-            certificateRepository.delete(certificate);
+        CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty())
+                ? certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null)
+                : null;
+        certificateRepository.delete(certificate);
+        if (content != null) {
+            certificateContentRepository.delete(content);
         }
         attributeService.deleteAttributeContent(uuid.getValue(), Resource.CERTIFICATE);
     }
@@ -624,7 +624,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes, UUID connectorUuid) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
@@ -636,8 +636,8 @@ public class CertificateServiceImpl implements CertificateService {
         entity.setCsrAttributes(csrAttributes);
         entity.setSignatureAttributes(signatureAttributes);
         certificateRepository.save(entity);
-        metadataService.createMetadataDefinitions(null, meta);
-        metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
+        metadataService.createMetadataDefinitions(connectorUuid, meta);
+        metadataService.createMetadata(connectorUuid, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
         certificateComplianceCheck(entity);
         return entity;
     }
@@ -723,10 +723,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public void updateCertificatesStatusScheduled() {
-        final List<CertificateStatus> skipStatuses = List.of(CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
-        final long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
-        final int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
-        final LocalDateTime before = LocalDateTime.now().minusDays(1);
+        List<CertificateStatus> skipStatuses = List.of(CertificateStatus.NEW, CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
+        long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
+        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
+
+        LocalDateTime before = LocalDateTime.now().minusDays(1);
 
         // process 1/24 of eligible certificates for status update
         final List<Certificate> certificates = certificateRepository.findCertificatesToCheckStatus(
@@ -953,62 +954,12 @@ public class CertificateServiceImpl implements CertificateService {
         filter.setParentRefProperty("raProfileUuid");
 
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
-                (root, cb) -> cb.isNotNull(root.get("keyUuid")));
+                (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.or(cb.equal(root.get("status"), CertificateStatus.VALID), cb.equal(root.get("status"), CertificateStatus.EXPIRING))));
         return certificates
                 .stream()
-                .filter(intuneEnabled ? this::isScepCaCertIntunePermissible : this::isScepCaCertPermissible)
+                .filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled))
                 .map(Certificate::mapToListDto)
-                .filter(c -> c.isPrivateKeyAvailability())
                 .collect(Collectors.toList());
-    }
-
-    private boolean isScepCaCertPermissible(Certificate certificate) {
-        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
-        // It is required to check RSA for public key since only RSA keys are encryption capable
-        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
-        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
-            if (!item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA) && !item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
-                return false;
-            } else if (item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)
-                    && item.getType().equals(KeyType.PUBLIC_KEY)) {
-                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
-                    return false;
-                }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)) {
-                if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
-                    return false;
-                }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
-                if (!item.getUsage().containsAll(List.of(KeyUsage.SIGN))) {
-                    return false;
-                }
-            } else if (item.getType().equals(KeyType.PUBLIC_KEY) && item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.ECDSA)) {
-                if (!item.getUsage().containsAll(List.of(KeyUsage.VERIFY))) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private boolean isScepCaCertIntunePermissible(Certificate certificate) {
-        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
-        // It is required to check RSA for public key since only RSA keys are encryption capable
-        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
-        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
-            if (!item.getCryptographicAlgorithm().equals(CryptographicAlgorithm.RSA)) {
-                return false;
-            } else if (item.getType().equals(KeyType.PUBLIC_KEY)) {
-                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
-                    return false;
-                }
-            } else if (item.getType().equals(KeyType.PRIVATE_KEY)) {
-                if (! item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
-                    return false;
-                }
-            }
-        }
-        return true;
     }
 
     private String getExpiryTime(Date now, Date expiry) {

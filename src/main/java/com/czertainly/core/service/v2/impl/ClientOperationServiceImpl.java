@@ -22,6 +22,7 @@ import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateLocation;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -36,7 +37,6 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CsrUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -170,42 +170,71 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public ClientCertificateDataResponseDto issueCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
-        certificateService.checkIssuePermissions();
-        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
-                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+    public ClientCertificateDataResponseDto issueNewCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final String certificateUuid) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+        final RaProfile raProfile = getRaProfile(raProfileUuid);
 
-        extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
-        Certificate certificate;
-        String pkcs10;
-        CertificateDataResponseDto caResponse;
-        if(request.getUuid() != null) {
-            Certificate csrCertificate = certificateService.getCertificateEntity(SecuredUUID.fromUUID(request.getUuid()));
-            pkcs10 = csrCertificate.getCsr();
-            caResponse = issueCertificate(pkcs10, request.getAttributes(), raProfile);
-            certificate = certificateService.updateCsrToCertificate(csrCertificate.getUuid(), caResponse.getCertificateData(), caResponse.getMeta());
-
-        } else {
-            // the CSR should be properly converted to ensure consistent Base64-encoded format
-            Map<String, Object> csrMap = generateCsr(request.getPkcs10(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes());
-            pkcs10 = (String) csrMap.get("csr");
-            List<DataAttribute> merged = (List<DataAttribute>) csrMap.get("merged");
-            if (!isProtocolUser())
-                attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CERTIFICATE);
-            caResponse = issueCertificate(pkcs10, request.getAttributes(), raProfile);
-            //Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
-            certificate = certificateService.checkCreateCertificateWithMeta(
-                    caResponse.getCertificateData(),
-                    caResponse.getMeta(),
-                    pkcs10,
-                    request.getKeyUuid(),
-                    merged,
-                    request.getSignatureAttributes()
-            );
+        final Certificate csrCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        if (csrCertificate.getStatus() != CertificateStatus.NEW) {
+            throw new ValidationException(ValidationError.create("Cannot issue New certificate with status: " + csrCertificate.getStatus().getLabel()));
         }
+        String pkcs10 = csrCertificate.getCsr();
+        CertificateDataResponseDto caResponse = issueCertificate(pkcs10, null, raProfile); // TODO - issue attributes will be passed after implementation of storing issue attributes for certificate
+        Certificate certificate = certificateService.updateCsrToCertificate(csrCertificate.getUuid(), caResponse.getCertificateData(), caResponse.getMeta());
+
+        return getClientCertificateDataResponseDto(raProfile, pkcs10, caResponse, certificate);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+        final RaProfile raProfile = getRaProfile(raProfileUuid);
+
+        // the CSR should be properly converted to ensure consistent Base64-encoded format
+        final Map<String, Object> csrMap = generateCsr(request.getPkcs10(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes());
+        String pkcs10 = (String) csrMap.get("csr");
+        final List<DataAttribute> merged = (List<DataAttribute>) csrMap.get("merged");
+        if (!isProtocolUser()) {
+            attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CERTIFICATE);
+        }
+        CertificateDataResponseDto caResponse = issueCertificate(pkcs10, request.getAttributes(), raProfile);
+        Certificate certificate = certificateService.checkCreateCertificateWithMeta(
+                caResponse.getCertificateData(),
+                caResponse.getMeta(),
+                pkcs10,
+                request.getKeyUuid(),
+                merged,
+                request.getSignatureAttributes(),
+                raProfile.getAuthorityInstanceReference().getConnectorUuid()
+        );
 
         //Create Custom Attributes
         attributeService.createAttributeContent(certificate.getUuid(), request.getCustomAttributes(), Resource.CERTIFICATE);
+
+        return getClientCertificateDataResponseDto(raProfile, pkcs10, caResponse, certificate);
+    }
+
+    private RaProfile getRaProfile(SecuredUUID raProfileUuid) throws NotFoundException {
+        certificateService.checkIssuePermissions();
+        final RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+
+        extendedAttributeService.validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
+        return raProfile;
+    }
+
+    private CertificateDataResponseDto issueCertificate(String pkcs10, List<RequestAttributeDto> raProfileAttributes, RaProfile raProfile) throws ConnectorException {
+        CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
+        caRequest.setPkcs10(pkcs10);
+        caRequest.setAttributes(raProfileAttributes);
+        caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
+        return certificateApiClient.issueCertificate(
+                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                caRequest);
+    }
+
+    private ClientCertificateDataResponseDto getClientCertificateDataResponseDto(RaProfile raProfile, String pkcs10, CertificateDataResponseDto caResponse, Certificate certificate) throws NotFoundException {
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("CSR", pkcs10);
         certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
@@ -222,21 +251,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
-        ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
+        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData(caResponse.getCertificateData());
         response.setUuid(certificate.getUuid().toString());
         return response;
-    }
-
-    private CertificateDataResponseDto issueCertificate(String pkcs10, List<RequestAttributeDto> raProfileAttributes, RaProfile raProfile) throws ConnectorException {
-        CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
-        caRequest.setPkcs10(pkcs10);
-        caRequest.setAttributes(raProfileAttributes);
-        caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
-        return certificateApiClient.issueCertificate(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                caRequest);
     }
 
     @Override
@@ -299,8 +317,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     csr,
                     keyUuid,
                     merged,
-                    signatureAttributes
-
+                    signatureAttributes,
+                    raProfile.getAuthorityInstanceReference().getConnectorUuid()
             );
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
@@ -416,8 +434,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     csr,
                     keyUuid,
                     null,
-                    signatureAttributes
-
+                    signatureAttributes,
+                    raProfile.getAuthorityInstanceReference().getConnectorUuid()
             );
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);

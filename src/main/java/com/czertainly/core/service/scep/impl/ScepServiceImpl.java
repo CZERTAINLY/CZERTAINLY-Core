@@ -5,8 +5,10 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ScepException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.scep.FailInfo;
@@ -35,6 +37,7 @@ import com.czertainly.core.service.scep.ScepService;
 import com.czertainly.core.service.scep.message.ScepRequest;
 import com.czertainly.core.service.scep.message.ScepResponse;
 import com.czertainly.core.service.v2.ClientOperationService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CsrUtil;
 import com.czertainly.core.util.RandomUtil;
@@ -91,6 +94,7 @@ public class ScepServiceImpl implements ScepService {
     private X509Certificate recipient;
     private boolean raProfileBased;
     private RaProfile raProfile;
+    private List<RequestAttributeDto> issueAttributes;
     private ScepProfile scepProfile;
     private RaProfileRepository raProfileRepository;
     private ScepProfileRepository scepProfileRepository;
@@ -179,7 +183,8 @@ public class ScepServiceImpl implements ScepService {
         };
     }
 
-    private void init(String profileName) {
+    private void init(String profileName) throws ScepException {
+        String attributes;
         this.raProfileBased = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
         if (raProfileBased) {
             raProfile = raProfileRepository.findByName(profileName).orElse(null);
@@ -187,18 +192,29 @@ public class ScepServiceImpl implements ScepService {
                 return;
             }
             scepProfile = raProfile.getScepProfile();
+            attributes = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getScepIssueCertificateAttributes() : null;
         } else {
             scepProfile = scepProfileRepository.findByName(profileName).orElse(null);
             if (scepProfile == null) {
                 return;
             }
             raProfile = scepProfile.getRaProfile();
+            attributes = scepProfile.getIssueCertificateAttributes();
         }
+        issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
+        if (scepCaCertificate == null) {
+            throw new ScepException("SCEP Profile does not have any associated CA certificate", FailInfo.BAD_REQUEST);
+        }
+
         setRecipient(scepCaCertificate.getCertificateContent().getContent());
         this.caCertificateChain = new ArrayList<>();
         for (Certificate certificate : certValidationService.getCertificateChain(scepCaCertificate)) {
+            // only certificate with valid status should be used
+            if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
+                throw new ScepException("SCEP CA certificate is not valid", FailInfo.BAD_REQUEST);
+            }
             try {
                 this.caCertificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
             } catch (CertificateException e) {
@@ -224,6 +240,9 @@ public class ScepServiceImpl implements ScepService {
         }
         if (scepProfile.getCaCertificate() == null) {
             throw new ScepException("SCEP Profile does not have any associated CA certificate", FailInfo.BAD_REQUEST);
+        }
+        if (!CertificateUtil.isCertificateScepCaCertAcceptable(scepProfile.getCaCertificate(), scepProfile.isIntuneEnabled())) {
+            throw new ScepException("SCEP Profile does not have associated acceptable CA certificate", FailInfo.BAD_REQUEST);
         }
         if (!raProfileBased && scepProfile.getRaProfile() == null) {
             throw new ScepException("SCEP Profile does not contain associated RA Profile", FailInfo.BAD_REQUEST);
@@ -290,7 +309,7 @@ public class ScepServiceImpl implements ScepService {
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
                 key.getTokenInstanceReference().getConnector().mapToDto(),
-                item.getCryptographicAlgorithm().getLabel()
+                item.getKeyAlgorithm().getLabel()
         );
 
         CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
@@ -300,14 +319,14 @@ public class ScepServiceImpl implements ScepService {
             scepRequest.decryptData(
                     czertainlyPrivateKey,
                     czertainlyProvider,
-                    cryptographicKeyService.getKeyItemFromKey(scepProfile.getCaCertificate().getKey(), KeyType.PRIVATE_KEY).getCryptographicAlgorithm(),
+                    cryptographicKeyService.getKeyItemFromKey(scepProfile.getCaCertificate().getKey(), KeyType.PRIVATE_KEY).getKeyAlgorithm(),
                     scepProfile.getChallengePassword()
             );
         } catch (CMSException e) {
             return buildResponse(scepRequest, buildFailedResponse(new ScepException("Unable to decrypt the data. " + e.getMessage(), FailInfo.BAD_REQUEST), scepRequest.getTransactionId()));
         }
 
-        if (scepProfile.getIntuneTenant() != null) {
+        if (scepProfile.isIntuneEnabled()) {
             Properties properties = getIntuneConfiguration();
             intuneClient = buildIntuneClient(properties);
         }
@@ -349,7 +368,7 @@ public class ScepServiceImpl implements ScepService {
                             intuneClient,
                             scepRequest,
                             errorCode,
-                            e.getMessage().substring(0, 255)
+                            e.getMessage().substring(0, Math.min(e.getMessage().length(), 255))
                     );
                 }
             }
@@ -392,7 +411,7 @@ public class ScepServiceImpl implements ScepService {
                 key.getTokenInstanceReference().getTokenInstanceUuid(),
                 item.getKeyReferenceUuid().toString(),
                 key.getTokenInstanceReference().getConnector().mapToDto(),
-                item.getCryptographicAlgorithm().getLabel()
+                item.getKeyAlgorithm().getLabel()
         );
         try {
             scepResponse.setSigningAttributes(
@@ -426,6 +445,7 @@ public class ScepServiceImpl implements ScepService {
 
         try {
             requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setAttributes(issueAttributes);
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
         }

@@ -3,11 +3,11 @@ package com.czertainly.core.provider;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.collection.DigestAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
-import com.czertainly.api.model.core.cryptography.key.RsaPadding;
+import com.czertainly.api.model.common.enums.cryptography.RsaEncryptionScheme;
 import com.czertainly.core.attribute.RsaEncryptionAttributes;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import org.slf4j.Logger;
@@ -33,14 +33,14 @@ public class CzertainlyCipherService {
         switch (algorithm) {
             case "RSA", "RSA/NONE/PKCS1Padding", "RSA/ECB/PKCS1Padding" -> {
                 return List.of(
-                        RsaEncryptionAttributes.buildPadding(RsaPadding.PKCS1_v1_5)
+                        RsaEncryptionAttributes.buildRequestEncryptionScheme(RsaEncryptionScheme.PKCS1_v1_5)
                 );
             }
             case "RSA/NONE/OAEPWithSHA1AndMGF1Padding", "RSA/ECB/OAEPWithSHA-1AndMGF1Padding" -> {
                 return List.of(
-                        RsaEncryptionAttributes.buildPadding(RsaPadding.OAEP),
-                        RsaEncryptionAttributes.buildOaepHash(DigestAlgorithm.SHA_1),
-                        RsaEncryptionAttributes.buildOaepMgf(true)
+                        RsaEncryptionAttributes.buildRequestEncryptionScheme(RsaEncryptionScheme.OAEP),
+                        RsaEncryptionAttributes.buildRequestOaepHash(DigestAlgorithm.SHA_1),
+                        RsaEncryptionAttributes.buildRequestOaepMgf(true)
                 );
             }
             default -> throw new IllegalArgumentException("No cipher attributes mapped for algorithm: " + algorithm);
