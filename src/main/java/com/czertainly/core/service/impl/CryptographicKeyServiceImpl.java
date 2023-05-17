@@ -508,7 +508,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public void deleteKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException {
+    public void deleteKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, List<String> keyUuids) throws NotFoundException, ConnectorException {
         logger.info("Request to deleted the key with UUID {} on token instance {}", uuid, tokenInstanceUuid);
         CryptographicKey key = getCryptographicKeyEntity(uuid);
         if (key.getTokenProfile() != null) {
@@ -528,6 +528,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                         key.getUuid(),
                         Resource.CRYPTOGRAPHIC_KEY
                 );
+                keyManagementApiClient.destroyKey(
+                        key.getTokenInstanceReference().getConnector().mapToDto(),
+                        key.getTokenInstanceReference().getTokenInstanceUuid(),
+                        content.getKeyReferenceUuid().toString()
+                );
+                logger.info("Key item destroyed in the connector. Removing from the core now.");
                 key.getItems().remove(content);
                 cryptographicKeyItemRepository.delete(content);
                 cryptographicKeyRepository.save(key);
@@ -545,7 +551,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public void deleteKey(List<String> uuids) {
+    public void deleteKey(List<String> uuids) throws ConnectorException {
         logger.info("Request to deleted the keys with UUIDs {}", uuids);
         for (String uuid : uuids) {
             try {
@@ -558,6 +564,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                             key.getUuid(),
                             Resource.CRYPTOGRAPHIC_KEY
                     );
+                    keyManagementApiClient.destroyKey(
+                            key.getTokenInstanceReference().getConnector().mapToDto(),
+                            key.getTokenInstanceReference().getTokenInstanceUuid(),
+                            content.getKeyReferenceUuid().toString()
+                    );
+                    logger.info("Key item destroyed in the connector. Removing from the core now.");
                     cryptographicKeyItemRepository.delete(content);
                 }
                 certificateService.clearKeyAssociations(UUID.fromString(uuid));
