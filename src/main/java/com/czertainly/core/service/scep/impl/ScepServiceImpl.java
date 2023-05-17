@@ -456,8 +456,12 @@ public class ScepServiceImpl implements ScepService {
         } catch (CertificateException e) {
             throw new ScepException("Unable to parse certificate", e, FailInfo.BAD_REQUEST);
         }
+
         addTransactionEntity(scepRequest.getTransactionId(), response.getUuid());
         ScepTransaction scepTransaction = scepTransactionRepository.findByTransactionIdAndScepProfile(scepRequest.getTransactionId(), scepProfile).orElse(null);
+        if (scepTransaction == null) throw new ScepException(String.format("SCEP transaction for issued certificate not found. UUID: %s", response.getUuid()), FailInfo.BAD_REQUEST);
+
+        // TODO: redo getting issued certificate chain from X509Certificate object instead of Certificate entity
         scepResponse.setCertificateChain(getIssuedCertificateChain(scepTransaction.getCertificate()));
 
         scepResponse.setPkiStatus(PkiStatus.SUCCESS);
