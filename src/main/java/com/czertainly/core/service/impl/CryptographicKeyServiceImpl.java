@@ -530,7 +530,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 );
                 keyManagementApiClient.destroyKey(
                         key.getTokenInstanceReference().getConnector().mapToDto(),
-                        tokenInstanceUuid.toString(),
+                        key.getTokenInstanceReference().getTokenInstanceUuid(),
                         content.getKeyReferenceUuid().toString()
                 );
                 logger.info("Key item destroyed in the connector. Removing from the core now.");
