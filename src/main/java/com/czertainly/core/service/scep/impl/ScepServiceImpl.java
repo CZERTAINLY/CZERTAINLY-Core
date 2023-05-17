@@ -511,7 +511,6 @@ public class ScepServiceImpl implements ScepService {
         ScepResponse scepResponse = new ScepResponse();
         if (certificate.getStatus() != CertificateStatus.NEW) {
             scepResponse.setPkiStatus(PkiStatus.SUCCESS);
-//            scepResponse.setCertificate(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
             scepResponse.setCertificateChain(getIssuedCertificateChain(certificate));
         } else {
             scepResponse.setPkiStatus(PkiStatus.PENDING);
@@ -533,7 +532,6 @@ public class ScepServiceImpl implements ScepService {
             ScepTransaction transaction = getTransaction(scepRequest.getTransactionId());
             if (!transaction.getCertificate().getStatus().equals(CertificateStatus.NEW)) {
                 X509Certificate certificate = CertificateUtil.parseCertificate(transaction.getCertificate().getCertificateContent().getContent());
-//                scepResponse.setCertificate(certificate);
                 scepResponse.setCertificateChain(getIssuedCertificateChain(transaction.getCertificate()));
                 scepResponse.setPkiStatus(PkiStatus.SUCCESS);
                 sendIntuneSuccessNotification(
@@ -556,13 +554,19 @@ public class ScepServiceImpl implements ScepService {
         ArrayList<X509Certificate> certificateChain = new ArrayList<>();
         for (Certificate certificate : certValidationService.getCertificateChain(leafCertificate)) {
             // only certificate with valid status should be used
-            if (!certificate.getStatus().equals(CertificateStatus.VALID)) throw new ScepException(String.format("Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s", certificate.getUuid().toString(), certificate.getFingerprint(), certificate.getStatus().getLabel()), FailInfo.BAD_REQUEST);
-
+            if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
+                throw new ScepException(String.format("Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
+                        certificate.getUuid().toString(),
+                        certificate.getFingerprint(),
+                        certificate.getStatus().getLabel()),
+                        FailInfo.BAD_REQUEST);
+            }
             try {
                 certificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
             } catch (CertificateException e) {
                 // This should not happen
-                throw new IllegalArgumentException("Failed to parse certificate content: " + certificate.getCertificateContent().getContent());
+                throw new IllegalArgumentException("Failed to parse certificate content: " +
+                        certificate.getCertificateContent().getContent());
             }
         }
 
@@ -575,7 +579,8 @@ public class ScepServiceImpl implements ScepService {
                 return List.of(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
             } catch (CertificateException e) {
                 // This should not happen
-                throw new IllegalArgumentException("Error converting the certificate to x509 object");
+                throw new IllegalArgumentException("Failed to parse certificate content: " +
+                        certificate.getCertificateContent().getContent());
             }
         }
 
