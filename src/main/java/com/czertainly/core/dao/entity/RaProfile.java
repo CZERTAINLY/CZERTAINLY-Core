@@ -248,7 +248,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setScepProfile(ScepProfile scepProfile) {
         this.scepProfile = scepProfile;
-        if (acmeProfile != null) this.scepProfileUuid = acmeProfile.getUuid();
+        if (scepProfile != null) this.scepProfileUuid = scepProfile.getUuid();
         else this.scepProfileUuid = null;
     }
 
