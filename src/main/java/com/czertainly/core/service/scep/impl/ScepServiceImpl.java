@@ -210,7 +210,6 @@ public class ScepServiceImpl implements ScepService {
 
         setRecipient(scepCaCertificate.getCertificateContent().getContent());
         this.caCertificateChain = loadCertificateChain(scepCaCertificate);
-        if (this.caCertificateChain == null) throw new ScepException("SCEP CA certificate is not valid", FailInfo.BAD_REQUEST);
 
         logger.debug("SCEP service initialized: isRaProfileBased: {}, raProfile: {}, scepProfile: {}", raProfileBased, raProfile, scepProfile);
     }
