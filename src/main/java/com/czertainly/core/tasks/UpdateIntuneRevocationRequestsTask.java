@@ -161,7 +161,8 @@ public class UpdateIntuneRevocationRequestsTask {
                                 ""
                         )
                 );
-
+                logger.debug(MarkerFactory.getMarker("scheduleInfo"), "Certificate for Intune revocation processed successfully: UUID={}, serialNumber={}, fingerprint={}",
+                        certificate.getUuid().toString(), certificate.getSerialNumber(), certificate.getFingerprint());
             } catch (NotFoundException e) {
                 logger.debug(MarkerFactory.getMarker("scheduleInfo"), "Certificate for Intune revocation not found in inventory: issuerDN={}, serialNumber={}",
                         revocationRequest.issuerName, revocationRequest.serialNumber);
