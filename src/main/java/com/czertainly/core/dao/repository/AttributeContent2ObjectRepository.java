@@ -21,6 +21,8 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     List<AttributeContent2Object> findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(UUID uuid, Resource resource, UUID sourceObjectUUid, Resource sourceObjectType);
 
+    List<AttributeContent2Object> findByConnectorUuidAndAttributeContentUuidAndObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(UUID connectorUuid, UUID attributeContentUuid, UUID objectUuid, Resource resource, UUID sourceObjectUUid, Resource sourceObjectType);
+
     List<AttributeContent2Object> findByAttributeContent(AttributeContent attributeContent);
 
      long countByAttributeContent(AttributeContent attributeContent);

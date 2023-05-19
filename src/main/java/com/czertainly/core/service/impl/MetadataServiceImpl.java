@@ -249,6 +249,12 @@ public class MetadataServiceImpl implements MetadataService {
             }
         }
 
+        // check if it is not duplicate content for same object
+        if(existingContent != null) {
+            var content2Objects = metadata2ObjectRepository.findByConnectorUuidAndAttributeContentUuidAndObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(connectorUuid, existingContent.getUuid(), objectUuid, resource, sourceObjectUuid, sourceObjectResource);
+            if (content2Objects.size() != 0) return;
+        }
+
         final AttributeContent2Object metadata2Object = new AttributeContent2Object();
         metadata2Object.setObjectUuid(objectUuid);
         metadata2Object.setObjectType(resource);
