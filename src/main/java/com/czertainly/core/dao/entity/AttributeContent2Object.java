@@ -97,7 +97,7 @@ public class AttributeContent2Object extends UniquelyIdentified {
 
     public void setConnector(Connector connector) {
         this.connector = connector;
-        this.connectorUuid = connector.getUuid();
+        this.connectorUuid = connector != null ? connector.getUuid() : null;
     }
 
     public UUID getConnectorUuid() {
