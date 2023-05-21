@@ -799,10 +799,14 @@ public class ExtendedAcmeHelperService {
     }
 
     private Set<AcmeAuthorization> generateValidations(String baseUrl, AcmeOrder acmeOrder, List<Identifier> identifiers) {
-        return Set.of(authorization(baseUrl, acmeOrder, identifiers));
+        Set<AcmeAuthorization> authorizations = new HashSet<>();
+        for (Identifier identifier : identifiers) {
+            authorizations.add(authorization(baseUrl, acmeOrder, identifier));
+        }
+        return authorizations;
     }
 
-    private AcmeAuthorization authorization(String baseUrl, AcmeOrder acmeOrder, List<Identifier> identifiers) {
+    private AcmeAuthorization authorization(String baseUrl, AcmeOrder acmeOrder, Identifier identifier) {
         AcmeAuthorization authorization = new AcmeAuthorization();
         authorization.setAuthorizationId(AcmeRandomGeneratorAndValidator.generateRandomId());
         authorization.setStatus(AuthorizationStatus.PENDING);
@@ -812,8 +816,8 @@ public class ExtendedAcmeHelperService {
         } else {
             authorization.setExpires(AcmeCommonHelper.getDefaultExpires());
         }
-        authorization.setWildcard(checkWildcard(identifiers));
-        authorization.setIdentifier(SerializationUtil.serialize(identifiers.get(0)));
+        authorization.setWildcard(checkWildcard(identifier));
+        authorization.setIdentifier(SerializationUtil.serialize(identifier));
         acmeAuthorizationRepository.save(authorization);
         AcmeChallenge dnsChallenge = generateChallenge(ChallengeType.DNS01, baseUrl, authorization);
         AcmeChallenge httpChallenge = generateChallenge(ChallengeType.HTTP01, baseUrl, authorization);
@@ -845,8 +849,8 @@ public class ExtendedAcmeHelperService {
         }
     }
 
-    private boolean checkWildcard(List<Identifier> identifiers) {
-        return !identifiers.stream().filter(identifier -> identifier.getValue().contains("*")).collect(Collectors.toList()).isEmpty();
+    private boolean checkWildcard(Identifier identifier) {
+        return identifier.getValue().contains("*");
     }
 
     private String generateDnsValidationToken(String publicKey, String token) {
