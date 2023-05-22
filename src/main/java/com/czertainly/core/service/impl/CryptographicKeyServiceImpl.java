@@ -1076,9 +1076,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if (keyItemsUuids != null && !keyItemsUuids.isEmpty()) {
             for (String keyItemUuid : new LinkedHashSet<>(keyItemsUuids)) {
                 try {
-                    String error = setKeyItemEnabled(UUID.fromString(keyItemUuid), evaluateTokenPermission, enabled);
-                    if (error != null) {
-                        errors.add(error);
+                    if (!setKeyItemEnabled(UUID.fromString(keyItemUuid), evaluateTokenPermission, enabled)) {
+                        errors.add(keyItemUuid);
                     }
                 } catch (NotFoundException e) {
                     logger.warn(e.getMessage());
@@ -1086,7 +1085,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             }
         }
         if (!errors.isEmpty()) {
-            throw new ValidationException(ValidationError.create(String.join("\n ", errors)));
+            throw new ValidationException(errors.stream().map(ValidationError::create).toList());
         }
         logger.info("Key items {}: {}", enabled ? "enabled" : "disabled", keyItemsUuids);
     }
@@ -1096,17 +1095,17 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      *
      * @param uuid UUID of the Key Item
      */
-    private String setKeyItemEnabled(UUID uuid, boolean evaluateTokenPermission, boolean enabled) throws NotFoundException {
+    private boolean setKeyItemEnabled(UUID uuid, boolean evaluateTokenPermission, boolean enabled) throws NotFoundException {
         CryptographicKeyItem keyItem = getKeyItem(uuid, evaluateTokenPermission);
         if (keyItem.isEnabled() == enabled) {
             String message = "Key " + uuid + " is already " + (enabled ? "enabled." : "disabled.");
             keyEventHistoryService.addEventHistory(KeyEvent.ENABLE, KeyEventStatus.FAILED, message, null, keyItem);
-            return message;
+            return false;
         }
         keyItem.setEnabled(enabled);
         cryptographicKeyItemRepository.save(keyItem);
         keyEventHistoryService.addEventHistory(enabled ? KeyEvent.ENABLE : KeyEvent.DISABLE, KeyEventStatus.SUCCESS, "Key " + (enabled ? "enabled." : "disabled."), null, keyItem);
-        return null;
+        return true;
     }
 
     /**
@@ -1120,9 +1119,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if (keyItemsUuids != null && !keyItemsUuids.isEmpty()) {
             for (UUID keyItemUuid : new LinkedHashSet<>(keyItemsUuids)) {
                 try {
-                    String error = compromiseKeyItem(keyItemUuid, reason, evaluateTokenPermission);
-                    if (error != null) {
-                        errors.add(error);
+                    if (!compromiseKeyItem(keyItemUuid, reason, evaluateTokenPermission)) {
+                        errors.add(keyItemUuid.toString());
                     }
                 } catch (NotFoundException e) {
                     logger.warn(e.getMessage());
@@ -1130,7 +1128,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             }
         }
         if (!errors.isEmpty()) {
-            throw new ValidationException(ValidationError.create(String.join("\n ", errors)));
+            throw new ValidationException(errors.stream().map(ValidationError::create).toList());
         }
         logger.info("Key Items marked as compromised: {}", keyItemsUuids);
     }
@@ -1140,19 +1138,19 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      *
      * @param uuid UUID of the Key Item
      */
-    private String compromiseKeyItem(UUID uuid, KeyCompromiseReason reason, boolean evaluateTokenPermission) throws NotFoundException {
+    private boolean compromiseKeyItem(UUID uuid, KeyCompromiseReason reason, boolean evaluateTokenPermission) throws NotFoundException {
         CryptographicKeyItem keyItem = getKeyItem(uuid, evaluateTokenPermission);
         if (!keyItem.getState().equals(KeyState.PRE_ACTIVE) && !keyItem.getState().equals(KeyState.ACTIVE) && !keyItem.getState().equals(KeyState.DEACTIVATED)) {
             String message = "Invalid state of key " + uuid + ". Key is " + keyItem.getState().getLabel() + ", hence can't be set to " + KeyState.COMPROMISED.getLabel() + ".";
             keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.FAILED,
                     message, null, keyItem);
-            return message;
+            return false;
         }
         keyItem.setState(KeyState.COMPROMISED);
         keyItem.setReason(reason);
         cryptographicKeyItemRepository.save(keyItem);
         keyEventHistoryService.addEventHistory(KeyEvent.COMPROMISED, KeyEventStatus.SUCCESS, "Key compromised. Reason: " + reason + ".", null, keyItem);
-        return null;
+        return true;
     }
 
     private void setKeyItemsUsages(List<UUID> keyItemsUuids, List<KeyUsage> usages, boolean evaluateTokenPermission) {
@@ -1161,9 +1159,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if (keyItemsUuids != null && !keyItemsUuids.isEmpty()) {
             for (UUID keyItemUuid : new LinkedHashSet<>(keyItemsUuids)) {
                 try {
-                    String error = setKeyItemUsages(keyItemUuid, usages, evaluateTokenPermission);
-                    if (error != null) {
-                        errors.add(error);
+                    if (!setKeyItemUsages(keyItemUuid, usages, evaluateTokenPermission)) {
+                        errors.add(keyItemUuid.toString());
                     }
                 } catch (Exception e) {
                     logger.warn(e.getMessage());
@@ -1171,7 +1168,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             }
         }
         if (!errors.isEmpty()) {
-            throw new ValidationException(ValidationError.create(String.join("\n ", errors)));
+            throw new ValidationException(errors.stream().map(ValidationError::create).toList());
         }
         logger.info("Key items usages updated: {}", keyItemsUuids);
     }
@@ -1181,7 +1178,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      *
      * @param uuid UUID of the Key Item
      */
-    private String setKeyItemUsages(UUID uuid, List<KeyUsage> usages, boolean evaluateTokenPermission) throws NotFoundException {
+    private boolean setKeyItemUsages(UUID uuid, List<KeyUsage> usages, boolean evaluateTokenPermission) throws NotFoundException {
         CryptographicKeyItem content = getKeyItem(uuid, evaluateTokenPermission);
 
         List<KeyUsage> forbiddenUsages = getForbiddenUsages(content.getType(), content.getKeyAlgorithm()).stream().filter(usages::contains).toList();
@@ -1189,7 +1186,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             String nonAllowedUsages = forbiddenUsages.stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
             String message = "Unsupported usages of key " + uuid + ": " + nonAllowedUsages + ".";
             keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.FAILED, message, null, content);
-            return message;
+            return false;
         }
         String oldUsage = content.getUsage().stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
         content.setUsage(usages);
@@ -1197,7 +1194,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         String newUsage = usages.stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
         keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
                 "Key usages updated from " + oldUsage + " to " + newUsage + ".", null, content);
-        return null;
+        return true;
     }
 
     /**
@@ -1210,11 +1207,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         List<String> errors = new ArrayList<>();
         if (keyItemUuids != null && !keyItemUuids.isEmpty()) {
             for (String uuid : new LinkedHashSet<>(keyItemUuids)) {
-                CryptographicKeyItem keyItem = getCryptographicKeyItem(UUID.fromString(uuid));
                 try {
-                    String error = destroyKeyItem(keyItem.getUuid(), evaluateTokenPermission);
-                    if (error != null) {
-                        errors.add(error);
+                    if (!destroyKeyItem(UUID.fromString(uuid), evaluateTokenPermission)) {
+                        errors.add(uuid);
                     }
                 } catch (Exception e) {
                     logger.warn(e.getLocalizedMessage());
@@ -1222,7 +1217,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             }
         }
         if (!errors.isEmpty()) {
-            throw new ValidationException(ValidationError.create(String.join("\n ", errors)));
+            throw new ValidationException(errors.stream().map(ValidationError::create).toList());
         }
         logger.info("Key Items destroyed: {}", keyItemUuids);
     }
@@ -1232,14 +1227,14 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      *
      * @param uuid UUID of the Key Item
      */
-    private String destroyKeyItem(UUID uuid, boolean evaluateTokenPermission) throws ConnectorException {
+    private boolean destroyKeyItem(UUID uuid, boolean evaluateTokenPermission) throws ConnectorException {
         CryptographicKeyItem keyItem = getKeyItem(uuid, evaluateTokenPermission);
         KeyState finalState = keyItem.getState().equals(KeyState.COMPROMISED) ? KeyState.DESTROYED_COMPROMISED : KeyState.DESTROYED;
         if (!keyItem.getState().equals(KeyState.DEACTIVATED) && !keyItem.getState().equals(KeyState.PRE_ACTIVE) && !keyItem.getState().equals(KeyState.COMPROMISED)) {
             String message = "Invalid state of key " + uuid + ". Key is " + keyItem.getState().getLabel() + ", hence can't be set to " + finalState.getLabel() + ".";
             keyEventHistoryService.addEventHistory(KeyEvent.DESTROY, KeyEventStatus.FAILED,
                     message, null, keyItem);
-            return message;
+            return false;
         }
         keyManagementApiClient.destroyKey(
                 keyItem.getCryptographicKey().getTokenInstanceReference().getConnector().mapToDto(),
@@ -1251,7 +1246,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         keyItem.setState(finalState);
         cryptographicKeyItemRepository.save(keyItem);
         keyEventHistoryService.addEventHistory(KeyEvent.DESTROY, KeyEventStatus.SUCCESS, "Key destroyed.", null, keyItem);
-        return null;
+        return true;
     }
 
     private CryptographicKeyItem getKeyItem(UUID uuid, boolean evaluateTokenPermission) throws NotFoundException {
