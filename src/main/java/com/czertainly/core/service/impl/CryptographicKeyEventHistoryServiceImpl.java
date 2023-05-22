@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -24,7 +23,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@Transactional(propagation = Propagation.NOT_SUPPORTED)
+@Transactional
 public class CryptographicKeyEventHistoryServiceImpl implements CryptographicKeyEventHistoryService {
 
     private static final Logger logger = LoggerFactory.getLogger(CryptographicKeyEventHistoryServiceImpl.class);

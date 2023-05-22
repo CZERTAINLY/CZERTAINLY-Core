@@ -218,6 +218,11 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
                 .willReturn(WireMock.ok()));
 
+        content.setState(KeyState.DEACTIVATED);
+        content1.setState(KeyState.DEACTIVATED);
+        cryptographicKeyItemRepository.save(content);
+        cryptographicKeyItemRepository.save(content1);
+
         cryptographicKeyService.destroyKey(
                 tokenInstanceReference.getSecuredParentUuid(),
                 key.getUuid().toString(),
@@ -247,14 +252,6 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     public void testDestroyKey_validationError() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+")));
-        cryptographicKeyService.destroyKey(
-                tokenInstanceReference.getSecuredParentUuid(),
-                key.getUuid().toString(),
-                List.of(
-                        content.getUuid().toString(),
-                        content1.getUuid().toString()
-                )
-        );
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicKeyService.destroyKey(
@@ -273,6 +270,11 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
                 .willReturn(WireMock.ok()));
+
+        content.setState(KeyState.DEACTIVATED);
+        content1.setState(KeyState.DEACTIVATED);
+        cryptographicKeyItemRepository.save(content);
+        cryptographicKeyItemRepository.save(content1);
 
         cryptographicKeyService.destroyKey(List.of(key.getUuid().toString()));
         Assertions.assertEquals(KeyState.DESTROYED, content.getState());
