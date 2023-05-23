@@ -1,7 +1,11 @@
 package com.czertainly.core.tasks;
 
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.CertificateService;
+import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -16,12 +20,12 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
     private CertificateService certificateService;
 
     @Override
-    String getJobName() {
+    String getDefaultJobName() {
         return JOB_NAME;
     }
 
     @Override
-    String getCronExpression() {
+    String getDefaultCronExpression() {
         return CRON_EXPRESSION;
     }
 
@@ -31,7 +35,14 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
     }
 
     @Override
-    SchedulerJobExecutionStatus performJob() {
+    boolean systemJob() {
+        return true;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.CERTIFICATE, operation = OperationType.UPDATE)
+    @Transactional
+    SchedulerJobExecutionStatus performJob(final String jobName) {
         certificateService.updateCertificatesStatusScheduled();
         return SchedulerJobExecutionStatus.SUCCESS;
     }
