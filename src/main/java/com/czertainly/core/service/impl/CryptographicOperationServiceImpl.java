@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyEvent;
 import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.EcdsaSignatureAttributes;
@@ -31,7 +32,10 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.*;
+import com.czertainly.core.service.CryptographicKeyEventHistoryService;
+import com.czertainly.core.service.CryptographicOperationService;
+import com.czertainly.core.service.PermissionEvaluator;
+import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CsrUtil;
 import org.bouncycastle.operator.ContentSigner;
@@ -128,6 +132,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Request to encrypt the data using the key: {} and data: {}", keyItemUuid, request);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
+        verifyKeyActive(key);
         logger.debug("Key details: {}", key);
         if (request.getCipherData() == null) {
             throw new ValidationException(ValidationError.create("Cannot encrypt null data"));
@@ -183,6 +188,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Decrypting using the key: {} and data: {}", keyItemUuid, request);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
+        verifyKeyActive(key);
         logger.debug("Key details: {}", key);
         if (request.getCipherData() == null) {
             throw new ValidationException(ValidationError.create("Cannot decrypt null data"));
@@ -248,6 +254,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Signing the data: {} using the key: {}", request, keyItemUuid);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
+        verifyKeyActive(key);
         logger.debug("Key details: {}", key);
         if (request.getData() == null) {
             throw new ValidationException(ValidationError.create("Cannot sign empty data"));
@@ -303,6 +310,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Request to verify data: {} for the key: {}", request, keyItemUuid);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
+        verifyKeyActive(key);
         logger.debug("Key details: {}", key);
         if (request.getSignatures() == null) {
             throw new ValidationException(ValidationError.create("Cannot verify empty data"));
@@ -451,6 +459,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     )
             );
         }
+        verifyKeyActive(privateKeyItem);
+        verifyKeyActive(publicKeyItem);
+
 
         // Generate the CSR
         return generateCsr(
@@ -460,6 +471,12 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 publicKeyItem,
                 signatureAttributes
         );
+    }
+
+    private void verifyKeyActive(CryptographicKeyItem keyItem) {
+        if (keyItem.getState() != KeyState.ACTIVE || !keyItem.isEnabled()) {
+            throw new ValidationException(ValidationError.create("Key needs to be " + KeyState.ACTIVE.getLabel() + " and enabled."));
+        }
     }
 
     private CryptographicKeyItem getKeyItemEntity(UUID uuid) throws NotFoundException {
