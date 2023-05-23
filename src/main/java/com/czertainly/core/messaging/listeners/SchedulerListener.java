@@ -1,10 +1,10 @@
 package com.czertainly.core.messaging.listeners;
 
-import com.czertainly.api.clients.SchedulerApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionMessage;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
-import com.czertainly.api.model.scheduler.SchedulerJobHistory;
+import com.czertainly.core.dao.entity.ScheduledJobHistory;
+import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.tasks.SchedulerJobProcessor;
 import org.slf4j.Logger;
@@ -14,16 +14,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
+
 @Component
 public class SchedulerListener {
 
     private ApplicationContext applicationContext;
 
-    private SchedulerApiClient schedulerApiClient;
+    private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(SchedulerListener.class);
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_SCHEDULER_NAME, messageConverter = "jsonMessageConverter")
+    @RabbitListener(queues = RabbitMQConstants.QUEUE_SCHEDULER_NAME, messageConverter = "jsonMessageConverter", concurrency = "10")
     public void processMessage(SchedulerJobExecutionMessage schedulerMessage) {
         logger.info("Received scheduler message: {}", schedulerMessage);
 
@@ -33,17 +35,18 @@ public class SchedulerListener {
             if (clazzObject != null && clazzObject instanceof SchedulerJobProcessor) {
                 logger.info("Job {} is executed.", schedulerMessage.getJobName());
                 final SchedulerJobProcessor schedulerJobProcessor = ((SchedulerJobProcessor) clazzObject);
-                schedulerJobProcessor.processTask(schedulerMessage.getJobID());
+                schedulerJobProcessor.processTask(schedulerMessage.getJobName());
                 logger.info("Job {} was processed.", schedulerMessage.getJobName());
             }
 
         } catch (ConnectorException | ClassNotFoundException e) {
             logger.error("Unable to process the job {}", schedulerMessage.getJobName());
-            try {
-                schedulerApiClient.informJobHistory(new SchedulerJobHistory(schedulerMessage.getJobID(), SchedulerJobExecutionStatus.FAILED));
-            } catch (ConnectorException ex) {
-                logger.error("Unable to inform scheduler about the result of job {}.", schedulerMessage.getJobName(), e.getMessage());
-            }
+
+            final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();
+            scheduledJobHistory.setJobName(scheduledJobHistory.getJobName());
+            scheduledJobHistory.setJobExecution(new Date());
+            scheduledJobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.FAILED);
+            scheduledJobHistoryRepository.save(scheduledJobHistory);
         }
     }
 
@@ -55,7 +58,7 @@ public class SchedulerListener {
     }
 
     @Autowired
-    public void setSchedulerApiClient(SchedulerApiClient schedulerApiClient) {
-        this.schedulerApiClient = schedulerApiClient;
+    public void setScheduledJobHistoryRepository(ScheduledJobHistoryRepository scheduledJobHistoryRepository) {
+        this.scheduledJobHistoryRepository = scheduledJobHistoryRepository;
     }
 }

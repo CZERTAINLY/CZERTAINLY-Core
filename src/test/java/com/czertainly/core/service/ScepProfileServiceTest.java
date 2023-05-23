@@ -7,12 +7,13 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.dao.entity.*;
@@ -107,7 +108,8 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
         content.setFormat(KeyFormat.PRKI);
         content.setState(KeyState.ACTIVE);
         content.setEnabled(true);
-        content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content.setKeyAlgorithm(KeyAlgorithm.RSA);
+        content.setUsage(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN));
         cryptographicKeyItemRepository.save(content);
 
         content1 = new CryptographicKeyItem();
@@ -119,7 +121,8 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
         content1.setFormat(KeyFormat.SPKI);
         content1.setState(KeyState.ACTIVE);
         content1.setEnabled(true);
-        content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content1.setKeyAlgorithm(KeyAlgorithm.RSA);
+        content1.setUsage(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY));
         cryptographicKeyItemRepository.save(content1);
 
         content.setKeyReferenceUuid(content.getUuid());
@@ -214,12 +217,12 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testEditScepProfile() throws ConnectorException {
-
         scepProfile.setEnabled(false);
         scepProfileRepository.save(scepProfile);
 
         ScepProfileEditRequestDto request = new ScepProfileEditRequestDto();
         request.setDescription("sample11");
+        request.setCaCertificateUuid(certificate.getUuid().toString());
 
         ScepProfileDetailDto dto = scepProfileService.editScepProfile(scepProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
@@ -229,7 +232,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     @Test
     public void testEditScepProfile_validationFail() {
         ScepProfileEditRequestDto request = new ScepProfileEditRequestDto();
-        Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.editScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
+        Assertions.assertThrows(ValidationException.class, () -> scepProfileService.editScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test

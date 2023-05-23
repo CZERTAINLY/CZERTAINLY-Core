@@ -1,7 +1,7 @@
 package com.czertainly.core.service.scep;
 
 import com.czertainly.api.exception.ScepException;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.core.service.scep.message.ScepConstants;
 import com.czertainly.core.service.scep.message.ScepRequest;

@@ -87,12 +87,13 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         if(raProfile != null) {
             scepProfileDto.setRaProfileName(raProfile.getName());
             scepProfileDto.setRaProfileUuid(raProfile.getUuid().toString());
+            scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                    + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
         scepProfileDto.setDescription(description);
         scepProfileDto.setEnabled(isEnabled);
         scepProfileDto.setName(name);
         scepProfileDto.setUuid(uuid.toString());
-        scepProfileDto.setRequireManualApproval(requireManualApproval);
         scepProfileDto.setIncludeCaCertificate(includeCaCertificate);
         scepProfileDto.setIncludeCaCertificateChain(includeCaCertificateChain);
         scepProfileDto.setRenewThreshold(renewalThreshold);
@@ -109,7 +110,6 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setEnabled(isEnabled);
         scepProfileDto.setName(name);
         scepProfileDto.setUuid(uuid.toString());
-        scepProfileDto.setRequireManualApproval(requireManualApproval);
         scepProfileDto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueCertificateAttributes, DataAttribute.class)));
         scepProfileDto.setIncludeCaCertificate(includeCaCertificate);
         scepProfileDto.setIncludeCaCertificateChain(includeCaCertificateChain);

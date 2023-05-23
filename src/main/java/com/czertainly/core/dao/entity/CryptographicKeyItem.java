@@ -1,9 +1,9 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.cryptography.key.KeyCompromiseReason;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.value.KeyValue;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.core.util.CryptographicHelper;
@@ -23,10 +23,12 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Column(name = "name")
     private String name;
 
+    // TODO: change name of the column to key_uuid
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cryptographic_key_uuid", insertable = false, updatable = false, nullable = false)
     private CryptographicKey cryptographicKey;
 
+    // TODO: change name of the column to key_uuid
     @Column(name = "cryptographic_key_uuid")
     private UUID cryptographicKeyUuid;
 
@@ -37,9 +39,10 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Enumerated(EnumType.STRING)
     private KeyType type;
 
+    // TODO: change name of the column to key_algorithm
     @Column(name = "cryptographic_algorithm")
     @Enumerated(EnumType.STRING)
-    private CryptographicAlgorithm cryptographicAlgorithm;
+    private KeyAlgorithm keyAlgorithm;
 
     @Column(name = "format")
     @Enumerated(EnumType.STRING)
@@ -101,12 +104,12 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         this.type = type;
     }
 
-    public CryptographicAlgorithm getCryptographicAlgorithm() {
-        return cryptographicAlgorithm;
+    public KeyAlgorithm getKeyAlgorithm() {
+        return keyAlgorithm;
     }
 
-    public void setCryptographicAlgorithm(CryptographicAlgorithm cryptographicAlgorithm) {
-        this.cryptographicAlgorithm = cryptographicAlgorithm;
+    public void setKeyAlgorithm(KeyAlgorithm keyAlgorithm) {
+        this.keyAlgorithm = keyAlgorithm;
     }
 
     public KeyFormat getFormat() {
@@ -213,7 +216,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
                 .append("cryptographicKey", cryptographicKey)
                 .append("cryptographicKeyUuid", cryptographicKeyUuid)
                 .append("type", type)
-                .append("cryptographicAlgorithm", cryptographicAlgorithm)
+                .append("keyAlgorithm", keyAlgorithm)
                 .append("format", format)
                 .append("length", length)
                 .append("keyReferenceUuid", keyReferenceUuid)
@@ -227,7 +230,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setKeyReferenceUuid(keyReferenceUuid.toString());
-        dto.setCryptographicAlgorithm(cryptographicAlgorithm);
+        dto.setKeyAlgorithm(keyAlgorithm);
         dto.setType(type);
         dto.setLength(length);
         dto.setFormat(format);
@@ -244,7 +247,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setKeyReferenceUuid(keyReferenceUuid.toString());
-        dto.setCryptographicAlgorithm(cryptographicAlgorithm);
+        dto.setKeyAlgorithm(keyAlgorithm);
         dto.setType(type);
         dto.setLength(length);
         dto.setFormat(format);

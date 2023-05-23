@@ -6,9 +6,9 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
@@ -129,7 +129,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         content.setFormat(KeyFormat.PRKI);
         content.setState(KeyState.ACTIVE);
         content.setEnabled(true);
-        content.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content.setKeyAlgorithm(KeyAlgorithm.RSA);
         content.setUsage(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT, KeyUsage.VERIFY, KeyUsage.DECRYPT));
         cryptographicKeyItemRepository.save(content);
 
@@ -142,7 +142,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         content1.setFormat(KeyFormat.SPKI);
         content1.setState(KeyState.ACTIVE);
         content1.setEnabled(true);
-        content1.setCryptographicAlgorithm(CryptographicAlgorithm.RSA);
+        content1.setKeyAlgorithm(KeyAlgorithm.RSA);
         content1.setUsage(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT, KeyUsage.VERIFY, KeyUsage.DECRYPT));
         cryptographicKeyItemRepository.save(content1);
 
@@ -178,7 +178,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 content1.getUuid(),
-                CryptographicAlgorithm.RSA
+                KeyAlgorithm.RSA
         );
     }
 
@@ -191,7 +191,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
                         tokenProfile.getUuid(),
-                        CryptographicAlgorithm.RSA
+                        KeyAlgorithm.RSA
                 )
         );
     }
@@ -211,7 +211,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 content1.getUuid(),
-                CryptographicAlgorithm.RSA
+                KeyAlgorithm.RSA
         );
     }
 
@@ -224,7 +224,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         tokenProfile.getSecuredUuid(),
                         tokenInstanceReference.getUuid(),
                         tokenProfile.getUuid(),
-                        CryptographicAlgorithm.RSA
+                        KeyAlgorithm.RSA
                 )
         );
     }

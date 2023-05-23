@@ -45,6 +45,8 @@ public interface CertificateService extends ResourceExtensionService  {
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException;
 
+    Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
+
     Boolean checkCertificateExistsByFingerprint(String fingerprint);
 
     void deleteCertificate(SecuredUUID uuid) throws NotFoundException;
@@ -70,7 +72,8 @@ public interface CertificateService extends ResourceExtensionService  {
             String csr,
             UUID keyUuid,
             List<DataAttribute> csrAttributes,
-            List<RequestAttributeDto> signatureAttributes
+            List<RequestAttributeDto> signatureAttributes,
+            UUID connectorUuid
     ) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
@@ -127,7 +130,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param uuid    UUID of the certificate
      * @param request Request for the certificate objects update
      */
-    void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException;
+    void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException;
 
     /**
      * Method to update the Objects of multiple certificates

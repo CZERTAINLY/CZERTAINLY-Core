@@ -20,4 +20,6 @@ public interface ScepProfileRepository extends SecurityFilterRepository<ScepProf
     Optional<ScepProfile> findByName(String name);
 
     List<ScepProfile> findByRaProfile(RaProfile raProfile);
+
+    List<ScepProfile> findByIntuneEnabled(boolean intuneEnabled);
 }

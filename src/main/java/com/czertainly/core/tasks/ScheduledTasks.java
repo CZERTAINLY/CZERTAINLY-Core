@@ -22,4 +22,10 @@ public class ScheduledTasks {
     public void setUpdateCertificateStatusTask(UpdateCertificateStatusTask updateCertificateStatusTask) {
         this.updateCertificateStatusTask = updateCertificateStatusTask;
     }
+
+    @Bean
+    @ConditionalOnProperty(value = "scheduled-tasks.enabled", matchIfMissing = true, havingValue = "true")
+    public UpdateIntuneRevocationRequestsTask updateIntuneRevocationRequestsTask() {
+        return new UpdateIntuneRevocationRequestsTask();
+    }
 }

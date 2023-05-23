@@ -10,9 +10,9 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
-import com.czertainly.api.model.connector.cryptography.enums.KeyFormat;
-import com.czertainly.api.model.connector.cryptography.enums.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.czertainly.api.model.connector.cryptography.key.KeyData;
 import com.czertainly.api.model.connector.cryptography.key.KeyDataResponseDto;
@@ -33,7 +33,6 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -59,18 +58,29 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.util.function.Predicate.not;
+
 @Service
 @Transactional
 public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private static final Logger logger = LoggerFactory.getLogger(CryptographicKeyServiceImpl.class);
-    // Permitted usages for the keys
-    private static final Map<KeyType, KeyUsage[]> PERMITTED_USAGES = new HashMap() {{
-        put(KeyType.PRIVATE_KEY, new KeyUsage[]{KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP});
-        put(KeyType.PUBLIC_KEY, new KeyUsage[]{KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP});
-        put(KeyType.SECRET_KEY, KeyUsage.values());
-        put(KeyType.SPLIT_KEY, KeyUsage.values());
-    }};
+
+    // forbidden usages for the keys -- by key type and by key algorithm
+    private static final Map<KeyType, List<KeyUsage>> FORBIDDEN_TYPE_USAGES = Map.of(
+            KeyType.PRIVATE_KEY, List.of(KeyUsage.VERIFY, KeyUsage.ENCRYPT, KeyUsage.WRAP),
+            KeyType.PUBLIC_KEY, List.of(KeyUsage.SIGN, KeyUsage.DECRYPT, KeyUsage.UNWRAP)
+    );
+    private static final Map<KeyAlgorithm, List<KeyUsage>> FORBIDDEN_ALGORITHM_USAGES = Map.of(
+            KeyAlgorithm.ECDSA, List.of(KeyUsage.ENCRYPT, KeyUsage.DECRYPT)
+    );
+
+    private static List<KeyUsage> getForbiddenUsages(KeyType keyType, KeyAlgorithm keyAlgorithm) {
+        Set<KeyUsage> result = new HashSet<>(Objects.requireNonNullElse(FORBIDDEN_TYPE_USAGES.get(keyType), Collections.emptyList()));
+        result.addAll(Objects.requireNonNullElse(FORBIDDEN_ALGORITHM_USAGES.get(keyAlgorithm), Collections.emptyList()));
+        return result.stream().toList();
+    }
+
     @PersistenceContext
     private EntityManager entityManager;
     // --------------------------------------------------------------------------------
@@ -935,7 +945,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setName(referenceName);
         content.setCryptographicKey(cryptographicKey);
         content.setType(keyData.getType());
-        content.setCryptographicAlgorithm(keyData.getAlgorithm());
+        content.setKeyAlgorithm(keyData.getAlgorithm());
         content.setKeyData(keyData.getFormat(), keyData.getValue());
         content.setFormat(keyData.getFormat());
         content.setLength(keyData.getLength());
@@ -949,9 +959,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                             .getUsage()
                             .stream()
                             .filter(
-                                    List.of(
-                                            PERMITTED_USAGES.get(keyData.getType())
-                                    )::contains)
+                                    not(getForbiddenUsages(keyData.getType(), keyData.getAlgorithm())::contains)
+                            )
                             .collect(
                                     Collectors.toList()
                             )
@@ -1230,10 +1239,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if (evaluateTokenPermission) {
             permissionEvaluator.tokenInstance(content.getCryptographicKey().getTokenInstanceReference().getSecuredUuid());
         }
-        usages = new ArrayList<>(usages);
-        if (!new HashSet<>(List.of(PERMITTED_USAGES.get(content.getType()))).containsAll(usages)) {
-            usages.removeAll(List.of(PERMITTED_USAGES.get(content.getType())));
-            String nonAllowedUsages = String.join(", ", usages.stream().map(KeyUsage::getCode).collect(Collectors.toList()));
+
+        List<KeyUsage> forbiddenUsages = getForbiddenUsages(content.getType(), content.getKeyAlgorithm()).stream().filter(usages::contains).toList();
+        if (forbiddenUsages.size() > 0) {
+            String nonAllowedUsages = forbiddenUsages.stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
             keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.FAILED,
                     "Unsupported Key usages: " + nonAllowedUsages, null, content);
             throw new ValidationException(
@@ -1242,10 +1251,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     )
             );
         }
-        String oldUsage = String.join(", ", content.getUsage().stream().map(KeyUsage::getCode).collect(Collectors.toList()));
+
+        String oldUsage = content.getUsage().stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
         content.setUsage(usages);
         cryptographicKeyItemRepository.save(content);
-        String newUsage = String.join(", ", usages.stream().map(KeyUsage::getCode).collect(Collectors.toList()));
+        String newUsage = usages.stream().map(KeyUsage::getCode).collect(Collectors.joining(", "));
         keyEventHistoryService.addEventHistory(KeyEvent.UPDATE_USAGE, KeyEventStatus.SUCCESS,
                 "Update Key Usage from " + oldUsage + " to " + newUsage, null, content);
     }
@@ -1319,7 +1329,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((CryptographicAlgorithm.values())).map(CryptographicAlgorithm::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((KeyAlgorithm.values())).map(KeyAlgorithm::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()))
         );
