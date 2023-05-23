@@ -505,12 +505,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                         key.getUuid(),
                         Resource.CRYPTOGRAPHIC_KEY
                 );
-                keyManagementApiClient.destroyKey(
-                        key.getTokenInstanceReference().getConnector().mapToDto(),
-                        key.getTokenInstanceReference().getTokenInstanceUuid(),
-                        content.getKeyReferenceUuid().toString()
-                );
-                logger.info("Key item destroyed in the connector. Removing from the core now.");
+                try {
+                    keyManagementApiClient.destroyKey(
+                            key.getTokenInstanceReference().getConnector().mapToDto(),
+                            key.getTokenInstanceReference().getTokenInstanceUuid(),
+                            content.getKeyReferenceUuid().toString()
+                    );
+                    logger.info("Key item destroyed in the connector. Removing from the core now.");
+                } catch (NotFoundException e) {
+                    logger.info("Key item already destroyed in the connector.");
+                }
                 key.getItems().remove(content);
                 cryptographicKeyItemRepository.delete(content);
                 cryptographicKeyRepository.save(key);
@@ -541,12 +545,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                             key.getUuid(),
                             Resource.CRYPTOGRAPHIC_KEY
                     );
-                    keyManagementApiClient.destroyKey(
-                            key.getTokenInstanceReference().getConnector().mapToDto(),
-                            key.getTokenInstanceReference().getTokenInstanceUuid(),
-                            content.getKeyReferenceUuid().toString()
-                    );
-                    logger.info("Key item destroyed in the connector. Removing from the core now.");
+                    try {
+                        keyManagementApiClient.destroyKey(
+                                key.getTokenInstanceReference().getConnector().mapToDto(),
+                                key.getTokenInstanceReference().getTokenInstanceUuid(),
+                                content.getKeyReferenceUuid().toString()
+                        );
+                        logger.info("Key item destroyed in the connector. Removing from the core now.");
+                    } catch (NotFoundException e) {
+                        logger.info("Key item already destroyed in the connector.");
+                    }
                     cryptographicKeyItemRepository.delete(content);
                 }
                 certificateService.clearKeyAssociations(UUID.fromString(uuid));
@@ -568,6 +576,16 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 permissionEvaluator.tokenInstance(keyItem.getCryptographicKey().getTokenInstanceReference().getSecuredUuid());
                 if (keyItem.getCryptographicKey().getTokenProfile() != null) {
                     permissionEvaluator.tokenProfile(keyItem.getCryptographicKey().getTokenProfile().getSecuredUuid());
+                }
+                try {
+                    keyManagementApiClient.destroyKey(
+                            key.getTokenInstanceReference().getConnector().mapToDto(),
+                            key.getTokenInstanceReference().getTokenInstanceUuid(),
+                            keyItem.getKeyReferenceUuid().toString()
+                    );
+                    logger.info("Key item destroyed in the connector. Removing from the core now.");
+                } catch (NotFoundException e) {
+                    logger.info("Key item already destroyed in the connector.");
                 }
                 cryptographicKeyItemRepository.delete(keyItem);
                 key.getItems().remove(keyItem);
