@@ -3,7 +3,7 @@
 export SERVER_USERNAME=
 export SERVER_PASSWORD=
 
-export IMAGE_NAME=czertainlycore
+export IMAGE_NAME=3keycompany/czertainly-core:develop-latest
 export DOCKERFILE_PATH=Dockerfile
 
 sh hooks/build
