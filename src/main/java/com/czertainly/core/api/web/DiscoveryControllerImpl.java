@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.scheduler.SchedulerJobInfoDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.security.cert.CertificateException;
 import java.util.List;
 
 @RestController
@@ -84,5 +86,10 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	@Override
 	public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
 		return discoveryService.getSearchableFieldInformationByGroup();
+	}
+
+	@Override
+	public void scheduleDiscovery(SchedulerJobInfoDto schedulerJobInfo, DiscoveryDto request) throws AlreadyExistException, CertificateException, InterruptedException, ConnectorException {
+
 	}
 }
