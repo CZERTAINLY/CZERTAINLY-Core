@@ -135,16 +135,16 @@ public interface LocationService extends ResourceExtensionService {
      */
     LocationDto pushCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid, PushToLocationRequestDto pushToLocationRequestDto) throws NotFoundException, LocationException;
 
-    /**
-     * Issue new Certificate to the given Location.
-     *
-     * @param entityUuid
-     * @param locationUuid UUID of existing Location.
-     * @param issueToLocationRequestDto Request containing information to issue the Certificate, see {@link IssueToLocationRequestDto}.
-     * @return Location detail with the issued Certificate.
-     * @throws NotFoundException when the Location with the given UUID is not found.
-     * @throws LocationException when the Certificate failed to be issued to the Location.
-     */
+        /**
+         * Issue new Certificate to the given Location.
+         *
+         * @param entityUuid
+         * @param locationUuid UUID of existing Location.
+         * @param issueToLocationRequestDto Request containing information to issue the Certificate, see {@link IssueToLocationRequestDto}.
+         * @return Location detail with the issued Certificate.
+         * @throws NotFoundException when the Location with the given UUID is not found.
+         * @throws LocationException when the Certificate failed to be issued to the Location.
+         */
     LocationDto issueCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String raProfileUuid, IssueToLocationRequestDto issueToLocationRequestDto) throws NotFoundException, LocationException, ConnectorException;
 
     /**
