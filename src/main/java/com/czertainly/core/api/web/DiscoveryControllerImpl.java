@@ -11,10 +11,15 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.scheduler.SchedulerJobInfoDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.DiscoveryService;
+import com.czertainly.core.tasks.DiscoveryCertificateTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,8 +33,13 @@ import java.util.List;
 @RestController
 public class DiscoveryControllerImpl implements DiscoveryController {
 
-	@Autowired
+	private final Logger logger = LoggerFactory.getLogger(DiscoveryControllerImpl.class);
+
 	private DiscoveryService discoveryService;
+
+	private ScheduledJobsRepository scheduledJobsRepository;
+
+	private DiscoveryCertificateTask discoveryCertificateTask;
 
 	@Override
 	public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
@@ -59,8 +69,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	@Override
 	public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
             throws NotFoundException, ConnectorException, AlreadyExistException {
-		DiscoveryHistory modal = discoveryService.createDiscoveryModal(request);
-		discoveryService.createDiscovery(request, modal);
+		final DiscoveryHistory modal = discoveryService.createDiscoveryModal(request,true);
+		discoveryService.createDiscoveryAsync(modal);
 		URI location = ServletUriComponentsBuilder
 				.fromCurrentRequest()
 				.path("/{uuid}")
@@ -84,5 +94,41 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	@Override
 	public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
 		return discoveryService.getSearchableFieldInformationByGroup();
+	}
+
+	@Override
+	public void scheduleDiscovery(final SchedulerJobInfoDto schedulerJobInfoDto, final DiscoveryDto request) {
+		try {
+			discoveryService.createDiscoveryModal(request, false);
+
+			String jobName;
+			if (schedulerJobInfoDto.getJobName() == null) {
+				jobName = request.getName();
+			} else {
+				jobName = schedulerJobInfoDto.getJobName();
+			}
+
+			boolean jobRegistered = discoveryCertificateTask.registerScheduler(jobName, schedulerJobInfoDto.getCronExpression());
+			logger.info("Job {} was registered {}", jobName, jobRegistered ? "successfully" : "unsuccessfully");
+		} catch (AlreadyExistException | ConnectorException exception) {
+			logger.error("Unable to schedule job.", exception.getMessage());
+		}
+	}
+
+	// SETTERs
+
+	@Autowired
+	public void setDiscoveryService(DiscoveryService discoveryService) {
+		this.discoveryService = discoveryService;
+	}
+
+	@Autowired
+	public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
+		this.scheduledJobsRepository = scheduledJobsRepository;
+	}
+
+	@Autowired
+	public void setDiscoveryCertificateTask(DiscoveryCertificateTask discoveryCertificateTask) {
+		this.discoveryCertificateTask = discoveryCertificateTask;
 	}
 }
