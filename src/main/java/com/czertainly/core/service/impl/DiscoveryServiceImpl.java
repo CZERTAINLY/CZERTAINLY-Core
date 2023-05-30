@@ -236,25 +236,26 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
-            throws ConnectorException {
+    public void createDiscoveryAsync(DiscoveryHistory modal) {
+        createDiscovery(modal);
+    }
 
-        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
-                SecuredUUID.fromString(request.getConnectorUuid()),
-                FunctionGroupCode.DISCOVERY_PROVIDER,
-                request.getAttributes(),
-                request.getKind());
-
+    @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void createDiscovery(DiscoveryHistory modal) {
+        logger.info("Starting creating discovery {}", modal.getName());
         try {
             DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
-            dtoRequest.setName(request.getName());
-            dtoRequest.setKind(request.getKind());
+            dtoRequest.setName(modal.getName());
+            dtoRequest.setKind(modal.getKind());
 
             // Load complete credential data
-            credentialService.loadFullCredentialData(attributes);
-            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
+            final List<DataAttribute> dataAttributeList = AttributeDefinitionUtils.deserialize(modal.getAttributes().toString(), DataAttribute.class);
+            credentialService.loadFullCredentialData(dataAttributeList);
+            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributeList));
 
-            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
+            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(modal.getConnectorUuid().toString()));
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
             modal.setDiscoveryConnectorReference(response.getUuid());
@@ -262,7 +263,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
             getRequest.setName(response.getName());
-            getRequest.setKind(request.getKind());
+            getRequest.setKind(modal.getKind());
             getRequest.setStartIndex(0);
             getRequest.setEndIndex(MAXIMUM_CERTIFICATES_PER_PAGE);
 
@@ -327,7 +328,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
-    public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException {
+    public DiscoveryHistory createDiscoveryModal(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
         }
@@ -341,6 +342,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),
                 request.getKind());
+
         attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.DISCOVERY);
         DiscoveryHistory modal = new DiscoveryHistory();
         modal.setName(request.getName());
@@ -351,9 +353,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         modal.setKind(request.getKind());
 
-        discoveryRepository.save(modal);
-
-        attributeService.createAttributeContent(modal.getUuid(), request.getCustomAttributes(), Resource.DISCOVERY);
+        if (saveEntity) {
+            modal = discoveryRepository.save(modal);
+            attributeService.createAttributeContent(modal.getUuid(), request.getCustomAttributes(), Resource.DISCOVERY);
+        }
 
         return modal;
     }
@@ -493,4 +496,5 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
         return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.DISCOVERY, AttributeType.CUSTOM);
     }
+
 }

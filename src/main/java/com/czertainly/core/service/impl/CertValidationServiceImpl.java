@@ -52,7 +52,6 @@ public class CertValidationServiceImpl implements CertValidationService {
     }
 
     @Override
-    @Async("threadPoolTaskExecutor")
     public void validateCertificates(List<Certificate> certificates) {
         for (Certificate certificate : certificates) {
             try {

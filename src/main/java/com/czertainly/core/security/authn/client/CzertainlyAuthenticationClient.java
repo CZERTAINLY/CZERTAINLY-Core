@@ -1,6 +1,5 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.core.config.ProtocolValidationFilter;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
@@ -107,6 +106,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         try {
             UserDetailsDto userDetails = objectMapper.readValue(response.getData(), UserDetailsDto.class);
             return new AuthenticationInfo(
+                    userDetails.getUser().getUuid(),
                     userDetails.getUser().getUsername(),
                     userDetails.getRoles().stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList()),
                     response.getData()
