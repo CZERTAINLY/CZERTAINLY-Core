@@ -16,14 +16,11 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
 import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
+import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.service.MetadataService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,11 +29,11 @@ import java.util.stream.Collectors;
 @Transactional
 public class MetadataServiceImpl implements MetadataService {
 
-    private static final Logger logger = LoggerFactory.getLogger(MetadataServiceImpl.class);
-
     private AttributeDefinitionRepository metadataDefinitionRepository;
     private AttributeContentRepository metadataContentRepository;
     private AttributeContent2ObjectRepository metadata2ObjectRepository;
+
+    private ConnectorRepository connectorRepository;
 
     @Autowired
     public void setMetadataDefinitionRepository(AttributeDefinitionRepository metadataDefinitionRepository) {
@@ -51,6 +48,11 @@ public class MetadataServiceImpl implements MetadataService {
     @Autowired
     public void setMetadata2ObjectRepository(AttributeContent2ObjectRepository metadata2ObjectRepository) {
         this.metadata2ObjectRepository = metadata2ObjectRepository;
+    }
+
+    @Autowired
+    public void setConnectorRepository(ConnectorRepository connectorRepository) {
+        this.connectorRepository = connectorRepository;
     }
 
     @Override
@@ -239,13 +241,19 @@ public class MetadataServiceImpl implements MetadataService {
             }
         }
 
-        final AttributeContent2Object metadata2Object = new AttributeContent2Object();
+        if(existingContent != null) {
+            var content2Objects = metadata2ObjectRepository.findByConnectorUuidAndAttributeContentUuidAndObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(connectorUuid, existingContent.getUuid(), objectUuid, resource, sourceObjectUuid, sourceObjectResource);
+            if (content2Objects.size() != 0) return;
+        }
+
+        AttributeContent2Object metadata2Object = new AttributeContent2Object();
         metadata2Object.setObjectUuid(objectUuid);
         metadata2Object.setObjectType(resource);
         metadata2Object.setSourceObjectUuid(sourceObjectUuid);
         metadata2Object.setSourceObjectName(sourceObjectName);
         metadata2Object.setSourceObjectType(sourceObjectResource);
-        metadata2Object.setConnectorUuid(connectorUuid);
+
+        metadata2Object.setConnector(connectorRepository.findByUuid(connectorUuid).get());
 
         if (existingContent != null) {
             metadata2Object.setAttributeContent(existingContent);
