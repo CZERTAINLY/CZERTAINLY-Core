@@ -26,6 +26,7 @@ import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.ValidatorUtil;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -106,6 +107,9 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     public ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         if (request.getName() == null || request.getName().isEmpty()) {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
+        }
+        if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
+            throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
         }
         if (scepProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("SCEP Profile with same name already exists");
