@@ -25,6 +25,7 @@ import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.ValidatorUtil;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,6 +94,9 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
         if (request.getName() == null || request.getName().isEmpty()) {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
+        }
+        if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
+            throw new ValidationException(ValidationError.create("Name cannot contain unreserved characters"));
         }
         if (request.getValidity() != null && request.getValidity() < 0) {
             throw new ValidationException(ValidationError.create("Order Validity cannot be less than 0"));
