@@ -109,7 +109,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
         }
         if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
-            throw new ValidationException(ValidationError.create("Name cannot contain unreserved characters"));
+            throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
         }
         if (scepProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("SCEP Profile with same name already exists");
