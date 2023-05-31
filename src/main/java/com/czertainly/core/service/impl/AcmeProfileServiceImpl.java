@@ -96,7 +96,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
         }
         if (ValidatorUtil.containsUnreservedCharacters(request.getName())) {
-            throw new ValidationException(ValidationError.create("Name cannot contain unreserved characters"));
+            throw new ValidationException(ValidationError.create("Name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
         }
         if (request.getValidity() != null && request.getValidity() < 0) {
             throw new ValidationException(ValidationError.create("Order Validity cannot be less than 0"));
