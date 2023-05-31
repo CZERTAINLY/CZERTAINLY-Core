@@ -51,7 +51,6 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +58,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -504,7 +504,7 @@ public class LocationServiceImpl implements LocationService {
 
         logger.info("Certificate {} successfully pushed to Location {}", certificateUuid, location.getName());
 
-        LocationDto dto = location.mapToDto();
+        final LocationDto dto = location.mapToDto();
         dto.getCertificates().forEach(e -> {
             e.setMetadata(metadataService.getFullMetadata(UUID.fromString(e.getCertificateUuid()), Resource.CERTIFICATE, UUID.fromString(dto.getUuid()), Resource.LOCATION));
         });
