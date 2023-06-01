@@ -108,7 +108,7 @@ public class V202303211718__Scep_Roles extends BaseJavaMigration {
 
         resources.add(requestDto);
 
-        resourceApiClient.syncResources(resources);
+        resourceApiClient.addResources(resources);
     }
 
     private RolePermissionsRequestDto getPermissionPayload() {
