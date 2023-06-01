@@ -24,6 +24,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
@@ -78,23 +79,30 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
     private AuthenticationRequestDto getAuthPayload(HttpHeaders headers) {
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
-        if( headers.get(certificateHeaderName) != null) {
+        final List<String> certificateHeaderNameList = headers.get(certificateHeaderName);
+        if( certificateHeaderNameList != null) {
             try {
-                String certificateInHeader = java.net.URLDecoder.decode(headers.get(certificateHeaderName).get(0), StandardCharsets.UTF_8.name());
+                String certificateInHeader = java.net.URLDecoder.decode(certificateHeaderNameList.get(0), StandardCharsets.UTF_8.name());
                 requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
             } catch (UnsupportedEncodingException e) {
                 logger.debug("Header not URL encoded");
-                requestDto.setCertificateContent(headers.get(certificateHeaderName).get(0));
+                requestDto.setCertificateContent(certificateHeaderNameList.get(0));
             }
         }
-        if(headers.get(authTokenHeaderName) != null) {
-            requestDto.setAuthenticationToken(headers.get(authTokenHeaderName).get(0));
+
+        final List<String> authTokenHeaderNameList = headers.get(authTokenHeaderName);
+        if(authTokenHeaderNameList != null) {
+            requestDto.setAuthenticationToken(authTokenHeaderNameList.get(0));
         }
-        if(headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME) != null){
-            requestDto.setSystemUsername(headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME).get(0));
+
+        final List<String> systemUserHeaderNameList = headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME);
+        if(systemUserHeaderNameList != null){
+            requestDto.setSystemUsername(systemUserHeaderNameList.get(0));
         }
-        if(headers.get(AuthHelper.USER_UUID_HEADER_NAME) != null){
-            requestDto.setUserUuid(headers.get(AuthHelper.USER_UUID_HEADER_NAME).get(0));
+
+        final List<String> userUuidHeaderNameList = headers.get(AuthHelper.USER_UUID_HEADER_NAME);
+        if(userUuidHeaderNameList != null){
+            requestDto.setUserUuid(userUuidHeaderNameList.get(0));
         }
         return requestDto;
     }
