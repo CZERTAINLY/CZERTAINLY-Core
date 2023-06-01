@@ -26,6 +26,18 @@ public class ResourceApiClient extends CzertainlyBaseAuthenticationClient {
     public ResourceApiClient() {
     }
 
+    public void addResources(List<ResourceSyncRequestDto> requestDto) {
+        WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
+
+        processRequest(r -> r
+                        .uri(RESOURCE_CONTEXT)
+                        .body(Mono.just(requestDto), ENDPOINT_LIST_TYPE_REF)
+                        .retrieve()
+                        .toEntity(Void.class)
+                        .block().getBody(),
+                request);
+    }
+
     public SyncResponseDto syncResources(List<ResourceSyncRequestDto> requestDto) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
 
