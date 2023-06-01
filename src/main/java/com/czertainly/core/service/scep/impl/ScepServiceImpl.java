@@ -540,7 +540,8 @@ public class ScepServiceImpl implements ScepService {
         ScepResponse scepResponse = new ScepResponse();
         try {
             ScepTransaction transaction = getTransaction(scepRequest.getTransactionId());
-            if (!transaction.getCertificate().getStatus().equals(CertificateStatus.NEW)) {
+            if (transaction != null
+                    && !transaction.getCertificate().getStatus().equals(CertificateStatus.NEW)) {
                 X509Certificate certificate = CertificateUtil.parseCertificate(transaction.getCertificate().getCertificateContent().getContent());
                 scepResponse.setCertificate(certificate);
                 scepResponse.setPkiStatus(PkiStatus.SUCCESS);
@@ -712,15 +713,19 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private void sendIntuneFailureMessage(IntuneScepServiceClient client, ScepRequest request, long errorCode, String error) {
-        try {
-            client.SendFailureNotification(
-                    request.getTransactionId(),
-                    CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
-                    errorCode,
-                    error
-            );
-        } catch (Exception e) {
-            logger.error("Unable to update Intune with failed notification: " + e.getMessage());
+        if (client != null) {
+            try {
+                client.SendFailureNotification(
+                        request.getTransactionId(),
+                        CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
+                        errorCode,
+                        error
+                );
+            } catch (Exception e) {
+                logger.error("Unable to update Intune with failed notification: " + e.getMessage());
+            }
+        } else {
+            logger.error("Unable to update Intune because the client is not available.");
         }
     }
 }

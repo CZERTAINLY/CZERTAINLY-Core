@@ -218,7 +218,9 @@ public class Sql2PredicateConverter {
         if (searchableFields.getEnumClass() != null) {
             if (searchableFields.getEnumClass().equals(KeyUsage.class)) {
                 final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(valueObject, searchableFields);
-                return keyUsage.getBitmask();
+                if (keyUsage != null) {
+                    return keyUsage.getBitmask();
+                }
             }
             return findEnumByCustomValue(valueObject, searchableFields);
         }
