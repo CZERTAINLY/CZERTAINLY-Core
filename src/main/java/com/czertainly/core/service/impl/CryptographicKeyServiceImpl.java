@@ -1099,9 +1099,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     }
                 } catch (NotFoundException e) {
                     logger.warn(e.getMessage());
-        }
                 }
-        }
             }
         }
         if (!errors.isEmpty()) {
