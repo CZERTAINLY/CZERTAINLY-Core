@@ -55,6 +55,7 @@ Operations can be automated by the `Core`, but also can be performed manually by
 
 `Core` support the following protocols for certificate management:
 - ACME
+- SCEP (with optional Intune support)
 
 ## Docker container
 
