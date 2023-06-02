@@ -9,13 +9,9 @@ import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.core.certificate.CertificateContentDto;
-import com.czertainly.api.model.core.certificate.CertificateDetailDto;
-import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.api.model.core.certificate.CertificateValidationDto;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -25,7 +21,6 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
-import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -49,6 +44,8 @@ public interface CertificateService extends ResourceExtensionService  {
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException;
+
+    Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
 
     Boolean checkCertificateExistsByFingerprint(String fingerprint);
 
@@ -75,7 +72,8 @@ public interface CertificateService extends ResourceExtensionService  {
             String csr,
             UUID keyUuid,
             List<DataAttribute> csrAttributes,
-            List<RequestAttributeDto> signatureAttributes
+            List<RequestAttributeDto> signatureAttributes,
+            UUID connectorUuid
     ) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
@@ -132,7 +130,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param uuid    UUID of the certificate
      * @param request Request for the certificate objects update
      */
-    void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException;
+    void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException;
 
     /**
      * Method to update the Objects of multiple certificates
@@ -247,4 +245,12 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return Certificate entity
      */
     Certificate updateCsrToCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException;
+
+    /**
+     * List certificates eligible for CA certificate of SCEP requests
+     * @param filter Security Filter
+     * @param intuneEnabled flag to return certificates that are eligible for Intune integration
+     * @return List of available CA certificates
+     */
+    List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled);
 }

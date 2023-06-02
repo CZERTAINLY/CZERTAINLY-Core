@@ -36,7 +36,7 @@ public class SecurityConfig  {
     ExternalFilterAuthorizationVoter filterAuthorizationVoter;
 
     @Autowired
-    AcmeValidationFilter acmeValidationFilter;
+    ProtocolValidationFilter protocolValidationFilter;
 
     @Bean
     protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -59,7 +59,7 @@ public class SecurityConfig  {
                 .httpBasic().disable()
                 .formLogin().disable()
                 .x509().disable()
-                .addFilterBefore(acmeValidationFilter, X509AuthenticationFilter.class)
+                .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
                 .addFilterBefore(createCzertainlyAuthenticationFilter(), BasicAuthenticationFilter.class)
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 

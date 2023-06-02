@@ -15,6 +15,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Predicate;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,12 +28,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import jakarta.transaction.Transactional;
-
 import java.time.LocalTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -68,7 +70,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     ) {
         String additionalDataJson = null;
         try {
-        	MAPPER.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+            MAPPER.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
             additionalDataJson = additionalData != null ? MAPPER.writeValueAsString(additionalData) : null;
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(e);
@@ -117,7 +119,8 @@ public class AuditLogServiceImpl implements AuditLogService {
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.LIST)
     public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
 
-        AuditLogResponseDto response = new AuditLogResponseDto();;
+        AuditLogResponseDto response = new AuditLogResponseDto();
+        response.setItems(new ArrayList<>());
 
         if (auditLogRepository.count() <= 0) {
             return response;
@@ -125,13 +128,15 @@ public class AuditLogServiceImpl implements AuditLogService {
 
         Predicate predicate = createPredicate(filter);
         Page<AuditLog> result = auditLogRepository.findAll(predicate, pageable);
-        response.setPage(result.getNumber());
-        response.setSize(result.getNumberOfElements());
-        response.setTotalPages(result.getTotalPages());
-        if(result.getSize() > 0) {
+        long count = auditLogRepository.count(predicate);
+
+        response.setItemsPerPage(pageable.getPageSize());
+        response.setPageNumber(pageable.getPageNumber());
+        response.setTotalItems(count);
+        response.setTotalPages((int) Math.ceil((double) count / pageable.getPageSize()));
+
+        if (result.getSize() > 0) {
             response.setItems(result.get().map(AuditLog::mapToDto).collect(Collectors.toList()));
-        } else {
-            response.setItems(new ArrayList<>());
         }
 
         return response;

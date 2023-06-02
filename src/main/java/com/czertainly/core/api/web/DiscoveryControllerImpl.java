@@ -4,11 +4,14 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
+import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
-import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.UuidDto;
+import com.czertainly.api.model.core.scheduler.SchedulerJobInfoDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.security.cert.CertificateException;
 import java.util.List;
 
 @RestController
@@ -30,8 +34,8 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	private DiscoveryService discoveryService;
 
 	@Override
-	public List<DiscoveryHistoryDto> listDiscoveries() {
-		return discoveryService.listDiscoveries(SecurityFilter.create());
+	public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
+		return discoveryService.listDiscoveries(SecurityFilter.create(), request);
 	}
 
 	@Override
@@ -77,5 +81,15 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 	@Override
 	public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
 		discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
+	}
+
+	@Override
+	public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+		return discoveryService.getSearchableFieldInformationByGroup();
+	}
+
+	@Override
+	public void scheduleDiscovery(SchedulerJobInfoDto schedulerJobInfo, DiscoveryDto request) throws AlreadyExistException, CertificateException, InterruptedException, ConnectorException {
+
 	}
 }

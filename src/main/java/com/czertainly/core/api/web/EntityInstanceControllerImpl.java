@@ -4,12 +4,15 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.interfaces.core.web.EntityInstanceController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -34,8 +37,13 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.ENTITY)
-    public List<EntityInstanceDto> listEntityInstances() {
-        return entityInstanceService.listEntityInstances(SecurityFilter.create());
+    public EntityInstanceResponseDto listEntityInstances(final SearchRequestDto requestDto) {
+        return entityInstanceService.listEntityInstances(SecurityFilter.create(), requestDto);
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return entityInstanceService.getSearchableFieldInformationByGroup();
     }
 
     @Override

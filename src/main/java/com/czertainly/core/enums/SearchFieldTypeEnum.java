@@ -13,6 +13,9 @@ public enum SearchFieldTypeEnum {
     DATE(SearchableFieldType.DATE,
             List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.GREATER, SearchCondition.LESSER)
             , false),
+    DATETIME(SearchableFieldType.DATE,
+            List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.GREATER, SearchCondition.LESSER)
+            , false),
     NUMBER(SearchableFieldType.NUMBER,
             List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.GREATER, SearchCondition.LESSER)
             , false),

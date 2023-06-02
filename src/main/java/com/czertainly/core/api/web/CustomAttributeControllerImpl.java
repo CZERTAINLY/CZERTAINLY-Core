@@ -3,11 +3,10 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CustomAttributeController;
-import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -43,10 +42,9 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
         webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
     }
 
-
     @Override
-    public List<AttributeDefinitionDto> listCustomAttributes() {
-        return attributeService.listAttributes(SecurityFilter.create(), AttributeType.CUSTOM);
+    public List<CustomAttributeDefinitionDto> listCustomAttributes() {
+        return attributeService.listAttributes(SecurityFilter.create());
     }
 
     @Override

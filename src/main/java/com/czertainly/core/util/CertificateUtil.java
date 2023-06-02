@@ -3,10 +3,14 @@ package com.czertainly.core.util;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -14,6 +18,7 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
@@ -62,15 +67,15 @@ public class CertificateUtil {
     }
 
     static {
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", CryptographicAlgorithm.SPHINCSPLUS.getName());
-        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", CryptographicAlgorithm.DILITHIUM.getName());
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("SPHINCSPLUS", KeyAlgorithm.SPHINCSPLUS.getCode());
+        CERTIFICATE_ALGORITHM_FRIENDLY_NAME.put("DILITHIUM", KeyAlgorithm.DILITHIUM.getCode());
     }
 
     static {
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", CryptographicAlgorithm.ECDSA.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("SPHINCS+", CryptographicAlgorithm.SPHINCSPLUS.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Dilithium", CryptographicAlgorithm.DILITHIUM.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", CryptographicAlgorithm.FALCON.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("SPHINCS+", KeyAlgorithm.SPHINCSPLUS.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Dilithium", KeyAlgorithm.DILITHIUM.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON.toString());
     }
 
     private CertificateUtil() {
@@ -140,17 +145,7 @@ public class CertificateUtil {
 
     @SuppressWarnings("unchecked")
     public static Map<String, Object> getSAN(X509Certificate certificate) {
-        @SuppressWarnings("serial")
-        Map<String, Object> sans = new HashMap<>();
-        sans.put("otherName", new ArrayList<String>());
-        sans.put("rfc822Name", new ArrayList<String>());
-        sans.put("dNSName", new ArrayList<String>());
-        sans.put("x400Address", new ArrayList<String>());
-        sans.put("directoryName", new ArrayList<String>());
-        sans.put("ediPartyName", new ArrayList<String>());
-        sans.put("uniformResourceIdentifier", new ArrayList<String>());
-        sans.put("iPAddress", new ArrayList<String>());
-        sans.put("registeredID", new ArrayList<String>());
+        Map<String, Object> sans = buildEmptySans();
 
         try {
             for (List<?> san : certificate.getSubjectAlternativeNames()) {
@@ -166,8 +161,37 @@ public class CertificateUtil {
     }
 
 
+    @SuppressWarnings("unchecked")
     private static Map<String, Object> getSAN(JcaPKCS10CertificationRequest csr) {
+        Map<String, Object> sans = buildEmptySans();
 
+        Attribute[] certAttributes = csr.getAttributes();
+        for (Attribute attribute : certAttributes) {
+            if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
+                Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
+                GeneralNames gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+                if (gns != null) {
+                    GeneralName[] names = gns.getNames();
+                    for (GeneralName name : names) {
+                        switch (name.getTagNo()) {
+                            case GeneralName.dNSName -> ((ArrayList<String>) sans.get("dNSName")).add(name.getName().toString());
+                            case GeneralName.iPAddress -> ((ArrayList<String>) sans.get("iPAddress")).add(name.getName().toString());
+                            case GeneralName.otherName -> ((ArrayList<String>) sans.get("otherName")).add(name.getName().toString());
+                            case GeneralName.directoryName -> ((ArrayList<String>) sans.get("directoryName")).add(name.getName().toString());
+                            case GeneralName.registeredID -> ((ArrayList<String>) sans.get("registeredID")).add(name.getName().toString());
+                            case GeneralName.x400Address -> ((ArrayList<String>) sans.get("x400Address")).add(name.getName().toString());
+                            case GeneralName.uniformResourceIdentifier -> ((ArrayList<String>) sans.get("uniformResourceIdentifier")).add(name.getName().toString());
+                            case GeneralName.ediPartyName -> ((ArrayList<String>) sans.get("ediPartyName")).add(name.getName().toString());
+                            case GeneralName.rfc822Name -> ((ArrayList<String>) sans.get("rfc822Name")).add(name.getName().toString());
+                        }
+                    }
+                }
+            }
+        }
+        return sans;
+    }
+
+    private static Map<String, Object> buildEmptySans() {
         Map<String, Object> sans = new HashMap<>();
         sans.put("otherName", new ArrayList<>());
         sans.put("rfc822Name", new ArrayList<>());
@@ -179,27 +203,6 @@ public class CertificateUtil {
         sans.put("iPAddress", new ArrayList<>());
         sans.put("registeredID", new ArrayList<>());
 
-        Attribute[] certAttributes = csr.getAttributes();
-        for (Attribute attribute : certAttributes) {
-            if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
-                Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
-                GeneralNames gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
-                GeneralName[] names = gns.getNames();
-                for (GeneralName name : names) {
-                    switch (name.getTagNo()){
-                        case GeneralName.dNSName: ((ArrayList<String>) sans.get("dNSName")).add(name.getName().toString());
-                        case GeneralName.iPAddress: ((ArrayList<String>) sans.get("iPAddress")).add(name.getName().toString());
-                        case GeneralName.otherName: ((ArrayList<String>) sans.get("otherName")).add(name.getName().toString());
-                        case GeneralName.directoryName: ((ArrayList<String>) sans.get("directoryName")).add(name.getName().toString());
-                        case GeneralName.registeredID: ((ArrayList<String>) sans.get("registeredID")).add(name.getName().toString());
-                        case GeneralName.x400Address: ((ArrayList<String>) sans.get("x400Address")).add(name.getName().toString());
-                        case GeneralName.uniformResourceIdentifier: ((ArrayList<String>) sans.get("uniformResourceIdentifier")).add(name.getName().toString());
-                        case GeneralName.ediPartyName: ((ArrayList<String>) sans.get("ediPartyName")).add(name.getName().toString());
-                        case GeneralName.rfc822Name: ((ArrayList<String>) sans.get("rfc822Name")).add(name.getName().toString());
-                    }
-                }
-            }
-        }
         return sans;
     }
 
@@ -213,6 +216,15 @@ public class CertificateUtil {
     public static String getThumbprint(byte[] encodedContent)
             throws NoSuchAlgorithmException {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+        messageDigest.update(encodedContent);
+        byte[] digest = messageDigest.digest();
+        String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
+        return thumbprint;
+    }
+
+    public static String getSha1Thumbprint(byte[] encodedContent)
+            throws NoSuchAlgorithmException {
+        MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
         messageDigest.update(encodedContent);
         byte[] digest = messageDigest.digest();
         String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
@@ -382,6 +394,50 @@ public class CertificateUtil {
         String name = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
         if (name != null) return name;
         return providerName;
+    }
+
+    public static List<JcaX509CertificateHolder> convertToX509CertificateHolder(List<X509Certificate> certificateChain) throws CertificateEncodingException {
+        List<JcaX509CertificateHolder> certificateHolderChain = new ArrayList<>();
+        for (X509Certificate certificate : certificateChain) {
+            certificateHolderChain.add(new JcaX509CertificateHolder(certificate));
+        }
+        return certificateHolderChain;
+    }
+
+    public static boolean isCertificateScepCaCertAcceptable(Certificate certificate, boolean intuneEnabled) {
+        if (certificate.getKey() == null || (!certificate.getStatus().equals(CertificateStatus.VALID) && !certificate.getStatus().equals(CertificateStatus.EXPIRING))) {
+            return false;
+        }
+
+        // Check if the public key has usage ENCRYPT enabled and private key has DECRYPT and SIGN enabled
+        // It is required to check RSA for public key since only RSA keys are encryption capable
+        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
+        boolean privateKeyAvailable = false;
+        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
+            if ((intuneEnabled && !item.getKeyAlgorithm().equals(KeyAlgorithm.RSA))
+                    || (!intuneEnabled && !item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && !item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA))) {
+                return false;
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && item.getType().equals(KeyType.PUBLIC_KEY)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.ENCRYPT, KeyUsage.VERIFY))) {
+                    return false;
+                }
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.RSA) && item.getType().equals(KeyType.PRIVATE_KEY)) {
+                if (item.getState() != KeyState.ACTIVE || !item.getUsage().containsAll(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN))) {
+                    return false;
+                }
+                privateKeyAvailable = true;
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA) && item.getType().equals(KeyType.PUBLIC_KEY)) {
+                if (!item.getUsage().containsAll(List.of(KeyUsage.VERIFY))) {
+                    return false;
+                }
+            } else if (item.getKeyAlgorithm().equals(KeyAlgorithm.ECDSA) && item.getType().equals(KeyType.PRIVATE_KEY)) {
+                if (item.getState() != KeyState.ACTIVE || !item.getUsage().containsAll(List.of(KeyUsage.SIGN))) {
+                    return false;
+                }
+                privateKeyAvailable = true;
+            }
+        }
+        return privateKeyAvailable;
     }
 
 }

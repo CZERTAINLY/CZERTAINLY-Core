@@ -166,6 +166,7 @@ public class CertValidationServiceImpl implements CertValidationService {
         }
     }
 
+    // TODO: this method should not be here, but in the CertificateService
     @Override
     public List<Certificate> getCertificateChain(Certificate certificate) {
         List<Certificate> chainCerts = new ArrayList<>();
@@ -185,7 +186,7 @@ public class CertValidationServiceImpl implements CertValidationService {
     private List<Certificate> checkAddCertificateToChain(List<Certificate> chainCertificates) {
         Certificate toCheckCertificate = chainCertificates.get(chainCertificates.size() - 1);
         if (toCheckCertificate.getIssuerSerialNumber() != null
-                && toCheckCertificate.getIssuerSerialNumber().length() > 5) {
+                && toCheckCertificate.getIssuerSerialNumber().length() > 5) { // TODO: this seems to me as nonsense
             try {
                 chainCertificates.add(
                         certificateRepository.findBySerialNumberIgnoreCase(toCheckCertificate.getIssuerSerialNumber())

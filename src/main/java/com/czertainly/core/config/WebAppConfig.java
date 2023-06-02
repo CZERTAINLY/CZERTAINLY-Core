@@ -1,5 +1,6 @@
 package com.czertainly.core.config;
 
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -47,6 +48,7 @@ public class WebAppConfig implements WebMvcConfigurer {
         converters.add(new StringHttpMessageConverter());
         converters.add(new MappingJackson2HttpMessageConverter(jsonObjectMapper()));
         converters.add(new ResourceHttpMessageConverter());
+        converters.add(new ScepHttpMessageConverter<>());
     }
 
     @Override
@@ -88,6 +90,12 @@ public class WebAppConfig implements WebMvcConfigurer {
                 return null;
             }
             return ZonedDateTime.parse(source);
+            }
+        });
+        registry.addConverter(new Converter<String, KeyAlgorithm>() {
+            @Override
+            public KeyAlgorithm convert(String source) {
+                return KeyAlgorithm.findByCode(source);
             }
         });
     }

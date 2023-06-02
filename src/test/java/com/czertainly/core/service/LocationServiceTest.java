@@ -5,6 +5,8 @@ import com.czertainly.api.exception.LocationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.certificate.LocationsResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
@@ -40,10 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class LocationServiceTest extends BaseSpringBootTest {
 
@@ -216,7 +215,8 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListLocations() {
-        List<LocationDto> locations = locationService.listLocation(SecurityFilter.create());
+        LocationsResponseDto locationsResponseDto = locationService.listLocations(SecurityFilter.create(), new SearchRequestDto());
+        List<LocationDto> locations = locationsResponseDto.getLocations();
         Assertions.assertNotNull(locations);
         Assertions.assertFalse(locations.isEmpty());
         Assertions.assertEquals(3, locations.size());

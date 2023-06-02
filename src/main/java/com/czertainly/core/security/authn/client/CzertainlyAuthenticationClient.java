@@ -1,10 +1,11 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.core.config.AcmeValidationFilter;
+import com.czertainly.core.config.ProtocolValidationFilter;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
 import com.czertainly.core.security.authn.client.dto.UserDetailsDto;
+import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CertificateUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +24,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
@@ -77,20 +79,30 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
     private AuthenticationRequestDto getAuthPayload(HttpHeaders headers) {
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
-        if( headers.get(certificateHeaderName) != null) {
+        final List<String> certificateHeaderNameList = headers.get(certificateHeaderName);
+        if( certificateHeaderNameList != null) {
             try {
-                String certificateInHeader = java.net.URLDecoder.decode(headers.get(certificateHeaderName).get(0), StandardCharsets.UTF_8.name());
+                String certificateInHeader = java.net.URLDecoder.decode(certificateHeaderNameList.get(0), StandardCharsets.UTF_8.name());
                 requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
             } catch (UnsupportedEncodingException e) {
                 logger.debug("Header not URL encoded");
-                requestDto.setCertificateContent(headers.get(certificateHeaderName).get(0));
+                requestDto.setCertificateContent(certificateHeaderNameList.get(0));
             }
         }
-        if(headers.get(authTokenHeaderName) != null) {
-            requestDto.setAuthenticationToken(headers.get(authTokenHeaderName).get(0));
+
+        final List<String> authTokenHeaderNameList = headers.get(authTokenHeaderName);
+        if(authTokenHeaderNameList != null) {
+            requestDto.setAuthenticationToken(authTokenHeaderNameList.get(0));
         }
-        if(headers.get(AcmeValidationFilter.SYSTEM_USER_HEADER_NAME) != null){
-            requestDto.setSystemUsername(headers.get(AcmeValidationFilter.SYSTEM_USER_HEADER_NAME).get(0));
+
+        final List<String> systemUserHeaderNameList = headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME);
+        if(systemUserHeaderNameList != null){
+            requestDto.setSystemUsername(systemUserHeaderNameList.get(0));
+        }
+
+        final List<String> userUuidHeaderNameList = headers.get(AuthHelper.USER_UUID_HEADER_NAME);
+        if(userUuidHeaderNameList != null){
+            requestDto.setUserUuid(userUuidHeaderNameList.get(0));
         }
         return requestDto;
     }
