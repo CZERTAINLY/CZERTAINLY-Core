@@ -220,9 +220,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         List<KeyDto> response = cryptographicKeyRepository.findUsingSecurityFilter(filter, null, null, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(CryptographicKey::mapToDto)
-                .toList();
+                .collect(Collectors.toList()
+                );
         if (tokenProfileUuid.isPresent() && !tokenProfileUuid.get().isEmpty()) {
-            response = response.stream().filter(e -> e.getTokenProfileUuid() != null && e.getTokenProfileUuid().equals(tokenProfileUuid.get())).toList();
+            response = response.stream().filter(e -> e.getTokenProfileUuid() != null && e.getTokenProfileUuid().equals(tokenProfileUuid.get())).collect(Collectors.toList());
         }
         response = response
                 .stream()
@@ -233,11 +234,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 )
                 .filter(
                         e -> {
-                            List<KeyType> keyTypes = e.getItems().stream().map(KeyItemDto::getType).toList();
+                            List<KeyType> keyTypes = e.getItems().stream().map(KeyItemDto::getType).collect(Collectors.toList());
                             keyTypes.removeAll(List.of(KeyType.PUBLIC_KEY, KeyType.PRIVATE_KEY));
                             return keyTypes.isEmpty();
                         }
-                ).toList();
+                ).collect(Collectors.toList());
         return response;
     }
 
@@ -445,7 +446,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         for (String keyUuid : new LinkedHashSet<>(uuids)) {
             try {
                 CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(keyUuid));
-                List<String> keyItemUuids = key.getItems().stream().map(keyItem -> keyItem.getUuid().toString()).toList();
+                List<String> keyItemUuids = key.getItems().stream().map(keyItem -> keyItem.getUuid().toString()).collect(Collectors.toList());
                 setKeyItemsEnabled(keyItemUuids, true, false);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
@@ -462,7 +463,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         for (String keyUuid : new LinkedHashSet<>(uuids)) {
             try {
                 CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(keyUuid));
-                List<String> keyItemUuids = key.getItems().stream().map(keyItem -> keyItem.getUuid().toString()).toList();
+                List<String> keyItemUuids = key.getItems().stream().map(keyItem -> keyItem.getUuid().toString()).collect(Collectors.toList());
                 setKeyItemsEnabled(keyItemUuids, true, true);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
@@ -1304,18 +1305,18 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_LENGTH),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((KeyAlgorithm.values())).map(KeyAlgorithm::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).toList())
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((KeyAlgorithm.values())).map(KeyAlgorithm::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()))
         );
-        fields = fields.stream().toList();
+        fields = fields.stream().collect(Collectors.toList());
         fields.sort(new SearchFieldDataComparator());
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
