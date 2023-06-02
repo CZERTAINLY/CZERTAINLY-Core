@@ -49,9 +49,8 @@ public class ScepResponse {
     private String recipientNonce;
     private String senderNonce;
     private String transactionId;
-    private boolean includeCaCertificate;
     private Certificate caCertificate;
-    private Certificate certificate;
+    private List<X509Certificate> certificateChain;
     private byte[] recipientKeyInfo;
     private String digestAlgorithmOid;
 
@@ -107,16 +106,12 @@ public class ScepResponse {
         this.transactionId = transactionId;
     }
 
-    public void setIncludeCaCertificate(boolean includeCaCertificate) {
-        this.includeCaCertificate = includeCaCertificate;
-    }
-
     public void setCaCertificate(Certificate caCertificate) {
         this.caCertificate = caCertificate;
     }
 
-    public void setCertificate(Certificate certificate) {
-        this.certificate = certificate;
+    public void setCertificateChain(List<X509Certificate> certificateChain) {
+        this.certificateChain = certificateChain;
     }
 
     public void setRecipientKeyInfo(byte[] recipientKeyInfo) {
@@ -168,12 +163,8 @@ public class ScepResponse {
     private void createResponseData() throws CertificateException, CMSException, IOException {
         if (pkiStatus.equals(PkiStatus.SUCCESS)) {
             CMSEnvelopedDataGenerator cmsEnvelopedDataGenerator = new CMSEnvelopedDataGenerator();
-
-            logger.debug("Building the certificate chain for the response message");
-            List<X509Certificate> certificates = createCertificateChain();
-
             CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
-            cmsSignedDataGenerator.addCertificates(new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificates)));
+            cmsSignedDataGenerator.addCertificates(new CollectionStore<>(CertificateUtil.convertToX509CertificateHolder(certificateChain)));
             CMSSignedData cmsSignedData = cmsSignedDataGenerator.generate(new CMSAbsentContent(), false);
 
             // Envelope the CMS message
@@ -186,7 +177,7 @@ public class ScepResponse {
                                 .setProvider(BouncyCastleProvider.PROVIDER_NAME));
             } else {
                 cmsEnvelopedDataGenerator.addRecipientInfoGenerator(
-                        new JceKeyTransRecipientInfoGenerator((X509Certificate) certificate)
+                        new JceKeyTransRecipientInfoGenerator(certificateChain.get(0))
                                 .setProvider(BouncyCastleProvider.PROVIDER_NAME));
             }
             // Take the content encryption algorithm from the response that is set from the SCEP request message
@@ -198,21 +189,6 @@ public class ScepResponse {
         } else {
             responseData = new CMSProcessableByteArray(new byte[0]);
         }
-    }
-
-    private List<X509Certificate> createCertificateChain() {
-        List<X509Certificate> certificateChain = new ArrayList<>();
-        if (certificate != null) {
-            logger.debug("Adding issued certificate to chain");
-            certificateChain.add((X509Certificate) certificate);
-            if (includeCaCertificate) {
-                if (caCertificate != null) {
-                    logger.debug("Adding CA certificate to chain");
-                    certificateChain.add((X509Certificate) caCertificate);
-                }
-            }
-        }
-        return certificateChain;
     }
 
     private void createSignedData() throws NoSuchAlgorithmException, CertificateEncodingException, OperatorCreationException, CMSException {
