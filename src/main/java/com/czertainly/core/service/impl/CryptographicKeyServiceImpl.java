@@ -193,7 +193,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs), p, (root, cb) -> cb.desc(root.get("cryptographicKey").get("created")))
                 .stream()
                 .map(CryptographicKeyItem::mapToSummaryDto)
-                .collect(Collectors.toList());
+                .toList();
 
         final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root));
         final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();
