@@ -2,9 +2,9 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.SettingController;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
-import com.czertainly.api.model.core.settings.Section;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.service.SettingService;
-import com.czertainly.core.util.converter.SectionCodeConverter;
+import com.czertainly.core.util.converter.SettingsSectionCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
@@ -22,7 +22,7 @@ public class SettingControllerImpl implements SettingController {
 
     @InitBinder
     public void initBinder(final WebDataBinder webdataBinder) {
-        webdataBinder.registerCustomEditor(Section.class, new SectionCodeConverter());
+        webdataBinder.registerCustomEditor(SettingsSection.class, new SettingsSectionCodeConverter());
     }
 
     @Override

@@ -5,6 +5,8 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.LocationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.LocationManagementController;
+import com.czertainly.api.model.client.certificate.LocationsResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
@@ -13,6 +15,7 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -25,7 +28,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 public class LocationManagementControllerImpl implements LocationManagementController {
@@ -39,8 +41,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     @AuthEndpoint(resourceName = Resource.LOCATION)
-    public List<LocationDto> listLocations(Optional<Boolean> enabled) {
-        return locationService.listLocations(SecurityFilter.create(), enabled);
+    public LocationsResponseDto listLocations(final SearchRequestDto request) {
+        return locationService.listLocations(SecurityFilter.create(), request);
     }
 
     @Override
@@ -130,4 +132,8 @@ public class LocationManagementControllerImpl implements LocationManagementContr
                 certificateUuid);
     }
 
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return locationService.getSearchableFieldInformationByGroup();
+    }
 }

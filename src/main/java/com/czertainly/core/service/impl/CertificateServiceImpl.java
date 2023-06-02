@@ -140,7 +140,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Lazy
     @Autowired
     private CryptographicKeyService cryptographicKeyService;
-    
+
     @Autowired
     private PermissionEvaluator permissionEvaluator;
 
@@ -240,6 +240,12 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
+        return certificateRepository.findByIssuerDnAndSerialNumber(issuerDn, serialNumber)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, issuerDn + " " + serialNumber));
+    }
+
+    @Override
     public Boolean checkCertificateExistsByFingerprint(String fingerprint) {
         try {
             return certificateRepository.findByFingerprint(fingerprint).isPresent();
@@ -273,15 +279,12 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error("Failed to remove Certificate {} from Locations", uuid);
         }
 
-        if (discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) {
-            CertificateContent content = certificateContentRepository
-                    .findById(certificate.getCertificateContent().getId()).orElse(null);
-            if (content != null) {
-                certificateRepository.delete(certificate);
-                certificateContentRepository.delete(content);
-            }
-        } else {
-            certificateRepository.delete(certificate);
+        CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty())
+                ? certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null)
+                : null;
+        certificateRepository.delete(certificate);
+        if (content != null) {
+            certificateContentRepository.delete(content);
         }
         attributeService.deleteAttributeContent(uuid.getValue(), Resource.CERTIFICATE);
     }
@@ -373,12 +376,12 @@ public class CertificateServiceImpl implements CertificateService {
 
         final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
         if (metadataSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META.getLabel()));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
         }
 
         final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
         if (customAttrSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM.getLabel()));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
         }
 
         List<SearchFieldDataDto> fields = List.of(
@@ -409,7 +412,7 @@ public class CertificateServiceImpl implements CertificateService {
         fields = fields.stream().collect(Collectors.toList());
         fields.sort(new SearchFieldDataComparator());
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY.getLabel()));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
@@ -617,7 +620,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes, UUID connectorUuid) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
@@ -629,8 +632,8 @@ public class CertificateServiceImpl implements CertificateService {
         entity.setCsrAttributes(csrAttributes);
         entity.setSignatureAttributes(signatureAttributes);
         certificateRepository.save(entity);
-        metadataService.createMetadataDefinitions(null, meta);
-        metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
+        metadataService.createMetadataDefinitions(connectorUuid, meta);
+        metadataService.createMetadata(connectorUuid, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
         certificateComplianceCheck(entity);
         return entity;
     }
@@ -654,12 +657,13 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificateEntity = certificateRepository.findByUuid(certificateUuid)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
 
-        List<String> locations = locationService.listLocations(SecurityFilter.create(), null)
+        final LocationsResponseDto locationsResponseDto = locationService.listLocations(SecurityFilter.create(), new SearchRequestDto());
+        final List<String> locations = locationsResponseDto.getLocations()
                 .stream()
                 .map(LocationDto::getUuid)
                 .collect(Collectors.toList());
 
-        List<LocationDto> locationsCertificate = certificateEntity.getLocations().stream()
+        final List<LocationDto> locationsCertificate = certificateEntity.getLocations().stream()
                 .map(CertificateLocation::getLocation)
                 .sorted(Comparator.comparing(Location::getCreated).reversed())
                 .map(Location::mapToDtoSimple)
@@ -715,9 +719,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public void updateCertificatesStatusScheduled() {
-        List<CertificateStatus> skipStatuses = List.of(CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
+        List<CertificateStatus> skipStatuses = List.of(CertificateStatus.NEW, CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
-        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float)24));
+        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
         LocalDateTime before = LocalDateTime.now().minusDays(1);
 
@@ -880,7 +884,7 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST)
     public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
         List<CertificateContentDto> response = new ArrayList<>();
-        for(String uuid: uuids) {
+        for (String uuid : uuids) {
             try {
                 SecuredUUID securedUUID = SecuredUUID.fromString(uuid);
                 permissionEvaluator.certificate(securedUUID);
@@ -892,7 +896,7 @@ public class CertificateServiceImpl implements CertificateService {
                 dto.setCertificateContent(certificate.getCertificateContent().getContent());
                 response.add(dto);
             } catch (Exception e) {
-                logger.error("Unable to get the certificate content {}. Exception: ",uuid, e.getMessage());
+                logger.error("Unable to get the certificate content {}. Exception: ", uuid, e.getMessage());
             }
         }
         return response;
@@ -930,6 +934,20 @@ public class CertificateServiceImpl implements CertificateService {
         metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
         certificateComplianceCheck(entity);
         return entity;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    public List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled) {
+        filter.setParentRefProperty("raProfileUuid");
+
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
+                (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.or(cb.equal(root.get("status"), CertificateStatus.VALID), cb.equal(root.get("status"), CertificateStatus.EXPIRING))));
+        return certificates
+                .stream()
+                .filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled))
+                .map(Certificate::mapToListDto)
+                .collect(Collectors.toList());
     }
 
     private String getExpiryTime(Date now, Date expiry) {

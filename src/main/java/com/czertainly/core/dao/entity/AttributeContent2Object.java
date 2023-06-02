@@ -35,7 +35,7 @@ public class AttributeContent2Object extends UniquelyIdentified {
     @Column(name = "source_object_name")
     private String sourceObjectName;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 

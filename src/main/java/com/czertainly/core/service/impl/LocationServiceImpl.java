@@ -4,6 +4,8 @@ import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.clients.LocationApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.certificate.LocationsResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
@@ -22,14 +24,17 @@ import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CertificateLocationRepository;
-import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.LocationRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -38,15 +43,26 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import jakarta.transaction.Transactional;
+import com.czertainly.core.util.RequestValidatorHelper;
+import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Service
@@ -58,7 +74,9 @@ public class LocationServiceImpl implements LocationService {
     private static final List<AttributeContentType> TO_BE_MASKED = List.of(AttributeContentType.SECRET);
     private LocationRepository locationRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
     private CertificateLocationRepository certificateLocationRepository;
+    private AttributeContentRepository attributeContentRepository;
     private RaProfileRepository raProfileRepository;
     private EntityInstanceApiClient entityInstanceApiClient;
     private LocationApiClient locationApiClient;
@@ -69,14 +87,27 @@ public class LocationServiceImpl implements LocationService {
     private AttributeService attributeService;
     private PermissionEvaluator permissionEvaluator;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @Autowired
+    public void setAttributeContentRepository(AttributeContentRepository attributeContentRepository) {
+        this.attributeContentRepository = attributeContentRepository;
+    }
+
+    @Autowired
+    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
+    }
+
     @Autowired
     public void setLocationRepository(LocationRepository locationRepository) {
         this.locationRepository = locationRepository;
     }
 
     @Autowired
-    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
-        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
+    public void setAttributeContent2ObjectRepository(AttributeContent2ObjectRepository attributeContent2ObjectRepository) {
+        this.attributeContent2ObjectRepository = attributeContent2ObjectRepository;
     }
 
     @Autowired
@@ -131,30 +162,36 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST, parentResource = Resource.ENTITY, parentAction = ResourceAction.LIST)
-    public List<LocationDto> listLocation(SecurityFilter filter) {
-        filter.setParentRefProperty("entityInstanceReferenceUuid");
-        List<Location> locations = locationRepository.findUsingSecurityFilter(filter);
-        return locations.stream().map(Location::mapToDtoSimple).collect(Collectors.toList());
-    }
-
-    @Override
-    //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
-    public List<LocationDto> listLocations(SecurityFilter filter, Optional<Boolean> enabled) {
-        if (enabled == null || !enabled.isPresent()) {
-            return locationRepository
-                    .findUsingSecurityFilter(filter)
-                    .stream()
-                    .map(Location::mapToDtoSimple)
-                    .collect(Collectors.toList());
-        } else {
-            return locationRepository
-                    .findUsingSecurityFilter(filter, enabled.get())
-                    .stream()
-                    .map(Location::mapToDtoSimple)
-                    .collect(Collectors.toList());
+    public LocationsResponseDto listLocations(SecurityFilter filter, SearchRequestDto request) {
+
+        RequestValidatorHelper.revalidateSearchRequestDto(request);
+        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+
+        final List<UUID> objectUUIDs = new ArrayList<>();
+        if (!request.getFilters().isEmpty()) {
+            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
+            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
+            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
+
+            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.LOCATION);
+            objectUUIDs.addAll(attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
         }
+
+        final BiFunction<Root<Location>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+                .stream()
+                .map(Location::mapToDto)
+                .collect(Collectors.toList());
+        final Long maxItems = locationRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+
+        final LocationsResponseDto responseDto = new LocationsResponseDto();
+        responseDto.setLocations(listedKeyDTOs);
+        responseDto.setItemsPerPage(request.getItemsPerPage());
+        responseDto.setPageNumber(request.getPageNumber());
+        responseDto.setTotalItems(maxItems);
+        responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
+        return responseDto;
     }
 
     @Override
@@ -467,7 +504,7 @@ public class LocationServiceImpl implements LocationService {
 
         logger.info("Certificate {} successfully pushed to Location {}", certificateUuid, location.getName());
 
-        LocationDto dto = location.mapToDto();
+        final LocationDto dto = location.mapToDto();
         dto.getCertificates().forEach(e -> {
             e.setMetadata(metadataService.getFullMetadata(UUID.fromString(e.getCertificateUuid()), Resource.CERTIFICATE, UUID.fromString(dto.getUuid()), Resource.LOCATION));
         });
@@ -1086,5 +1123,45 @@ public class LocationServiceImpl implements LocationService {
                 throw new ValidationException(ValidationError.create("Location with same attributes already exists"));
             }
         }
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
+
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
+
+        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
+        if (metadataSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
+        }
+
+        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
+        if (customAttrSearchFieldObject.size() > 0) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
+        }
+
+        List<SearchFieldDataDto> fields = List.of(
+                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_INSTANCE_NAME, locationRepository.findDistinctEntityInstanceName()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENABLED),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_MULTIPLE_ENTRIES),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_KEY_MANAGEMENT)
+        );
+
+        fields = fields.stream().collect(Collectors.toList());
+        fields.sort(new SearchFieldDataComparator());
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
+
+        logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
+        return searchFieldDataByGroupDtos;
+    }
+
+    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.LOCATION, AttributeType.META);
+    }
+
+    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
+        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.LOCATION, AttributeType.CUSTOM);
     }
 }

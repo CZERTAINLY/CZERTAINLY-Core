@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataResponseDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
@@ -92,19 +93,24 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
-    public List<AttributeDefinitionDto> listAttributes(SecurityFilter filter, AttributeType type) {
-        logger.info("Fetching attributes for Type: {}", type.getCode());
-        if (type.equals(AttributeType.CUSTOM)) {
-            return attributeDefinitionRepository.findUsingSecurityFilterAndType(filter, type).stream().map(e -> e.mapToListDto(type)).collect(Collectors.toList());
-        } else if (type.equals(AttributeType.META)) {
-            return attributeDefinitionRepository.findUsingSecurityFilter(filter,
-                    (root, cb) -> cb.and(
-                            cb.equal(root.get("type"), type),
-                            cb.equal(root.get("global"), Boolean.TRUE))
-            ).stream().map(e -> e.mapToListDto(type)).collect(Collectors.toList());
-        } else {
-            throw new IllegalArgumentException("Invalid Attribute Type: " + type);
-        }
+    public List<CustomAttributeDefinitionDto> listAttributes(SecurityFilter filter) {
+        logger.info("Fetching custom attributes");
+        return attributeDefinitionRepository.findUsingSecurityFilterAndType(filter, AttributeType.CUSTOM).stream().map(e -> {
+            CustomAttributeDefinitionDto customAttributeDefinitionDto = e.mapToCustomAttributeDefinitionDto();
+            customAttributeDefinitionDto.setResources(attributeRelationRepository.findByAttributeDefinitionUuid(e.getUuid()).stream().map(AttributeRelation::getResource).collect(Collectors.toList()));
+            return customAttributeDefinitionDto;
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
+    public List<AttributeDefinitionDto> listGlobalMetadata(SecurityFilter filter) {
+        logger.info("Fetching global metadata");
+        return attributeDefinitionRepository.findUsingSecurityFilter(filter,
+                (root, cb) -> cb.and(
+                        cb.equal(root.get("type"), AttributeType.META),
+                        cb.equal(root.get("global"), Boolean.TRUE))
+        ).stream().map(AttributeDefinition::mapToGlobalMetadataDefinitionDto).collect(Collectors.toList());
     }
 
     @Override

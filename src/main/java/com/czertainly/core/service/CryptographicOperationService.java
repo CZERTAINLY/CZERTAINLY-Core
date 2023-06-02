@@ -5,7 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.connector.cryptography.enums.CryptographicAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 
@@ -24,7 +24,7 @@ public interface CryptographicOperationService {
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
      * @param keyItemUuid       UUID of the Item inside the key Object
-     * @param algorithm         Algorithm for which the attributes have to be fetched {@Link CryptographicAlgorithm}
+     * @param keyAlgorithm      Key algorithm for which the attributes have to be fetched {@Link KeyAlgorithm}
      * @return List of attributes for Cipher Attributes
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
@@ -33,7 +33,7 @@ public interface CryptographicOperationService {
             SecuredUUID tokenProfileUUID,
             UUID uuid,
             UUID keyItemUuid,
-            CryptographicAlgorithm algorithm
+            KeyAlgorithm keyAlgorithm
     ) throws ConnectorException;
 
     /**
@@ -75,7 +75,7 @@ public interface CryptographicOperationService {
      * @param tokenProfileUUID  UUID of the token profile
      * @param uuid              UUID of the cryptographic key
      * @param keyItemUuid       UUID of the Item inside the key Object
-     * @param algorithm         Algorithm for which the Signature Attributes has to be fetched {@Link CryptographicAlgorithm}
+     * @param keyAlgorithm      Key algorithm for which the Signature Attributes has to be fetched {@Link KeyAlgorithm}
      * @return List of attributes for the Signature Algorithm
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
@@ -84,7 +84,7 @@ public interface CryptographicOperationService {
             SecuredUUID tokenProfileUUID,
             UUID uuid,
             UUID keyItemUuid,
-            CryptographicAlgorithm algorithm
+            KeyAlgorithm keyAlgorithm
     ) throws ConnectorException;
 
     /**

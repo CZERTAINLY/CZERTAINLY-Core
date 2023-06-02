@@ -14,4 +14,10 @@ public class ScheduledTasks {
     public UpdateCertificateStatusTask updateCertificateStatusTask() {
         return new UpdateCertificateStatusTask();
     }
+
+    @Bean
+    @ConditionalOnProperty(value = "scheduled-tasks.enabled", matchIfMissing = true, havingValue = "true")
+    public UpdateIntuneRevocationRequestsTask updateIntuneRevocationRequestsTask() {
+        return new UpdateIntuneRevocationRequestsTask();
+    }
 }

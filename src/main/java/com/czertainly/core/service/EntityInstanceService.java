@@ -4,9 +4,12 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -18,7 +21,7 @@ public interface EntityInstanceService extends ResourceExtensionService {
      * List available Entity instances
      * @return List of available Entity instances
      */
-    List<EntityInstanceDto> listEntityInstances(SecurityFilter filter);
+    EntityInstanceResponseDto listEntityInstances(SecurityFilter filter, SearchRequestDto requestDto);
 
     /**
      * Get Entity instance by UUID
@@ -74,4 +77,10 @@ public interface EntityInstanceService extends ResourceExtensionService {
      * @throws ConnectorException when failed to validate Location Attributes
      */
     void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> locationAttributes) throws NotFoundException, ConnectorException;
+
+    /**
+     * Get all possible field to be able to search by customer
+     * @return List of {@link SearchFieldDataByGroupDto} object with definition the possible fields
+     */
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 }

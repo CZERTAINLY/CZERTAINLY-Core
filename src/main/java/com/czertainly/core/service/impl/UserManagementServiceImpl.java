@@ -9,9 +9,7 @@ import com.czertainly.api.model.client.auth.UserIdentificationRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.core.config.AcmeValidationFilter;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -25,7 +23,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 
 import jakarta.transaction.Transactional;
