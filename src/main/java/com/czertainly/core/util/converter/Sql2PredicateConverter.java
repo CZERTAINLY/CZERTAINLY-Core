@@ -254,12 +254,14 @@ public class Sql2PredicateConverter {
                 case SIGNATURE_VALIDATION -> textToBeFormatted = SIGNATURE_VERIFICATION;
                 case CRL_VALIDATION -> textToBeFormatted = CRL_VERIFICATION;
             }
-            switch (dto.getCondition()) {
-                case EQUALS -> {
-                    return criteriaBuilder.like(root.get("certificateValidationResult"), formatCertificateVerificationResultByStatus(textToBeFormatted, valueObject.toString()));
-                }
-                case NOT_EQUALS -> {
-                    return criteriaBuilder.notLike(root.get("certificateValidationResult"), formatCertificateVerificationResultByStatus(textToBeFormatted, valueObject.toString()));
+            if (textToBeFormatted != null) {
+                switch (dto.getCondition()) {
+                    case EQUALS -> {
+                        return criteriaBuilder.like(root.get("certificateValidationResult"), formatCertificateVerificationResultByStatus(textToBeFormatted, valueObject.toString()));
+                    }
+                    case NOT_EQUALS -> {
+                        return criteriaBuilder.notLike(root.get("certificateValidationResult"), formatCertificateVerificationResultByStatus(textToBeFormatted, valueObject.toString()));
+                    }
                 }
             }
         }
