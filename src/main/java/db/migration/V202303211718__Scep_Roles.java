@@ -79,9 +79,10 @@ public class V202303211718__Scep_Roles extends BaseJavaMigration {
         URL resource = classLoader.getResource("application.properties");
         File file = new File(resource.toURI());
 
-        InputStream targetStream = new FileInputStream(file);
-        Properties properties = new Properties();
-        properties.load(targetStream);
+        final Properties properties = new Properties();
+        try (InputStream targetStream = new FileInputStream(file)) {
+            properties.load(targetStream);
+        }
         String[] splitData = ((String) properties.get("auth-service.base-url")).split(AUTH_SERVICE_BASE_URL_PROPERTY);
         return splitData[splitData.length - 1].replace("}", "");
     }
