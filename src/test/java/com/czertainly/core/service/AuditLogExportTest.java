@@ -23,7 +23,7 @@ public class AuditLogExportTest extends BaseSpringBootTest {
 
     @Test
     public void testExportAuditLog() throws IOException {
-        auditLogService.listAuditLogs(new AuditLogFilter(), Pageable.unpaged());
+        auditLogService.listAuditLogs(new AuditLogFilter(), Pageable.ofSize(10));
         ExportResultDto result = auditLogService.exportAuditLogs(new AuditLogFilter(), Sort.by("id"));
 
         try (FileOutputStream fos = new FileOutputStream(File.createTempFile(result.getFileName(), ""))) {
