@@ -23,7 +23,7 @@ public class AuditLogExportTest extends BaseSpringBootTest {
 
     @Test
     public void testExportAuditLog() throws IOException {
-        auditLogService.listAuditLogs(new AuditLogFilter(), Pageable.unpaged());
+        auditLogService.listAuditLogs(new AuditLogFilter(), Pageable.ofSize(10));
         ExportResultDto result = auditLogService.exportAuditLogs(new AuditLogFilter(), Sort.by("id"));
 
         try (FileOutputStream fos = new FileOutputStream(File.createTempFile(result.getFileName(), ""))) {
@@ -37,7 +37,7 @@ public class AuditLogExportTest extends BaseSpringBootTest {
         auditLogService.logStartup();
         auditLogService.logShutdown();
         auditLogService.purgeAuditLogs(new AuditLogFilter(), Pageable.unpaged().getSort());
-        AuditLogResponseDto logs = auditLogService.listAuditLogs(new AuditLogFilter(), Pageable.unpaged());
+        AuditLogResponseDto logs = auditLogService.listAuditLogs(new AuditLogFilter(), Pageable.ofSize(10));
 
         // if the audit log is enabled, purging audit logs will keep the delete operation in the audit log
         // therefore we expect only 1 record to be available after purging all
