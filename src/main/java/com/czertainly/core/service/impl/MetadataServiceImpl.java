@@ -253,7 +253,10 @@ public class MetadataServiceImpl implements MetadataService {
         metadata2Object.setSourceObjectName(sourceObjectName);
         metadata2Object.setSourceObjectType(sourceObjectResource);
 
-        metadata2Object.setConnector(connectorRepository.findByUuid(connectorUuid).get());
+        Optional<Connector> connectorOptional = connectorRepository.findByUuid(connectorUuid);
+        if (connectorOptional.isPresent()) {
+            metadata2Object.setConnector(connectorOptional.get());
+        }
 
         if (existingContent != null) {
             metadata2Object.setAttributeContent(existingContent);

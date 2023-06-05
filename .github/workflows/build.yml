@@ -24,7 +24,7 @@ jobs:
           server-username: GITHUB_USER_REF
           server-password: GITHUB_TOKEN_REF
       - name: Cache Maven packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -40,7 +40,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: Set up JDK 17
@@ -52,13 +52,13 @@ jobs:
           server-username: GITHUB_USER_REF
           server-password: GITHUB_TOKEN_REF
       - name: Cache SonarQube packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
       - name: Cache Maven packages
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
