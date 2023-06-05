@@ -13,6 +13,8 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -29,6 +31,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -143,6 +146,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private PermissionEvaluator permissionEvaluator;
+
+    @Autowired
+    private UserManagementApiClient userManagementApiClient;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -293,14 +299,15 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+        logger.info("Updating certificate objects: RA {} group {} owner {}", request.getRaProfileUuid(), request.getGroupUuid(), request.getOwnerUuid());
         if (request.getRaProfileUuid() != null) {
             updateRaProfile(uuid, SecuredUUID.fromString(request.getRaProfileUuid()));
         }
         if (request.getGroupUuid() != null) {
             updateCertificateGroup(uuid, SecuredUUID.fromString(request.getGroupUuid()));
         }
-        if (request.getOwner() != null) {
-            updateOwner(uuid, request.getOwner());
+        if (request.getOwnerUuid() != null) {
+            updateOwner(uuid, request.getOwnerUuid());
         }
     }
 
@@ -309,6 +316,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     public void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        logger.info("Bulk updating certificate objects: RA {} group {} owner {}", request.getRaProfileUuid(), request.getGroupUuid(), request.getOwnerUuid());
         filter.setParentRefProperty("raProfileUuid");
         if (request.getRaProfileUuid() != null) {
             bulkUpdateRaProfile(filter, request);
@@ -316,7 +324,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getGroupUuid() != null) {
             bulkUpdateCertificateGroup(filter, request);
         }
-        if (request.getOwner() != null) {
+        if (request.getOwnerUuid() != null) {
             bulkUpdateOwner(filter, request);
         }
     }
@@ -614,6 +622,15 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with serial number " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
+
+        try {
+            UserProfileDto userProfileDto = AuthHelper.getUserProfile();
+            entity.setOwner(userProfileDto.getUser().getUsername());
+            entity.setOwnerUuid(UUID.fromString(userProfileDto.getUser().getUuid()));
+        } catch (Exception e) {
+            logger.warn("Unable to set owner to logged user: {}", e.getMessage());
+        }
+
         certificateRepository.save(entity);
         certificateComplianceCheck(entity);
         return entity;
@@ -1249,15 +1266,21 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + group.getName(), "", certificate);
     }
 
-    private void updateOwner(SecuredUUID uuid, String owner) throws NotFoundException {
+    private void updateOwner(SecuredUUID uuid, String ownerUuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
+
+        // if there is no change, do not update and save request to Auth service
+        if(certificate.getOwnerUuid() != null && certificate.getOwnerUuid().toString().equals(ownerUuid)) return;
+
         String originalOwner = certificate.getOwner();
         if (originalOwner == null || originalOwner.isEmpty()) {
             originalOwner = "undefined";
         }
-        certificate.setOwner(owner);
+        UserDetailDto userDetail = userManagementApiClient.getUserDetail(ownerUuid);
+        certificate.setOwner(userDetail.getUsername());
+        certificate.setOwnerUuid(UUID.fromString(userDetail.getUuid()));
         certificateRepository.save(certificate);
-        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + owner, "", certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + userDetail.getUsername(), "", certificate);
     }
 
     private void bulkUpdateRaProfile(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
@@ -1315,14 +1338,16 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private void bulkUpdateOwner(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        UserDetailDto userDetail = userManagementApiClient.getUserDetail(request.getOwnerUuid());
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
             List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
                 permissionEvaluator.certificate(certificate.getSecuredUuid());
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
-                certificate.setOwner(request.getOwner());
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwnerUuid(), "", certificate));
+                certificate.setOwner(userDetail.getUsername());
+                certificate.setOwnerUuid(UUID.fromString(userDetail.getUuid()));
                 batchOperationList.add(certificate);
             }
             certificateRepository.saveAll(batchOperationList);
@@ -1332,9 +1357,9 @@ public class CertificateServiceImpl implements CertificateService {
             if (!data.equals("")) {
                 data = "WHERE " + data;
             }
-            String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + userDetail.getUsername() + "',c.owner_uuid = '" + UUID.fromString(userDetail.getUuid()) + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(ownerUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + userDetail.getUsername());
         }
     }
 

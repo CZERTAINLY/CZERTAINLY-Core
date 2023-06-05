@@ -15,6 +15,7 @@ import com.czertainly.api.model.connector.v2.CertificateSignRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.authority.RevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
@@ -36,10 +37,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.CsrUtil;
-import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.*;
 import jakarta.transaction.Transactional;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
@@ -240,9 +238,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
 
         logger.info("Certificate created {}", certificate);
+        UserProfileDto userProfileDto = AuthHelper.getUserProfile();
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setRaProfileUuid(raProfile.getUuid().toString());
         logger.debug("Certificate : {}, RA Profile: {}", certificate, raProfile);
+        dto.setOwnerUuid(userProfileDto.getUser().getUuid());
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), dto);
         certificateService.updateCertificateIssuer(certificate);
         try {
