@@ -1268,6 +1268,10 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void updateOwner(SecuredUUID uuid, String ownerUuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
+
+        // if there is no change, do not update and save request to Auth service
+        if(certificate.getOwnerUuid() != null && certificate.getOwnerUuid().toString().equals(ownerUuid)) return;
+
         String originalOwner = certificate.getOwner();
         if (originalOwner == null || originalOwner.isEmpty()) {
             originalOwner = "undefined";
