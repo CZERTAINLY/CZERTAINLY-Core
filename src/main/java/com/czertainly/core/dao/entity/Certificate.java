@@ -112,6 +112,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "owner")
     private String owner;
 
+    @Column(name = "owner_uuid")
+    private UUID ownerUuid;
+
     @Column(name = "key_size")
     private Integer keySize;
 
@@ -439,6 +442,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setOwner(String owner) {
         this.owner = owner;
+    }
+
+    public UUID getOwnerUuid() {
+        return ownerUuid;
+    }
+
+    public void setOwnerUuid(UUID ownerUuid) {
+        this.ownerUuid = ownerUuid;
     }
 
     public Integer getKeySize() {
