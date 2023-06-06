@@ -62,7 +62,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
         certificate = new Certificate();
         certificate.setSubjectDn("testCertificate");
-        certificate.setIssuerDn("testCertificate");
+        certificate.setIssuerDn("testCercertificatetificate");
         certificate.setSerialNumber("123456789");
         certificate.setStatus(CertificateStatus.VALID);
         certificate.setCertificateContent(certificateContent);
@@ -244,6 +244,6 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
         certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
 
-        Assertions.assertAll(() -> certificateService.getCertificate(certificate.getSecuredUuid()));
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.getCertificate(certificate.getSecuredUuid()));
     }
 }

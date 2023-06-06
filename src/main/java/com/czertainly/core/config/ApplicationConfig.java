@@ -135,4 +135,9 @@ public class ApplicationConfig {
     public CryptographicOperationsApiClient cryptographicOperationsApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
         return new CryptographicOperationsApiClient(webClient, defaultTrustManagers);
     }
+
+    @Bean
+    public SchedulerApiClient schedulerApiClient() {
+        return new SchedulerApiClient();
+    }
 }

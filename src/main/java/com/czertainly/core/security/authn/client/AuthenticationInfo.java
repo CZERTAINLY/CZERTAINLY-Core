@@ -9,17 +9,21 @@ import java.util.stream.Collectors;
 public class AuthenticationInfo {
 
     private static final String ANONYMOUS_USERNAME = "anonymousUser";
+
+    private final String userUuid;
     private final String username;
     private final List<GrantedAuthority> authorities;
     private final String rawData;
 
-    public AuthenticationInfo(String username, List<GrantedAuthority> authorities, String rawData) {
+    public AuthenticationInfo(String userUuid, String username, List<GrantedAuthority> authorities, String rawData) {
+        this.userUuid = userUuid;
         this.username = username;
         this.authorities = authorities;
         this.rawData = rawData;
     }
 
-    public AuthenticationInfo(String username, List<GrantedAuthority> authorities) {
+    public AuthenticationInfo(String userUuid, String username, List<GrantedAuthority> authorities) {
+        this.userUuid = userUuid;
         this.username = username;
         this.authorities = authorities;
         List<String> roles = authorities.stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList());
@@ -46,7 +50,11 @@ public class AuthenticationInfo {
         return this.username.equals(ANONYMOUS_USERNAME);
     }
 
+    public String getUserUuid() {
+        return userUuid;
+    }
+
     public static AuthenticationInfo getAnonymousAuthenticationInfo() {
-        return new AuthenticationInfo(ANONYMOUS_USERNAME, List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
+        return new AuthenticationInfo(null, ANONYMOUS_USERNAME, List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS")));
     }
 }
