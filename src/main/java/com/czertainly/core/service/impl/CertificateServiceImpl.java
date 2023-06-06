@@ -29,6 +29,7 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -146,6 +147,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private PermissionEvaluator permissionEvaluator;
+
+    @Autowired
+    private EventProducer eventProducer;
 
     @Autowired
     private UserManagementApiClient userManagementApiClient;
@@ -743,15 +747,22 @@ public class CertificateServiceImpl implements CertificateService {
         LocalDateTime before = LocalDateTime.now().minusDays(1);
 
         // process 1/24 of eligible certificates for status update
-        List<Certificate> certificates = certificateRepository.findCertificatesToCheckStatus(
+        final List<Certificate> certificates = certificateRepository.findCertificatesToCheckStatus(
                 before,
                 skipStatuses,
                 PageRequest.of(0, maxCertsToValidate));
 
         int counter = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
-        for (Certificate certificate : certificates) {
-            if (updateCertificateStatusScheduled(certificate)) ++counter;
+        for (final Certificate certificate : certificates) {
+            if (updateCertificateStatusScheduled(certificate)) {
+                if (CertificateStatus.REVOKED.equals(certificate.getStatus())
+                        || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
+                    eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
+                    logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
+                }
+                ++counter;
+            }
         }
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", counter, certificates.size());
     }
@@ -760,8 +771,9 @@ public class CertificateServiceImpl implements CertificateService {
         try {
             updateCertificateIssuer(certificate);
             certValidationService.validate(certificate);
-            if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null)
+            if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) {
                 complianceService.checkComplianceOfCertificate(certificate);
+            }
         } catch (Exception e) {
             logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate {}. Certificate {}", e.getMessage(), certificate.toString());
             certificate.setStatusValidationTimestamp(LocalDateTime.now());

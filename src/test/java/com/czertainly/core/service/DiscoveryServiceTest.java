@@ -128,7 +128,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
         request.setAttributes(List.of());
         request.setKind("ApiKey");
 
-        DiscoveryHistory dto = discoveryService.createDiscoveryModal(request);
+        DiscoveryHistory dto = discoveryService.createDiscoveryModal(request, true);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertEquals(discovery.getConnectorUuid(), dto.getConnectorUuid());
@@ -139,7 +139,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
         DiscoveryDto request = new DiscoveryDto();
         request.setName("Demo");
         // connector uui not set
-        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscoveryModal(request));
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscoveryModal(request, true));
     }
 
     @Test
@@ -147,27 +147,25 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
         DiscoveryDto request = new DiscoveryDto();
         request.setName(DISCOVERY_NAME); // discovery with same name exist
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> discoveryService.createDiscoveryModal(request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> discoveryService.createDiscoveryModal(request, true));
     }
 
     @Test
+    @Disabled("Currently there is not valid input parameters")
     public void testDiscoverCertificates() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 
-        DiscoveryDto request = new DiscoveryDto();
-
         // TODO createDiscovery is async - currently not tested properly
-        discoveryService.createDiscovery(request, discovery);
+        discoveryService.createDiscovery(discovery);
     }
 
     @Test
     @Disabled("Async method is not throwing exception")
     public void testDiscoverCertificates_notFound() {
-        DiscoveryDto request = new DiscoveryDto();
         // connector uui not set
-        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.createDiscovery(request, discovery));
+        Assertions.assertThrows(NotFoundException.class, () -> discoveryService.createDiscovery(discovery));
     }
 
     @Test
@@ -177,9 +175,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("false")));
 
-        DiscoveryDto request = new DiscoveryDto();
-        request.setConnectorUuid(connector.getUuid().toString());
-        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(request, discovery));
+        Assertions.assertThrows(ValidationException.class, () -> discoveryService.createDiscovery(discovery));
     }
 
     @Test

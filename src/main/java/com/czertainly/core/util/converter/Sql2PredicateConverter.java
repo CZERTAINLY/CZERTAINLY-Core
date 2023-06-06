@@ -9,10 +9,7 @@ import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.api.model.core.search.SearchableFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
-import com.czertainly.core.dao.entity.AttributeContent;
-import com.czertainly.core.dao.entity.AttributeContent2Object;
-import com.czertainly.core.dao.entity.AttributeContentItem;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
@@ -74,7 +71,6 @@ public class Sql2PredicateConverter {
         final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(searchFieldTypeEnum) || SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum);
         final Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject, searchableFields);
         if (predicate == null) {
-            final Expression expression = prepareExpression(root, searchableFields.getCode());
             final Object expressionValue = prepareValue(valueObject, searchableFields);
             final SearchFieldObject searchFieldObject = SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum) ? new SearchFieldObject(AttributeContentType.DATETIME) : null;
             return buildPredicateByCondition(criteriaBuilder, searchCondition, null, root, searchableFields, expressionValue, isDateFormat, SearchableFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()),dto, searchFieldObject);
@@ -339,6 +335,11 @@ public class Sql2PredicateConverter {
         cqdo.setCriteriaQuery(criteriaQuery);
         cqdo.setPredicate(criteriaBuilder.and(rootPredicates.toArray(new Predicate[]{})));
         return cqdo;
+    }
+
+    public static Predicate constructFilterForJobHistory(final CriteriaBuilder cb, final Root<ScheduledJobHistory> root, final String jobName) {
+        final Expression<?> expressionPath = prepareExpression(root, "jobName");
+        return cb.equal(expressionPath, jobName);
     }
 
 
