@@ -83,6 +83,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = new Group();
         group.setName(request.getName());
         group.setDescription(request.getDescription());
+        group.setEmail(request.getEmail());
         groupRepository.save(group);
         attributeService.createAttributeContent(group.getUuid(), request.getCustomAttributes(), Resource.GROUP);
         GroupDto dto = group.mapToDto();
@@ -131,6 +132,7 @@ public class GroupServiceImpl implements GroupService {
         Group group = getGroupEntity(uuid);
 
         group.setDescription(request.getDescription());
+        group.setEmail(request.getEmail());
         groupRepository.save(group);
 
         attributeService.updateAttributeContent(group.getUuid(), request.getCustomAttributes(), Resource.GROUP);
