@@ -15,7 +15,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "certificate_key_group")
+@Table(name = "group")
 public class Group extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     /**
@@ -28,6 +28,9 @@ public class Group extends UniquelyIdentifiedAndAudited implements Serializable,
 
     @Column(name = "description")
     protected String description;
+
+    @Column(name = "email")
+    protected String email;
 
     public String getName() {
         return name;
@@ -45,11 +48,20 @@ public class Group extends UniquelyIdentifiedAndAudited implements Serializable,
         this.description = description;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
     @Override
     public GroupDto mapToDto() {
         GroupDto dto = new GroupDto();
         dto.setName(this.name);
         dto.setUuid(uuid.toString());
+        dto.setEmail(this.email);
         dto.setDescription(description);
         return dto;
     }
@@ -64,6 +76,7 @@ public class Group extends UniquelyIdentifiedAndAudited implements Serializable,
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("name", name)
                 .append("description", description)
+                .append("email", email)
                 .append("uuid", uuid)
                 .toString();
     }
