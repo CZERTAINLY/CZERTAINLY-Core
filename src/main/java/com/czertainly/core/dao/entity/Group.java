@@ -15,7 +15,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 import java.io.Serializable;
 
 @Entity
-@Table(name = "group")
+@Table(name = "\"group\"")
 public class Group extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
     /**
