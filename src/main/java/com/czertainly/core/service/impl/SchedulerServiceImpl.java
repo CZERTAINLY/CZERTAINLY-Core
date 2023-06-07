@@ -103,15 +103,13 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
-    public ResponseEntity<?> enableScheduledJob(final String uuid) {
+    public void enableScheduledJob(final String uuid) {
         changeScheduledJobState(uuid, true);
-        return ResponseEntity.ok().build();
     }
 
     @Override
-    public ResponseEntity<?> disableScheduledJob(final String uuid) {
+    public void disableScheduledJob(final String uuid) {
         changeScheduledJobState(uuid, false);
-        return ResponseEntity.ok().build();
     }
 
     private void changeScheduledJobState(final String uuid, final boolean enabled) {
