@@ -12,20 +12,24 @@ public class ScheduledTasks {
 
     UpdateCertificateStatusTask updateCertificateStatusTask;
 
+    UpdateIntuneRevocationRequestsTask updateIntuneRevocationRequestsTask;
+
     @Bean
     @ConditionalOnProperty(value = "scheduled-tasks.enabled", matchIfMissing = true, havingValue = "true")
     public void registerJobs() {
         updateCertificateStatusTask.registerScheduler();
+        updateIntuneRevocationRequestsTask.registerScheduler();
     }
+
+    // SETTERs
 
     @Autowired
     public void setUpdateCertificateStatusTask(UpdateCertificateStatusTask updateCertificateStatusTask) {
         this.updateCertificateStatusTask = updateCertificateStatusTask;
     }
 
-    @Bean
-    @ConditionalOnProperty(value = "scheduled-tasks.enabled", matchIfMissing = true, havingValue = "true")
-    public UpdateIntuneRevocationRequestsTask updateIntuneRevocationRequestsTask() {
-        return new UpdateIntuneRevocationRequestsTask();
+    @Autowired
+    public void setUpdateIntuneRevocationRequestsTask(UpdateIntuneRevocationRequestsTask updateIntuneRevocationRequestsTask) {
+        this.updateIntuneRevocationRequestsTask = updateIntuneRevocationRequestsTask;
     }
 }
