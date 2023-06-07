@@ -83,6 +83,7 @@ Operations can be automated by the `Core`, but also can be performed manually by
 | `RABBITMQ_PORT`           | RabbitMQ messaging port                                             | ![](https://img.shields.io/badge/-NO-red.svg)      | `5672`              |
 | `RABBITMQ_USERNAME`       | RabbitMQ messaging username                                         | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
 | `RABBITMQ_PASSWORD`       | RabbitMQ messaging password                                         | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `RABBITMQ_VHOST`          | RabbitMQ messaging virtual host                                     | ![](https://img.shields.io/badge/-NO-red.svg)      | `czertainly`        |
 
 ### Proxy settings
 
