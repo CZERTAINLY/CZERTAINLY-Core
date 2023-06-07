@@ -17,8 +17,8 @@ public interface SchedulerService {
 
     ScheduledJobHistoryResponseDto getScheduledJobHistory(final SecurityFilter filter, final PaginationRequestDto pagination, String uuid);
 
-    ResponseEntity<?> enableScheduledJob(String uuid);
+    void enableScheduledJob(String uuid);
 
-    ResponseEntity<?> disableScheduledJob(String uuid);
+    void disableScheduledJob(String uuid);
 
 }

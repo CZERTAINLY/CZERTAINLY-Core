@@ -37,13 +37,13 @@ public class SchedulerControllerImpl implements SchedulerController {
     }
 
     @Override
-    public ResponseEntity<?> enableScheduledJob(String uuid) {
-        return schedulerService.enableScheduledJob(uuid);
+    public void enableScheduledJob(String uuid) {
+        schedulerService.enableScheduledJob(uuid);
     }
 
     @Override
-    public ResponseEntity<?> disableScheduledJob(String uuid) {
-        return schedulerService.disableScheduledJob(uuid);
+    public void disableScheduledJob(String uuid) {
+        schedulerService.disableScheduledJob(uuid);
     }
 
     // SETTERs
