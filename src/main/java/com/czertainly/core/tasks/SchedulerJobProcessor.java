@@ -2,6 +2,7 @@ package com.czertainly.core.tasks;
 
 import com.czertainly.api.clients.SchedulerApiClient;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.model.scheduler.*;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
@@ -40,36 +41,28 @@ public abstract class SchedulerJobProcessor {
 
     abstract SchedulerJobExecutionStatus performJob(final String jobName);
 
-    public boolean registerScheduler() {
-        return registerScheduler(getDefaultJobName(), getDefaultCronExpression());
+    public void registerScheduler() throws SchedulerException {
+        registerScheduler(getDefaultJobName(), getDefaultCronExpression());
     }
 
-    public boolean registerScheduler(final String jobName, final String cronExpression) {
-        return registerScheduler(jobName, cronExpression, null);
+    public void registerScheduler(final String jobName, final String cronExpression) throws SchedulerException {
+        registerScheduler(jobName, cronExpression, null);
     }
 
-    public boolean registerScheduler(final String jobName, final String cronExpression, final Object objectData) {
+    public void registerScheduler(final String jobName, final String cronExpression, final Object objectData) throws SchedulerException {
         final SchedulerJobDto schedulerDetail = new SchedulerJobDto(jobName, cronExpression, getJobClassName());
-        SchedulerResponseDto responseDto = null;
-        try {
-            responseDto = schedulerApiClient.schedulerCreate(new SchedulerRequestDto(schedulerDetail));
-            if (SchedulerStatus.OK.equals(responseDto.getSchedulerStatus())) {
-                saveJobDefinition(jobName, cronExpression, objectData);
-            }
-        } catch (ConnectorException e) {
-            logger.error("Unable to register scheduler {}", getDefaultJobName());
-        }
-        return responseDto != null && SchedulerStatus.OK.equals(responseDto.getSchedulerStatus());
+        schedulerApiClient.schedulerCreate(new SchedulerRequestDto(schedulerDetail));
+        saveJobDefinition(jobName, cronExpression, objectData);
     }
 
-    public void processTask(final String jobName) throws ConnectorException {
+    public void processTask(final String jobName) throws ConnectorException, SchedulerException {
         final ScheduledJobHistory scheduledJobHistory = registerJobHistory(jobName);
         final SchedulerJobExecutionStatus result = performJob(jobName);
         updateJobHistory(scheduledJobHistory, result);
         checkOneShotJob(jobName, result);
     }
 
-    private void checkOneShotJob(final String jobName, final SchedulerJobExecutionStatus status) throws ConnectorException {
+    private void checkOneShotJob(final String jobName, final SchedulerJobExecutionStatus status) throws SchedulerException {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
         if (SchedulerJobExecutionStatus.SUCCESS.equals(status)
                 && scheduledJob != null

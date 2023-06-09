@@ -1,5 +1,6 @@
 package com.czertainly.core.tasks;
 
+import com.czertainly.api.exception.SchedulerException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -16,7 +17,7 @@ public class ScheduledTasks {
 
     @Bean
     @ConditionalOnProperty(value = "scheduled-tasks.enabled", matchIfMissing = true, havingValue = "true")
-    public void registerJobs() {
+    public void registerJobs() throws SchedulerException {
         updateCertificateStatusTask.registerScheduler();
         updateIntuneRevocationRequestsTask.registerScheduler();
     }
