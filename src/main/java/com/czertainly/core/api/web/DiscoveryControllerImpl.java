@@ -3,6 +3,7 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -10,7 +11,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.scheduler.SchedulerJobInfoDto;
+import com.czertainly.api.model.core.scheduler.ScheduleDiscoveryDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
@@ -33,41 +34,41 @@ import java.util.List;
 @RestController
 public class DiscoveryControllerImpl implements DiscoveryController {
 
-	private final Logger logger = LoggerFactory.getLogger(DiscoveryControllerImpl.class);
+    private final Logger logger = LoggerFactory.getLogger(DiscoveryControllerImpl.class);
 
-	private DiscoveryService discoveryService;
+    private DiscoveryService discoveryService;
 
-	private ScheduledJobsRepository scheduledJobsRepository;
+    private ScheduledJobsRepository scheduledJobsRepository;
 
-	private DiscoveryCertificateTask discoveryCertificateTask;
+    private DiscoveryCertificateTask discoveryCertificateTask;
 
-	@Override
-	public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
-		return discoveryService.listDiscoveries(SecurityFilter.create(), request);
-	}
+    @Override
+    public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
+        return discoveryService.listDiscoveries(SecurityFilter.create(), request);
+    }
 
-	@Override
-	public DiscoveryHistoryDetailDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
-		return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
-	}
+    @Override
+    public DiscoveryHistoryDetailDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
+        return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
+    }
 
-	@Override
-	public DiscoveryCertificateResponseDto getDiscoveryCertificates(
-			String uuid,
-			Boolean newlyDiscovered,
-			int itemsPerPage,
-			int pageNumber
-	) throws NotFoundException {
-		return discoveryService.getDiscoveryCertificates(
-				SecuredUUID.fromString(uuid),
-				newlyDiscovered,
-				itemsPerPage,
-				pageNumber
-		);
-	}
+    @Override
+    public DiscoveryCertificateResponseDto getDiscoveryCertificates(
+            String uuid,
+            Boolean newlyDiscovered,
+            int itemsPerPage,
+            int pageNumber
+    ) throws NotFoundException {
+        return discoveryService.getDiscoveryCertificates(
+                SecuredUUID.fromString(uuid),
+                newlyDiscovered,
+                itemsPerPage,
+                pageNumber
+        );
+    }
 
-	@Override
-	public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
+    @Override
+    public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
             throws NotFoundException, ConnectorException, AlreadyExistException {
 		final DiscoveryHistory modal = discoveryService.createDiscoveryModal(request,true);
 		discoveryService.createDiscoveryAsync(modal);
@@ -81,54 +82,51 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 		return ResponseEntity.created(location).body(dto);
 	}
 
-	@Override
-	public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
-		discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
-	}
+    @Override
+    public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
+        discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
+    }
 
-	@Override
-	public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
-		discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
-	}
+    @Override
+    public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
+        discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
+    }
 
-	@Override
-	public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-		return discoveryService.getSearchableFieldInformationByGroup();
-	}
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return discoveryService.getSearchableFieldInformationByGroup();
+    }
 
-	@Override
-	public void scheduleDiscovery(final SchedulerJobInfoDto schedulerJobInfoDto, final DiscoveryDto request) {
-		try {
-			discoveryService.createDiscoveryModal(request, false);
+    @Override
+    public void scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws ConnectorException, AlreadyExistException, SchedulerException {
+        final DiscoveryDto discoveryDto = scheduleDiscoveryDto.getRequest();
+        discoveryService.createDiscoveryModal(discoveryDto, false);
 
-			String jobName;
-			if (schedulerJobInfoDto.getJobName() == null) {
-				jobName = request.getName();
-			} else {
-				jobName = schedulerJobInfoDto.getJobName();
-			}
+        String jobName;
+        if (scheduleDiscoveryDto.getJobName() == null) {
+            jobName = discoveryDto.getName();
+        } else {
+            jobName = scheduleDiscoveryDto.getJobName();
+        }
 
-			boolean jobRegistered = discoveryCertificateTask.registerScheduler(jobName, schedulerJobInfoDto.getCronExpression());
-			logger.info("Job {} was registered {}", jobName, jobRegistered ? "successfully" : "unsuccessfully");
-		} catch (AlreadyExistException | ConnectorException exception) {
-			logger.error("Unable to schedule job.", exception.getMessage());
-		}
-	}
+        discoveryCertificateTask.registerScheduler(jobName, scheduleDiscoveryDto.getCronExpression(), scheduleDiscoveryDto.getRequest());
+        logger.info("Job {} was registered.", jobName);
+    }
 
-	// SETTERs
+    // SETTERs
 
-	@Autowired
-	public void setDiscoveryService(DiscoveryService discoveryService) {
-		this.discoveryService = discoveryService;
-	}
+    @Autowired
+    public void setDiscoveryService(DiscoveryService discoveryService) {
+        this.discoveryService = discoveryService;
+    }
 
-	@Autowired
-	public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
-		this.scheduledJobsRepository = scheduledJobsRepository;
-	}
+    @Autowired
+    public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
+        this.scheduledJobsRepository = scheduledJobsRepository;
+    }
 
-	@Autowired
-	public void setDiscoveryCertificateTask(DiscoveryCertificateTask discoveryCertificateTask) {
-		this.discoveryCertificateTask = discoveryCertificateTask;
-	}
+    @Autowired
+    public void setDiscoveryCertificateTask(DiscoveryCertificateTask discoveryCertificateTask) {
+        this.discoveryCertificateTask = discoveryCertificateTask;
+    }
 }

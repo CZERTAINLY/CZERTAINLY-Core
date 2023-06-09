@@ -1,11 +1,13 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.SchedulerApiClient;
-import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.SchedulerException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
@@ -23,7 +25,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -70,10 +71,16 @@ public class SchedulerServiceImpl implements SchedulerService {
         final Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
         if (scheduledJobOptional.isPresent()) {
             final ScheduledJob scheduledJob = scheduledJobOptional.get();
+
+            if (scheduledJob.isSystem()) {
+                logger.warn("Unable to delete system job.");
+                throw new ValidationException("Unable to delete system job.");
+            }
+
             try {
                 schedulerApiClient.deleteScheduledJob(scheduledJob.getJobName());
                 scheduledJobsRepository.deleteById(UUID.fromString(uuid));
-            } catch (ConnectorException e) {
+            } catch (SchedulerException e) {
                 logger.error("Unable to delete job {}", scheduledJob.getJobName(), e.getMessage());
             }
         }
@@ -103,33 +110,29 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
-    public void enableScheduledJob(final String uuid) {
+    public void enableScheduledJob(final String uuid) throws SchedulerException, NotFoundException {
         changeScheduledJobState(uuid, true);
     }
 
     @Override
-    public void disableScheduledJob(final String uuid) {
+    public void disableScheduledJob(final String uuid) throws SchedulerException, NotFoundException {
         changeScheduledJobState(uuid, false);
     }
 
-    private void changeScheduledJobState(final String uuid, final boolean enabled) {
+    private void changeScheduledJobState(final String uuid, final boolean enabled) throws SchedulerException, NotFoundException {
         final Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
         if (scheduledJobOptional.isPresent()) {
             final ScheduledJob scheduledJob = scheduledJobOptional.get();
-            try {
-                if (enabled) {
-                    schedulerApiClient.enableScheduledJob(scheduledJob.getJobName());
-                    scheduledJob.setEnabled(true);
-                } else {
-                    schedulerApiClient.disableScheduledJob(scheduledJob.getJobName());
-                    scheduledJob.setEnabled(false);
-                }
-                scheduledJobsRepository.save(scheduledJob);
-            } catch (ConnectorException e) {
-                logger.error("Unable to " + (enabled ? "enabled" : "disabled") + " scheduled job {}", uuid, e.getMessage());
+            if (enabled) {
+                schedulerApiClient.enableScheduledJob(scheduledJob.getJobName());
+                scheduledJob.setEnabled(true);
+            } else {
+                schedulerApiClient.disableScheduledJob(scheduledJob.getJobName());
+                scheduledJob.setEnabled(false);
             }
+            scheduledJobsRepository.save(scheduledJob);
         } else {
-            logger.info("There is no such scheduled job {}", uuid);
+            throw new NotFoundException("There is no such scheduled job {}", uuid);
         }
     }
 

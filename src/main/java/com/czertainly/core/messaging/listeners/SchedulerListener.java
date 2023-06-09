@@ -1,6 +1,7 @@
 package com.czertainly.core.messaging.listeners;
 
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionMessage;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
@@ -39,7 +40,7 @@ public class SchedulerListener {
                 logger.info("Job {} was processed.", schedulerMessage.getJobName());
             }
 
-        } catch (ConnectorException | ClassNotFoundException e) {
+        } catch (SchedulerException | ConnectorException | ClassNotFoundException e) {
             logger.error("Unable to process the job {}", schedulerMessage.getJobName());
 
             final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();
