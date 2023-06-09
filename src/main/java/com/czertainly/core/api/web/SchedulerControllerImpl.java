@@ -1,14 +1,15 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.interfaces.core.web.SchedulerController;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SchedulerService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -37,12 +38,12 @@ public class SchedulerControllerImpl implements SchedulerController {
     }
 
     @Override
-    public void enableScheduledJob(String uuid) {
+    public void enableScheduledJob(String uuid) throws SchedulerException, NotFoundException {
         schedulerService.enableScheduledJob(uuid);
     }
 
     @Override
-    public void disableScheduledJob(String uuid) {
+    public void disableScheduledJob(String uuid) throws SchedulerException, NotFoundException {
         schedulerService.disableScheduledJob(uuid);
     }
 

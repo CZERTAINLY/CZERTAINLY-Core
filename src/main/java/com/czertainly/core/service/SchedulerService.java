@@ -1,5 +1,7 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
@@ -17,8 +19,8 @@ public interface SchedulerService {
 
     ScheduledJobHistoryResponseDto getScheduledJobHistory(final SecurityFilter filter, final PaginationRequestDto pagination, String uuid);
 
-    void enableScheduledJob(String uuid);
+    void enableScheduledJob(String uuid) throws SchedulerException, NotFoundException;
 
-    void disableScheduledJob(String uuid);
+    void disableScheduledJob(String uuid) throws SchedulerException, NotFoundException;
 
 }
