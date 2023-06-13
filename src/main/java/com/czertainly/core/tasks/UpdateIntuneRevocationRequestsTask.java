@@ -13,6 +13,7 @@ import com.czertainly.core.intune.carequest.CARequestErrorCodes;
 import com.czertainly.core.intune.carequest.CARevocationRequest;
 import com.czertainly.core.intune.carequest.CARevocationResult;
 import com.czertainly.core.intune.scepvalidation.IntuneRevocationClient;
+import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
@@ -77,7 +78,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
     }
 
     @Override
-    SchedulerJobExecutionStatus performJob(String jobName) {
+    ScheduledTaskResult performJob(String jobName) {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Executing Intune revocation requests update task");
         AuthHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
 
@@ -98,7 +99,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
                 revocationRequests = downloadRevocationRequests(intuneRevocationClient);
             } catch (Exception e) {
                 logger.error(MarkerFactory.getMarker("scheduleInfo"), "Error downloading CA revocation requests", e);
-                return SchedulerJobExecutionStatus.FAILED;
+                return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, "Error downloading CA revocation requests");
             }
 
             List<CARevocationResult> revocationResults = processRevocationRequests(revocationRequests);
@@ -109,7 +110,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
                 logger.error(MarkerFactory.getMarker("scheduleInfo"), "Error uploading revocation results", e);
             }
         }
-        return SchedulerJobExecutionStatus.SUCCESS;
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS);
     }
 
     private List<CARevocationRequest> downloadRevocationRequests(IntuneRevocationClient intuneRevocationClient) throws Exception {
