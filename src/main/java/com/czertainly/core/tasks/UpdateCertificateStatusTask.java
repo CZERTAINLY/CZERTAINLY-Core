@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.CertificateService;
 import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
@@ -42,9 +43,9 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
     @Override
     @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.CERTIFICATE, operation = OperationType.UPDATE)
     @Transactional
-    SchedulerJobExecutionStatus performJob(final String jobName) {
+    ScheduledTaskResult performJob(final String jobName) {
         certificateService.updateCertificatesStatusScheduled();
-        return SchedulerJobExecutionStatus.SUCCESS;
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS);
     }
 
     // SETTERs

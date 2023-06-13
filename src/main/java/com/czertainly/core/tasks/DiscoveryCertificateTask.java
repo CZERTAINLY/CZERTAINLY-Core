@@ -10,6 +10,7 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
+import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.DiscoveryService;
 import com.czertainly.core.util.AuthHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -60,7 +61,7 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
     @Override
     @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @Transactional
-    SchedulerJobExecutionStatus performJob(final String jobName) {
+    ScheduledTaskResult performJob(final String jobName) {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
         AuthHelper.authenticateAsUser(scheduledJob.getUserUuid());
 
@@ -70,10 +71,11 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
             final DiscoveryHistory discoveryHistoryModal = discoveryService.createDiscoveryModal(discoveryDto, true);
             discoveryService.createDiscovery(discoveryHistoryModal);
         } catch (AlreadyExistException | ConnectorException e) {
-            logger.error("Unable to create discovery {}", jobName);
-            return SchedulerJobExecutionStatus.FAILED;
+            final String errorMessage = String.format("Unable to create discovery %s", jobName);
+            logger.error(errorMessage);
+            return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage);
         }
-        return SchedulerJobExecutionStatus.SUCCESS;
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS);
     }
 
     private String prepareTimeSuffix() {

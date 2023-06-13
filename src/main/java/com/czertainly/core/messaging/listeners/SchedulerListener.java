@@ -4,8 +4,10 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionMessage;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
+import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.tasks.SchedulerJobProcessor;
 import org.slf4j.Logger;
@@ -23,6 +25,8 @@ public class SchedulerListener {
     private ApplicationContext applicationContext;
 
     private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+
+    private ScheduledJobsRepository scheduledJobsRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(SchedulerListener.class);
 
@@ -43,11 +47,16 @@ public class SchedulerListener {
         } catch (SchedulerException | ConnectorException | ClassNotFoundException e) {
             logger.error("Unable to process the job {}", schedulerMessage.getJobName());
 
-            final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();
-            scheduledJobHistory.setJobName(scheduledJobHistory.getJobName());
-            scheduledJobHistory.setJobExecution(new Date());
-            scheduledJobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.FAILED);
-            scheduledJobHistoryRepository.save(scheduledJobHistory);
+            final ScheduledJob scheduledJob  = scheduledJobsRepository.findByJobName(schedulerMessage.getJobName());
+            if (scheduledJob != null) {
+                final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();
+                scheduledJobHistory.setScheduledJobUuid(scheduledJob.getUuid());
+                scheduledJobHistory.setJobExecution(new Date());
+                scheduledJobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.FAILED);
+                scheduledJobHistoryRepository.save(scheduledJobHistory);
+            } else {
+                logger.error("There is no such job {} registered.", schedulerMessage.getJobName());
+            }
         }
     }
 
@@ -61,5 +70,10 @@ public class SchedulerListener {
     @Autowired
     public void setScheduledJobHistoryRepository(ScheduledJobHistoryRepository scheduledJobHistoryRepository) {
         this.scheduledJobHistoryRepository = scheduledJobHistoryRepository;
+    }
+
+    @Autowired
+    public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
+        this.scheduledJobsRepository = scheduledJobsRepository;
     }
 }
