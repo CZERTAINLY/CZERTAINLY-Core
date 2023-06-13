@@ -8,6 +8,7 @@ import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
+import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +40,7 @@ public abstract class SchedulerJobProcessor {
 
     abstract boolean systemJob();
 
-    abstract SchedulerJobExecutionStatus performJob(final String jobName);
+    abstract ScheduledTaskResult performJob(final String jobName);
 
     public void registerScheduler() throws SchedulerException {
         registerScheduler(getDefaultJobName(), getDefaultCronExpression());
@@ -57,9 +58,9 @@ public abstract class SchedulerJobProcessor {
 
     public void processTask(final String jobName) throws ConnectorException, SchedulerException {
         final ScheduledJobHistory scheduledJobHistory = registerJobHistory(jobName);
-        final SchedulerJobExecutionStatus result = performJob(jobName);
+        final ScheduledTaskResult result = performJob(jobName);
         updateJobHistory(scheduledJobHistory, result);
-        checkOneShotJob(jobName, result);
+        checkOneShotJob(jobName, result.getStatus());
     }
 
     private void checkOneShotJob(final String jobName, final SchedulerJobExecutionStatus status) throws SchedulerException {
@@ -74,16 +75,23 @@ public abstract class SchedulerJobProcessor {
     }
 
     private ScheduledJobHistory registerJobHistory(final String jobName) {
+        final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
+        if (scheduledJob == null) {
+            logger.error("There is no such job {} registered.", jobName);
+            return null;
+        }
+
         final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();
-        scheduledJobHistory.setJobName(jobName);
+        scheduledJobHistory.setScheduledJobUuid(scheduledJob.getUuid());
         scheduledJobHistory.setJobExecution(new Date());
         scheduledJobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.UNKNOWN);
         return scheduledJobHistoryRepository.save(scheduledJobHistory);
     }
 
-    private void updateJobHistory(final ScheduledJobHistory scheduledJobHistory, final SchedulerJobExecutionStatus status) {
+    private void updateJobHistory(final ScheduledJobHistory scheduledJobHistory, final ScheduledTaskResult result) {
         scheduledJobHistory.setJobEndTime(new Date());
-        scheduledJobHistory.setSchedulerExecutionStatus(status);
+        scheduledJobHistory.setSchedulerExecutionStatus(result.getStatus());
+        scheduledJobHistory.setExceptionMessage(result.getExceptionMessage());
         scheduledJobHistoryRepository.save(scheduledJobHistory);
     }
 
