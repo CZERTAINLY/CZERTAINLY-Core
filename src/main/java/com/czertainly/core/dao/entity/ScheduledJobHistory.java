@@ -38,6 +38,7 @@ public class ScheduledJobHistory extends UniquelyIdentified {
         schedulerJobHistoryDto.setStatus(this.schedulerExecutionStatus);
         schedulerJobHistoryDto.setStartTime(this.jobExecution);
         schedulerJobHistoryDto.setEndTime(this.jobEndTime);
+        schedulerJobHistoryDto.setErrorMessage(this.exceptionMessage);
         return schedulerJobHistoryDto;
     }
 

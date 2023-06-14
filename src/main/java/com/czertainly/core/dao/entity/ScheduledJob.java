@@ -43,7 +43,7 @@ public class ScheduledJob extends UniquelyIdentified{
     @Column(name = "job_class_name")
     private String jobClassName;
 
-    public ScheduledJobDetailDto mapToDetailDto() {
+    public ScheduledJobDetailDto mapToDetailDto(ScheduledJobHistory latestHistory) {
         final ScheduledJobDetailDto dto = new ScheduledJobDetailDto();
         dto.setUuid(this.uuid);
         dto.setJobName(this.jobName);
@@ -53,14 +53,20 @@ public class ScheduledJob extends UniquelyIdentified{
         dto.setSystem(this.system);
         dto.setOneShotOnly(this.oneShotOnly);
         dto.setJobClassName(this.jobClassName);
+        if(latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
+
         return dto;
     }
 
-    public ScheduledJobDto mapToDto() {
+    public ScheduledJobDto mapToDto(ScheduledJobHistory latestHistory) {
         final ScheduledJobDto dto = new ScheduledJobDto();
         dto.setUuid(this.uuid);
         dto.setJobName(this.jobName);
         dto.setCronExpression(this.cronExpression);
+        dto.setEnabled(this.enabled);
+        dto.setOneShotOnly(this.oneShotOnly);
+        if(latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
+
         return dto;
     }
 

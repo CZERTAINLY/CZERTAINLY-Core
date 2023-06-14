@@ -84,7 +84,7 @@ public abstract class SchedulerJobProcessor {
         final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();
         scheduledJobHistory.setScheduledJobUuid(scheduledJob.getUuid());
         scheduledJobHistory.setJobExecution(new Date());
-        scheduledJobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.UNKNOWN);
+        scheduledJobHistory.setSchedulerExecutionStatus(SchedulerJobExecutionStatus.STARTED);
         return scheduledJobHistoryRepository.save(scheduledJobHistory);
     }
 
