@@ -13,7 +13,7 @@ public interface SchedulerService {
 
     ScheduledJobsResponseDto listScheduledJobs(final SecurityFilter filter, final PaginationRequestDto pagination);
 
-    ScheduledJobDetailDto getScheduledJobDetail(final String uuid);
+    ScheduledJobDetailDto getScheduledJobDetail(final String uuid) throws NotFoundException;
 
     void deleteScheduledJob(final String uuid);
 

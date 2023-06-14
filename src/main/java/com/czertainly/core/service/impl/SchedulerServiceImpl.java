@@ -3,11 +3,13 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.SchedulerApiClient;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.SchedulerException;
+import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
+import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
@@ -52,7 +54,9 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         final Long maxItems = scheduledJobsRepository.countUsingSecurityFilter(filter, null);
         final ScheduledJobsResponseDto responseDto = new ScheduledJobsResponseDto();
-        responseDto.setScheduledJobs(scheduledJobList.stream().map(ScheduledJob::mapToDto).collect(Collectors.toList()));
+        responseDto.setScheduledJobs(scheduledJobList.stream()
+                .map(job -> job.mapToDto(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(job.getUuid())))
+                .collect(Collectors.toList()));
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -61,9 +65,9 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
-    public ScheduledJobDetailDto getScheduledJobDetail(final String uuid) {
-        final Optional<ScheduledJob> scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
-        return scheduledJob.isPresent() ? scheduledJob.get().mapToDetailDto() : null;
+    public ScheduledJobDetailDto getScheduledJobDetail(final String uuid) throws NotFoundException {
+        final ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ScheduledJob.class, uuid));
+        return scheduledJob.mapToDetailDto(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID.fromString(uuid)));
     }
 
     @Override
@@ -74,7 +78,7 @@ public class SchedulerServiceImpl implements SchedulerService {
 
             if (scheduledJob.isSystem()) {
                 logger.warn("Unable to delete system job.");
-                throw new ValidationException("Unable to delete system job.");
+                throw new ValidationException(ValidationError.create("Unable to delete system job."));
             }
 
             try {
@@ -88,25 +92,21 @@ public class SchedulerServiceImpl implements SchedulerService {
 
     @Override
     public ScheduledJobHistoryResponseDto getScheduledJobHistory(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto, final String uuid) {
-        final Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
-        if (scheduledJobOptional.isPresent()) {
-            final ScheduledJob scheduledJob = scheduledJobOptional.get();
-            final BiFunction<Root<ScheduledJobHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.constructFilterForJobHistory(cb, root, scheduledJob.getJobName());
+        final BiFunction<Root<ScheduledJobHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.constructFilterForJobHistory(cb, root, UUID.fromString(uuid));
 
-            RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
-            final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-            final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository.findUsingSecurityFilter(filter, additionalWhereClause, pageable, null);
+        RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
+        final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
+        final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository.findUsingSecurityFilter(filter, additionalWhereClause, pageable, null);
 
-            final Long maxItems = scheduledJobHistoryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
-            final ScheduledJobHistoryResponseDto responseDto = new ScheduledJobHistoryResponseDto();
-            responseDto.setScheduledJobHistory(scheduledJobHistoryList.stream().map(ScheduledJobHistory::mapToDto).collect(Collectors.toList()));
-            responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
-            responseDto.setPageNumber(paginationRequestDto.getPageNumber());
-            responseDto.setTotalItems(maxItems);
-            responseDto.setTotalPages((int) Math.ceil((double) maxItems / paginationRequestDto.getItemsPerPage()));
-            return responseDto;
-        }
-        return null;
+        final Long maxItems = scheduledJobHistoryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+        final ScheduledJobHistoryResponseDto responseDto = new ScheduledJobHistoryResponseDto();
+        responseDto.setScheduledJobHistory(scheduledJobHistoryList.stream().map(ScheduledJobHistory::mapToDto).collect(Collectors.toList()));
+        responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
+        responseDto.setPageNumber(paginationRequestDto.getPageNumber());
+        responseDto.setTotalItems(maxItems);
+        responseDto.setTotalPages((int) Math.ceil((double) maxItems / paginationRequestDto.getItemsPerPage()));
+
+        return responseDto;
     }
 
     @Override
