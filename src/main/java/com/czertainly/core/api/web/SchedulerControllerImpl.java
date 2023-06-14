@@ -23,7 +23,7 @@ public class SchedulerControllerImpl implements SchedulerController {
     }
 
     @Override
-    public ScheduledJobDetailDto getScheduledJobDetail(final String uuid) {
+    public ScheduledJobDetailDto getScheduledJobDetail(final String uuid) throws NotFoundException {
         return schedulerService.getScheduledJobDetail(uuid);
     }
 

@@ -337,9 +337,9 @@ public class Sql2PredicateConverter {
         return cqdo;
     }
 
-    public static Predicate constructFilterForJobHistory(final CriteriaBuilder cb, final Root<ScheduledJobHistory> root, final String jobName) {
-        final Expression<?> expressionPath = prepareExpression(root, "jobName");
-        return cb.equal(expressionPath, jobName);
+    public static Predicate constructFilterForJobHistory(final CriteriaBuilder cb, final Root<ScheduledJobHistory> root, final UUID scheduledJobUuid) {
+        final Expression<?> expressionPath = prepareExpression(root, "scheduledJobUuid");
+        return cb.equal(expressionPath, scheduledJobUuid);
     }
 
 
