@@ -5,15 +5,17 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
-import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SchedulerService;
@@ -47,6 +49,7 @@ public class SchedulerServiceImpl implements SchedulerService {
     private SchedulerApiClient schedulerApiClient;
 
     @Override
+    @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.LIST)
     public ScheduledJobsResponseDto listScheduledJobs(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
@@ -65,12 +68,14 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.DETAIL)
     public ScheduledJobDetailDto getScheduledJobDetail(final String uuid) throws NotFoundException {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ScheduledJob.class, uuid));
         return scheduledJob.mapToDetailDto(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID.fromString(uuid)));
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.DELETE)
     public void deleteScheduledJob(final String uuid) {
         final Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
         if (scheduledJobOptional.isPresent()) {
@@ -91,6 +96,7 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.DETAIL)
     public ScheduledJobHistoryResponseDto getScheduledJobHistory(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto, final String uuid) {
         final BiFunction<Root<ScheduledJobHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.constructFilterForJobHistory(cb, root, UUID.fromString(uuid));
 
@@ -110,11 +116,13 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.ENABLE)
     public void enableScheduledJob(final String uuid) throws SchedulerException, NotFoundException {
         changeScheduledJobState(uuid, true);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.ENABLE)
     public void disableScheduledJob(final String uuid) throws SchedulerException, NotFoundException {
         changeScheduledJobState(uuid, false);
     }
