@@ -31,6 +31,11 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
     }
 
     @Override
+    boolean isDefaultOneTimeJob() {
+        return false;
+    }
+
+    @Override
     String getJobClassName() {
         return this.getClass().getName();
     }
@@ -44,8 +49,8 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
     @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.CERTIFICATE, operation = OperationType.UPDATE)
     @Transactional
     ScheduledTaskResult performJob(final String jobName) {
-        certificateService.updateCertificatesStatusScheduled();
-        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS);
+        int certificatesUpdated = certificateService.updateCertificatesStatusScheduled();
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, String.format("Updated status of %d certificates", certificatesUpdated));
     }
 
     // SETTERs

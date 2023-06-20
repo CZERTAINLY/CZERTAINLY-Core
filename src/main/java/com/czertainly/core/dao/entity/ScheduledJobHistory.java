@@ -1,11 +1,13 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryDto;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -29,8 +31,15 @@ public class ScheduledJobHistory extends UniquelyIdentified {
     @Column(name = "scheduled_job_uuid")
     private UUID scheduledJobUuid;
 
-    @Column(name = "exception_message")
-    private String exceptionMessage;
+    @Column(name = "result_message")
+    private String resultMessage;
+
+    @Column(name = "result_object_type")
+    @Enumerated(EnumType.STRING)
+    private Resource resultObjectType;
+
+    @Column(name = "result_object_identification")
+    private String resultObjectIdentification;
 
     public ScheduledJobHistoryDto mapToDto() {
         final ScheduledJobHistoryDto schedulerJobHistoryDto = new ScheduledJobHistoryDto();
@@ -38,7 +47,11 @@ public class ScheduledJobHistory extends UniquelyIdentified {
         schedulerJobHistoryDto.setStatus(this.schedulerExecutionStatus);
         schedulerJobHistoryDto.setStartTime(this.jobExecution);
         schedulerJobHistoryDto.setEndTime(this.jobEndTime);
-        schedulerJobHistoryDto.setErrorMessage(this.exceptionMessage);
+        schedulerJobHistoryDto.setResultMessage(this.resultMessage);
+        schedulerJobHistoryDto.setResultObjectType(this.resultObjectType);
+        if (this.resultObjectIdentification != null) {
+            schedulerJobHistoryDto.setResultObjectIdentification(List.of(this.resultObjectIdentification.split(",")));
+        }
         return schedulerJobHistoryDto;
     }
 

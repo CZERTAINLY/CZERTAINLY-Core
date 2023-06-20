@@ -22,6 +22,7 @@ import com.czertainly.core.service.SchedulerService;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Order;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.slf4j.Logger;
@@ -29,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -86,6 +88,11 @@ public class SchedulerServiceImpl implements SchedulerService {
                 throw new ValidationException(ValidationError.create("Unable to delete system job."));
             }
 
+            if(scheduledJobHistoryRepository.existsByScheduledJobUuid(UUID.fromString(uuid))) {
+                logger.warn("Unable to delete job with existing history.");
+                throw new ValidationException(ValidationError.create("Unable to delete job with existing history."));
+            }
+
             try {
                 schedulerApiClient.deleteScheduledJob(scheduledJob.getJobName());
                 scheduledJobsRepository.deleteById(UUID.fromString(uuid));
@@ -102,7 +109,7 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository.findUsingSecurityFilter(filter, additionalWhereClause, pageable, null);
+        final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository.findUsingSecurityFilter(filter, additionalWhereClause, pageable, (root, cb) -> cb.desc(root.get("jobExecution")));
 
         final Long maxItems = scheduledJobHistoryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final ScheduledJobHistoryResponseDto responseDto = new ScheduledJobHistoryResponseDto();

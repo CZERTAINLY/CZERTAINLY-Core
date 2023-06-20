@@ -9,4 +9,5 @@ import java.util.UUID;
 @Repository
 public interface ScheduledJobHistoryRepository extends SecurityFilterRepository<ScheduledJobHistory, UUID>{
     ScheduledJobHistory findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID scheduledJobUuid);
+    boolean existsByScheduledJobUuid(UUID scheduledJobUuid);
 }
