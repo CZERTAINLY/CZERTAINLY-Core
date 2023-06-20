@@ -30,6 +30,8 @@ import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.UUID;
@@ -193,6 +195,11 @@ public class UserManagementServiceImpl implements UserManagementService {
             certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
+            try {
+                x509Cert.checkValidity();
+            } catch (CertificateExpiredException | CertificateNotYetValidException e) {
+                throw new ValidationException(ValidationError.create("Certificate is not valid."));
+            }
             try {
                 certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
                 if (certificate.getStatus().equals(CertificateStatus.NEW)) {
