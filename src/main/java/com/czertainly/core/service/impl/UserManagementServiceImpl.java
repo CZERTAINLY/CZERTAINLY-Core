@@ -72,11 +72,13 @@ public class UserManagementServiceImpl implements UserManagementService {
             throw new ValidationException(ValidationError.create("username must not be empty"));
         }
         UserRequestDto requestDto = new UserRequestDto();
-        Certificate certificate = null;
+        Certificate certificate;
         if ((request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) || (request.getCertificateData() != null && !request.getCertificateData().isEmpty())) {
             certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
+        } else {
+            throw new ValidationException(ValidationError.create("Error while adding certificate to user."));
         }
         requestDto.setEmail(request.getEmail());
         requestDto.setEnabled(request.getEnabled());
@@ -92,9 +94,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         }
 
         UserDetailDto response = userManagementApiClient.createUser(requestDto);
-        if (certificate != null) {
-            certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
-        }
+        certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
 
         attributeService.deleteAttributeContent(UUID.fromString(response.getUuid()), request.getCustomAttributes(), Resource.USER);
         response.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(response.getUuid()), Resource.USER));
