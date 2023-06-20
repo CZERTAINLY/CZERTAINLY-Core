@@ -18,6 +18,7 @@ import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -97,6 +98,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private CertificateRepository certificateRepository;
+
+    @Autowired
+    private CertificateRequestRepository certificateRequestRepository;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -647,12 +651,26 @@ public class CertificateServiceImpl implements CertificateService {
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
-        Certificate entity = createCertificateEntity(x509Cert);
-        entity.setCsr(csr);
+        final Certificate entity = createCertificateEntity(x509Cert);
         entity.setKeyUuid(keyUuid);
-        entity.setCsrAttributes(csrAttributes);
-        entity.setSignatureAttributes(signatureAttributes);
+
+        byte[] decodedCSR = Base64.getDecoder().decode(csr);
+        final String csrFingerprint = CertificateUtil.getThumbprint(decodedCSR);
+        Optional<CertificateRequest> certificateRequestOptional = certificateRequestRepository.findByFingerprint(csrFingerprint);
+
+        if (certificateRequestOptional.isPresent()) {
+            entity.setCertificateRequestUuid(certificateRequestOptional.get().getUuid());
+        } else {
+            CertificateRequest certificateRequest = entity.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
+            certificateRequest.setContent(csr);
+            certificateRequest.setAttributes(csrAttributes);
+            certificateRequest.setSignatureAttributes(signatureAttributes);
+            certificateRequest = certificateRequestRepository.save(certificateRequest);
+            entity.setCertificateRequestUuid(certificateRequest.getUuid());
+        }
+
         certificateRepository.save(entity);
+
         metadataService.createMetadataDefinitions(connectorUuid, meta);
         metadataService.createMetadata(connectorUuid, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
         certificateComplianceCheck(entity);
@@ -934,16 +952,23 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public Certificate createCsr(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, UUID keyUuid) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
-        JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(csr);
-        Certificate model = new Certificate();
-        CertificateUtil.prepareCsrObject(model, jcaObject);
-        model.setKeyUuid(keyUuid);
-        model.setCsr(csr);
-        model.setStatus(CertificateStatus.NEW);
-        model.setSignatureAttributes(signatureAttributes);
-        model.setCsrAttributes(csrAttributes);
-        certificateRepository.save(model);
-        return model;
+
+        final JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(csr);
+        final Certificate certificate = new Certificate();
+        CertificateUtil.prepareCsrObject(certificate, jcaObject);
+        certificate.setKeyUuid(keyUuid);
+        certificate.setStatus(CertificateStatus.NEW);
+
+        CertificateRequest certificateRequest = certificate.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
+        certificateRequest.setContent(csr);
+        certificateRequest.setSignatureAttributes(signatureAttributes);
+        certificateRequest.setAttributes(csrAttributes);
+        certificateRequest = certificateRequestRepository.save(certificateRequest);
+
+        certificate.setCertificateRequest(certificateRequest);
+        certificate.setCertificateRequestUuid(certificateRequest.getUuid());
+        certificateRepository.save(certificate);
+        return certificate;
     }
 
     @Override
