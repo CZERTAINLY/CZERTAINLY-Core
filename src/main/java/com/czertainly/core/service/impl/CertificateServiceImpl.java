@@ -739,7 +739,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public void updateCertificatesStatusScheduled() {
+    public int updateCertificatesStatusScheduled() {
         List<CertificateStatus> skipStatuses = List.of(CertificateStatus.NEW, CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
@@ -752,7 +752,7 @@ public class CertificateServiceImpl implements CertificateService {
                 skipStatuses,
                 PageRequest.of(0, maxCertsToValidate));
 
-        int counter = 0;
+        int certificatesUpdated = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
         for (final Certificate certificate : certificates) {
             if (updateCertificateStatusScheduled(certificate)) {
@@ -761,10 +761,11 @@ public class CertificateServiceImpl implements CertificateService {
                     eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
                     logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
                 }
-                ++counter;
+                ++certificatesUpdated;
             }
         }
-        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", counter, certificates.size());
+        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificates.size());
+        return certificatesUpdated;
     }
 
     private boolean updateCertificateStatusScheduled(Certificate certificate) {
