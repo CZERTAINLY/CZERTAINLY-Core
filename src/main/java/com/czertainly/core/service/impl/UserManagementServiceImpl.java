@@ -30,6 +30,8 @@ import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.UUID;
@@ -72,13 +74,11 @@ public class UserManagementServiceImpl implements UserManagementService {
             throw new ValidationException(ValidationError.create("username must not be empty"));
         }
         UserRequestDto requestDto = new UserRequestDto();
-        Certificate certificate;
+        Certificate certificate = null;
         if ((request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) || (request.getCertificateData() != null && !request.getCertificateData().isEmpty())) {
             certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
-        } else {
-            throw new ValidationException(ValidationError.create("Error while adding certificate to user."));
         }
         requestDto.setEmail(request.getEmail());
         requestDto.setEnabled(request.getEnabled());
@@ -94,7 +94,9 @@ public class UserManagementServiceImpl implements UserManagementService {
         }
 
         UserDetailDto response = userManagementApiClient.createUser(requestDto);
-        certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
+        if (certificate != null) {
+            certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
+        }
 
         attributeService.deleteAttributeContent(UUID.fromString(response.getUuid()), request.getCustomAttributes(), Resource.USER);
         response.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(response.getUuid()), Resource.USER));
@@ -193,6 +195,11 @@ public class UserManagementServiceImpl implements UserManagementService {
             certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
+            try {
+                x509Cert.checkValidity();
+            } catch (CertificateExpiredException | CertificateNotYetValidException e) {
+                throw new ValidationException(ValidationError.create("Certificate is not valid."));
+            }
             try {
                 certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
                 if (certificate.getStatus().equals(CertificateStatus.NEW)) {
