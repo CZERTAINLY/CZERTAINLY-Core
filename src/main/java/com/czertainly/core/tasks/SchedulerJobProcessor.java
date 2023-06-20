@@ -36,6 +36,8 @@ public abstract class SchedulerJobProcessor {
 
     abstract String getDefaultCronExpression();
 
+    abstract boolean isDefaultOneTimeJob();
+
     abstract String getJobClassName();
 
     abstract boolean systemJob();
@@ -43,34 +45,34 @@ public abstract class SchedulerJobProcessor {
     abstract ScheduledTaskResult performJob(final String jobName);
 
     public void registerScheduler() throws SchedulerException {
-        registerScheduler(getDefaultJobName(), getDefaultCronExpression());
+        registerScheduler(getDefaultJobName(), getDefaultCronExpression(), isDefaultOneTimeJob());
     }
 
-    public void registerScheduler(final String jobName, final String cronExpression) throws SchedulerException {
-        registerScheduler(jobName, cronExpression, null);
+    public void registerScheduler(final String jobName, final String cronExpression, final boolean oneTime) throws SchedulerException {
+        registerScheduler(jobName, cronExpression, oneTime, null);
     }
 
-    public void registerScheduler(final String jobName, final String cronExpression, final Object objectData) throws SchedulerException {
+    public ScheduledJob registerScheduler(final String jobName, final String cronExpression, final boolean oneTime, final Object objectData) throws SchedulerException {
         final SchedulerJobDto schedulerDetail = new SchedulerJobDto(jobName, cronExpression, getJobClassName());
         schedulerApiClient.schedulerCreate(new SchedulerRequestDto(schedulerDetail));
-        saveJobDefinition(jobName, cronExpression, objectData);
+        return saveJobDefinition(jobName, cronExpression, oneTime, objectData);
     }
 
     public void processTask(final String jobName) throws ConnectorException, SchedulerException {
         final ScheduledJobHistory scheduledJobHistory = registerJobHistory(jobName);
         final ScheduledTaskResult result = performJob(jobName);
         updateJobHistory(scheduledJobHistory, result);
-        checkOneShotJob(jobName, result.getStatus());
+        checkOneTimeJob(jobName, result.getStatus());
     }
 
-    private void checkOneShotJob(final String jobName, final SchedulerJobExecutionStatus status) throws SchedulerException {
+    private void checkOneTimeJob(final String jobName, final SchedulerJobExecutionStatus status) throws SchedulerException {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
         if (SchedulerJobExecutionStatus.SUCCESS.equals(status)
                 && scheduledJob != null
-                && scheduledJob.isOneShotOnly()) {
+                && scheduledJob.isOneTime()) {
             schedulerApiClient.deleteScheduledJob(jobName);
-            scheduledJobsRepository.deleteById(scheduledJob.getUuid());
-            logger.info("Scheduled job {} was deleted/unscheduled because it was one shot job only.", jobName);
+//            scheduledJobsRepository.deleteById(scheduledJob.getUuid());
+            logger.info("Scheduled job {} was deleted/unscheduled because it was one time job only.", jobName);
         }
     }
 
@@ -91,21 +93,24 @@ public abstract class SchedulerJobProcessor {
     private void updateJobHistory(final ScheduledJobHistory scheduledJobHistory, final ScheduledTaskResult result) {
         scheduledJobHistory.setJobEndTime(new Date());
         scheduledJobHistory.setSchedulerExecutionStatus(result.getStatus());
-        scheduledJobHistory.setExceptionMessage(result.getExceptionMessage());
+        scheduledJobHistory.setResultMessage(result.getResultMessage());
+        scheduledJobHistory.setResultObjectType(result.getResultObjectType());
+        scheduledJobHistory.setResultObjectIdentification(result.getResultObjectIdentification());
         scheduledJobHistoryRepository.save(scheduledJobHistory);
     }
 
-    private void saveJobDefinition(final String jobName, final String cronExpression, final Object objectData) {
-
-        if (scheduledJobsRepository.findByJobName(jobName) != null) {
+    private ScheduledJob saveJobDefinition(final String jobName, final String cronExpression, final boolean oneTime, final Object objectData) {
+        ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
+        if (scheduledJob != null) {
             logger.info("Job {} was already registered.", jobName);
-            return;
+            return scheduledJob;
         }
 
-        final ScheduledJob scheduledJob = new ScheduledJob();
+        scheduledJob = new ScheduledJob();
         scheduledJob.setJobName(jobName);
         scheduledJob.setCronExpression(cronExpression);
         scheduledJob.setObjectData(objectData);
+        scheduledJob.setOneTime(oneTime);
         final Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null) {
             final String userUuid = ((CzertainlyUserDetails) authentication.getPrincipal()).getUserUuid();
@@ -116,6 +121,8 @@ public abstract class SchedulerJobProcessor {
         scheduledJob.setJobClassName(this.getJobClassName());
         scheduledJobsRepository.save(scheduledJob);
         logger.info("Scheduler job {} was registered.", jobName);
+
+        return scheduledJob;
     }
 
 

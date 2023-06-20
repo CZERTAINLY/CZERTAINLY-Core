@@ -14,6 +14,7 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.scheduler.ScheduleDiscoveryDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -98,7 +99,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    public void scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws ConnectorException, AlreadyExistException, SchedulerException {
+    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws ConnectorException, AlreadyExistException, SchedulerException {
         final DiscoveryDto discoveryDto = scheduleDiscoveryDto.getRequest();
         discoveryService.createDiscoveryModal(discoveryDto, false);
 
@@ -109,8 +110,18 @@ public class DiscoveryControllerImpl implements DiscoveryController {
             jobName = scheduleDiscoveryDto.getJobName();
         }
 
-        discoveryCertificateTask.registerScheduler(jobName, scheduleDiscoveryDto.getCronExpression(), scheduleDiscoveryDto.getRequest());
+        ScheduledJob scheduledJob = discoveryCertificateTask.registerScheduler(jobName, scheduleDiscoveryDto.getCronExpression(), scheduleDiscoveryDto.isOneTime(), scheduleDiscoveryDto.getRequest());
         logger.info("Job {} was registered.", jobName);
+
+        // TODO: construct location URI differently without hardcoded path
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/v1/scheduler/jobs/{uuid}")
+                .buildAndExpand(scheduledJob.getUuid())
+                .toUri();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(scheduledJob.getUuid().toString());
+        return ResponseEntity.created(location).body(dto);
     }
 
     // SETTERs

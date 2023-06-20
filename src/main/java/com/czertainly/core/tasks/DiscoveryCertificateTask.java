@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
@@ -49,6 +50,11 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
     }
 
     @Override
+    boolean isDefaultOneTimeJob() {
+        return false;
+    }
+
+    @Override
     String getJobClassName() {
         return this.getClass().getName();
     }
@@ -65,17 +71,18 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
         AuthHelper.authenticateAsUser(scheduledJob.getUserUuid());
 
+        DiscoveryHistory discoveryHistoryModal = null;
         final DiscoveryDto discoveryDto = mapper.convertValue(scheduledJob.getObjectData(), DiscoveryDto.class);
         discoveryDto.setName(discoveryDto.getName() + prepareTimeSuffix());
         try {
-            final DiscoveryHistory discoveryHistoryModal = discoveryService.createDiscoveryModal(discoveryDto, true);
+            discoveryHistoryModal = discoveryService.createDiscoveryModal(discoveryDto, true);
             discoveryService.createDiscovery(discoveryHistoryModal);
         } catch (AlreadyExistException | ConnectorException e) {
-            final String errorMessage = String.format("Unable to create discovery %s", jobName);
+            final String errorMessage = String.format("Unable to create discovery %s for job %s", discoveryDto.getName(), jobName);
             logger.error(errorMessage);
-            return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage);
+            return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, discoveryHistoryModal != null ? Resource.DISCOVERY : null, discoveryHistoryModal != null ? discoveryHistoryModal.getUuid().toString() : null);
         }
-        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS);
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, null, Resource.DISCOVERY, discoveryHistoryModal.getUuid().toString());
     }
 
     private String prepareTimeSuffix() {

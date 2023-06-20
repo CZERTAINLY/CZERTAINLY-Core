@@ -34,8 +34,8 @@ public class ScheduledJob extends UniquelyIdentified{
     @Column(name = "enabled")
     private boolean enabled;
 
-    @Column(name = "one_shot_only")
-    private boolean oneShotOnly;
+    @Column(name = "one_time")
+    private boolean oneTime;
 
     @Column(name = "system")
     private boolean system;
@@ -44,27 +44,33 @@ public class ScheduledJob extends UniquelyIdentified{
     private String jobClassName;
 
     public ScheduledJobDetailDto mapToDetailDto(ScheduledJobHistory latestHistory) {
+        String jobType = this.jobClassName.lastIndexOf(".") == -1 ? this.jobClassName : this.jobClassName.substring(this.jobClassName.lastIndexOf(".") + 1);
+
         final ScheduledJobDetailDto dto = new ScheduledJobDetailDto();
         dto.setUuid(this.uuid);
         dto.setJobName(this.jobName);
+        dto.setJobType(jobType);
         dto.setCronExpression(this.cronExpression);
         dto.setUserUuid(this.userUuid);
         dto.setEnabled(this.enabled);
         dto.setSystem(this.system);
-        dto.setOneShotOnly(this.oneShotOnly);
-        dto.setJobClassName(this.jobClassName);
+        dto.setOneTime(this.oneTime);
         if(latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
 
         return dto;
     }
 
     public ScheduledJobDto mapToDto(ScheduledJobHistory latestHistory) {
+        String jobType = this.jobClassName.lastIndexOf(".") == -1 ? this.jobClassName : this.jobClassName.substring(this.jobClassName.lastIndexOf(".") + 1);
+
         final ScheduledJobDto dto = new ScheduledJobDto();
         dto.setUuid(this.uuid);
         dto.setJobName(this.jobName);
+        dto.setJobType(jobType);
         dto.setCronExpression(this.cronExpression);
         dto.setEnabled(this.enabled);
-        dto.setOneShotOnly(this.oneShotOnly);
+        dto.setOneTime(this.oneTime);
+        dto.setSystem(this.system);
         if(latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
 
         return dto;
