@@ -25,3 +25,10 @@ ALTER TABLE certificate
 ALTER TABLE certificate
     ADD FOREIGN KEY (certificate_request_uuid) REFERENCES certificate_request (uuid);
 
+UPDATE certificate
+    SET certificate_type = 'X509'
+        WHERE certificate_type = '' OR certificate_type IS NULL;
+
+ALTER TABLE certificate
+    ALTER COLUMN certificate_type SET NOT NULL;
+
