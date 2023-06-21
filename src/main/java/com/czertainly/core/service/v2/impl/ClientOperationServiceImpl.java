@@ -26,6 +26,7 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateLocation;
+import com.czertainly.core.dao.entity.CertificateRequest;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
@@ -171,13 +172,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     public ClientCertificateDataResponseDto issueNewCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final String certificateUuid) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         final RaProfile raProfile = getRaProfile(raProfileUuid);
 
-        final Certificate csrCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
-        if (csrCertificate.getStatus() != CertificateStatus.NEW) {
-            throw new ValidationException(ValidationError.create("Cannot issue New certificate with status: " + csrCertificate.getStatus().getLabel()));
+        final Certificate certificateEntity = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        if (certificateEntity.getStatus() != CertificateStatus.NEW) {
+            throw new ValidationException(ValidationError.create("Cannot issue New certificate with status: " + certificateEntity.getStatus().getLabel()));
         }
-        String pkcs10 = csrCertificate.getCsr();
+        String pkcs10 = certificateEntity.getCertificateRequest() != null ? certificateEntity.getCertificateRequest().getContent() : null;
         CertificateDataResponseDto caResponse = issueCertificate(pkcs10, null, raProfile); // TODO - issue attributes will be passed after implementation of storing issue attributes for certificate
-        Certificate certificate = certificateService.updateCsrToCertificate(csrCertificate.getUuid(), caResponse.getCertificateData(), caResponse.getMeta());
+        Certificate certificate = certificateService.updateCsrToCertificate(certificateEntity.getUuid(), caResponse.getCertificateData(), caResponse.getMeta());
 
         return getClientCertificateDataResponseDto(raProfile, pkcs10, caResponse, certificate);
     }
@@ -389,14 +390,19 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             validatePublicKeyForCsrAndCertificate(certificateContent, csr, false);
             validateSubjectDnForCertificate(certificateContent, csr);
             keyUuid = null;
-        }else {
+        } else {
             keyUuid = existingKeyValidation(request.getKeyUuid(), request.getSignatureAttributes(), oldCertificate);
             X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
             X500Principal principal = x509Certificate.getSubjectX500Principal();
             // Gather the signature attributes either provided in the request or get it from the old certificate
             signatureAttributes = request.getSignatureAttributes() != null
                     ? request.getSignatureAttributes()
-                    : oldCertificate.getSignatureAttributes();
+                    : null;
+
+            if (signatureAttributes == null) {
+                signatureAttributes = oldCertificate.getCertificateRequest() != null ? oldCertificate.getCertificateRequest().getSignatureAttributes() : null;
+            }
+
             csr = generateCsr(
                     keyUuid,
                     getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
@@ -569,7 +575,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
      * @return CSR from the old certificate
      */
     private String getExistingCsr(Certificate certificate) {
-        if (certificate.getCsr() == null) {
+        if (certificate.getCertificateRequest() == null
+                || certificate.getCertificateRequest().getContent() == null) {
             // If the CSR is not found for the existing certificate, then throw error
             throw new ValidationException(
                     ValidationError.create(
@@ -577,14 +584,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     )
             );
         }
-        return certificate.getCsr();
+        return certificate.getCertificateRequest().getContent();
     }
 
     /**
      * Check and get the CSR attributes from the existing certificate
      *
-     * @param csrAttributes     Existing Certificate CSR Attributes
-     * @param certificate Existing certificate
+     * @param csrAttributes Existing Certificate CSR Attributes
+     * @param certificate   Existing certificate
      * @return List of attributes from the existing certificate
      */
     private List<DataAttribute> getExistingCsrAttributes(List<RequestAttributeDto> csrAttributes, Certificate certificate) {
@@ -592,7 +599,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         // If the CSR attributes are not provided in the request and of the CSR attributes are not available for the
         // existing certificate then throw error
         if (csrAttributes == null || csrAttributes.isEmpty()) {
-            if (certificate.getCsrAttributes() == null || certificate.getCsrAttributes().isEmpty()) {
+            final CertificateRequest certificateRequest = certificate.getCertificateRequest();
+            if (certificateRequest == null || certificateRequest.getAttributes() == null || certificateRequest.getAttributes().isEmpty()) {
                 throw new ValidationException(
                         ValidationError.create(
                                 "No CSR Attribute is provided. Existing CSR Attributes for the certificate is also not available"
@@ -600,7 +608,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 );
             } else {
                 // If the CSR of the existing certificate is found, then use it
-                return certificate.getCsrAttributes();
+                return certificateRequest.getAttributes();
             }
         } else {
             // If new set of CSR attributes are found for the request, use it to create the new CSR
@@ -623,14 +631,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     /**
      * Validate existing key from the old certificate
      *
-     * @param keyUuid     Key UUID
+     * @param keyUuid             Key UUID
      * @param signatureAttributes Signature Attributes
-     * @param certificate Existing certificate to be renewed
+     * @param certificate         Existing certificate to be renewed
      * @return UUID of the key from the old certificate
      */
     private UUID existingKeyValidation(UUID keyUuid, List<RequestAttributeDto> signatureAttributes, Certificate certificate) {
         // If the signature attributes are not provided in the request and not available in the old certificate, then throw error
-        if (signatureAttributes == null && certificate.getSignatureAttributes() == null) {
+        final CertificateRequest certificateRequest = certificate.getCertificateRequest();
+        if (signatureAttributes == null && (certificateRequest == null || certificateRequest.getSignatureAttributes() == null)) {
             throw new ValidationException(
                     ValidationError.create(
                             "Cannot find Signature Attributes in both request and old certificate"
@@ -650,13 +659,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new ValidationException(
                     "Certificate does not have private key or private key is in incorrect state"
             );
-        } else if(keyUuid != null && keyUuid.equals(certificate.getKeyUuid())) {
+        } else if (keyUuid != null && keyUuid.equals(certificate.getKeyUuid())) {
             throw new ValidationException(
                     ValidationError.create(
                             "Operation not permitted. Cannot use same key to rekey certificate"
                     )
             );
-        } else if (keyUuid != null){
+        } else if (keyUuid != null) {
             return keyUuid;
         } else {
             throw new ValidationException(
@@ -672,7 +681,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
      *
      * @param keyUuid             UUID of the key
      * @param tokenProfileUuid    Token profile UUID
-     * @param principal       X500 Principal
+     * @param principal           X500 Principal
      * @param signatureAttributes Signature attributes
      * @return Base64 encoded CSR string
      * @throws NotFoundException When the key or tokenProfile UUID is not found
@@ -697,31 +706,32 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     /**
      * Function to validate the parameters for renewal of the certificate using the old key
+     *
      * @param certificate Certificate to be renewed
      */
     private void validateRenewal(Certificate certificate) {
-        if(certificate.getKey() == null) {
+        if (certificate.getKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
                             "Certificate does not have associated key"
                     )
             );
         }
-        if(certificate.mapToDto().isPrivateKeyAvailability()) {
+        if (certificate.mapToDto().isPrivateKeyAvailability()) {
             throw new ValidationException(
                     ValidationError.create(
                             "Private Key for the certificate is not available"
                     )
             );
         }
-        if(certificate.getKey().getTokenProfile() == null) {
+        if (certificate.getKey().getTokenProfile() == null) {
             throw new ValidationException(
                     ValidationError.create(
                             "Token Profile associated to the key is not found"
                     )
             );
         }
-        if(certificate.getKey().getTokenProfile().getTokenInstanceReference() == null
+        if (certificate.getKey().getTokenProfile().getTokenInstanceReference() == null
                 || !certificate.getKey().getTokenProfile().getTokenInstanceReference().getStatus().equals(TokenInstanceStatus.ACTIVATED)) {
             throw new ValidationException(
                     ValidationError.create(
@@ -733,20 +743,21 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     /**
      * Function to evaluate if the certificate and the key contains the same public key
+     *
      * @param certificateContent Certificate Content
-     * @param csr CSR
+     * @param csr                CSR
      */
     private void validatePublicKeyForCsrAndCertificate(String certificateContent, String csr, boolean shouldMatch) {
         try {
             X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
             JcaPKCS10CertificationRequest csrObject = parseCsrToJcaObject(csr);
-            if(shouldMatch && !Arrays.equals(certificate.getPublicKey().getEncoded(), csrObject.getPublicKey().getEncoded())) {
+            if (shouldMatch && !Arrays.equals(certificate.getPublicKey().getEncoded(), csrObject.getPublicKey().getEncoded())) {
                 throw new Exception("Public key of certificate and CSR does not match");
             }
-            if(!shouldMatch && Arrays.equals(certificate.getPublicKey().getEncoded(), csrObject.getPublicKey().getEncoded())) {
+            if (!shouldMatch && Arrays.equals(certificate.getPublicKey().getEncoded(), csrObject.getPublicKey().getEncoded())) {
                 throw new Exception("Public key of certificate and CSR are same");
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             throw new ValidationException(
                     ValidationError.create(
                             "Unable to validate the public key of CSR and certificate. Error: " + e.getMessage()
@@ -760,10 +771,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         try {
             X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
             JcaPKCS10CertificationRequest csrObject = parseCsrToJcaObject(csr);
-            if(!certificate.getSubjectX500Principal().getName().equals(csrObject.getSubject().toString())) {
+            if (!certificate.getSubjectX500Principal().getName().equals(csrObject.getSubject().toString())) {
                 throw new Exception("Subject DN of certificate and CSR does not match");
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             throw new ValidationException(
                     ValidationError.create(
                             "Unable to validate the Subject DN of CSR and certificate. Error: " + e.getMessage()
@@ -809,7 +820,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
 
     private void checkNewStatus(CertificateStatus status) {
-        if(status.equals(CertificateStatus.NEW)) {
+        if (status.equals(CertificateStatus.NEW)) {
             throw new ValidationException(
                     ValidationError.create("Cannot perform operation on certificate with status NEW")
             );
