@@ -35,7 +35,7 @@ public class CertificateRequest extends UniquelyIdentifiedAndAudited  {
     @Column(name = "fingerprint")
     private String fingerprint;
 
-    @Column(name = "content")
+    @Column(name = "content", length = Integer.MAX_VALUE)
     private String content;
 
     @Column(name = "common_name")
