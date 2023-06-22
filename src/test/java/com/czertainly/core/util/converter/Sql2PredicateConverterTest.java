@@ -69,9 +69,18 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
     @Test
     public void testNotEqualsPredicate() {
         final Predicate predicateTest = Sql2PredicateConverter.mapSearchFilter2Predicate(prepareDummyFilterRequest(SearchCondition.NOT_EQUALS), criteriaBuilder, root);
-        Assertions.assertInstanceOf(SqmComparisonPredicate.class, predicateTest);
-        Assertions.assertEquals(ComparisonOperator.NOT_EQUAL, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
-        Assertions.assertEquals(TEST_VALUE, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+        Assertions.assertInstanceOf(SqmJunctionPredicate.class, predicateTest);
+
+        final SqmJunctionPredicate sqmJunctionPredicate = ((SqmJunctionPredicate) predicateTest);
+        for (final SqmPredicate predicate : sqmJunctionPredicate.getPredicates()) {
+            Assertions.assertTrue(predicate instanceof SqmComparisonPredicate || predicate instanceof SqmNullnessPredicate);
+            if (predicate instanceof SqmComparisonPredicate) {
+                Assertions.assertEquals(ComparisonOperator.NOT_EQUAL, ((SqmComparisonPredicate) predicate).getSqmOperator());
+                Assertions.assertEquals(TEST_VALUE, ((SqmComparisonPredicate) predicate).getRightHandExpression().toHqlString());
+            } else if (predicate instanceof SqmNullnessPredicate) {
+                Assertions.assertFalse(predicate.isNull().isNegated());
+            }
+        }
     }
 
     @Test
