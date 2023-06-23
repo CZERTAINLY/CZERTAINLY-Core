@@ -204,7 +204,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 request.getKeyUuid(),
                 merged,
                 request.getSignatureAttributes(),
-                raProfile.getAuthorityInstanceReference().getConnectorUuid()
+                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                null
         );
 
         //Create Custom Attributes
@@ -319,7 +320,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     keyUuid,
                     merged,
                     signatureAttributes,
-                    raProfile.getAuthorityInstanceReference().getConnectorUuid()
+                    raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                    oldCertificate.getUuid()
             );
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
@@ -441,7 +443,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     keyUuid,
                     null,
                     signatureAttributes,
-                    raProfile.getAuthorityInstanceReference().getConnectorUuid()
+                    raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                    oldCertificate.getUuid()
             );
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);

@@ -73,7 +73,8 @@ public interface CertificateService extends ResourceExtensionService  {
             UUID keyUuid,
             List<DataAttribute> csrAttributes,
             List<RequestAttributeDto> signatureAttributes,
-            UUID connectorUuid
+            UUID connectorUuid,
+            UUID sourceCertificateUuid
     ) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
