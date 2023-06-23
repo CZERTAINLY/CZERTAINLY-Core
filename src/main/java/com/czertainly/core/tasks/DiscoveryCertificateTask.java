@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
@@ -78,11 +79,13 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
             discoveryHistoryModal = discoveryService.createDiscoveryModal(discoveryDto, true);
             discoveryService.createDiscovery(discoveryHistoryModal);
         } catch (AlreadyExistException | ConnectorException e) {
-            final String errorMessage = String.format("Unable to create discovery %s for job %s", discoveryDto.getName(), jobName);
+            final String errorMessage = String.format("Unable to create discovery %s for job %s. Error: %s", discoveryDto.getName(), jobName, e.getMessage());
             logger.error(errorMessage);
             return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, discoveryHistoryModal != null ? Resource.DISCOVERY : null, discoveryHistoryModal != null ? discoveryHistoryModal.getUuid().toString() : null);
         }
-        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, null, Resource.DISCOVERY, discoveryHistoryModal.getUuid().toString());
+
+        if (discoveryHistoryModal.getStatus() == DiscoveryStatus.COMPLETED) return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, null, Resource.DISCOVERY, discoveryHistoryModal.getUuid().toString());
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, discoveryHistoryModal.getMessage(), Resource.DISCOVERY, discoveryHistoryModal.getUuid().toString());
     }
 
     private String prepareTimeSuffix() {
