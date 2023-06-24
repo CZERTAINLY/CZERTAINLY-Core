@@ -158,6 +158,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "certificate_request_uuid")
     private UUID certificateRequestUuid;
 
+    @Column(name = "source_certificate_uuid")
+    private UUID sourceCertificateUuid;
+
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
@@ -176,6 +179,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setIssuerSerialNumber(issuerSerialNumber);
             dto.setSerialNumber(serialNumber);
         }
+        dto.setSourceCertificateUuid(sourceCertificateUuid);
         dto.setSubjectDn(subjectDn);
         dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
         dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
@@ -641,6 +645,15 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setCertificateRequestUuid(UUID certificateRequestUuid) {
         this.certificateRequestUuid = certificateRequestUuid;
+    }
+
+
+    public UUID getSourceCertificateUuid() {
+        return sourceCertificateUuid;
+    }
+
+    public void setSourceCertificateUuid(UUID sourceCertificateUuid) {
+        this.sourceCertificateUuid = sourceCertificateUuid;
     }
 
 }
