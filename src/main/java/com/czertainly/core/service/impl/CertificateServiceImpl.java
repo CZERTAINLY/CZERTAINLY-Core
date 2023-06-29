@@ -39,6 +39,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
+import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.EntityManager;
@@ -157,6 +158,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private UserManagementApiClient userManagementApiClient;
+
+    @Autowired
+    private ExtendedAttributeService extendedAttributeService;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -646,7 +650,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes, UUID connectorUuid, UUID sourceCertificateUuid) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes, UUID connectorUuid, UUID sourceCertificateUuid, String issueAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
@@ -655,6 +659,7 @@ public class CertificateServiceImpl implements CertificateService {
         final Certificate entity = createCertificateEntity(x509Cert);
         entity.setKeyUuid(keyUuid);
         entity.setSourceCertificateUuid(sourceCertificateUuid);
+        entity.setIssueAttributes(issueAttributes);
 
         byte[] decodedCSR = Base64.getDecoder().decode(csr);
         final String csrFingerprint = CertificateUtil.getThumbprint(decodedCSR);
