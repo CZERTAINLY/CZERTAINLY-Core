@@ -46,6 +46,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByKeyUuid(UUID keyUuid);
 
+    List<Certificate> findBySourceCertificateUuid(UUID sourceCertificateUuid);
+
     @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
     List<String> findDistinctSignatureAlgorithm();
 
