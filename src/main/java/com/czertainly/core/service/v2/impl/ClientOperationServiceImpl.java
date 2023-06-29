@@ -351,8 +351,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     oldCertificate.getUuid(),
                     null
             );
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
+            HashMap<String, Object> additionalInformationNew = new HashMap<>();
+            additionalInformationNew.put("New Certificate UUID", certificate.getUuid());
+            additionalInformationNew.put("New Certificate Serial Number", certificate.getSerialNumber());
+            certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformationNew), oldCertificate);
 
             /** replace certificate in the locations if needed */
             if (request.isReplaceInLocations()) {
@@ -475,8 +478,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     oldCertificate.getUuid(),
                     null
             );
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
+
+            HashMap<String, Object> additionalInformationNew = new HashMap<>();
+            additionalInformationNew.put("New Certificate UUID", certificate.getUuid());
+            additionalInformationNew.put("New Certificate Serial Number", certificate.getSerialNumber());
+            certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.REKEY, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformationNew), oldCertificate);
 
             /** replace certificate in the locations if needed */
             if (request.isReplaceInLocations()) {
@@ -494,7 +501,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             }
 
         } catch (Exception e) {
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
             logger.error("Failed to rekey Certificate", e.getMessage());
             throw new CertificateOperationException("Failed to rekey certificate: " + e.getMessage());
         }
