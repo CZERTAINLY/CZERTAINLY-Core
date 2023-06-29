@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -161,6 +162,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "source_certificate_uuid")
     private UUID sourceCertificateUuid;
 
+    @Column(name = "issue_attributes")
+    private String issueAttributes;
+
+    @Column(name = "revoke_attributes")
+    private String revokeAttributes;
+
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
@@ -245,6 +252,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             }
         }
         if (key != null) dto.setKey(key.mapToDto());
+        dto.setIssueAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueAttributes, DataAttribute.class)));
+        dto.setRevokeAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(revokeAttributes, DataAttribute.class)));
         return dto;
     }
 
@@ -656,4 +665,19 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.sourceCertificateUuid = sourceCertificateUuid;
     }
 
+    public String getIssueAttributes() {
+        return issueAttributes;
+    }
+
+    public void setIssueAttributes(String issueAttributes) {
+        this.issueAttributes = issueAttributes;
+    }
+
+    public String getRevokeAttributes() {
+        return revokeAttributes;
+    }
+
+    public void setRevokeAttributes(String revokeAttributes) {
+        this.revokeAttributes = revokeAttributes;
+    }
 }

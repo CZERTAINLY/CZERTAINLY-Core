@@ -1,7 +1,12 @@
 package com.czertainly.core.service.v2.impl;
 
 import com.czertainly.api.clients.v2.CertificateApiClient;
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
@@ -21,7 +26,12 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.v2.*;
+import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRekeyRequestDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
+import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.dao.entity.Certificate;
@@ -35,10 +45,21 @@ import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.*;
+import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
+import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.CryptographicKeyService;
+import com.czertainly.core.service.CryptographicOperationService;
+import com.czertainly.core.service.LocationService;
+import com.czertainly.core.service.MetadataService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.util.*;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.AuthHelper;
+import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.CsrUtil;
+import com.czertainly.core.util.MetaDefinitions;
 import jakarta.transaction.Transactional;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
@@ -57,7 +78,12 @@ import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service("clientOperationServiceImplV2")
 @Transactional
@@ -177,7 +203,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new ValidationException(ValidationError.create("Cannot issue New certificate with status: " + certificateEntity.getStatus().getLabel()));
         }
         String pkcs10 = certificateEntity.getCertificateRequest() != null ? certificateEntity.getCertificateRequest().getContent() : null;
-        CertificateDataResponseDto caResponse = issueCertificate(pkcs10, null, raProfile); // TODO - issue attributes will be passed after implementation of storing issue attributes for certificate
+        CertificateDataResponseDto caResponse = issueCertificate(pkcs10, AttributeDefinitionUtils.deserializeRequestAttributes(certificateEntity.getIssueAttributes()), raProfile);
         Certificate certificate = certificateService.updateCsrToCertificate(certificateEntity.getUuid(), caResponse.getCertificateData(), caResponse.getMeta());
 
         return getClientCertificateDataResponseDto(raProfile, pkcs10, caResponse, certificate);
@@ -205,7 +231,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 merged,
                 request.getSignatureAttributes(),
                 raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                null
+                null,
+                AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getAttributes()))
         );
 
         //Create Custom Attributes
@@ -321,7 +348,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     merged,
                     signatureAttributes,
                     raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                    oldCertificate.getUuid()
+                    oldCertificate.getUuid(),
+                    null
             );
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
@@ -444,7 +472,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     null,
                     signatureAttributes,
                     raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                    oldCertificate.getUuid()
+                    oldCertificate.getUuid(),
+                    null
             );
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), certificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Rekey completed using RA Profile " + raProfile.getName(), "New Certificate is issued with Serial Number: " + certificate.getSerialNumber(), oldCertificate);
@@ -540,6 +569,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
         try {
             certificate.setStatus(CertificateStatus.REVOKED);
+            certificate.setRevokeAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getAttributes())));
             logger.debug("Certificate revoked. Proceeding to check and destroy key");
 
             if (certificate.getKey() != null && request.isDestroyKey()) {
