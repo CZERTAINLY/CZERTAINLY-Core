@@ -2,6 +2,8 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
@@ -30,9 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
+import java.security.cert.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -77,17 +77,23 @@ public class LocalAdminServiceImpl implements LocalAdminService {
     public UserDetailDto createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
 
         String superAdminUuid = getSuperAdminRoleUuid();
-        if(request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) {
+        if (request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) {
             UserDetailDto userResponse = userManagementService.createUser(request);
             userManagementService.updateRole(userResponse.getUuid(), superAdminUuid);
             return userResponse;
         }
 
         X509Certificate x509Cert = CertificateUtil.parseCertificate(request.getCertificateData());
+        try {
+            x509Cert.checkValidity();
+        } catch (CertificateExpiredException | CertificateNotYetValidException e) {
+            throw new ValidationException(ValidationError.create("Certificate is not valid."));
+        }
+
         String fingerPrint = getCertificateFingerprint(x509Cert);
 
-        if(certificateService.checkCertificateExistsByFingerprint(fingerPrint)){
-            throw new AlreadyExistException("User already exist for the provided certificate");
+        if (certificateService.checkCertificateExistsByFingerprint(fingerPrint)) {
+            throw new AlreadyExistException("Certificate already exists.");
         }
         UserDetailDto response = createUser(request, fingerPrint);
         userManagementApiClient.updateRole(response.getUuid(), superAdminUuid);

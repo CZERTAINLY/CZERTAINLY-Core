@@ -138,11 +138,13 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             predicates.add(additionalWhereClause.apply(root, cb));
         }
 
-        if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
-            predicates.add(root.get("uuid").in(filter.getResourceFilter().getAllowedObjects()));
-        } else {
-            if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
-                predicates.add(root.get("uuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
+        if (filter.getResourceFilter() != null) {
+            if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
+                predicates.add(root.get("uuid").in(filter.getResourceFilter().getAllowedObjects()));
+            } else {
+                if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
+                    predicates.add(root.get("uuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
+                }
             }
         }
 

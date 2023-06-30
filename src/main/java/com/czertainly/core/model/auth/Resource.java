@@ -17,6 +17,8 @@ public enum Resource {
     AUDIT_LOG("auditLogs"),
     CREDENTIAL("credentials"),
     CONNECTOR("connectors"),
+    ATTRIBUTE("attributes"),
+    SCHEDULED_JOB("jobs"),
 
     // AUTH
     USER("users"),
@@ -45,9 +47,7 @@ public enum Resource {
     TOKEN_PROFILE("tokenProfiles"),
     TOKEN("tokens"),
     CRYPTOGRAPHIC_KEY("keys"),
-
-    ATTRIBUTE("attributes");
-
+    ;
 
     @Schema(description = "Resource Name",
             example = "certificates",

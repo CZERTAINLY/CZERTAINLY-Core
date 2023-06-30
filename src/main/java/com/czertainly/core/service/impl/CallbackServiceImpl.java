@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.AttributeApiClient;
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
+import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
@@ -16,11 +17,15 @@ import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCal
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.*;
@@ -54,6 +59,10 @@ public class CallbackServiceImpl implements CallbackService {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private AuthorityInstanceApiClient authorityInstanceApiClient;
+    @Autowired
+    private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+    @Autowired
+    private EntityInstanceApiClient entityInstanceApiClient;
     @Autowired
     private AttributeService attributeService;
     @Autowired
@@ -123,6 +132,18 @@ public class CallbackServiceImpl implements CallbackService {
                         ),
                         KeyRequestType.KEY_PAIR
                 );
+                break;
+
+            case LOCATION:
+                EntityInstanceReference entityInstance = entityInstanceReferenceRepository.findByUuid(UUID.fromString(resourceUuid))
+                        .orElseThrow(
+                        () -> new NotFoundException(
+                                EntityInstanceReference.class,
+                                resourceUuid
+                        )
+                );
+                connector = entityInstance.getConnector();
+                definitions = entityInstanceApiClient.listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());
                 break;
 
             default:

@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.auth.UserIdentificationRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -17,18 +18,20 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.GroupService;
 import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
-
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.List;
 import java.util.UUID;
@@ -44,6 +47,8 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Autowired
     private CertificateService certificateService;
 
+    @Autowired
+    private GroupService groupService;
     @Autowired
     private AttributeService attributeService;
 
@@ -81,6 +86,12 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
         requestDto.setDescription(request.getDescription());
+
+        if (request.getGroupUuid() != null) {
+            GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(request.getGroupUuid()));
+            requestDto.setGroupName(groupDto.getName());
+            requestDto.setGroupUuid(request.getGroupUuid());
+        }
 
         UserDetailDto response = userManagementApiClient.createUser(requestDto);
         if (certificate != null) {
@@ -185,6 +196,11 @@ public class UserManagementServiceImpl implements UserManagementService {
         } else {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
             try {
+                x509Cert.checkValidity();
+            } catch (CertificateExpiredException | CertificateNotYetValidException e) {
+                throw new ValidationException(ValidationError.create("Certificate is not valid."));
+            }
+            try {
                 certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
                 if (certificate.getStatus().equals(CertificateStatus.NEW)) {
                     throw new ValidationException(ValidationError.create(
@@ -217,6 +233,13 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setEmail(request.getEmail());
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
+
+        if (request.getGroupUuid() != null) {
+            GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(request.getGroupUuid()));
+            requestDto.setGroupName(groupDto.getName());
+            requestDto.setGroupUuid(request.getGroupUuid());
+        }
+
         UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);
 
         try {

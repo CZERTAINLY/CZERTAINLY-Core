@@ -44,6 +44,7 @@ public enum SearchFieldNameEnum {
     CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Discovery provider",SearchFieldTypeEnum.LIST),
     KIND(SearchableFields.KIND, "Kind",SearchFieldTypeEnum.STRING),
     DISCOVERY_STATUS(SearchableFields.DISCOVERY_STATUS, "Status", SearchFieldTypeEnum.LIST),
+    PRIVATE_KEY(SearchableFields.PRIVATE_KEY, "Has private key", SearchFieldTypeEnum.BOOLEAN),
 
     ENTITY_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING),
     ENTITY_CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Entity provider", SearchFieldTypeEnum.LIST),

@@ -1,5 +1,9 @@
 package com.czertainly.core.security.authn;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.lang.NonNull;
@@ -11,10 +15,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
@@ -25,9 +25,13 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
     private final CzertainlyAuthenticationConverter authenticationConverter;
 
-    public CzertainlyAuthenticationFilter(AuthenticationManager authenticationManager, CzertainlyAuthenticationConverter authenticationConverter) {
+    private final String healthCheckRequest;
+
+
+    public CzertainlyAuthenticationFilter(final AuthenticationManager authenticationManager, final CzertainlyAuthenticationConverter authenticationConverter, final String restApiPrefix) {
         this.authenticationManager = authenticationManager;
         this.authenticationConverter = authenticationConverter;
+        this.healthCheckRequest = "/api" + restApiPrefix + "health";
     }
 
     @Override
@@ -37,7 +41,7 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
-        if (isAuthenticationNeeded()) {
+        if (isAuthenticationNeeded(request)) {
             logger.trace(String.format("Going to authenticate the '%s' request on '%s'.", request.getMethod(), request.getRequestURI()));
             CzertainlyAuthenticationRequest authRequest = this.authenticationConverter.convert(request);
 
@@ -61,7 +65,13 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private boolean isAuthenticationNeeded() {
+    private boolean isAuthenticationNeeded(final HttpServletRequest request) {
+
+        if (request.getRequestURI().startsWith(healthCheckRequest)) {
+            logger.debug("Actuator health checks are automatically authenticated.");
+            return false;
+        }
+
         SecurityContext context = SecurityContextHolder.getContext();
         if (context == null) {
             return true;
@@ -74,5 +84,6 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
         return !auth.isAuthenticated();
     }
+
 }
 

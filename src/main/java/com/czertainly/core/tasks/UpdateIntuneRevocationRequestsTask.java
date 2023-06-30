@@ -5,6 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.authority.RevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
@@ -12,26 +13,35 @@ import com.czertainly.core.intune.carequest.CARequestErrorCodes;
 import com.czertainly.core.intune.carequest.CARevocationRequest;
 import com.czertainly.core.intune.carequest.CARevocationResult;
 import com.czertainly.core.intune.scepvalidation.IntuneRevocationClient;
+import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
+import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
-public class UpdateIntuneRevocationRequestsTask {
+@Component
+@NoArgsConstructor
+public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateIntuneRevocationRequestsTask.class);
+
+    // scheduled for every hour, to process revocation requests from Intune enabled SCEP profiles
+    private static  final String CRON_EXPRESSION = "0 30 * ? * *";
+
+    private static final String JOB_NAME = "updateIntuneRevocationRequestsJob";
 
     @Value("${app.version}")
     private String appVersion;
@@ -47,9 +57,33 @@ public class UpdateIntuneRevocationRequestsTask {
     @Autowired
     private ClientOperationService clientOperationService;
 
-    // scheduled for every hour, to process revocation requests from Intune enabled SCEP profiles
-    @Scheduled(fixedRate = 1000*60*60, initialDelay = 10000)
-    public void performTask() {
+    @Override
+    String getDefaultJobName() {
+        return JOB_NAME;
+    }
+
+    @Override
+    String getDefaultCronExpression() {
+        return CRON_EXPRESSION;
+    }
+
+    @Override
+    boolean isDefaultOneTimeJob() {
+        return false;
+    }
+
+    @Override
+    String getJobClassName() {
+        return this.getClass().getName();
+    }
+
+    @Override
+    boolean systemJob() {
+        return true;
+    }
+
+    @Override
+    ScheduledTaskResult performJob(String jobName) {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Executing Intune revocation requests update task");
         AuthHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
 
@@ -70,7 +104,7 @@ public class UpdateIntuneRevocationRequestsTask {
                 revocationRequests = downloadRevocationRequests(intuneRevocationClient);
             } catch (Exception e) {
                 logger.error(MarkerFactory.getMarker("scheduleInfo"), "Error downloading CA revocation requests", e);
-                return;
+                return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, "Error downloading CA revocation requests");
             }
 
             List<CARevocationResult> revocationResults = processRevocationRequests(revocationRequests);
@@ -81,6 +115,7 @@ public class UpdateIntuneRevocationRequestsTask {
                 logger.error(MarkerFactory.getMarker("scheduleInfo"), "Error uploading revocation results", e);
             }
         }
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, String.format("Processed Intune revocation requests for %d SCEP profiles", scepProfiles.size()));
     }
 
     private List<CARevocationRequest> downloadRevocationRequests(IntuneRevocationClient intuneRevocationClient) throws Exception {
@@ -205,5 +240,6 @@ public class UpdateIntuneRevocationRequestsTask {
             );
         }
     }
+
 
 }

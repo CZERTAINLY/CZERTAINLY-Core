@@ -73,7 +73,9 @@ public interface CertificateService extends ResourceExtensionService  {
             UUID keyUuid,
             List<DataAttribute> csrAttributes,
             List<RequestAttributeDto> signatureAttributes,
-            UUID connectorUuid
+            UUID connectorUuid,
+            UUID sourceCertificateUuid,
+            String issueAttributes
     ) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
@@ -152,7 +154,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * Function to update status of certificates by scheduled event
      *
      */
-    void updateCertificatesStatusScheduled();
+    int updateCertificatesStatusScheduled();
 
     /**
      * Update the user uuid of the certificate in the core database
