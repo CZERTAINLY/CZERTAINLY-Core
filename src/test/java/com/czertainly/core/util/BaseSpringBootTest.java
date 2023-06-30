@@ -60,7 +60,7 @@ public class BaseSpringBootTest {
     }
 
     protected Authentication getAuthentication() {
-        AuthenticationInfo info = new AuthenticationInfo("username", List.of());
+        AuthenticationInfo info = new AuthenticationInfo(null, "username", List.of());
         return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(info));
     }
 }

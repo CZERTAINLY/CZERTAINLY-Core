@@ -1,8 +1,20 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationError;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.certificate.CertificateComplianceCheckDto;
+import com.czertainly.api.model.client.certificate.CertificateResponseDto;
+import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
+import com.czertainly.api.model.client.certificate.LocationsResponseDto;
+import com.czertainly.api.model.client.certificate.MultipleCertificateObjectUpdateDto;
+import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -13,9 +25,22 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.api.model.core.auth.UserProfileDto;
+import com.czertainly.api.model.core.certificate.CertificateComplianceResultDto;
+import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
+import com.czertainly.api.model.core.certificate.CertificateContentDto;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
+import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateEvent;
+import com.czertainly.api.model.core.certificate.CertificateEventStatus;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateValidationDto;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -24,17 +49,54 @@ import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.CertificateEventHistory;
+import com.czertainly.core.dao.entity.CertificateLocation;
+import com.czertainly.core.dao.entity.CertificateRequest;
+import com.czertainly.core.dao.entity.ComplianceProfileRule;
+import com.czertainly.core.dao.entity.ComplianceRule;
+import com.czertainly.core.dao.entity.Group;
+import com.czertainly.core.dao.entity.Location;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
+import com.czertainly.core.dao.repository.AttributeContentRepository;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.CertificateRequestRepository;
+import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
+import com.czertainly.core.dao.repository.GroupRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
-import com.czertainly.core.service.*;
-import com.czertainly.core.util.*;
+import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.CertValidationService;
+import com.czertainly.core.service.CertificateEventHistoryService;
+import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.ComplianceService;
+import com.czertainly.core.service.CryptographicKeyService;
+import com.czertainly.core.service.LocationService;
+import com.czertainly.core.service.MetadataService;
+import com.czertainly.core.service.PermissionEvaluator;
+import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.SearchService;
+import com.czertainly.core.service.v2.ExtendedAttributeService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.AuthHelper;
+import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.CsrUtil;
+import com.czertainly.core.util.MetaDefinitions;
+import com.czertainly.core.util.OcspUtil;
+import com.czertainly.core.util.RequestValidatorHelper;
+import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.X509ObjectToString;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -55,7 +117,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.*;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringWriter;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -71,7 +137,18 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -93,6 +170,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private CertificateRepository certificateRepository;
+
+    @Autowired
+    private CertificateRequestRepository certificateRequestRepository;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -144,6 +224,15 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private PermissionEvaluator permissionEvaluator;
 
+    @Autowired
+    private EventProducer eventProducer;
+
+    @Autowired
+    private UserManagementApiClient userManagementApiClient;
+
+    @Autowired
+    private ExtendedAttributeService extendedAttributeService;
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
@@ -191,6 +280,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         dto.setMetadata(metadataService.getFullMetadataWithNullResource(entity.getUuid(), Resource.CERTIFICATE, List.of(Resource.DISCOVERY)));
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CERTIFICATE));
+        dto.setRelatedCertificates(certificateRepository.findBySourceCertificateUuid(entity.getUuid()).stream().map(Certificate::mapToListDto).collect(Collectors.toList()));
         return dto;
     }
 
@@ -293,14 +383,15 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+        logger.info("Updating certificate objects: RA {} group {} owner {}", request.getRaProfileUuid(), request.getGroupUuid(), request.getOwnerUuid());
         if (request.getRaProfileUuid() != null) {
             updateRaProfile(uuid, SecuredUUID.fromString(request.getRaProfileUuid()));
         }
         if (request.getGroupUuid() != null) {
             updateCertificateGroup(uuid, SecuredUUID.fromString(request.getGroupUuid()));
         }
-        if (request.getOwner() != null) {
-            updateOwner(uuid, request.getOwner());
+        if (request.getOwnerUuid() != null) {
+            updateOwner(uuid, request.getOwnerUuid());
         }
     }
 
@@ -309,6 +400,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     public void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        logger.info("Bulk updating certificate objects: RA {} group {} owner {}", request.getRaProfileUuid(), request.getGroupUuid(), request.getOwnerUuid());
         filter.setParentRefProperty("raProfileUuid");
         if (request.getRaProfileUuid() != null) {
             bulkUpdateRaProfile(filter, request);
@@ -316,7 +408,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getGroupUuid() != null) {
             bulkUpdateCertificateGroup(filter, request);
         }
-        if (request.getOwner() != null) {
+        if (request.getOwnerUuid() != null) {
             bulkUpdateOwner(filter, request);
         }
     }
@@ -406,7 +498,8 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()))
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY)
         );
 
         fields = fields.stream().collect(Collectors.toList());
@@ -614,24 +707,49 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with serial number " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
+
+        try {
+            UserProfileDto userProfileDto = AuthHelper.getUserProfile();
+            entity.setOwner(userProfileDto.getUser().getUsername());
+            entity.setOwnerUuid(UUID.fromString(userProfileDto.getUser().getUuid()));
+        } catch (Exception e) {
+            logger.warn("Unable to set owner to logged user: {}", e.getMessage());
+        }
+
         certificateRepository.save(entity);
         certificateComplianceCheck(entity);
         return entity;
     }
 
     @Override
-    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes, UUID connectorUuid) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes, UUID connectorUuid, UUID sourceCertificateUuid, String issueAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
-        Certificate entity = createCertificateEntity(x509Cert);
-        entity.setCsr(csr);
+        final Certificate entity = createCertificateEntity(x509Cert);
         entity.setKeyUuid(keyUuid);
-        entity.setCsrAttributes(csrAttributes);
-        entity.setSignatureAttributes(signatureAttributes);
+        entity.setSourceCertificateUuid(sourceCertificateUuid);
+        entity.setIssueAttributes(issueAttributes);
+
+        byte[] decodedCSR = Base64.getDecoder().decode(csr);
+        final String csrFingerprint = CertificateUtil.getThumbprint(decodedCSR);
+        Optional<CertificateRequest> certificateRequestOptional = certificateRequestRepository.findByFingerprint(csrFingerprint);
+
+        if (certificateRequestOptional.isPresent()) {
+            entity.setCertificateRequestUuid(certificateRequestOptional.get().getUuid());
+        } else {
+            CertificateRequest certificateRequest = entity.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
+            certificateRequest.setContent(csr);
+            certificateRequest.setAttributes(csrAttributes);
+            certificateRequest.setSignatureAttributes(signatureAttributes);
+            certificateRequest = certificateRequestRepository.save(certificateRequest);
+            entity.setCertificateRequestUuid(certificateRequest.getUuid());
+        }
+
         certificateRepository.save(entity);
+
         metadataService.createMetadataDefinitions(connectorUuid, meta);
         metadataService.createMetadata(connectorUuid, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
         certificateComplianceCheck(entity);
@@ -718,7 +836,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public void updateCertificatesStatusScheduled() {
+    public int updateCertificatesStatusScheduled() {
         List<CertificateStatus> skipStatuses = List.of(CertificateStatus.NEW, CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
@@ -726,25 +844,34 @@ public class CertificateServiceImpl implements CertificateService {
         LocalDateTime before = LocalDateTime.now().minusDays(1);
 
         // process 1/24 of eligible certificates for status update
-        List<Certificate> certificates = certificateRepository.findCertificatesToCheckStatus(
+        final List<Certificate> certificates = certificateRepository.findCertificatesToCheckStatus(
                 before,
                 skipStatuses,
                 PageRequest.of(0, maxCertsToValidate));
 
-        int counter = 0;
+        int certificatesUpdated = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
-        for (Certificate certificate : certificates) {
-            if (updateCertificateStatusScheduled(certificate)) ++counter;
+        for (final Certificate certificate : certificates) {
+            if (updateCertificateStatusScheduled(certificate)) {
+                if (CertificateStatus.REVOKED.equals(certificate.getStatus())
+                        || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
+                    eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
+                    logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
+                }
+                ++certificatesUpdated;
+            }
         }
-        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", counter, certificates.size());
+        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificates.size());
+        return certificatesUpdated;
     }
 
     private boolean updateCertificateStatusScheduled(Certificate certificate) {
         try {
             updateCertificateIssuer(certificate);
             certValidationService.validate(certificate);
-            if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null)
+            if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) {
                 complianceService.checkComplianceOfCertificate(certificate);
+            }
         } catch (Exception e) {
             logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate {}. Certificate {}", e.getMessage(), certificate.toString());
             certificate.setStatusValidationTimestamp(LocalDateTime.now());
@@ -904,16 +1031,23 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public Certificate createCsr(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, UUID keyUuid) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
-        JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(csr);
-        Certificate model = new Certificate();
-        CertificateUtil.prepareCsrObject(model, jcaObject);
-        model.setKeyUuid(keyUuid);
-        model.setCsr(csr);
-        model.setStatus(CertificateStatus.NEW);
-        model.setSignatureAttributes(signatureAttributes);
-        model.setCsrAttributes(csrAttributes);
-        certificateRepository.save(model);
-        return model;
+
+        final JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(csr);
+        final Certificate certificate = new Certificate();
+        CertificateUtil.prepareCsrObject(certificate, jcaObject);
+        certificate.setKeyUuid(keyUuid);
+        certificate.setStatus(CertificateStatus.NEW);
+
+        CertificateRequest certificateRequest = certificate.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
+        certificateRequest.setContent(csr);
+        certificateRequest.setSignatureAttributes(signatureAttributes);
+        certificateRequest.setAttributes(csrAttributes);
+        certificateRequest = certificateRequestRepository.save(certificateRequest);
+
+        certificate.setCertificateRequest(certificateRequest);
+        certificate.setCertificateRequestUuid(certificateRequest.getUuid());
+        certificateRepository.save(certificate);
+        return certificate;
     }
 
     @Override
@@ -1249,15 +1383,21 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, originalGroup + " -> " + group.getName(), "", certificate);
     }
 
-    private void updateOwner(SecuredUUID uuid, String owner) throws NotFoundException {
+    private void updateOwner(SecuredUUID uuid, String ownerUuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
+
+        // if there is no change, do not update and save request to Auth service
+        if(certificate.getOwnerUuid() != null && certificate.getOwnerUuid().toString().equals(ownerUuid)) return;
+
         String originalOwner = certificate.getOwner();
         if (originalOwner == null || originalOwner.isEmpty()) {
             originalOwner = "undefined";
         }
-        certificate.setOwner(owner);
+        UserDetailDto userDetail = userManagementApiClient.getUserDetail(ownerUuid);
+        certificate.setOwner(userDetail.getUsername());
+        certificate.setOwnerUuid(UUID.fromString(userDetail.getUuid()));
         certificateRepository.save(certificate);
-        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + owner, "", certificate);
+        certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, originalOwner + " -> " + userDetail.getUsername(), "", certificate);
     }
 
     private void bulkUpdateRaProfile(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
@@ -1315,14 +1455,16 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private void bulkUpdateOwner(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        UserDetailDto userDetail = userManagementApiClient.getUserDetail(request.getOwnerUuid());
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
             List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
                 permissionEvaluator.certificate(certificate.getSecuredUuid());
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwner(), "", certificate));
-                certificate.setOwner(request.getOwner());
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, certificate.getOwner() + " -> " + request.getOwnerUuid(), "", certificate));
+                certificate.setOwner(userDetail.getUsername());
+                certificate.setOwnerUuid(UUID.fromString(userDetail.getUuid()));
                 batchOperationList.add(certificate);
             }
             certificateRepository.saveAll(batchOperationList);
@@ -1332,9 +1474,9 @@ public class CertificateServiceImpl implements CertificateService {
             if (!data.equals("")) {
                 data = "WHERE " + data;
             }
-            String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + request.getOwner() + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
+            String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + userDetail.getUsername() + "',c.owner_uuid = '" + UUID.fromString(userDetail.getUuid()) + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
             certificateRepository.bulkUpdateQuery(ownerUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + request.getOwner());
+            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + userDetail.getUsername());
         }
     }
 

@@ -176,7 +176,7 @@ class ExternalFilterAuthorizationVoterTest {
     CzertainlyAuthenticationToken createCzertainlyAuthentication() {
         return new CzertainlyAuthenticationToken(
                 new CzertainlyUserDetails(
-                        new AuthenticationInfo("FrantisekJednicka", List.of())
+                        new AuthenticationInfo(null, "FrantisekJednicka", List.of())
                 )
         );
     }

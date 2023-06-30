@@ -3,6 +3,7 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -10,12 +11,17 @@ import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.scheduler.SchedulerJobInfoDto;
+import com.czertainly.api.model.core.scheduler.ScheduleDiscoveryDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.dao.entity.ScheduledJob;
+import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.DiscoveryService;
+import com.czertainly.core.tasks.DiscoveryCertificateTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,45 +30,49 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.security.cert.CertificateException;
 import java.util.List;
 
 @RestController
 public class DiscoveryControllerImpl implements DiscoveryController {
 
-	@Autowired
-	private DiscoveryService discoveryService;
+    private final Logger logger = LoggerFactory.getLogger(DiscoveryControllerImpl.class);
 
-	@Override
-	public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
-		return discoveryService.listDiscoveries(SecurityFilter.create(), request);
-	}
+    private DiscoveryService discoveryService;
 
-	@Override
-	public DiscoveryHistoryDetailDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
-		return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
-	}
+    private ScheduledJobsRepository scheduledJobsRepository;
 
-	@Override
-	public DiscoveryCertificateResponseDto getDiscoveryCertificates(
-			String uuid,
-			Boolean newlyDiscovered,
-			int itemsPerPage,
-			int pageNumber
-	) throws NotFoundException {
-		return discoveryService.getDiscoveryCertificates(
-				SecuredUUID.fromString(uuid),
-				newlyDiscovered,
-				itemsPerPage,
-				pageNumber
-		);
-	}
+    private DiscoveryCertificateTask discoveryCertificateTask;
 
-	@Override
-	public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
+    @Override
+    public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
+        return discoveryService.listDiscoveries(SecurityFilter.create(), request);
+    }
+
+    @Override
+    public DiscoveryHistoryDetailDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
+        return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
+    }
+
+    @Override
+    public DiscoveryCertificateResponseDto getDiscoveryCertificates(
+            String uuid,
+            Boolean newlyDiscovered,
+            int itemsPerPage,
+            int pageNumber
+    ) throws NotFoundException {
+        return discoveryService.getDiscoveryCertificates(
+                SecuredUUID.fromString(uuid),
+                newlyDiscovered,
+                itemsPerPage,
+                pageNumber
+        );
+    }
+
+    @Override
+    public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
             throws NotFoundException, ConnectorException, AlreadyExistException {
-		DiscoveryHistory modal = discoveryService.createDiscoveryModal(request);
-		discoveryService.createDiscovery(request, modal);
+		final DiscoveryHistory modal = discoveryService.createDiscoveryModal(request,true);
+		discoveryService.createDiscoveryAsync(modal);
 		URI location = ServletUriComponentsBuilder
 				.fromCurrentRequest()
 				.path("/{uuid}")
@@ -73,23 +83,61 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 		return ResponseEntity.created(location).body(dto);
 	}
 
-	@Override
-	public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
-		discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
-	}
+    @Override
+    public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
+        discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
+    }
 
-	@Override
-	public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
-		discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
-	}
+    @Override
+    public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
+        discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
+    }
 
-	@Override
-	public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-		return discoveryService.getSearchableFieldInformationByGroup();
-	}
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return discoveryService.getSearchableFieldInformationByGroup();
+    }
 
-	@Override
-	public void scheduleDiscovery(SchedulerJobInfoDto schedulerJobInfo, DiscoveryDto request) throws AlreadyExistException, CertificateException, InterruptedException, ConnectorException {
+    @Override
+    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws ConnectorException, AlreadyExistException, SchedulerException {
+        final DiscoveryDto discoveryDto = scheduleDiscoveryDto.getRequest();
+        discoveryService.createDiscoveryModal(discoveryDto, false);
 
-	}
+        String jobName;
+        if (scheduleDiscoveryDto.getJobName() == null) {
+            jobName = discoveryDto.getName();
+        } else {
+            jobName = scheduleDiscoveryDto.getJobName();
+        }
+
+        ScheduledJob scheduledJob = discoveryCertificateTask.registerScheduler(jobName, scheduleDiscoveryDto.getCronExpression(), scheduleDiscoveryDto.isOneTime(), scheduleDiscoveryDto.getRequest());
+        logger.info("Job {} was registered.", jobName);
+
+        // TODO: construct location URI differently without hardcoded path
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentContextPath()
+                .path("/v1/scheduler/jobs/{uuid}")
+                .buildAndExpand(scheduledJob.getUuid())
+                .toUri();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(scheduledJob.getUuid().toString());
+        return ResponseEntity.created(location).body(dto);
+    }
+
+    // SETTERs
+
+    @Autowired
+    public void setDiscoveryService(DiscoveryService discoveryService) {
+        this.discoveryService = discoveryService;
+    }
+
+    @Autowired
+    public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
+        this.scheduledJobsRepository = scheduledJobsRepository;
+    }
+
+    @Autowired
+    public void setDiscoveryCertificateTask(DiscoveryCertificateTask discoveryCertificateTask) {
+        this.discoveryCertificateTask = discoveryCertificateTask;
+    }
 }

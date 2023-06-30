@@ -9,10 +9,7 @@ import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.api.model.core.search.SearchableFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
-import com.czertainly.core.dao.entity.AttributeContent;
-import com.czertainly.core.dao.entity.AttributeContent2Object;
-import com.czertainly.core.dao.entity.AttributeContentItem;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
@@ -74,17 +71,16 @@ public class Sql2PredicateConverter {
         final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(searchFieldTypeEnum) || SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum);
         final Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject, searchableFields);
         if (predicate == null) {
-            final Expression expression = prepareExpression(root, searchableFields.getCode());
             final Object expressionValue = prepareValue(valueObject, searchableFields);
             final SearchFieldObject searchFieldObject = SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum) ? new SearchFieldObject(AttributeContentType.DATETIME) : null;
-            return buildPredicateByCondition(criteriaBuilder, searchCondition, null, root, searchableFields, expressionValue, isDateFormat, SearchableFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()),dto, searchFieldObject);
+            return buildPredicateByCondition(criteriaBuilder, searchCondition, null, root, searchableFields, expressionValue, isDateFormat, SearchableFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()), dto, searchFieldObject);
         }
         return predicate;
     }
 
-    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, Expression expression, Root root, SearchableFields searchableFields, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
+    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, SearchCondition searchCondition, Expression expression, Root root, SearchableFields searchableFields, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
 
-        if (expression == null) {
+        if (expression == null && searchableFields.getPathToBeJoin() == null) {
             expression = prepareExpression(root, searchableFields.getCode());
         }
 
@@ -101,15 +97,27 @@ public class Sql2PredicateConverter {
 
         Predicate predicate = null;
         if (isBoolean) {
-            switch (searchCondition) {
-                case EQUALS -> {
-                    predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+            if (searchableFields.getExpectedValue() == null) {
+                switch (searchCondition) {
+                    case EQUALS -> {
+                        predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                    }
+                    case NOT_EQUALS -> {
+                        predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                    }
                 }
-                case NOT_EQUALS -> {
-                    predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                return predicate;
+            } else {
+                final Boolean booleanValue = Boolean.parseBoolean(expressionValue.toString());
+                final Join join = prepareJoin(root, searchableFields.getPathToBeJoin());
+                expression = join.get(searchableFields.getCode());
+                expressionValue = searchableFields.getExpectedValue();
+                if (SearchCondition.EQUALS.equals(searchCondition) && !booleanValue) {
+                    searchCondition = SearchCondition.NOT_EQUALS;
+                } else if (SearchCondition.NOT_EQUALS.equals(searchCondition) && !booleanValue) {
+                    searchCondition = SearchCondition.EQUALS;
                 }
             }
-            return predicate;
         }
 
         switch (searchCondition) {
@@ -117,7 +125,11 @@ public class Sql2PredicateConverter {
                 predicate = criteriaBuilder.equal(expression, expressionValue);
             }
             case NOT_EQUALS -> {
-                predicate = criteriaBuilder.notEqual(expression, expressionValue);
+                if (searchableFields.getPathToBeJoin() != null) {
+                    predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, expressionValue), criteriaBuilder.equal(expression, expressionValue)), criteriaBuilder.isNull(expression));
+                } else {
+                    predicate = criteriaBuilder.or(criteriaBuilder.notEqual(expression, expressionValue), criteriaBuilder.isNull(expression));
+                }
             }
             case STARTS_WITH -> predicate = criteriaBuilder.like(expression, expressionValue + "%");
             case ENDS_WITH -> predicate = criteriaBuilder.like(expression, "%" + expressionValue);
@@ -218,6 +230,15 @@ public class Sql2PredicateConverter {
         return path;
     }
 
+    private static Join prepareJoin(final Root root, final String joinPath) {
+        final StringTokenizer stz = new StringTokenizer(joinPath, ".");
+        Join join = root.join(stz.nextToken(), JoinType.LEFT);
+        while (stz.hasMoreTokens()) {
+            join = join.join(stz.nextToken(), JoinType.LEFT);
+        }
+        return join;
+    }
+
     private static Object prepareValue(final Object valueObject, final SearchableFields searchableFields) {
         if (searchableFields.getEnumClass() != null) {
             if (searchableFields.getEnumClass().equals(KeyUsage.class)) {
@@ -304,7 +325,7 @@ public class Sql2PredicateConverter {
                         searchableFields.stream().filter(attr ->
                                 attr.getAttributeType().equals(searchGroup.getAttributeType())
                                         && attr.getAttributeName().equals(fieldIdentifierName)
-                                            && attr.getAttributeContentType().equals(fieldAttributeContentType)).findFirst();
+                                        && attr.getAttributeContentType().equals(fieldAttributeContentType)).findFirst();
 
                 if (searchFieldObject.isPresent()) {
 
@@ -339,6 +360,11 @@ public class Sql2PredicateConverter {
         cqdo.setCriteriaQuery(criteriaQuery);
         cqdo.setPredicate(criteriaBuilder.and(rootPredicates.toArray(new Predicate[]{})));
         return cqdo;
+    }
+
+    public static Predicate constructFilterForJobHistory(final CriteriaBuilder cb, final Root<ScheduledJobHistory> root, final UUID scheduledJobUuid) {
+        final Expression<?> expressionPath = prepareExpression(root, "scheduledJobUuid");
+        return cb.equal(expressionPath, scheduledJobUuid);
     }
 
 

@@ -1,6 +1,10 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
@@ -10,8 +14,16 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.entity.AuthorityInstanceReference;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -184,6 +196,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         request.setPkcs10(SAMPLE_PKCS10);
+        request.setAttributes(List.of());
         ClientCertificateDataResponseDto response = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), raProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(response);
     }

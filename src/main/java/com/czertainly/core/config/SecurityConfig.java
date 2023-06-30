@@ -4,9 +4,11 @@ import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.security.access.AccessDecisionManager;
 import org.springframework.security.access.AccessDecisionVoter;
 import org.springframework.security.access.vote.AffirmativeBased;
@@ -22,21 +24,20 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
-import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig  {
 
-    @Autowired
     CzertainlyAuthenticationProvider czertainlyAuthenticationProvider;
 
-    @Autowired
     ExternalFilterAuthorizationVoter filterAuthorizationVoter;
 
-    @Autowired
     ProtocolValidationFilter protocolValidationFilter;
+
+    private Environment environment;
+
 
     @Bean
     protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -102,6 +103,28 @@ public class SecurityConfig  {
     }
 
     protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
-        return new CzertainlyAuthenticationFilter(authenticationManager(), new CzertainlyAuthenticationConverter());
+        return new CzertainlyAuthenticationFilter(authenticationManager(), new CzertainlyAuthenticationConverter(), environment.getProperty("management.endpoints.web.base-path"));
+    }
+
+    // SETTERs
+
+    @Autowired
+    public void setEnvironment(Environment environment) {
+        this.environment = environment;
+    }
+
+    @Autowired
+    public void setCzertainlyAuthenticationProvider(CzertainlyAuthenticationProvider czertainlyAuthenticationProvider) {
+        this.czertainlyAuthenticationProvider = czertainlyAuthenticationProvider;
+    }
+
+    @Autowired
+    public void setFilterAuthorizationVoter(ExternalFilterAuthorizationVoter filterAuthorizationVoter) {
+        this.filterAuthorizationVoter = filterAuthorizationVoter;
+    }
+
+    @Autowired
+    public void setProtocolValidationFilter(ProtocolValidationFilter protocolValidationFilter) {
+        this.protocolValidationFilter = protocolValidationFilter;
     }
 }

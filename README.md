@@ -78,6 +78,12 @@ Operations can be automated by the `Core`, but also can be performed manually by
 | `SCHEDULED_TASKS_ENABLED` | Scheduled certificate status update enable / disable                | ![](https://img.shields.io/badge/-NO-red.svg)      | `true`              |
 | `JAVA_OPTS`               | Customize Java system properties for running application            | ![](https://img.shields.io/badge/-NO-red.svg)      | `N/A`               |
 | `TRUSTED_CERTIFICATES`    | List of PEM encoded additional trusted certificates                 | ![](https://img.shields.io/badge/-NO-red.svg)      | `N/A`               |
+| `SCHEDULER_BASE_URL`      | Base URL of the scheduler service                                   | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `RABBITMQ_HOST`           | RabbitMQ messaging host                                             | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `RABBITMQ_PORT`           | RabbitMQ messaging port                                             | ![](https://img.shields.io/badge/-NO-red.svg)      | `5672`              |
+| `RABBITMQ_USERNAME`       | RabbitMQ messaging username                                         | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `RABBITMQ_PASSWORD`       | RabbitMQ messaging password                                         | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
+| `RABBITMQ_VHOST`          | RabbitMQ messaging virtual host                                     | ![](https://img.shields.io/badge/-NO-red.svg)      | `czertainly`        |
 
 ### Proxy settings
 

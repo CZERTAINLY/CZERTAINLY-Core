@@ -1,5 +1,7 @@
 package com.czertainly.core.tasks;
 
+import com.czertainly.api.exception.SchedulerException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,15 +11,26 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 public class ScheduledTasks {
 
-    @Bean
-    @ConditionalOnProperty(value = "scheduled-tasks.enabled", matchIfMissing = true, havingValue = "true")
-    public UpdateCertificateStatusTask updateCertificateStatusTask() {
-        return new UpdateCertificateStatusTask();
-    }
+    UpdateCertificateStatusTask updateCertificateStatusTask;
+
+    UpdateIntuneRevocationRequestsTask updateIntuneRevocationRequestsTask;
 
     @Bean
     @ConditionalOnProperty(value = "scheduled-tasks.enabled", matchIfMissing = true, havingValue = "true")
-    public UpdateIntuneRevocationRequestsTask updateIntuneRevocationRequestsTask() {
-        return new UpdateIntuneRevocationRequestsTask();
+    public void registerJobs() throws SchedulerException {
+        updateCertificateStatusTask.registerScheduler();
+        updateIntuneRevocationRequestsTask.registerScheduler();
+    }
+
+    // SETTERs
+
+    @Autowired
+    public void setUpdateCertificateStatusTask(UpdateCertificateStatusTask updateCertificateStatusTask) {
+        this.updateCertificateStatusTask = updateCertificateStatusTask;
+    }
+
+    @Autowired
+    public void setUpdateIntuneRevocationRequestsTask(UpdateIntuneRevocationRequestsTask updateIntuneRevocationRequestsTask) {
+        this.updateIntuneRevocationRequestsTask = updateIntuneRevocationRequestsTask;
     }
 }

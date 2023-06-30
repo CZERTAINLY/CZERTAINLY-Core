@@ -3,6 +3,9 @@ package com.czertainly.core.security.authn.client.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class UserDto {
+
+    @JsonProperty("uuid")
+    private String uuid;
     @JsonProperty("username")
     private String username;
     @JsonProperty("enabled")
@@ -17,5 +20,9 @@ public class UserDto {
 
     public boolean isEnabled() {
         return enabled;
+    }
+
+    public String getUuid() {
+        return uuid;
     }
 }
