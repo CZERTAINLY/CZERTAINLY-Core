@@ -2,13 +2,11 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
 import java.util.UUID;
 
-@Getter
-@Setter
+@Data
 @Entity
 @Table(name = "approval_step")
 public class ApprovalStep extends UniquelyIdentified {
