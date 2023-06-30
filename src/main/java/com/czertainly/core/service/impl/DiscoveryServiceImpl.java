@@ -263,8 +263,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
             getRequest.setName(response.getName());
             getRequest.setKind(request.getKind());
-            getRequest.setStartIndex(0);
-            getRequest.setEndIndex(MAXIMUM_CERTIFICATES_PER_PAGE);
+            getRequest.setPageNumber(1);
+            getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
 
             Boolean waitForCompletion = checkForCompletion(response);
             boolean isReachedMaxTime = false;
@@ -290,11 +290,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 waitForCompletion = checkForCompletion(response);
             }
 
+            Integer currentPage = 1;
             Integer currentTotal = 0;
             Set<DiscoveryProviderCertificateDataDto> certificatesDiscovered = new HashSet<>();
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
-                getRequest.setStartIndex(currentTotal);
-                getRequest.setEndIndex(currentTotal + MAXIMUM_CERTIFICATES_PER_PAGE);
+                getRequest.setPageNumber(currentPage);
+                getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
                 response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
@@ -303,8 +304,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     throw new InterruptedException(
                             "Too many content in response to process. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
                 }
-                currentTotal += MAXIMUM_CERTIFICATES_PER_PAGE;
                 certificatesDiscovered.addAll(response.getCertificateData());
+
+                ++currentPage;
+                currentTotal += response.getCertificateData().size();
             }
 
             updateDiscovery(modal, response);
