@@ -1,20 +1,24 @@
 CREATE TABLE "approval_profile"
 (
-    "uuid"       UUID      NOT NULL,
-    "name"       TEXT      NOT NULL,
-    "enabled"    BOOLEAN   NOT NULL,
-    "created_at" TIMESTAMP NOT NULL,
+    "uuid"     UUID    NOT NULL,
+    "name"     TEXT    NOT NULL,
+    "enabled"  BOOLEAN NOT NULL,
+    "i_author" VARCHAR NULL DEFAULT NULL,
+    "i_cre"    DATE    NULL DEFAULT NULL,
+    "i_upd"    DATE    NULL DEFAULT NULL,
     PRIMARY KEY ("uuid")
 );
 
 CREATE TABLE "approval_profile_version"
 (
-    "uuid"                  UUID      NOT NULL,
-    "approval_profile_uuid" UUID      NOT NULL,
-    "version"               INTEGER   NOT NULL,
-    "description"           TEXT      NULL,
-    "expiry"                INTEGER   NULL,
-    "created_at"            TIMESTAMP NOT NULL,
+    "uuid"                  UUID    NOT NULL,
+    "approval_profile_uuid" UUID    NOT NULL,
+    "version"               INTEGER NOT NULL,
+    "description"           TEXT    NULL,
+    "expiry"                INTEGER NULL,
+    "i_author"              VARCHAR NULL DEFAULT NULL,
+    "i_cre"                 DATE    NULL DEFAULT NULL,
+    "i_upd"                 DATE    NULL DEFAULT NULL,
     PRIMARY KEY ("uuid"),
     FOREIGN KEY ("approval_profile_uuid") REFERENCES "approval_profile" ("uuid")
 );
@@ -30,7 +34,7 @@ CREATE TABLE "approval"
     "action"                        TEXT      NOT NULL,
     "status"                        TEXT      NOT NULL,
     "created_at"                    TIMESTAMP NOT NULL,
-    "approved_at"                   TIMESTAMP NULL,
+    "closed_at"                     TIMESTAMP NULL,
     PRIMARY KEY ("uuid"),
     FOREIGN KEY ("approval_profile_version_uuid") REFERENCES "approval_profile_version" ("uuid")
 );
@@ -44,7 +48,7 @@ CREATE TABLE "approval_step"
     "role_uuid"                     UUID    NULL,
     "group_uuid"                    UUID    NULL,
     "description"                   TEXT    NULL,
-    "order_id"                         INTEGER NOT NULL,
+    "order_id"                      INTEGER NOT NULL,
     "required_approvals"            INTEGER NULL,
     PRIMARY KEY ("uuid"),
     FOREIGN KEY ("approval_profile_version_uuid") REFERENCES "approval_profile_version" ("uuid"),
@@ -60,7 +64,7 @@ CREATE TABLE "approval_recipient"
     "status"             TEXT      NOT NULL,
     "comment"            TEXT      NULL,
     "created_at"         TIMESTAMP NOT NULL,
-    "approved_at"        TIMESTAMP NULL,
+    "closed_at"          TIMESTAMP NULL,
     PRIMARY KEY ("uuid"),
     FOREIGN KEY ("approval_step_uuid") REFERENCES approval_step ("uuid"),
     FOREIGN KEY ("approval_uuid") REFERENCES approval ("uuid")

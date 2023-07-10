@@ -4,10 +4,7 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDetailDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import jakarta.persistence.*;
 import lombok.Data;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -16,8 +13,7 @@ import java.util.stream.Collectors;
 @Data
 @Entity
 @Table(name = "approval_profile_version")
-@EntityListeners(AuditingEntityListener.class)
-public class ApprovalProfileVersion extends UniquelyIdentified {
+public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
 
     @ManyToOne
     @JoinColumn(name = "approval_profile_uuid", insertable = false, updatable = false)
@@ -34,10 +30,6 @@ public class ApprovalProfileVersion extends UniquelyIdentified {
 
     @Column(name = "version")
     private int version = 1;
-
-    @CreatedDate
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "approvalProfileVersion")
     private List<Approval> approvals;

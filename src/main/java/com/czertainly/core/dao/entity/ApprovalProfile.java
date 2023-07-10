@@ -15,18 +15,13 @@ import java.util.Optional;
 @Data
 @Entity
 @Table(name = "approval_profile")
-@EntityListeners(AuditingEntityListener.class)
-public class ApprovalProfile extends UniquelyIdentified {
+public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
 
     @Column(name = "name")
     private String name;
 
     @Column(name = "enabled")
     private boolean enabled;
-
-    @CreatedDate
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.EAGER)
     private List<ApprovalProfileVersion> approvalProfileVersions = new ArrayList<>();

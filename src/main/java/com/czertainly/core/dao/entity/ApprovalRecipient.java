@@ -37,7 +37,7 @@ public class ApprovalRecipient extends UniquelyIdentified {
     @Column(name = "created_at")
     private Date createdAt;
 
-    @Column(name = "approved_at")
-    private Date approvedAt;
+    @Column(name = "closed_at")
+    private Date closedAt;
 
 }
