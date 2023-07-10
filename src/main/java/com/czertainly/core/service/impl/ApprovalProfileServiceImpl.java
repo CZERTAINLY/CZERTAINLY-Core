@@ -138,7 +138,6 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
             final ApprovalStep approvalStep = new ApprovalStep();
             approvalStep.setApprovalProfileVersion(approvalProfileVersion);
             approvalStep.setApprovalProfileVersionUuid(approvalProfileVersion.getUuid());
-            approvalStep.setVersion(approvalProfileVersion.getVersion());
             approvalStep.setOrder(as.getOrder());
             approvalStep.setGroupUuid(as.getGroupUuid());
             approvalStep.setUserUuid(as.getUserUuid());

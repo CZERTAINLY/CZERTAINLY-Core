@@ -28,9 +28,6 @@ public class Approval extends UniquelyIdentified {
     @Column(name = "creator_uuid")
     private UUID creatorUuid;
 
-    @Column(name = "version")
-    private int version;
-
     @Column(name = "object_uuid")
     private UUID objectUuid;
 

@@ -18,9 +18,6 @@ public class ApprovalStep extends UniquelyIdentified {
     @JoinColumn(name = "approval_profile_version_uuid", insertable = false, updatable = false)
     private ApprovalProfileVersion approvalProfileVersion;
 
-    @Column(name = "version")
-    private int version;
-
     @Column(name = "user_uuid")
     private UUID userUuid;
 

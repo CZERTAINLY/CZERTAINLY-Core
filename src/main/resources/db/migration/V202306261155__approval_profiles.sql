@@ -28,7 +28,6 @@ CREATE TABLE "approval"
     "uuid"                          UUID      NOT NULL,
     "approval_profile_version_uuid" UUID      NOT NULL,
     "creator_uuid"                  UUID      NOT NULL,
-    "version"                       INTEGER   NOT NULL,
     "object_uuid"                   UUID      NOT NULL,
     "resource"                      TEXT      NOT NULL,
     "action"                        TEXT      NOT NULL,
@@ -43,7 +42,6 @@ CREATE TABLE "approval_step"
 (
     "uuid"                          UUID    NOT NULL,
     "approval_profile_version_uuid" UUID    NOT NULL,
-    "version"                       INTEGER NOT NULL,
     "user_uuid"                     UUID    NULL,
     "role_uuid"                     UUID    NULL,
     "group_uuid"                    UUID    NULL,
