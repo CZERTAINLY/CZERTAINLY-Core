@@ -123,8 +123,10 @@ public class NotificationServiceImpl implements NotificationService {
         Notification notification = notificationRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(Notification.class, uuid));
         for (NotificationRecipient recipient : notification.getNotificationRecipients()) {
             if (recipient.getUserUuid().equals(loggedUserUuid)) {
-                recipient.setReadAt(new Date());
-                notificationRepository.save(notification);
+                if (recipient.getReadAt() == null) {
+                    recipient.setReadAt(new Date());
+                    notificationRepository.save(notification);
+                }
                 break;
             }
         }
