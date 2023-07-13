@@ -120,7 +120,7 @@ public class KeySizeUtil {
      * @return Public Key Size
      */
     private static Integer getPQCKeySizeFromMap(String name) {
-        Integer publicKeySize = PQCPublicKeySize.get(name);
+        Integer publicKeySize = PQCPublicKeySize.get(name.toLowerCase());
         if (publicKeySize == null) {
             throw new ValidationException(
                     ValidationError.create(
