@@ -83,18 +83,27 @@ public class CertificateUtil {
         try {
             X509Certificate certificate = (X509Certificate) new CertificateFactory().engineGenerateCertificate(new ByteArrayInputStream(decoded));
             if (certificate.getPublicKey() == null) {
-                java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("x.509", BouncyCastleProvider.PROVIDER_NAME);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Certificate has no public key, trying to generate certificate with BouncyCastleProvider: {}", Base64.getEncoder().encodeToString(decoded));
+                }
+                java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME);
                 return (X509Certificate) certificateFactory.generateCertificate(new ByteArrayInputStream(decoded));
             }
             return certificate;
         } catch (Exception e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Failed to generate certificate, trying to generate certificate from iterator: {}, {}", e.getMessage(), Base64.getEncoder().encodeToString(decoded));
+            }
             X509Certificate certificate = (X509Certificate) new CertificateFactory().engineGenerateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
             if (certificate.getPublicKey() == null) {
                 try {
-                    java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("x.509", BouncyCastleProvider.PROVIDER_NAME);
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Certificate has no public key, trying to generate certificate with BouncyCastleProvider: {}", Base64.getEncoder().encodeToString(decoded));
+                    }
+                    java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME);
                     return (X509Certificate) certificateFactory.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
                 } catch (NoSuchProviderException ex) {
-                    logger.error("NoSuchProvider: ", ex);
+                    logger.error("Requested provider not available: ",  ex);
                 }            }
             return certificate;
         }
