@@ -104,7 +104,8 @@ public class CertificateUtil {
                     return (X509Certificate) certificateFactory.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
                 } catch (NoSuchProviderException ex) {
                     logger.error("Requested provider not available: ",  ex);
-                }            }
+                }
+            }
             return certificate;
         }
     }
