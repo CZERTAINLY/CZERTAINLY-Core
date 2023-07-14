@@ -10,11 +10,11 @@ import java.util.UUID;
 @Repository
 public interface NotificationRepository extends SecurityFilterRepository<Notification, UUID> {
 
-    List<Notification> findByNotificationRecipients_UserUuid(UUID userUuid, Pageable pageable);
+    List<Notification> findByNotificationRecipients_UserUuidOrderBySentAtDesc(UUID userUuid, Pageable pageable);
 
     long countByNotificationRecipients_UserUuid(UUID userUuid);
 
-    List<Notification> findByNotificationRecipients_UserUuid_AndNotificationRecipients_ReadAtIsNull(UUID userUuid, Pageable pageable);
+    List<Notification> findByNotificationRecipients_UserUuid_AndNotificationRecipients_ReadAtIsNullOrderBySentAtDesc(UUID userUuid, Pageable pageable);
 
     long countByNotificationRecipients_UserUuid_AndNotificationRecipients_ReadAtIsNull(UUID userUuid);
 }
