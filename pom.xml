@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.czertainly</groupId>
         <artifactId>dependencies</artifactId>
-        <version>1.0.0</version>
+        <version>1.0.1-SNAPSHOT</version>
     </parent>
 
     <groupId>com.czertainly</groupId>
@@ -105,12 +105,10 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcprov-jdk18on</artifactId>
-            <version>1.75</version>
         </dependency>
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
-            <version>1.75</version>
         </dependency>
 
         <!-- Tests -->
