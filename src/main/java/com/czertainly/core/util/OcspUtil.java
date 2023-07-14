@@ -98,7 +98,7 @@ public class OcspUtil {
 				if (name.getTagNo() != GeneralName.uniformResourceIdentifier) {
 					continue;
 				}
-				DERIA5String derStr = DERIA5String.getInstance((ASN1TaggedObject) name.toASN1Primitive(), false);
+				DERIA5String derStr = (DERIA5String) DERIA5String.getInstance((ASN1TaggedObject) name.toASN1Primitive(), false);
 				String ocspUrl = derStr.getString();
 				logger.info("OCSP URL Of the certificate is {}", ocspUrl);
 				ocspUrls.add(ocspUrl);
