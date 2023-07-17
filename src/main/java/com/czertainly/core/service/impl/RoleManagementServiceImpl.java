@@ -52,7 +52,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         com.czertainly.api.model.core.auth.RoleRequestDto requestDto = new com.czertainly.api.model.core.auth.RoleRequestDto();
         requestDto.setName(request.getName());
         requestDto.setDescription(request.getDescription());
-        requestDto.setEmail(requestDto.getEmail());
+        requestDto.setEmail(request.getEmail());
         requestDto.setSystemRole(false);
         RoleDetailDto dto = roleManagementApiClient.createRole(requestDto);
         attributeService.createAttributeContent(UUID.fromString(dto.getUuid()), request.getCustomAttributes(), Resource.ROLE);
@@ -67,7 +67,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         com.czertainly.api.model.core.auth.RoleRequestDto requestDto = new com.czertainly.api.model.core.auth.RoleRequestDto();
         requestDto.setName(request.getName());
         requestDto.setDescription(request.getDescription());
-        requestDto.setEmail(requestDto.getEmail());
+        requestDto.setEmail(request.getEmail());
         requestDto.setSystemRole(false);
         RoleDetailDto dto = roleManagementApiClient.updateRole(roleUuid, requestDto);
         attributeService.updateAttributeContent(UUID.fromString(dto.getUuid()), request.getCustomAttributes(), Resource.ROLE);
