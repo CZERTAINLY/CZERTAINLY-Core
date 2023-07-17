@@ -40,11 +40,11 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     public ApprovalProfileResponseDto listApprovalProfiles(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<ApprovalProfile> scheduledJobList = approvalProfileRepository.findUsingSecurityFilter(filter, null, pageable, null);
+        final List<ApprovalProfile> approvalProfileList = approvalProfileRepository.findUsingSecurityFilter(filter, null, pageable, null);
 
         final Long maxItems = approvalProfileRepository.countUsingSecurityFilter(filter, null);
         final ApprovalProfileResponseDto responseDto = new ApprovalProfileResponseDto();
-        responseDto.setApprovalProfiles(scheduledJobList.stream()
+        responseDto.setApprovalProfiles(approvalProfileList.stream()
                 .map(approvalProfile -> approvalProfile.getTheLatestApprovalProfileVersion().mapToDto())
                 .collect(Collectors.toList()));
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
@@ -55,8 +55,12 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     }
 
     @Override
-    public ApprovalProfileDetailDto getApprovalProfile(final String uuid) throws NotFoundException {
-        return findApprovalProfileByUuid(uuid).getTheLatestApprovalProfileVersion().mapToDtoWithSteps();
+    public ApprovalProfileDetailDto getApprovalProfile(final String uuid, final Integer version) throws NotFoundException {
+        if (version == null) {
+            return findApprovalProfileByUuid(uuid).getTheLatestApprovalProfileVersion().mapToDtoWithSteps();
+        } else {
+            return findApprovalProfileByUuid(uuid).getApprovalProfileVersionByVersion(version).mapToDtoWithSteps();
+        }
     }
 
     @Override
@@ -135,6 +139,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
         }
 
         approvalStepDtos.forEach(as -> {
+            validateAssignedPersons(as);
+
             final ApprovalStep approvalStep = new ApprovalStep();
             approvalStep.setApprovalProfileVersion(approvalProfileVersion);
             approvalStep.setApprovalProfileVersionUuid(approvalProfileVersion.getUuid());
@@ -148,6 +154,29 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
             approvalProfileVersion.getApprovalSteps().add(approvalStep);
         });
         approvalProfileVersionRepository.save(approvalProfileVersion);
+    }
+
+    private void validateAssignedPersons(final ApprovalStepDto as) {
+        boolean isAssignedResponsibleUser = false;
+        if (as.getRoleUuid() != null) {
+            isAssignedResponsibleUser = true;
+        }
+        if (as.getUserUuid() != null) {
+            if (isAssignedResponsibleUser) {
+                throw new ValidationException("There is forbidden to have more than one assigned user/role/group.");
+            }
+            isAssignedResponsibleUser = true;
+        }
+        if (as.getGroupUuid() != null) {
+            if (isAssignedResponsibleUser) {
+                throw new ValidationException("There is forbidden to have more than one assigned user/role/group.");
+            }
+            isAssignedResponsibleUser = true;
+        }
+
+        if (!isAssignedResponsibleUser) {
+            throw new ValidationException("There is required to have assigned one of user/role/group.");
+        }
     }
 
     private ApprovalProfile findApprovalProfileByUuid(final String uuid) throws NotFoundException {

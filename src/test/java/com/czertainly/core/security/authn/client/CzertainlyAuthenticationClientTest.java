@@ -35,8 +35,8 @@ class CzertainlyAuthenticationClientTest {
             "\"enabled\": true" +
             "}," +
             "\"roles\": [" +
-            "\"ROLE_ADMINISTRATOR\"," +
-            "\"ROLE_USER\"" +
+            "{\"uuid\":\"32281955-eed2-4520-9f42-15b82c96f928\",\"name\":\"ROLE_ADMINISTRATOR\"}," +
+            "{\"uuid\":\"32281955-eed2-4520-9f42-15b82c96f930\",\"name\":\"ROLE_USER\"}" +
             "]" +
             "}" +
             "}";
@@ -85,11 +85,12 @@ class CzertainlyAuthenticationClientTest {
                         "\"enabled\":true" +
                         "}," +
                         "\"roles\":[" +
-                        "\"ROLE_ADMINISTRATOR\"," +
-                        "\"ROLE_USER\"" +
+                        "{\"uuid\":\"32281955-eed2-4520-9f42-15b82c96f928\",\"name\":\"ROLE_ADMINISTRATOR\"}," +
+                        "{\"uuid\":\"32281955-eed2-4520-9f42-15b82c96f930\",\"name\":\"ROLE_USER\"}" +
                         "]" +
                         "}",
                 info.getRawData()
+
         );
         // @formatter:on
         assertEquals(

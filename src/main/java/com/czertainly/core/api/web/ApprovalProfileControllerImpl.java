@@ -2,7 +2,6 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ApprovalProfileController;
 import com.czertainly.api.model.client.approvalprofile.*;
@@ -16,9 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.io.IOException;
 import java.net.URI;
-import java.security.cert.CertificateException;
 
 @RestController
 public class ApprovalProfileControllerImpl implements ApprovalProfileController {
@@ -26,27 +23,27 @@ public class ApprovalProfileControllerImpl implements ApprovalProfileController 
     private ApprovalProfileService approvalProfileService;
 
     @Override
-    public ApprovalProfileResponseDto listApprovalProfiles(final PaginationRequestDto paginationRequestDto) throws ValidationException {
+    public ApprovalProfileResponseDto listApprovalProfiles(final PaginationRequestDto paginationRequestDto) {
         return approvalProfileService.listApprovalProfiles(SecurityFilter.create(), paginationRequestDto);
     }
 
     @Override
-    public ApprovalProfileDetailDto getApprovalProfile(final String uuid) throws NotFoundException, CertificateException, IOException {
-        return approvalProfileService.getApprovalProfile(uuid);
+    public ApprovalProfileDetailDto getApprovalProfile(final String uuid, final ApprovalProfileForVersionDto approvalProfileForVersionDto) throws NotFoundException {
+        return approvalProfileService.getApprovalProfile(uuid, approvalProfileForVersionDto.getVersion());
     }
 
     @Override
-    public void deleteApprovalProfile(final String uuid) throws NotFoundException {
+    public void deleteApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
         approvalProfileService.deleteApprovalProfile(uuid);
     }
 
     @Override
-    public void enableApprovalProfile(final String uuid) throws NotFoundException, SchedulerException {
+    public void enableApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
         approvalProfileService.enableApprovalProfile(uuid);
     }
 
     @Override
-    public void disableApprovalProfile(final String uuid) throws NotFoundException, SchedulerException {
+    public void disableApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
         approvalProfileService.disableApprovalProfile(uuid);
     }
 
