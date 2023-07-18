@@ -4,16 +4,20 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
+import com.czertainly.api.model.client.approval.ApprovalResponseDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
@@ -38,17 +42,15 @@ import java.util.UUID;
 @RestController
 public class CertificateControllerImpl implements CertificateController {
 
-	@Autowired
 	private CertificateService certificateService;
 
-	@Autowired
 	private CertValidationService certValidationService;
 
-	@Autowired
 	private CertificateEventHistoryService certificateEventHistoryService;
 
-	@Autowired
 	private ClientOperationService clientOperationService;
+
+	private ApprovalService approvalService;
 
 	@Override
 	public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
@@ -157,4 +159,35 @@ public class CertificateControllerImpl implements CertificateController {
 		return clientOperationService.createCsr(request);
 	}
 
+	@Override
+	public ApprovalResponseDto listOfApprovals(final String uuid, final PaginationRequestDto paginationRequestDto) {
+		return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, UUID.fromString(uuid), paginationRequestDto);
+	}
+
+	// SETTERs
+
+	@Autowired
+	public void setCertificateService(CertificateService certificateService) {
+		this.certificateService = certificateService;
+	}
+
+	@Autowired
+	public void setCertValidationService(CertValidationService certValidationService) {
+		this.certValidationService = certValidationService;
+	}
+
+	@Autowired
+	public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
+		this.certificateEventHistoryService = certificateEventHistoryService;
+	}
+
+	@Autowired
+	public void setClientOperationService(ClientOperationService clientOperationService) {
+		this.clientOperationService = clientOperationService;
+	}
+
+	@Autowired
+	public void setApprovalService(ApprovalService approvalService) {
+		this.approvalService = approvalService;
+	}
 }

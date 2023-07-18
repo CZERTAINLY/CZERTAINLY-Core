@@ -1,5 +1,7 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.approval.ApprovalStepRecipientDto;
+import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -29,7 +31,8 @@ public class ApprovalRecipient extends UniquelyIdentified {
     private Approval approval;
 
     @Column(name = "status")
-    private String status;
+    @Enumerated(EnumType.STRING)
+    private ApprovalStatusEnum status;
 
     @Column(name = "comment")
     private String comment;
@@ -39,5 +42,17 @@ public class ApprovalRecipient extends UniquelyIdentified {
 
     @Column(name = "closed_at")
     private Date closedAt;
+
+    public ApprovalStepRecipientDto mapToDto() {
+        final ApprovalStepRecipientDto dto = new ApprovalStepRecipientDto();
+        dto.setApprovalRecipientUuid(this.uuid.toString());
+        dto.setComment(this.comment);
+        dto.setStatus(this.status);
+        dto.setUserUuid(this.userUuid.toString());
+        dto.setCreatedAt(this.createdAt);
+        dto.setClosedAt(this.closedAt);
+        return dto;
+    }
+
 
 }
