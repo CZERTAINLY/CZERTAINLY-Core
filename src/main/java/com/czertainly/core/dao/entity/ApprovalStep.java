@@ -1,9 +1,11 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.approval.ApprovalDetailStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.UUID;
 
 @Data
@@ -45,6 +47,14 @@ public class ApprovalStep extends UniquelyIdentified {
         approvalStepDto.setGroupUuid(this.groupUuid);
         approvalStepDto.setDescription(this.description);
         return approvalStepDto;
+    }
+
+    public ApprovalDetailStepDto mapToDtoWithExtendedData() {
+        final ApprovalStepDto approvalStepDto = mapToDto();
+        final ApprovalDetailStepDto dto = new ApprovalDetailStepDto(approvalStepDto);
+        dto.setApprovalStepRecipients(new ArrayList<>());
+        dto.setApprovalStepUuid(this.uuid.toString());
+        return dto;
     }
 
 }

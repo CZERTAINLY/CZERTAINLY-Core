@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authn.client.dto;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Collection;
@@ -8,7 +9,7 @@ public class UserDetailsDto {
     @JsonProperty("user")
     UserDto user;
     @JsonProperty("roles")
-    Collection<String> roles;
+    Collection<NameAndUuidDto> roles;
 
     public UserDetailsDto() {
     }
@@ -17,7 +18,7 @@ public class UserDetailsDto {
         return user;
     }
 
-    public Collection<String> getRoles() {
+    public Collection<NameAndUuidDto> getRoles() {
         return roles;
     }
 }

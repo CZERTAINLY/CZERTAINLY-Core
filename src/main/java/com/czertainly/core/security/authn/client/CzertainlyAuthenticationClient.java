@@ -116,7 +116,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             return new AuthenticationInfo(
                     userDetails.getUser().getUuid(),
                     userDetails.getUser().getUsername(),
-                    userDetails.getRoles().stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList()),
+                    userDetails.getRoles().stream().map(role -> new SimpleGrantedAuthority(role.getName())).collect(Collectors.toList()),
                     response.getData()
             );
         } catch (JsonProcessingException e) {
