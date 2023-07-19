@@ -3,11 +3,16 @@ package com.czertainly.core.tasks;
 import com.czertainly.api.clients.SchedulerApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.SchedulerException;
-import com.czertainly.api.model.scheduler.*;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.scheduler.SchedulerJobDto;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.api.model.scheduler.SchedulerRequestDto;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
+import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import org.slf4j.Logger;
@@ -31,6 +36,9 @@ public abstract class SchedulerJobProcessor {
 
     @Autowired
     ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+
+    @Autowired
+    private NotificationProducer notificationProducer;
 
     abstract String getDefaultJobName();
 
@@ -67,9 +75,16 @@ public abstract class SchedulerJobProcessor {
 
     private void checkOneTimeJob(final String jobName, final SchedulerJobExecutionStatus status) throws SchedulerException {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
-        if (SchedulerJobExecutionStatus.SUCCESS.equals(status)
-                && scheduledJob != null
-                && scheduledJob.isOneTime()) {
+
+        if (!scheduledJob.isSystem()) {
+            notificationProducer.produceNotificationScheduledJobCompleted(Resource.SCHEDULED_JOB,
+                    scheduledJob.getUuid(),
+                    NotificationRecipient.buildUserNotificationRecipient(scheduledJob.getUserUuid()),
+                    jobName,
+                    status.getLabel());
+        }
+
+        if (SchedulerJobExecutionStatus.SUCCESS.equals(status) && scheduledJob != null && scheduledJob.isOneTime()) {
             schedulerApiClient.deleteScheduledJob(jobName);
 //            scheduledJobsRepository.deleteById(scheduledJob.getUuid());
             logger.info("Scheduled job {} was deleted/unscheduled because it was one time job only.", jobName);

@@ -2,7 +2,6 @@ package com.czertainly.core.messaging.listeners;
 
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
-import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,11 +23,11 @@ public class EventListener {
 
         // TODO process the message
 
-        final NotificationMessage notificationMessage = new NotificationMessage(eventMessage);
+//        final NotificationMessage notificationMessage = new NotificationMessage(eventMessage);
 
         // TODO add another important data to notification message
 
-        notificationProducer.produceMessage(notificationMessage);
+//        notificationProducer.produceMessage(notificationMessage);
 
     }
 

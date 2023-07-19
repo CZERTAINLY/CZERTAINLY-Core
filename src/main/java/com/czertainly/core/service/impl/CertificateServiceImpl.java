@@ -1,20 +1,8 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.certificate.CertificateComplianceCheckDto;
-import com.czertainly.api.model.client.certificate.CertificateResponseDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
-import com.czertainly.api.model.client.certificate.LocationsResponseDto;
-import com.czertainly.api.model.client.certificate.MultipleCertificateObjectUpdateDto;
-import com.czertainly.api.model.client.certificate.RemoveCertificateDto;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -27,17 +15,7 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
-import com.czertainly.api.model.core.certificate.CertificateComplianceResultDto;
-import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
-import com.czertainly.api.model.core.certificate.CertificateContentDto;
-import com.czertainly.api.model.core.certificate.CertificateDetailDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateEvent;
-import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.api.model.core.certificate.CertificateValidationDto;
-import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
@@ -49,26 +27,12 @@ import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.CertificateEventHistory;
-import com.czertainly.core.dao.entity.CertificateLocation;
-import com.czertainly.core.dao.entity.CertificateRequest;
-import com.czertainly.core.dao.entity.ComplianceProfileRule;
-import com.czertainly.core.dao.entity.ComplianceRule;
-import com.czertainly.core.dao.entity.Group;
-import com.czertainly.core.dao.entity.Location;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
-import com.czertainly.core.dao.repository.AttributeContentRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.CertificateRequestRepository;
-import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
-import com.czertainly.core.dao.repository.GroupRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -76,27 +40,9 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.CertValidationService;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.ComplianceService;
-import com.czertainly.core.service.CryptographicKeyService;
-import com.czertainly.core.service.LocationService;
-import com.czertainly.core.service.MetadataService;
-import com.czertainly.core.service.PermissionEvaluator;
-import com.czertainly.core.service.RaProfileService;
-import com.czertainly.core.service.SearchService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.AuthHelper;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.CsrUtil;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.OcspUtil;
-import com.czertainly.core.util.RequestValidatorHelper;
-import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.X509ObjectToString;
+import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -117,11 +63,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringWriter;
+import java.io.*;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.Channels;
@@ -137,18 +79,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -226,6 +157,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private EventProducer eventProducer;
+
+    @Autowired
+    private NotificationProducer notificationProducer;
 
     @Autowired
     private UserManagementApiClient userManagementApiClient;
@@ -852,9 +786,20 @@ public class CertificateServiceImpl implements CertificateService {
         int certificatesUpdated = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
         for (final Certificate certificate : certificates) {
+            String oldStatus = certificate.getStatus().getLabel();
             if (updateCertificateStatusScheduled(certificate)) {
                 if (CertificateStatus.REVOKED.equals(certificate.getStatus())
                         || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
+
+                    List<NotificationRecipient> recipient = certificate.getOwnerUuid() != null ? NotificationRecipient.buildUserNotificationRecipient(
+                            certificate.getOwnerUuid()) : (certificate.getGroupUuid() != null ? NotificationRecipient.buildGroupNotificationRecipient(
+                            certificate.getGroupUuid()) : null);
+                    notificationProducer.produceNotificationStatusChange(Resource.CERTIFICATE,
+                            certificate.getUuid(),
+                            recipient,
+                            oldStatus,
+                            certificate.getStatus().getLabel());
+
                     eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
                     logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
                 }
