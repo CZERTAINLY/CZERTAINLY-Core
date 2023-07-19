@@ -4,15 +4,14 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileResponseDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.core.dao.entity.ApprovalProfileRelation;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.scep.ScepProfile;
-import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -117,4 +116,10 @@ public interface RaProfileService extends ResourceExtensionService {
     SecuredList<RaProfile> listRaProfilesAssociatedWithScepProfile(String scepProfileUuid, SecurityFilter filter);
 
     RaProfileScepDetailResponseDto getScepForRaProfile(SecuredParentUUID authorityInstanceUuid, SecuredUUID raProfileUuid) throws NotFoundException;
+
+    ApprovalProfileResponseDto listApprovalProfilesByRaProfile(SecuredParentUUID authorityInstanceUuid, SecurityFilter securityFilter, SecuredUUID raProfileUuid, PaginationRequestDto paginationRequestDto);
+
+    ApprovalProfileRelation associateApprovalProfileWithRaProfile(SecuredParentUUID authorityInstanceUuid, SecurityFilter securityFilter, SecuredUUID raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
+
+    void disassociateApprovalProfileWithRaProfile(SecuredParentUUID authorityInstanceUuid, SecurityFilter securityFilter, SecuredUUID raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
 }

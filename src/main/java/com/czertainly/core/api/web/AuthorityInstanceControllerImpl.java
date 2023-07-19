@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.AuthorityInstanceController;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileResponseDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
@@ -14,10 +15,13 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AuthorityInstanceService;
+import com.czertainly.core.service.RaProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,8 +35,8 @@ import java.util.List;
 @RestController
 public class AuthorityInstanceControllerImpl implements AuthorityInstanceController {
 
-    @Autowired
     private AuthorityInstanceService authorityInstanceService;
+    private RaProfileService raProfileService;
 
     @Override
     @AuthEndpoint(resourceName = Resource.AUTHORITY)
@@ -102,5 +106,32 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     @Override
     public List<BulkActionMessageDto> forceDeleteAuthorityInstances(List<String> uuids) throws NotFoundException, ValidationException {
         return authorityInstanceService.forceDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
+    }
+
+    @Override
+    public ApprovalProfileResponseDto listOfApprovalProfilesByAuthority(String authorityUuid, String raProfileUuid, PaginationRequestDto paginationRequestDto) {
+        return raProfileService.listApprovalProfilesByRaProfile(SecuredParentUUID.fromString(authorityUuid), SecurityFilter.create(), SecuredUUID.fromString(raProfileUuid), paginationRequestDto);
+    }
+
+    @Override
+    public void associateRAProfileWithApprovalProfile(String authorityUuid, String raProfileUuid, String approvalProfileUuid) throws NotFoundException {
+        raProfileService.associateApprovalProfileWithRaProfile(SecuredParentUUID.fromString(authorityUuid), SecurityFilter.create(), SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(approvalProfileUuid));
+    }
+
+    @Override
+    public void disassociateRAProfileFromApprovalProfile(String authorityUuid, String raProfileUuid, String approvalProfileUuid) throws NotFoundException {
+        raProfileService.disassociateApprovalProfileWithRaProfile(SecuredParentUUID.fromString(authorityUuid), SecurityFilter.create(), SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(approvalProfileUuid));
+    }
+
+    // SETTERs
+
+    @Autowired
+    public void setAuthorityInstanceService(AuthorityInstanceService authorityInstanceService) {
+        this.authorityInstanceService = authorityInstanceService;
+    }
+
+    @Autowired
+    public void setRaProfileService(RaProfileService raProfileService) {
+        this.raProfileService = raProfileService;
     }
 }
