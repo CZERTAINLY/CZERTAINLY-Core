@@ -479,7 +479,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         }
 
         final Optional<List<ApprovalProfileRelation>> approvalProfileRelationsOptional = approvalProfileRelationRepository.findByResourceUuid(raProfileUuid.getValue());
-        if (approvalProfileRelationsOptional.isPresent()) {
+        if (approvalProfileRelationsOptional.isPresent() && !approvalProfileRelationsOptional.get().isEmpty()) {
             throw new ValidationException("There is not possible to have more than ONE relation for the resource uuid: " + raProfileUuid.getValue());
         }
 
