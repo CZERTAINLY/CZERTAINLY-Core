@@ -19,6 +19,8 @@ public interface ApprovalService {
 
     ApprovalResponseDto listApprovalsByObject(final SecurityFilter securityFilter, final Resource resource, final UUID objectUuid, final PaginationRequestDto paginationRequestDto);
 
+    ApprovalResponseDto listUserApprovals(final SecurityFilter securityFilter, final boolean withHistory, final PaginationRequestDto paginationRequestDto);
+
     ApprovalDetailDto getApprovalDetail(final String uuid) throws NotFoundException;
 
     void approveApproval(final String uuid) throws NotFoundException;
