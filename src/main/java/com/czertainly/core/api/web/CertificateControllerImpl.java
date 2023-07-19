@@ -160,7 +160,7 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public ApprovalResponseDto listOfApprovals(final String uuid, final PaginationRequestDto paginationRequestDto) {
+	public ApprovalResponseDto listCertificateApprovals(final String uuid, final PaginationRequestDto paginationRequestDto) {
 		return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, UUID.fromString(uuid), paginationRequestDto);
 	}
 

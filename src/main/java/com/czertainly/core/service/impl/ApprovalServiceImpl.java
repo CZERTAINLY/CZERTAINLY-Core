@@ -22,9 +22,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.RequestValidatorHelper;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,10 +31,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -65,6 +60,30 @@ public class ApprovalServiceImpl implements ApprovalService {
             return cb.and(resourcePredicate, objectPredicate);
         };
         return listOfApprovals(securityFilter, additionalWhereClause, paginationRequestDto);
+    }
+
+    @Override
+    public ApprovalResponseDto listUserApprovals(final SecurityFilter securityFilter, final boolean withHistory, final PaginationRequestDto paginationRequestDto) {
+        final UserProfileDto userProfileDto = AuthHelper.getUserProfile();
+        final BiFunction<Root<Approval>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> {
+            final Join joinApprovalRecipient = root.join("approvalRecipients", JoinType.LEFT);
+            final Predicate statusPredicate = joinApprovalRecipient.get("status").in(prepareApprovalRecipientStatuses(withHistory));
+            final Predicate userUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("userUuid"), UUID.fromString(userProfileDto.getUser().getUuid()));
+            final Predicate roleUuidPredicate = joinApprovalRecipient.get("approvalStep").get("roleUuid").in(userProfileDto.getRoles().stream().map( role -> UUID.fromString(role.getUuid())).collect(Collectors.toList()));
+            final Predicate groupUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("groupUuid"), UUID.fromString(userProfileDto.getUser().getGroupUuid()));
+            return cb.and(statusPredicate, cb.or(userUuidPredicate, roleUuidPredicate, groupUuidPredicate));
+        };
+        return listOfApprovals(securityFilter, additionalWhereClause, paginationRequestDto);
+    }
+
+    private List<ApprovalStatusEnum> prepareApprovalRecipientStatuses(final boolean withHistory) {
+        final List<ApprovalStatusEnum> approvalStatusList = new ArrayList<>();
+        if (withHistory) {
+            approvalStatusList.addAll(Arrays.stream(ApprovalStatusEnum.values()).toList());
+        } else {
+            approvalStatusList.add(ApprovalStatusEnum.PENDING);
+        }
+        return approvalStatusList;
     }
 
     @Override
@@ -114,9 +133,17 @@ public class ApprovalServiceImpl implements ApprovalService {
     private ApprovalRecipient validateAndSetPendingApprovalRecipient(final UUID approvalUuid, final UserApprovalDto userApprovalDto, final ApprovalStatusEnum statusEnum) throws NotFoundException {
         final UserProfileDto userProfileDto = AuthHelper.getUserProfile();
 
+        final Optional<Approval> approvalOptional = approvalRepository.findByUuid(SecuredUUID.fromUUID(approvalUuid));
+        if (approvalOptional.isPresent()) {
+            final Approval approval = approvalOptional.get();
+            if (approval.getCreatorUuid().equals(userProfileDto.getUser().getUuid())) {
+                throw new ValidationException("User " + userProfileDto.getUser().getUsername() + " can't approve/reject this action, because he has create this approval.");
+            }
+        }
+
         final List<ApprovalRecipient> approvalRecipientsByUser = approvalRecipientRepository.findByApprovalUuidAndUserUuid(approvalUuid, UUID.fromString(userProfileDto.getUser().getUuid()));
         if (approvalRecipientsByUser != null && !approvalRecipientsByUser.isEmpty()) {
-            throw new ValidationException("User " + userProfileDto.getUser().getUsername() + " can't approve this action, because he has already made decision in past.");
+            throw new ValidationException("User " + userProfileDto.getUser().getUsername() + " can't approve/reject this action, because he has already made decision in past.");
         }
 
         final List<ApprovalRecipient> approvalRecipients
@@ -134,12 +161,13 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
 
         final ApprovalRecipient approvalRecipient = approvalRecipients.get(0);
-        approvalRecipient.setStatus(ApprovalStatusEnum.APPROVED);
+        approvalRecipient.setStatus(statusEnum);
         approvalRecipient.setClosedAt(new Date());
         approvalRecipient.setUserUuid(UUID.fromString(userProfileDto.getUser().getUuid()));
-        approvalRecipient.setComment(userApprovalDto.getCommnent());
+        approvalRecipient.setComment(userApprovalDto.getComment());
         approvalRecipientRepository.save(approvalRecipient);
 
+        logger.info("User {} {} the ApprovalRecipient {}", userProfileDto.getUser().getUuid(), statusEnum.getCode(), approvalRecipient.getUuid());
         return approvalRecipient;
     }
 
