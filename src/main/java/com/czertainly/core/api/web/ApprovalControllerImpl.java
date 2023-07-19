@@ -1,9 +1,11 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ApprovalController;
 import com.czertainly.api.model.client.approval.ApprovalDetailDto;
 import com.czertainly.api.model.client.approval.ApprovalResponseDto;
+import com.czertainly.api.model.client.approval.ApprovalUserDto;
 import com.czertainly.api.model.client.approval.UserApprovalDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -19,6 +21,11 @@ public class ApprovalControllerImpl implements ApprovalController {
     @Override
     public ApprovalResponseDto listApprovals(PaginationRequestDto paginationRequestDto) {
         return approvalService.listApprovals(SecurityFilter.create(), paginationRequestDto);
+    }
+
+    @Override
+    public ApprovalResponseDto listUserApprovals(PaginationRequestDto paginationRequestDto, ApprovalUserDto approvalUserDto) throws ValidationException {
+        return approvalService.listUserApprovals(SecurityFilter.create(), approvalUserDto.isHistory(), paginationRequestDto);
     }
 
     @Override
