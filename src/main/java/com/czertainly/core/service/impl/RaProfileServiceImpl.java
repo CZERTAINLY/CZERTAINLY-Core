@@ -478,6 +478,11 @@ public class RaProfileServiceImpl implements RaProfileService {
             throw new NotFoundException("There is no such ra profile: " + raProfileUuid.getValue());
         }
 
+        final Optional<List<ApprovalProfileRelation>> approvalProfileRelationsOptional = approvalProfileRelationRepository.findByResourceUuid(raProfileUuid.getValue());
+        if (approvalProfileRelationsOptional.isPresent()) {
+            throw new ValidationException("There is not possible to have more than ONE relation for the resource uuid: " + raProfileUuid.getValue());
+        }
+
         final ApprovalProfileRelation approvalProfileRelation = new ApprovalProfileRelation();
         approvalProfileRelation.setApprovalProfile(approvalProfileOptional.get());
         approvalProfileRelation.setApprovalProfileUuid(approvalProfileOptional.get().getUuid());

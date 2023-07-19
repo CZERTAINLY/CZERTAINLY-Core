@@ -152,7 +152,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    public ApprovalProfileResponseDto listOfApprovalProfilesByAuthority(String authorityUuid, String raProfileUuid, PaginationRequestDto paginationRequestDto) {
+    public ApprovalProfileResponseDto getAssociatedApprovalProfile(String authorityUuid, String raProfileUuid, PaginationRequestDto paginationRequestDto) {
         return raProfileService.listApprovalProfilesByRaProfile(SecuredParentUUID.fromString(authorityUuid), SecurityFilter.create(), SecuredUUID.fromString(raProfileUuid), paginationRequestDto);
     }
 
