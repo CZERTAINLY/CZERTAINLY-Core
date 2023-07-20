@@ -69,7 +69,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             final Join joinApprovalRecipient = root.join("approvalRecipients", JoinType.LEFT);
             final Predicate statusPredicate = joinApprovalRecipient.get("status").in(prepareApprovalRecipientStatuses(withHistory));
             final Predicate userUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("userUuid"), UUID.fromString(userProfileDto.getUser().getUuid()));
-            final Predicate roleUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("roleUuid"), UUID.fromString(userProfileDto.getRoles().get(0).getUuid())); // TODO lukas.rejha - update it to search in all roles
+            final Predicate roleUuidPredicate = joinApprovalRecipient.get("approvalStep").get("roleUuid").in(userProfileDto.getRoles().stream().map( role -> UUID.fromString(role.getUuid())).collect(Collectors.toList()));
             final Predicate groupUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("groupUuid"), UUID.fromString(userProfileDto.getUser().getGroupUuid()));
             return cb.and(statusPredicate, cb.or(userUuidPredicate, roleUuidPredicate, groupUuidPredicate));
         };
