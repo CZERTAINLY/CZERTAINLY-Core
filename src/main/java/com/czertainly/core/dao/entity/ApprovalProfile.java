@@ -3,10 +3,7 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.exception.NotFoundException;
 import jakarta.persistence.*;
 import lombok.Data;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -25,6 +22,9 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
 
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.EAGER)
     private List<ApprovalProfileVersion> approvalProfileVersions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)
+    private List<ApprovalProfileRelation> approvalProfileRelations = new ArrayList<>();
 
     public ApprovalProfileVersion getTheLatestApprovalProfileVersion() {
         return getApprovalProfileVersions().stream().max(Comparator.comparingInt(ApprovalProfileVersion::getVersion)).get();

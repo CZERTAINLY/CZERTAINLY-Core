@@ -4,24 +4,20 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileResponseDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.core.dao.entity.AuthorityInstanceReference;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.AfterEach;
@@ -34,12 +30,15 @@ import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Optional;
 
-public class RaProfileServiceTest extends BaseSpringBootTest {
+public class RaProfileServiceTest extends ApprovalProfileData {
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";
 
     @Autowired
     private com.czertainly.core.service.RaProfileService raProfileService;
+
+    @Autowired
+    private ApprovalProfileService approvalProfileService;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -51,6 +50,12 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
+
+    @Autowired
+    private ApprovalProfileRelationRepository approvalProfileRelationRepository;
+
+    @Autowired
+    private ApprovalProfileRepository approvalProfileRepository;
 
     private RaProfile raProfile;
     private Certificate certificate;
@@ -233,4 +238,44 @@ public class RaProfileServiceTest extends BaseSpringBootTest {
         List<NameAndUuidDto> dtos = raProfileService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(1, dtos.size());
     }
+
+    @Test
+    public void testAssociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
+        final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
+        final ApprovalProfileRelation approvalProfileRelation = raProfileService.associateApprovalProfileWithRaProfile(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecurityFilter.create(), raProfile.getSecuredUuid(), approvalProfile.getSecuredUuid());
+
+        Assertions.assertNotNull(approvalProfileRelation);
+        Assertions.assertEquals(raProfile.getUuid(), approvalProfileRelation.getResourceUuid());
+        Assertions.assertEquals(approvalProfile.getUuid(), approvalProfileRelation.getApprovalProfileUuid());
+        Assertions.assertEquals(Resource.RA_PROFILE, approvalProfileRelation.getResource());
+    }
+
+    @Test
+    public void testDisassociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
+        final SecurityFilter securityFilter = SecurityFilter.create();
+        final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
+        final ApprovalProfileRelation approvalProfileRelation = raProfileService.associateApprovalProfileWithRaProfile(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), securityFilter, raProfile.getSecuredUuid(), approvalProfile.getSecuredUuid());
+        Assertions.assertNotNull(approvalProfileRelation);
+
+        raProfileService.disassociateApprovalProfileWithRaProfile(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), securityFilter, raProfile.getSecuredUuid(), approvalProfile.getSecuredUuid());
+
+        final Optional<ApprovalProfileRelation> approvalProfileRelationOptional = approvalProfileRelationRepository.findByUuid(approvalProfileRelation.getSecuredUuid());
+        Assertions.assertFalse(approvalProfileRelationOptional.isPresent());
+    }
+
+    @Test
+    public void testListOfApprovalProfilesByRAProfile() throws NotFoundException, AlreadyExistException {
+        final SecurityFilter securityFilter = SecurityFilter.create();
+        final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
+        final ApprovalProfileRelation approvalProfileRelation = raProfileService.associateApprovalProfileWithRaProfile(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), securityFilter, raProfile.getSecuredUuid(), approvalProfile.getSecuredUuid());
+        Assertions.assertNotNull(approvalProfileRelation);
+
+        final ApprovalProfileResponseDto approvalProfileResponseDto = raProfileService.listApprovalProfilesByRaProfile(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), securityFilter, raProfile.getSecuredUuid(), new PaginationRequestDto());
+
+        Assertions.assertEquals(1, approvalProfileResponseDto.getApprovalProfiles().size());
+
+        final ApprovalProfileDto approvalProfileDto = approvalProfileResponseDto.getApprovalProfiles().get(0);
+        Assertions.assertEquals(approvalProfile.getUuid().toString(), approvalProfileDto.getUuid());
+    }
+
 }
