@@ -31,7 +31,6 @@ import java.util.List;
 @RestController
 public class AuthorityInstanceControllerImpl implements AuthorityInstanceController {
 
-    @Autowired
     private AuthorityInstanceService authorityInstanceService;
 
     @Override
@@ -103,4 +102,12 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     public List<BulkActionMessageDto> forceDeleteAuthorityInstances(List<String> uuids) throws NotFoundException, ValidationException {
         return authorityInstanceService.forceDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
+
+    // SETTERs
+
+    @Autowired
+    public void setAuthorityInstanceService(AuthorityInstanceService authorityInstanceService) {
+        this.authorityInstanceService = authorityInstanceService;
+    }
+
 }
