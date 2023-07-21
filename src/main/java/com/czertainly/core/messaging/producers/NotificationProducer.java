@@ -1,9 +1,6 @@
 package com.czertainly.core.messaging.producers;
 
-import com.czertainly.api.model.connector.notification.NotificationDataScheduledJobCompleted;
-import com.czertainly.api.model.connector.notification.NotificationDataStatusChange;
-import com.czertainly.api.model.connector.notification.NotificationDataText;
-import com.czertainly.api.model.connector.notification.NotificationType;
+import com.czertainly.api.model.connector.notification.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
@@ -63,6 +60,30 @@ public class NotificationProducer {
                 resourceUUID,
                 recipients,
                 new NotificationDataText(text)));
+    }
+
+    public void produceNotificationNewApprovalStep(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients) {
+        produceMessage(new NotificationMessage(NotificationType.APPROVAL_NEW_STEP,
+                resource,
+                resourceUUID,
+                recipients,
+                new NotificationDataApprovalNewStep()));
+    }
+
+    public void produceNotificationNewApproval(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients) {
+        produceMessage(new NotificationMessage(NotificationType.NEW_APPROVAL,
+                resource,
+                resourceUUID,
+                recipients,
+                new NotificationDataApprovalNewStep()));
+    }
+
+    public void produceNotificationCloseApproval(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients) {
+        produceMessage(new NotificationMessage(NotificationType.CLOSE_APPROVAL,
+                resource,
+                resourceUUID,
+                recipients,
+                new NotificationDataApprovalNewStep()));
     }
 
 }

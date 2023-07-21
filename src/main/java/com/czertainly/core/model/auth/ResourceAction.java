@@ -44,7 +44,11 @@ public enum ResourceAction {
     ENCRYPT("encrypt"),
     DECRYPT("decrypt"),
     VERIFY("verify"),
-    SIGN("sign");
+    SIGN("sign"),
+
+    ISSUE("issue"),
+
+    REKEY("rekey");
 
     @Schema(description = "Resource Action Name",
             example = "create",

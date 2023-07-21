@@ -8,6 +8,8 @@ import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -53,6 +55,10 @@ public class Approval extends UniquelyIdentified {
 
     @OneToMany(mappedBy = "approval")
     private List<ApprovalRecipient> approvalRecipients;
+
+    @Column(name = "object_data", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Object objectData;
 
     public ApprovalDto mapToDto() {
         final ApprovalDto dto = new ApprovalDto();
@@ -100,6 +106,11 @@ public class Approval extends UniquelyIdentified {
             approvalDetailStepDto.getApprovalStepRecipients().add(recipient.mapToDto());
             approvalStepDtos.add(approvalDetailStepDto);
         }
+    }
+
+    public void closeAsApproved() {
+        this.status = ApprovalStatusEnum.APPROVED;
+        this.closedAt = new Date();
     }
 
 }

@@ -44,6 +44,12 @@ public interface ClientOperationService {
             ClientCertificateSignRequestDto request
     ) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
+    void issueCertificateAction(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
+            ClientCertificateSignRequestDto request
+    ) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+
     ClientCertificateDataResponseDto renewCertificate(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
@@ -51,7 +57,21 @@ public interface ClientOperationService {
             ClientCertificateRenewRequestDto request
     ) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
 
+    void renewCertificateAction(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRenewRequestDto request
+    ) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
+
     ClientCertificateDataResponseDto rekeyCertificate(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRekeyRequestDto request
+    ) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException;
+
+    void rekeyCertificateAction(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             String certificateUuid,
@@ -69,6 +89,13 @@ public interface ClientOperationService {
     ) throws ConnectorException, ValidationException;
 
     void revokeCertificate(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRevocationDto request
+    ) throws ConnectorException;
+
+    void revokeCertificateAction(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             String certificateUuid,
