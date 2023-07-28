@@ -33,6 +33,7 @@ public enum Resource {
 
     // CERTIFICATES
     AUTHORITY("authorities"),
+    NOTIFICATION("notifications"),
     RA_PROFILE("raProfiles"),
     CERTIFICATE("certificates"),
     GROUP("groups"),
