@@ -57,7 +57,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.NOTIFICATION, action = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.LIST)
     public List<NotificationInstanceDto> listNotificationInstances() {
         return notificationInstanceReferenceRepository.findAll()
                 .stream()
@@ -67,7 +67,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.NOTIFICATION, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.DETAIL)
     public NotificationInstanceDto getNotificationInstance(UUID uuid) throws ConnectorException {
         NotificationInstanceReference notificationInstanceReference = getNotificationInstanceReferenceEntity(uuid);
 
@@ -76,7 +76,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.CREATE)
-    @ExternalAuthorization(resource = Resource.NOTIFICATION, action = ResourceAction.CREATE)
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.CREATE)
     public NotificationInstanceDto createNotificationInstance(NotificationInstanceRequestDto request) throws AlreadyExistException, ConnectorException {
         if (notificationInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(NotificationInstanceReference.class, request.getName());
@@ -105,7 +105,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.NOTIFICATION, action = ResourceAction.UPDATE)
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.UPDATE)
     public NotificationInstanceDto editNotificationInstance(UUID uuid, NotificationInstanceUpdateRequestDto request) throws ConnectorException {
         NotificationInstanceReference notificationInstanceRef = getNotificationInstanceReferenceEntity(uuid);
         NotificationInstanceDto ref = getNotificationInstanceDtoFromEntity(notificationInstanceRef);
@@ -125,7 +125,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.DELETE)
-    @ExternalAuthorization(resource = Resource.NOTIFICATION, action = ResourceAction.DELETE)
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.DELETE)
     public void deleteNotificationInstance(UUID uuid) throws ConnectorException {
         NotificationInstanceReference notificationInstanceRef = getNotificationInstanceReferenceEntity(uuid);
         removeNotificationInstance(notificationInstanceRef);
@@ -207,7 +207,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         } else {
             logger.debug("Deleting notification without connector: {}", notificationInstanceRef);
         }
-        attributeService.deleteAttributeContent(notificationInstanceRef.getUuid(), Resource.NOTIFICATION);
+        attributeService.deleteAttributeContent(notificationInstanceRef.getUuid(), Resource.NOTIFICATION_INSTANCE);
         notificationInstanceReferenceRepository.delete(notificationInstanceRef);
     }
 }

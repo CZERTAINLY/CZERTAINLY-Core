@@ -1,8 +1,9 @@
 package com.czertainly.core.messaging.model;
 
-import com.czertainly.api.model.connector.notification.NotificationDataScheduledJobCompleted;
-import com.czertainly.api.model.connector.notification.NotificationDataStatusChange;
-import com.czertainly.api.model.connector.notification.NotificationDataText;
+import com.czertainly.api.model.connector.notification.data.NotificationDataApproval;
+import com.czertainly.api.model.connector.notification.data.NotificationDataScheduledJobCompleted;
+import com.czertainly.api.model.connector.notification.data.NotificationDataCertificateStatusChanged;
+import com.czertainly.api.model.connector.notification.data.NotificationDataText;
 import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
@@ -25,7 +26,13 @@ public class NotificationMessage {
     private UUID resourceUUID;
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "type")
-    @JsonSubTypes({@JsonSubTypes.Type(value = NotificationDataStatusChange.class, name = "STATUS_CHANGE"), @JsonSubTypes.Type(value = NotificationDataText.class, name = "TEXT"), @JsonSubTypes.Type(value = NotificationDataScheduledJobCompleted.class, name = "SCHEDULED_JOB_COMPLETED"),})
+    @JsonSubTypes({
+            @JsonSubTypes.Type(value = NotificationDataText.class, name = "TEXT"),
+            @JsonSubTypes.Type(value = NotificationDataCertificateStatusChanged.class, name = "CERTIFICATE_STATUS_CHANGED"),
+            @JsonSubTypes.Type(value = NotificationDataScheduledJobCompleted.class, name = "SCHEDULED_JOB_COMPLETED"),
+            @JsonSubTypes.Type(value = NotificationDataApproval.class, name = "APPROVAL_REQUESTED"),
+            @JsonSubTypes.Type(value = NotificationDataApproval.class, name = "APPROVAL_CLOSED")
+    })
     private Object data;
 
     private List<NotificationRecipient> recipients;

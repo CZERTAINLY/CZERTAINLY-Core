@@ -5,14 +5,13 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.RAProfileManagementController;
-import com.czertainly.api.model.client.approvalprofile.ApprovalProfileResponseDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -152,17 +151,17 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     }
 
     @Override
-    public ApprovalProfileResponseDto getAssociatedApprovalProfile(String authorityUuid, String raProfileUuid, PaginationRequestDto paginationRequestDto) {
-        return raProfileService.listApprovalProfilesByRaProfile(SecuredParentUUID.fromString(authorityUuid), SecurityFilter.create(), SecuredUUID.fromString(raProfileUuid), paginationRequestDto);
+    public List<ApprovalProfileDto> getAssociatedApprovalProfiles(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        return raProfileService.getAssociatedApprovalProfiles(authorityUuid, raProfileUuid, SecurityFilter.create());
     }
 
     @Override
     public void associateRAProfileWithApprovalProfile(String authorityUuid, String raProfileUuid, String approvalProfileUuid) throws NotFoundException {
-        raProfileService.associateApprovalProfileWithRaProfile(SecuredParentUUID.fromString(authorityUuid), SecurityFilter.create(), SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(approvalProfileUuid));
+        raProfileService.associateApprovalProfile(authorityUuid, raProfileUuid, SecuredUUID.fromString(approvalProfileUuid));
     }
 
     @Override
     public void disassociateRAProfileFromApprovalProfile(String authorityUuid, String raProfileUuid, String approvalProfileUuid) throws NotFoundException {
-        raProfileService.disassociateApprovalProfileWithRaProfile(SecuredParentUUID.fromString(authorityUuid), SecurityFilter.create(), SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(approvalProfileUuid));
+        raProfileService.disassociateApprovalProfile(authorityUuid, raProfileUuid, SecuredUUID.fromString(approvalProfileUuid));
     }
 }

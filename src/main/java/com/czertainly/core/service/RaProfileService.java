@@ -4,13 +4,12 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.approvalprofile.ApprovalProfileResponseDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
-import com.czertainly.core.dao.entity.ApprovalProfileRelation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -117,9 +116,9 @@ public interface RaProfileService extends ResourceExtensionService {
 
     RaProfileScepDetailResponseDto getScepForRaProfile(SecuredParentUUID authorityInstanceUuid, SecuredUUID raProfileUuid) throws NotFoundException;
 
-    ApprovalProfileResponseDto listApprovalProfilesByRaProfile(SecuredParentUUID authorityInstanceUuid, SecurityFilter securityFilter, SecuredUUID raProfileUuid, PaginationRequestDto paginationRequestDto);
+    List<ApprovalProfileDto> getAssociatedApprovalProfiles(String authorityInstanceUuid, String raProfileUuid, SecurityFilter securityFilter) throws NotFoundException;
 
-    ApprovalProfileRelation associateApprovalProfileWithRaProfile(SecuredParentUUID authorityInstanceUuid, SecurityFilter securityFilter, SecuredUUID raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
+    ApprovalProfileRelationDto associateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
 
-    void disassociateApprovalProfileWithRaProfile(SecuredParentUUID authorityInstanceUuid, SecurityFilter securityFilter, SecuredUUID raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
+    void disassociateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
 }

@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.*;
@@ -30,5 +31,16 @@ public class ApprovalProfileRelation extends UniquelyIdentified {
     @Column(name = "action")
     private ResourceAction action;
 
+    public ApprovalProfileRelationDto mapToDto() {
+        final ApprovalProfileRelationDto approvalProfileRelationDto = new ApprovalProfileRelationDto();
+        approvalProfileRelationDto.setUuid(this.getUuid().toString());
+        approvalProfileRelationDto.setApprovalProfileUuid(this.getApprovalProfileUuid().toString());
+        approvalProfileRelationDto.setResource(this.getResource());
+        approvalProfileRelationDto.setResourceUuid(this.getResourceUuid());
+        if (this.action != null) {
+            approvalProfileRelationDto.setAction(this.getAction().getCode());
+        }
 
+        return approvalProfileRelationDto;
+    }
 }

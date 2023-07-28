@@ -19,6 +19,7 @@ public enum Resource {
     CONNECTOR("connectors"),
     ATTRIBUTE("attributes"),
     SCHEDULED_JOB("jobs"),
+    NOTIFICATION_INSTANCE("notificationInstances"),
 
     // AUTH
     USER("users"),
@@ -33,7 +34,6 @@ public enum Resource {
 
     // CERTIFICATES
     AUTHORITY("authorities"),
-    NOTIFICATION("notifications"),
     RA_PROFILE("raProfiles"),
     CERTIFICATE("certificates"),
     GROUP("groups"),
@@ -48,6 +48,10 @@ public enum Resource {
     TOKEN_PROFILE("tokenProfiles"),
     TOKEN("tokens"),
     CRYPTOGRAPHIC_KEY("keys"),
+
+    // APPROVALS
+    APPROVAL_PROFILE("approvalProfiles"),
+    APPROVAL("approvals"),
     ;
 
     @Schema(description = "Resource Name",

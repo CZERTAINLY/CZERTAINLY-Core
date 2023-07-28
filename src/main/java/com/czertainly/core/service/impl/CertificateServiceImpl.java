@@ -794,11 +794,12 @@ public class CertificateServiceImpl implements CertificateService {
                     List<NotificationRecipient> recipient = certificate.getOwnerUuid() != null ? NotificationRecipient.buildUserNotificationRecipient(
                             certificate.getOwnerUuid()) : (certificate.getGroupUuid() != null ? NotificationRecipient.buildGroupNotificationRecipient(
                             certificate.getGroupUuid()) : null);
-                    notificationProducer.produceNotificationStatusChange(Resource.CERTIFICATE,
+                    notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
                             certificate.getUuid(),
                             recipient,
                             oldStatus,
-                            certificate.getStatus().getLabel());
+                            certificate.getStatus().getLabel(),
+                            certificate.mapToListDto());
 
                     eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
                     logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());

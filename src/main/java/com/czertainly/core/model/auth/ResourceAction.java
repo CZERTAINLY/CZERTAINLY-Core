@@ -28,7 +28,9 @@ public enum ResourceAction {
     CONNECT("connect"), // allows also reconnect action
 
     //Certificate actions
+    ISSUE("issue"),
     RENEW("renew"),
+    REKEY("rekey"),
     REVOKE("revoke"),
 
     // Audit Log export

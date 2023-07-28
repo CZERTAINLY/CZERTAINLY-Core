@@ -40,6 +40,8 @@ import com.czertainly.core.dao.entity.CertificateRequest;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.messaging.model.ActionMessage;
+import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -101,6 +103,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private AttributeService attributeService;
     private CryptographicOperationService cryptographicOperationService;
     private CryptographicKeyService keyService;
+
+    private ActionProducer actionProducer;
+
+    @Autowired
+    public void setActionProducer(ActionProducer actionProducer) {
+        this.actionProducer = actionProducer;
+    }
 
     @Autowired
     public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
@@ -213,6 +222,26 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+        // TODO: split create and issue action of certificate to provide UUID of NEW certificate to action message
+        issueCertificateAction(authorityUuid, raProfileUuid, request);
+
+//        final ActionMessage actionMessage = new ActionMessage();
+//        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+//        actionMessage.setData(request);
+//        actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid()));
+//        actionMessage.setResource(Resource.CERTIFICATE);
+//        actionMessage.setResourceAction(ResourceAction.ISSUE);
+//        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
+//
+//        actionProducer.produceMessage(actionMessage);
+//
+        return new ClientCertificateDataResponseDto();
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public void issueCertificateAction(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
         final RaProfile raProfile = getRaProfile(raProfileUuid);
 
         // the CSR should be properly converted to ensure consistent Base64-encoded format
@@ -238,7 +267,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         //Create Custom Attributes
         attributeService.createAttributeContent(certificate.getUuid(), request.getCustomAttributes(), Resource.CERTIFICATE);
 
-        return getClientCertificateDataResponseDto(raProfile, pkcs10, caResponse, certificate);
+        getClientCertificateDataResponseDto(raProfile, pkcs10, caResponse, certificate);
     }
 
     private RaProfile getRaProfile(SecuredUUID raProfileUuid) throws NotFoundException {
@@ -290,6 +319,25 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+
+        final ActionMessage actionMessage = new ActionMessage();
+        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+        actionMessage.setData(request);
+        actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid()));
+        actionMessage.setResource(Resource.CERTIFICATE);
+        actionMessage.setResourceAction(ResourceAction.RENEW);
+        actionMessage.setResourceUuid(UUID.fromString(certificateUuid));
+        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
+
+        actionProducer.produceMessage(actionMessage);
+
+        return new ClientCertificateDataResponseDto();
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public void renewCertificateAction(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         certificateService.checkRenewPermissions();
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
@@ -390,16 +438,35 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
-        ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
-        response.setCertificateData(caResponse.getCertificateData());
-        response.setUuid(certificate.getUuid().toString());
-        return response;
+//        ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
+//        response.setCertificateData(caResponse.getCertificateData());
+//        response.setUuid(certificate.getUuid().toString());
+//        return response;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRekeyRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+
+        final ActionMessage actionMessage = new ActionMessage();
+        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+        actionMessage.setData(request);
+        actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid()));
+        actionMessage.setResource(Resource.CERTIFICATE);
+        actionMessage.setResourceAction(ResourceAction.REKEY);
+        actionMessage.setResourceUuid(UUID.fromString(certificateUuid));
+        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
+
+        actionProducer.produceMessage(actionMessage);
+
+        return new ClientCertificateDataResponseDto();
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public void rekeyCertificateAction(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRekeyRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
         certificateService.checkRenewPermissions();
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
@@ -518,10 +585,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             logger.warn("Unable to validate the uploaded Certificate, {}", e.getMessage());
         }
 
-        ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
-        response.setCertificateData(caResponse.getCertificateData());
-        response.setUuid(certificate.getUuid().toString());
-        return response;
+//        ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
+//        response.setCertificateData(caResponse.getCertificateData());
+//        response.setUuid(certificate.getUuid().toString());
+//        return response;
     }
 
     @Override
@@ -546,6 +613,22 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void revokeCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRevocationDto request) throws ConnectorException {
+        final ActionMessage actionMessage = new ActionMessage();
+        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+        actionMessage.setData(request);
+        actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid()));
+        actionMessage.setResource(Resource.CERTIFICATE);
+        actionMessage.setResourceAction(ResourceAction.REVOKE);
+        actionMessage.setResourceUuid(UUID.fromString(certificateUuid));
+        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
+
+        actionProducer.produceMessage(actionMessage);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public void revokeCertificateAction(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRevocationDto request) throws ConnectorException {
         certificateService.checkRevokePermissions();
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
