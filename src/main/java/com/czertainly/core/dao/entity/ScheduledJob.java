@@ -61,12 +61,10 @@ public class ScheduledJob extends UniquelyIdentified{
     }
 
     public ScheduledJobDto mapToDto(ScheduledJobHistory latestHistory) {
-        String jobType = this.jobClassName.lastIndexOf(".") == -1 ? this.jobClassName : this.jobClassName.substring(this.jobClassName.lastIndexOf(".") + 1);
-
         final ScheduledJobDto dto = new ScheduledJobDto();
         dto.setUuid(this.uuid);
         dto.setJobName(this.jobName);
-        dto.setJobType(jobType);
+        dto.setJobType(getJobType());
         dto.setCronExpression(this.cronExpression);
         dto.setEnabled(this.enabled);
         dto.setOneTime(this.oneTime);
@@ -74,6 +72,10 @@ public class ScheduledJob extends UniquelyIdentified{
         if(latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
 
         return dto;
+    }
+
+    public String getJobType() {
+        return this.jobClassName.lastIndexOf(".") == -1 ? this.jobClassName : this.jobClassName.substring(this.jobClassName.lastIndexOf(".") + 1);
     }
 
 }

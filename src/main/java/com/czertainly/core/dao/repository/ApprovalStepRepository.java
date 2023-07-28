@@ -12,7 +12,7 @@ public interface ApprovalStepRepository extends SecurityFilterRepository<Approva
     @Query("SELECT aps " +
             "FROM ApprovalStep aps " +
             "    LEFT JOIN Approval a on aps.approvalProfileVersionUuid = a.approvalProfileVersionUuid " +
-            "    LEFT OUTER JOIN ApprovalRecipient ar on aps.uuid = ar.approvalStepUuid " +
+            "    LEFT OUTER JOIN ApprovalRecipient ar on aps.uuid = ar.approvalStepUuid and a.uuid = ar.approvalUuid " +
             "where a.uuid = :approvalUuid " +
             "group by aps.uuid, aps.requiredApprovals, aps.order " +
             "having count(ar) < aps.requiredApprovals " +

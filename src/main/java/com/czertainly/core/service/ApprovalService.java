@@ -31,7 +31,7 @@ public interface ApprovalService {
 
     void rejectApprovalRecipient(final String uuid, final UserApprovalDto userApprovalDto) throws NotFoundException;
 
-    Approval createApproval(final ApprovalProfileVersion approvalProfileVersion, final Resource resource, final ResourceAction resourceAction, final UUID objectUuid, final UUID userUuid);
+    Approval createApproval(final ApprovalProfileVersion approvalProfileVersion, final Resource resource, final ResourceAction resourceAction, final UUID objectUuid, final UUID userUuid, final Object objectData) throws NotFoundException;
 
 
 }

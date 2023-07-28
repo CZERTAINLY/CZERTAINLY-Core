@@ -1,9 +1,10 @@
 package com.czertainly.core.messaging.listeners;
 
-import com.czertainly.api.model.connector.notification.NotificationDataScheduledJobCompleted;
-import com.czertainly.api.model.connector.notification.NotificationDataStatusChange;
-import com.czertainly.api.model.connector.notification.NotificationDataText;
-import com.czertainly.api.model.connector.notification.NotificationType;
+import com.czertainly.api.model.client.approval.ApprovalDto;
+import com.czertainly.api.model.connector.notification.data.NotificationDataApproval;
+import com.czertainly.api.model.connector.notification.data.NotificationDataScheduledJobCompleted;
+import com.czertainly.api.model.connector.notification.data.NotificationDataCertificateStatusChanged;
+import com.czertainly.api.model.connector.notification.data.NotificationDataText;
 import com.czertainly.core.enums.RecipientTypeEnum;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
@@ -32,23 +33,43 @@ public class NotificationListener {
                 .isInstance(notificationMessage.getData())) {
 
             if (notificationMessage.getData() != null) {
-                if (notificationMessage.getType().equals(NotificationType.STATUS_CHANGE)) {
-                    NotificationDataStatusChange data = (NotificationDataStatusChange) notificationMessage.getData();
-                    sendInternalNotifications(notificationMessage.getResource().getLabel() + " status changed.",
-                            "Previous status: " + data.getOldStatus() + ", new status: " + data.getNewStatus(),
-                            notificationMessage);
-                }
-
-                if (notificationMessage.getType().equals(NotificationType.SCHEDULED_JOB_COMPLETED)) {
-                    NotificationDataScheduledJobCompleted data = (NotificationDataScheduledJobCompleted) notificationMessage.getData();
-                    sendInternalNotifications("Scheduled job " + data.getJobName() + " finished with status: " + data.getStatus() + ".",
-                            null,
-                            notificationMessage);
-                }
-
-                if (notificationMessage.getType().equals(NotificationType.TEXT)) {
-                    NotificationDataText data = (NotificationDataText) notificationMessage.getData();
-                    sendInternalNotifications(data.getText(), null, notificationMessage);
+                switch (notificationMessage.getType()) {
+                    case TEXT -> {
+                        NotificationDataText data = (NotificationDataText) notificationMessage.getData();
+                        sendInternalNotifications(data.getText(), data.getDetail(), notificationMessage);
+                    }
+                    case CERTIFICATE_STATUS_CHANGED -> {
+                        NotificationDataCertificateStatusChanged data = (NotificationDataCertificateStatusChanged) notificationMessage.getData();
+                        sendInternalNotifications(
+                                String.format("Certificate status changed from %s to %s for certificate identified as `%s` with serial number `%s` issued by `%s`",
+                                        data.getOldStatus(), data.getNewStatus(), data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn()),
+                                null,
+                                notificationMessage);
+                    }
+                    case SCHEDULED_JOB_COMPLETED -> {
+                        NotificationDataScheduledJobCompleted data = (NotificationDataScheduledJobCompleted) notificationMessage.getData();
+                        sendInternalNotifications(
+                                String.format("%s scheduled task has finished for %s with result %s",
+                                        data.getJobType(), data.getJobName(), data.getStatus()),
+                                null,
+                                notificationMessage);
+                    }
+                    case APPROVAL_REQUESTED -> {
+                        NotificationDataApproval data = (NotificationDataApproval) notificationMessage.getData();
+                        sendInternalNotifications(
+                                String.format("Request %s for %s from %s is waiting to be approved until %s",
+                                        data.getApprovalUuid(), data.getObjectUuid(), data.getCreatorUsername(), data.getExpiryAt()),
+                                getApprovalNotificationDetail(data),
+                                notificationMessage);
+                    }
+                    case APPROVAL_CLOSED -> {
+                        NotificationDataApproval data = (NotificationDataApproval) notificationMessage.getData();
+                        sendInternalNotifications(
+                                String.format("Request %s for %s from %s is %s",
+                                        data.getApprovalUuid(), data.getObjectUuid(), data.getCreatorUsername(), data.getStatus().getLabel()),
+                                getApprovalNotificationDetail(data),
+                                notificationMessage);
+                    }
                 }
             }
         }
@@ -78,6 +99,11 @@ public class NotificationListener {
                         notificationMessage.getResourceUUID() != null ? notificationMessage.getResourceUUID().toString() : null);
             }
         }
+    }
+
+    private String getApprovalNotificationDetail(NotificationDataApproval approvalData) {
+        return String.format("Approval profile name: %s,\nResource: %s,\nResource action: %s,\nObject UUID: %s",
+                approvalData.getApprovalProfileName(), approvalData.getResource().getLabel(), approvalData.getResourceAction(), approvalData.getObjectUuid());
     }
 
 }

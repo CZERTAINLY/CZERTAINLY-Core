@@ -29,7 +29,6 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
     private NotificationInstanceService notificationInstanceService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.NOTIFICATION)
     public List<NotificationInstanceDto> listNotificationInstances() {
         return notificationInstanceService.listNotificationInstances();
     }
