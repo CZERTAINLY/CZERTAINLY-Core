@@ -163,19 +163,19 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
         }
         if (as.getUserUuid() != null) {
             if (isAssignedResponsibleUser) {
-                throw new ValidationException("There is forbidden to have more than one assigned user/role/group.");
+                throw new ValidationException(ValidationError.create("There is forbidden to have more than one assigned user/role/group."));
             }
             isAssignedResponsibleUser = true;
         }
         if (as.getGroupUuid() != null) {
             if (isAssignedResponsibleUser) {
-                throw new ValidationException("There is forbidden to have more than one assigned user/role/group.");
+                throw new ValidationException(ValidationError.create("There is forbidden to have more than one assigned user/role/group."));
             }
             isAssignedResponsibleUser = true;
         }
 
         if (!isAssignedResponsibleUser) {
-            throw new ValidationException("There is required to have assigned one of user/role/group.");
+            throw new ValidationException(ValidationError.create("There is required to have assigned one of user/role/group."));
         }
     }
 

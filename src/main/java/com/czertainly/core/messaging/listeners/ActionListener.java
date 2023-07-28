@@ -56,14 +56,13 @@ public class ActionListener {
 
     @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter")
     public void processMessage(final ActionMessage actionMessage) throws NotFoundException {
+//        boolean skipApprovals = false;
+//        if (actionMessage.getApprovalUuid() != null) {
+//            final Optional<Approval> approval = approvalRepository.findByUuid(SecuredUUID.fromUUID(actionMessage.getApprovalUuid()));
+//            skipApprovals = approval.isPresent() && approval.get().getStatus().equals(ApprovalStatusEnum.APPROVED);
+//        }
 
-        boolean skipApprovals = false;
-        if (actionMessage.getApprovalUuid() != null) {
-            final Optional<Approval> approval = approvalRepository.findByUuid(SecuredUUID.fromUUID(actionMessage.getApprovalUuid()));
-            skipApprovals = approval.isPresent() && approval.get().getStatus().equals(ApprovalStatusEnum.APPROVED);
-        }
-
-        if (!skipApprovals) {
+        if (actionMessage.getApprovalUuid() == null) {
             final Optional<List<ApprovalProfileRelation>> approvalProfileRelationOptional = approvalProfileRelationRepository.findByResourceUuidAndResource(actionMessage.getRaProfileUuid(), Resource.RA_PROFILE);
             if (approvalProfileRelationOptional.isPresent() && !approvalProfileRelationOptional.get().isEmpty()) {
                 final ApprovalProfileRelation approvalProfileRelation = approvalProfileRelationOptional.get().get(0);
@@ -108,15 +107,15 @@ public class ActionListener {
             }
             case REKEY -> {
                 final ClientCertificateRekeyRequestDto clientCertificateRekeyRequestDto = mapper.convertValue(actionMessage.getData(), ClientCertificateRekeyRequestDto.class);
-                clientOperationService.rekeyCertificate(SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(certificate.getRaProfileUuid()), actionMessage.getResourceUuid().toString(), clientCertificateRekeyRequestDto);
+                clientOperationService.rekeyCertificateAction(SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(certificate.getRaProfileUuid()), actionMessage.getResourceUuid().toString(), clientCertificateRekeyRequestDto);
             }
             case RENEW -> {
                 final ClientCertificateRenewRequestDto clientCertificateRenewRequestDto = mapper.convertValue(actionMessage.getData(), ClientCertificateRenewRequestDto.class);
-                clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(certificate.getRaProfileUuid()), actionMessage.getResourceUuid().toString(), clientCertificateRenewRequestDto);
+                clientOperationService.renewCertificateAction(SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(certificate.getRaProfileUuid()), actionMessage.getResourceUuid().toString(), clientCertificateRenewRequestDto);
             }
             case REVOKE -> {
                 final ClientCertificateRevocationDto clientCertificateRevocationDto = mapper.convertValue(actionMessage.getData(), ClientCertificateRevocationDto.class);
-                clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(certificate.getRaProfileUuid()), actionMessage.getResourceUuid().toString(), clientCertificateRevocationDto);
+                clientOperationService.revokeCertificateAction(SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(certificate.getRaProfileUuid()), actionMessage.getResourceUuid().toString(), clientCertificateRevocationDto);
             }
         }
     }

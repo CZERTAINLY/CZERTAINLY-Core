@@ -81,6 +81,7 @@ public abstract class SchedulerJobProcessor {
                     scheduledJob.getUuid(),
                     NotificationRecipient.buildUserNotificationRecipient(scheduledJob.getUserUuid()),
                     jobName,
+                    scheduledJob.getJobType(),
                     status.getLabel());
         }
 

@@ -47,6 +47,10 @@ public enum Resource {
     TOKEN_PROFILE("tokenProfiles"),
     TOKEN("tokens"),
     CRYPTOGRAPHIC_KEY("keys"),
+
+    // APPROVALS
+    APPROVAL_PROFILE("approvalProfiles"),
+    APPROVAL("approvals"),
     ;
 
     @Schema(description = "Resource Name",

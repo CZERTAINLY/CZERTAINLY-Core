@@ -222,17 +222,19 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+        // TODO: split create and issue action of certificate to provide UUID of NEW certificate to action message
+        issueCertificateAction(authorityUuid, raProfileUuid, request);
 
-        final ActionMessage actionMessage = new ActionMessage();
-        actionMessage.setAuthorityUuid(authorityUuid.getValue());
-        actionMessage.setData(request);
-        actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid()));
-        actionMessage.setResource(Resource.CERTIFICATE);
-        actionMessage.setResourceAction(ResourceAction.ISSUE);
-        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
-
-        actionProducer.produceMessage(actionMessage);
-
+//        final ActionMessage actionMessage = new ActionMessage();
+//        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+//        actionMessage.setData(request);
+//        actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid()));
+//        actionMessage.setResource(Resource.CERTIFICATE);
+//        actionMessage.setResourceAction(ResourceAction.ISSUE);
+//        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
+//
+//        actionProducer.produceMessage(actionMessage);
+//
         return new ClientCertificateDataResponseDto();
     }
 
@@ -326,6 +328,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         actionMessage.setResourceAction(ResourceAction.RENEW);
         actionMessage.setResourceUuid(UUID.fromString(certificateUuid));
         actionMessage.setRaProfileUuid(raProfileUuid.getValue());
+
+        actionProducer.produceMessage(actionMessage);
 
         return new ClientCertificateDataResponseDto();
     }

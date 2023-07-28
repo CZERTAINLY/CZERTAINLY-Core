@@ -28,7 +28,9 @@ public enum ResourceAction {
     CONNECT("connect"), // allows also reconnect action
 
     //Certificate actions
+    ISSUE("issue"),
     RENEW("renew"),
+    REKEY("rekey"),
     REVOKE("revoke"),
 
     // Audit Log export
@@ -44,11 +46,7 @@ public enum ResourceAction {
     ENCRYPT("encrypt"),
     DECRYPT("decrypt"),
     VERIFY("verify"),
-    SIGN("sign"),
-
-    ISSUE("issue"),
-
-    REKEY("rekey");
+    SIGN("sign");
 
     @Schema(description = "Resource Action Name",
             example = "create",

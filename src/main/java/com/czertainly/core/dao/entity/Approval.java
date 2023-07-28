@@ -13,6 +13,7 @@ import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.Duration;
 import java.util.*;
 
 @Data
@@ -60,6 +61,10 @@ public class Approval extends UniquelyIdentified {
     @JdbcTypeCode(SqlTypes.JSON)
     private Object objectData;
 
+    public Date getExpiryAt() {
+        return Date.from(this.createdAt.toInstant().plus(Duration.ofHours(this.getApprovalProfileVersion().getExpiry())));
+    }
+
     public ApprovalDto mapToDto() {
         final ApprovalDto dto = new ApprovalDto();
         dto.setApprovalUuid(this.uuid.toString());
@@ -69,6 +74,7 @@ public class Approval extends UniquelyIdentified {
         dto.setStatus(this.getStatus());
         dto.setCreatedAt(this.createdAt);
         dto.setClosedAt(this.closedAt);
+        dto.setExpiryAt(this.getExpiryAt());
         dto.setObjectUuid(this.objectUuid.toString());
 
         final ApprovalProfile approvalProfile = this.getApprovalProfileVersion().getApprovalProfile();
@@ -106,11 +112,6 @@ public class Approval extends UniquelyIdentified {
             approvalDetailStepDto.getApprovalStepRecipients().add(recipient.mapToDto());
             approvalStepDtos.add(approvalDetailStepDto);
         }
-    }
-
-    public void closeAsApproved() {
-        this.status = ApprovalStatusEnum.APPROVED;
-        this.closedAt = new Date();
     }
 
 }
