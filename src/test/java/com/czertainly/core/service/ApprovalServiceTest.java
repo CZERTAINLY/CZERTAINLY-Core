@@ -43,9 +43,10 @@ public class ApprovalServiceTest extends ApprovalProfileData {
 
     @Test
     public void testListOfApprovals() throws NotFoundException {
-        approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), null, null);
-        approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), null, null);
-        approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), null, null);
+        UUID randomUserUuid = UUID.randomUUID();
+        approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
+        approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
+        approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
 
         final ApprovalResponseDto responseDto = approvalService.listApprovals(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(4, responseDto.getApprovals().size());

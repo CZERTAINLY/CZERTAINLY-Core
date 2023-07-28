@@ -19,6 +19,7 @@ public enum Resource {
     CONNECTOR("connectors"),
     ATTRIBUTE("attributes"),
     SCHEDULED_JOB("jobs"),
+    NOTIFICATION_INSTANCE("notificationInstances"),
 
     // AUTH
     USER("users"),
@@ -33,7 +34,6 @@ public enum Resource {
 
     // CERTIFICATES
     AUTHORITY("authorities"),
-    NOTIFICATION("notifications"),
     RA_PROFILE("raProfiles"),
     CERTIFICATE("certificates"),
     GROUP("groups"),

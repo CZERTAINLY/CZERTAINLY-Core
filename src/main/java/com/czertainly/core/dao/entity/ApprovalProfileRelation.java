@@ -37,7 +37,9 @@ public class ApprovalProfileRelation extends UniquelyIdentified {
         approvalProfileRelationDto.setApprovalProfileUuid(this.getApprovalProfileUuid().toString());
         approvalProfileRelationDto.setResource(this.getResource());
         approvalProfileRelationDto.setResourceUuid(this.getResourceUuid());
-        approvalProfileRelationDto.setAction(this.getAction().getCode());
+        if (this.action != null) {
+            approvalProfileRelationDto.setAction(this.getAction().getCode());
+        }
 
         return approvalProfileRelationDto;
     }

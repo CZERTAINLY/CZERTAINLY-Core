@@ -109,8 +109,15 @@ public class NotificationProducer {
             // anonymous user, retrieve user details
         }
 
-        UserDetailDto userDetailDto = userManagementApiClient.getUserDetail(creatorUuid);
-        return userDetailDto.getUsername();
+        try {
+            UserDetailDto userDetailDto = userManagementApiClient.getUserDetail(creatorUuid);
+            return userDetailDto.getUsername();
+        }
+        catch (Exception e) {
+            // in case Auth service call fails, return just creator UUID
+            // TODO: mostly problem in tests, need mock of Auth service in tests scope
+            return creatorUuid;
+        }
     }
 
 }

@@ -248,7 +248,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
 
         Assertions.assertNotNull(approvalProfileRelation);
         Assertions.assertEquals(raProfile.getUuid(), approvalProfileRelation.getResourceUuid());
-        Assertions.assertEquals(approvalProfile.getUuid(), approvalProfileRelation.getApprovalProfileUuid());
+        Assertions.assertEquals(approvalProfile.getUuid().toString(), approvalProfileRelation.getApprovalProfileUuid());
         Assertions.assertEquals(Resource.RA_PROFILE, approvalProfileRelation.getResource());
     }
 
