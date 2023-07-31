@@ -87,14 +87,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "subject_alternative_names")
     private String subjectAlternativeNames;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
 
     @Column(name = "ra_profile_uuid")
     private UUID raProfileUuid;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private Group group;
 

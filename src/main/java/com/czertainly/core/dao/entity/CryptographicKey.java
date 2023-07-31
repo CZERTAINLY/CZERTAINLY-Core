@@ -24,14 +24,14 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "description")
     private String description;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "token_profile_uuid", insertable = false, updatable = false)
     private TokenProfile tokenProfile;
 
     @Column(name = "token_profile_uuid")
     private UUID tokenProfileUuid;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "token_instance_uuid", insertable = false, updatable = false)
     private TokenInstanceReference tokenInstanceReference;
 
@@ -44,7 +44,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "owner")
     private String owner;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private Group group;
 
