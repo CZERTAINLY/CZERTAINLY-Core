@@ -791,15 +791,19 @@ public class CertificateServiceImpl implements CertificateService {
                 if (CertificateStatus.REVOKED.equals(certificate.getStatus())
                         || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
 
-                    List<NotificationRecipient> recipient = certificate.getOwnerUuid() != null ? NotificationRecipient.buildUserNotificationRecipient(
-                            certificate.getOwnerUuid()) : (certificate.getGroupUuid() != null ? NotificationRecipient.buildGroupNotificationRecipient(
-                            certificate.getGroupUuid()) : null);
-                    notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
-                            certificate.getUuid(),
-                            recipient,
-                            oldStatus,
-                            certificate.getStatus().getLabel(),
-                            certificate.mapToListDto());
+                    try {
+                        List<NotificationRecipient> recipient = certificate.getOwnerUuid() != null ? NotificationRecipient.buildUserNotificationRecipient(
+                                certificate.getOwnerUuid()) : (certificate.getGroupUuid() != null ? NotificationRecipient.buildGroupNotificationRecipient(
+                                certificate.getGroupUuid()) : null);
+                        notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
+                                certificate.getUuid(),
+                                recipient,
+                                oldStatus,
+                                certificate.getStatus().getLabel(),
+                                certificate.mapToListDto());
+                    } catch (Exception e) {
+                        logger.warn("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
+                    }
 
                     eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
                     logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
