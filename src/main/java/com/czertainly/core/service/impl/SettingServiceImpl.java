@@ -43,7 +43,6 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public PlatformSettingsDto getPlatformSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
@@ -103,6 +102,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateNotificationSettings(NotificationSettingsDto notificationSettings) {
 
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
