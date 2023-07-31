@@ -27,11 +27,11 @@ public class NotificationMessage {
 
     @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "type")
     @JsonSubTypes({
-            @JsonSubTypes.Type(value = NotificationDataText.class, name = "TEXT"),
-            @JsonSubTypes.Type(value = NotificationDataCertificateStatusChanged.class, name = "CERTIFICATE_STATUS_CHANGED"),
-            @JsonSubTypes.Type(value = NotificationDataScheduledJobCompleted.class, name = "SCHEDULED_JOB_COMPLETED"),
-            @JsonSubTypes.Type(value = NotificationDataApproval.class, name = "APPROVAL_REQUESTED"),
-            @JsonSubTypes.Type(value = NotificationDataApproval.class, name = "APPROVAL_CLOSED")
+            @JsonSubTypes.Type(value = NotificationDataText.class, name = "text"),
+            @JsonSubTypes.Type(value = NotificationDataCertificateStatusChanged.class, name = "certificate_status_changed"),
+            @JsonSubTypes.Type(value = NotificationDataScheduledJobCompleted.class, name = "scheduled_job_completed"),
+            @JsonSubTypes.Type(value = NotificationDataApproval.class, name = "approval_requested"),
+            @JsonSubTypes.Type(value = NotificationDataApproval.class, name = "approval_closed")
     })
     private Object data;
 

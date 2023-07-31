@@ -62,7 +62,8 @@ public class NotificationProducer {
                 resource,
                 resourceUUID,
                 recipients,
-                new NotificationDataCertificateStatusChanged(oldStatus, newStatus, certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
+                certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus, newStatus, certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn())
+                : new NotificationDataCertificateStatusChanged(oldStatus, newStatus, certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
     }
 
     public void produceNotificationScheduledJobCompleted(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String jobName, String jobType, String status) {
