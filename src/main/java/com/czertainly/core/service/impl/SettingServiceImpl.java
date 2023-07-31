@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
@@ -122,7 +123,7 @@ public class SettingServiceImpl implements SettingService {
             }
             catch (IllegalArgumentException e) {
                 logger.error("Invalid UUID of a notification reference.");
-                throw e;
+                throw new ValidationException("Invalid UUID of a notification instance reference.");
             }
         }
         try {
