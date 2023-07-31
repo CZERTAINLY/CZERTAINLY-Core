@@ -44,7 +44,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "attributes", length = Integer.MAX_VALUE)
     private String attributes;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
     private AuthorityInstanceReference authorityInstanceReference;
 
@@ -61,20 +61,20 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             inverseJoinColumns = @JoinColumn(name = "compliance_profile_uuid"))
     private Set<ComplianceProfile> complianceProfiles;
 
-    @OneToOne(mappedBy = "raProfile")
+    @OneToOne(mappedBy = "raProfile", fetch = FetchType.LAZY)
     private RaProfileProtocolAttribute protocolAttribute;
 
     /**
      * Acme related objects for RA Profile
      */
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "acme_profile_uuid", insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
 
     @Column(name = "acme_profile_uuid")
     private UUID acmeProfileUuid;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scep_profile_uuid", insertable = false, updatable = false)
     private ScepProfile scepProfile;
 

@@ -41,7 +41,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name="dns_resolver_port")
     private String dnsResolverPort;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
     @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;

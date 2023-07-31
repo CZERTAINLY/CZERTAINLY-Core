@@ -27,7 +27,7 @@ public class CertificateContent {
     @JsonIgnore
     private Set<DiscoveryCertificate> discoveryCertificates = new HashSet<>();
 
-    @OneToOne(mappedBy = "certificateContent")
+    @OneToOne(mappedBy = "certificateContent", fetch = FetchType.LAZY)
     @JsonIgnore
     private Certificate certificate;
 

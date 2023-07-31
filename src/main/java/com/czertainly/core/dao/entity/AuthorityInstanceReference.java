@@ -33,7 +33,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     @Column(name = "kind")
     private String kind;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 

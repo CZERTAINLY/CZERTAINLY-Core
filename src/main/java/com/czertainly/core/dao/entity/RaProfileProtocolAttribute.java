@@ -10,7 +10,7 @@ import java.util.UUID;
 @Table(name = "ra_profile_protocol_attribute")
 public class RaProfileProtocolAttribute extends UniquelyIdentified {
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
     @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
