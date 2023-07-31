@@ -122,7 +122,6 @@ public class SettingServiceImpl implements SettingService {
                 UUID.fromString(uuid);
             }
             catch (IllegalArgumentException e) {
-                logger.error("Invalid UUID of a notification reference.");
                 throw new ValidationException("Invalid UUID of a notification instance reference.");
             }
         }
