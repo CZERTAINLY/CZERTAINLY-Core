@@ -6,7 +6,6 @@ import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
-import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -19,7 +18,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-@Transactional
 public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
     Optional<Certificate> findByUuid(UUID uuid);

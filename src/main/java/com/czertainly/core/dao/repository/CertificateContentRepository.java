@@ -4,11 +4,9 @@ import com.czertainly.core.dao.entity.CertificateContent;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
-import jakarta.transaction.Transactional;
 import java.util.List;
 
 @Repository
-@Transactional
 public interface CertificateContentRepository extends SecurityFilterRepository<CertificateContent, Long> {
 
     CertificateContent findByFingerprint(String thumbprint);

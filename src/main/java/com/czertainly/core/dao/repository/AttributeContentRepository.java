@@ -6,7 +6,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.model.SearchFieldObject;
-import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-@Transactional
 public interface AttributeContentRepository extends JpaRepository<AttributeContent, String> {
 
     @Query("SELECT ac " +
