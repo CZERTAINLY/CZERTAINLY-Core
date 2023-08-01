@@ -20,6 +20,10 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
     @Column(name = "enabled")
     private boolean enabled;
 
+    /**
+     * The approval profile versions.
+     * We need EAGER fetch type here because we need to get the latest version of the approval profile.
+     */
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.EAGER)
     private List<ApprovalProfileVersion> approvalProfileVersions = new ArrayList<>();
 

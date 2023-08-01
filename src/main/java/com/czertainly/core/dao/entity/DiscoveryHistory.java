@@ -23,9 +23,6 @@ import java.util.stream.Collectors;
 @Table(name = "discovery_history")
 public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryHistoryDetailDto> {
 
-    /**
-     *
-     */
     private static final long serialVersionUID = 571684590427678474L;
 
     @Column(name = "name")
@@ -63,7 +60,7 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
     private String attributes;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "discovery")
+    @OneToMany(mappedBy = "discovery", fetch = FetchType.LAZY)
     private Set<DiscoveryCertificate> certificate = new HashSet<>();
 
     @Override

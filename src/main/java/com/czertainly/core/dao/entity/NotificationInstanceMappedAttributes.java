@@ -2,11 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.notification.AttributeMappingDto;
 import com.czertainly.core.util.DtoMapper;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -28,11 +24,11 @@ public class NotificationInstanceMappedAttributes extends UniquelyIdentified imp
     @Column(name = "mapping_attribute_name")
     private String mappingAttributeName;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "notification_instance_ref_uuid", referencedColumnName = "uuid", insertable = false, updatable = false)
     private NotificationInstanceReference notificationInstanceReference;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attribute_definition_uuid", referencedColumnName = "uuid", insertable = false, updatable = false)
     private AttributeDefinition attributeDefinition;
 

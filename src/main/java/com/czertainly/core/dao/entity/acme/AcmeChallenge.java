@@ -37,7 +37,7 @@ public class AcmeChallenge extends UniquelyIdentifiedAndAudited implements Seria
     @Column(name="validated")
     private Date validated;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authorization_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeAuthorization authorization;
 

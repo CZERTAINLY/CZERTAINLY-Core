@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 
 import java.util.UUID;
 
-
 @Entity
 @Table(name = "ra_profile_protocol_attribute")
 public class RaProfileProtocolAttribute extends UniquelyIdentified {
@@ -34,7 +33,6 @@ public class RaProfileProtocolAttribute extends UniquelyIdentified {
 
     @Column(name = "scep_issue_certificate_attributes")
     private String scepIssueCertificateAttributes;
-
 
     public String getAcmeIssueCertificateAttributes() {
         return acmeIssueCertificateAttributes;

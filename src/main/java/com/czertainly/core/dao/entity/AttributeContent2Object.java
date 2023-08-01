@@ -11,7 +11,7 @@ import java.util.UUID;
 @Table(name = "attribute_content_2_object")
 public class AttributeContent2Object extends UniquelyIdentified {
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attribute_content_uuid", nullable = false, insertable = false, updatable = false)
     private AttributeContent attributeContent;
 
@@ -35,7 +35,7 @@ public class AttributeContent2Object extends UniquelyIdentified {
     @Column(name = "source_object_name")
     private String sourceObjectName;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 

@@ -24,9 +24,17 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
     @Enumerated(EnumType.STRING)
     private FunctionGroupCode code;
 
+    /**
+     * The endpoints that belong to this function group.
+     * We need EAGER fetching here because we need to know the endpoints when we create the function group DTO.
+     */
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "functionGroup")
     private Set<Endpoint> endpoints = new HashSet<>();
 
+    /**
+     * The connectors that belong to this function group.
+     * We need EAGER fetching here because we need to know the connectors when we create the function group DTO.
+     */
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "functionGroup")
     private Set<Connector2FunctionGroup> connectors = new HashSet<>();
 

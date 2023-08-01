@@ -32,7 +32,7 @@ public class CryptographicKeyEventHistory extends UniquelyIdentifiedAndAudited i
     @Column(name = "additional_information", columnDefinition = "TEXT")
     private String additionalInformation;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "key_uuid", nullable = false, insertable = false, updatable = false)
     private CryptographicKeyItem key;
 

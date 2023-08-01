@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-
 @Entity
 @Table(name = "ra_profile")
 public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto>, Securable, ObjectAccessControlMapper<NameAndUuidDto> {
@@ -54,7 +53,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "enabled")
     private Boolean enabled;
 
-    @ManyToMany(cascade = CascadeType.ALL)
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinTable(
             name = "ra_profile_2_compliance_profile",
             joinColumns = @JoinColumn(name = "ra_profile_uuid"),
@@ -81,7 +80,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "scep_profile_uuid")
     private UUID scepProfileUuid;
 
-
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
         if (acmeProfile == null) {
@@ -96,7 +94,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setAcmeAvailable(true);
         return dto;
     }
-
 
     public RaProfileScepDetailResponseDto mapToScepDto() {
         RaProfileScepDetailResponseDto dto = new RaProfileScepDetailResponseDto();

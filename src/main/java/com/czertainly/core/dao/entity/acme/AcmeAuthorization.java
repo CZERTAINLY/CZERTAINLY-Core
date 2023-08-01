@@ -38,13 +38,13 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
     private Date expires;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "authorization")
+    @OneToMany(mappedBy = "authorization", fetch = FetchType.LAZY)
     private Set<AcmeChallenge> challenges = new HashSet<>();
 
     @Column(name="wildcard")
     private Boolean wildcard;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeOrder order;
 

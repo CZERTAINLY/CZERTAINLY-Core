@@ -52,11 +52,11 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     private UUID groupUuid;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<CryptographicKeyItem> items = new HashSet<>();
 
     @JsonBackReference
-    @OneToMany(mappedBy = "key")
+    @OneToMany(mappedBy = "key", fetch = FetchType.LAZY)
     private Set<Certificate> certificates = new HashSet<>();
 
     public String getName() {

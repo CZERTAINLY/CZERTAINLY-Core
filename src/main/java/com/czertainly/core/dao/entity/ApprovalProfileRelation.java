@@ -13,7 +13,7 @@ import java.util.UUID;
 @Table(name = "approval_profile_relation")
 public class ApprovalProfileRelation extends UniquelyIdentified {
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approval_profile_uuid", insertable = false, updatable = false)
     private ApprovalProfile approvalProfile;
 

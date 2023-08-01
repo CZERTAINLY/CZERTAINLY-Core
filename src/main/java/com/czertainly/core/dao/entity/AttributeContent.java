@@ -14,17 +14,17 @@ import java.util.stream.Collectors;
 @Table(name = "attribute_content")
 public class AttributeContent extends UniquelyIdentified {
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attribute_definition_uuid", nullable = false, insertable = false, updatable = false)
     private AttributeDefinition attributeDefinition;
 
     @Column(name = "attribute_definition_uuid", nullable = false)
     private UUID attributeDefinitionUuid;
 
-    @OneToMany(mappedBy = "attributeContent", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "attributeContent", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<AttributeContentItem> attributeContentItems;
 
-    @OneToMany(mappedBy = "attributeContent")
+    @OneToMany(mappedBy = "attributeContent", fetch = FetchType.LAZY)
     private List<AttributeContent2Object> attributeContent2Objects;
 
     public void setAttributeContentItems(List<AttributeContentItem> attributeContentItems) {

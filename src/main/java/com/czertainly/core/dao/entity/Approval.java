@@ -25,7 +25,7 @@ public class Approval extends UniquelyIdentified {
     @Column(name = "approval_profile_version_uuid")
     private UUID approvalProfileVersionUuid;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approval_profile_version_uuid", insertable = false, updatable = false)
     private ApprovalProfileVersion approvalProfileVersion;
 
@@ -54,7 +54,7 @@ public class Approval extends UniquelyIdentified {
     @Column(name = "closed_at")
     private Date closedAt;
 
-    @OneToMany(mappedBy = "approval")
+    @OneToMany(mappedBy = "approval", fetch = FetchType.LAZY)
     private List<ApprovalRecipient> approvalRecipients;
 
     @Column(name = "object_data", columnDefinition = "jsonb")

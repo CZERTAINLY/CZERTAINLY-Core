@@ -23,7 +23,7 @@ public class CertificateContent {
     @Column(name = "content", length = Integer.MAX_VALUE)
     private String content;
 
-    @OneToMany(mappedBy = "certificateContent")
+    @OneToMany(mappedBy = "certificateContent", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<DiscoveryCertificate> discoveryCertificates = new HashSet<>();
 
