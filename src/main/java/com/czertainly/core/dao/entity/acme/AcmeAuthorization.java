@@ -44,7 +44,7 @@ public class AcmeAuthorization  extends UniquelyIdentifiedAndAudited implements 
     @Column(name="wildcard")
     private Boolean wildcard;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeOrder order;
 

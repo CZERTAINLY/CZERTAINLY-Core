@@ -28,7 +28,7 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name="order_id")
     private String orderId;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeAccount acmeAccount;
 
