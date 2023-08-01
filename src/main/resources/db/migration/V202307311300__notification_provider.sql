@@ -5,7 +5,7 @@ insert into function_group (name, code, uuid) values (
 
 -- add required and optional endpoints for the notification provider connectors
 insert into endpoint (context,method,name,required,function_group_uuid,uuid) values
-('/v1','GET','listSupportedFunctions',true,(select uuid from function_group where code = 'NOTIFICATION_PROVIDER'),'995801fd-cef2-4470-9fc6-1e13d21bc72a'),
+('/v1','GET','listSupportedFunctions',false,(select uuid from function_group where code = 'NOTIFICATION_PROVIDER'),'995801fd-cef2-4470-9fc6-1e13d21bc72a'),
 ('/v1/health','GET','healthCheck',false,(select uuid from function_group where code = 'NOTIFICATION_PROVIDER'),'91fc5a07-f6b5-43f4-947b-7b2596305ee2'),
 ('/v1/notificationProvider/{kind}/attributes','GET','listAttributeDefinitions',true,(select uuid from function_group where code = 'NOTIFICATION_PROVIDER'),'d1d809d1-2534-44e2-921e-7588c2855540'),
 ('/v1/notificationProvider/{kind}/attributes/validate','POST','validateAttributes',true,(select uuid from function_group where code = 'NOTIFICATION_PROVIDER'),'f9581e8f-70d7-4f09-9c7c-c47000719fef'),
