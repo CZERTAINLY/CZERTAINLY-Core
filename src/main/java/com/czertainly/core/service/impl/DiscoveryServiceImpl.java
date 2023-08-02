@@ -51,7 +51,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.X509Certificate;
@@ -235,14 +234,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Async("threadPoolTaskExecutor")
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void createDiscoveryAsync(DiscoveryHistory modal) {
         createDiscovery(modal);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void createDiscovery(DiscoveryHistory modal) {
         logger.info("Starting creating discovery {}", modal.getName());
         try {
