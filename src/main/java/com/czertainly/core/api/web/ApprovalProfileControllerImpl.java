@@ -26,7 +26,6 @@ public class ApprovalProfileControllerImpl implements ApprovalProfileController 
     private ApprovalProfileService approvalProfileService;
 
     @Override
-    @AuthEndpoint(resourceName = Resource.APPROVAL_PROFILE)
     public ApprovalProfileResponseDto listApprovalProfiles(final PaginationRequestDto paginationRequestDto) {
         return approvalProfileService.listApprovalProfiles(SecurityFilter.create(), paginationRequestDto);
     }
