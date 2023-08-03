@@ -84,7 +84,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             final Predicate statusPredicate = joinApprovalRecipient.get("status").in(prepareApprovalRecipientStatuses(withHistory));
             final Predicate userUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("userUuid"), UUID.fromString(userProfileDto.getUser().getUuid()));
             final Predicate roleUuidPredicate = joinApprovalRecipient.get("approvalStep").get("roleUuid").in(userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).collect(Collectors.toList()));
-            final Predicate groupUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("groupUuid"), UUID.fromString(userProfileDto.getUser().getGroupUuid()));
+            final Predicate groupUuidPredicate = joinApprovalRecipient.get("approvalStep").get("groupUuid").in(userProfileDto.getUser().getGroupUuid() != null ? List.of(UUID.fromString(userProfileDto.getUser().getGroupUuid())) : List.of());
             return cb.and(statusPredicate, cb.or(userUuidPredicate, roleUuidPredicate, groupUuidPredicate));
         };
         return listOfApprovals(securityFilter, additionalWhereClause, paginationRequestDto);
@@ -187,7 +187,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                 = approvalRecipientRepository.findByResponsiblePersonAndStatusAndApproval(
                 UUID.fromString(userProfileDto.getUser().getUuid()),
                 userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).collect(Collectors.toList()),
-                userProfileDto.getUser().getGroupUuid() != null ? UUID.fromString(userProfileDto.getUser().getGroupUuid()) : null,
+                userProfileDto.getUser().getGroupUuid() != null ? List.of(UUID.fromString(userProfileDto.getUser().getGroupUuid())) : List.of(),
                 ApprovalStatusEnum.PENDING,
                 approvalUuid);
 
