@@ -45,8 +45,8 @@ public class ApprovalProfileServiceTest extends ApprovalProfileData {
     @Test
     public void testEditApprovalProfile() throws NotFoundException, AlreadyExistException {
         ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        approvalProfile = approvalProfileService.editApprovalProfile(approvalProfile.getUuid().toString(), approvalProfileUpdateRequestDto);
-        approvalProfile = approvalProfileService.editApprovalProfile(approvalProfile.getUuid().toString(), approvalProfileUpdateRequestDto);
+        approvalProfile = approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
+        approvalProfile = approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
 
         final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository.findByUuid(approvalProfile.getSecuredUuid());
         Assertions.assertTrue(approvalProfileOptional.isPresent());
@@ -67,14 +67,14 @@ public class ApprovalProfileServiceTest extends ApprovalProfileData {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         Assertions.assertTrue(approvalProfile.isEnabled());
 
-        approvalProfileService.disableApprovalProfile(approvalProfile.getUuid().toString());
+        approvalProfileService.disableApprovalProfile(approvalProfile.getSecuredUuid());
 
         final Optional<ApprovalProfile> approvalProfileDBOptional = approvalProfileRepository.findByUuid(SecuredUUID.fromUUID(approvalProfile.getUuid()));
         final ApprovalProfile approvalProfileDB = approvalProfileDBOptional.get();
 
         Assertions.assertFalse(approvalProfileDB.isEnabled());
 
-        approvalProfileService.enableApprovalProfile(approvalProfile.getUuid().toString());
+        approvalProfileService.enableApprovalProfile(approvalProfile.getSecuredUuid());
 
         final Optional<ApprovalProfile> approvalProfile2DBOptional = approvalProfileRepository.findByUuid(SecuredUUID.fromUUID(approvalProfile.getUuid()));
         final ApprovalProfile approvalProfile2DB = approvalProfile2DBOptional.get();
@@ -87,7 +87,7 @@ public class ApprovalProfileServiceTest extends ApprovalProfileData {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         Assertions.assertTrue(approvalProfile.isEnabled());
 
-        approvalProfileService.deleteApprovalProfile(approvalProfile.getUuid().toString());
+        approvalProfileService.deleteApprovalProfile(approvalProfile.getSecuredUuid());
 
         final Optional<ApprovalProfile> approvalProfileDBOptional = approvalProfileRepository.findByUuid(SecuredUUID.fromUUID(approvalProfile.getUuid()));
         Assertions.assertFalse(approvalProfileDBOptional.isPresent());
@@ -96,8 +96,8 @@ public class ApprovalProfileServiceTest extends ApprovalProfileData {
     @Test
     public void testListApprovalProfiles() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        approvalProfileService.editApprovalProfile(approvalProfile.getUuid().toString(), approvalProfileUpdateRequestDto);
-        approvalProfileService.editApprovalProfile(approvalProfile.getUuid().toString(), approvalProfileUpdateRequestDto);
+        approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
+        approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
 
         Assertions.assertTrue(approvalProfile.isEnabled());
 
@@ -108,7 +108,7 @@ public class ApprovalProfileServiceTest extends ApprovalProfileData {
     @Test
     public void testListApprovalProfileDetail() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        final ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getUuid().toString(), null);
+        final ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), null);
 
         Assertions.assertEquals(approvalProfile.getName(), approvalProfileDetailDto.getName());
         Assertions.assertEquals(approvalProfile.getTheLatestApprovalProfileVersion().getDescription(), approvalProfileDetailDto.getDescription());
