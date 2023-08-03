@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.approval.ApprovalDetailStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -16,6 +17,7 @@ public class ApprovalStep extends UniquelyIdentified {
     @Column(name = "approval_profile_version_uuid")
     private UUID approvalProfileVersionUuid;
 
+    @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "approval_profile_version_uuid", insertable = false, updatable = false)
     private ApprovalProfileVersion approvalProfileVersion;

@@ -9,22 +9,23 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileResponseDt
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileUpdateRequestDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.ApprovalProfile;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 public interface ApprovalProfileService {
 
     ApprovalProfileResponseDto listApprovalProfiles(final SecurityFilter securityFilter, final PaginationRequestDto paginationRequestDto);
 
-    ApprovalProfileDetailDto getApprovalProfile(String uuid, Integer version) throws NotFoundException;
+    ApprovalProfileDetailDto getApprovalProfile(SecuredUUID uuid, Integer version) throws NotFoundException;
 
-    void deleteApprovalProfile(String uuid) throws NotFoundException, ValidationException;
+    void deleteApprovalProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
-    void enableApprovalProfile(String uuid) throws NotFoundException, ValidationException;
+    void enableApprovalProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
-    void disableApprovalProfile(String uuid) throws NotFoundException, ValidationException;
+    void disableApprovalProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
     ApprovalProfile createApprovalProfile(ApprovalProfileRequestDto approvalProfileRequestDto) throws NotFoundException, AlreadyExistException;
 
-    ApprovalProfile editApprovalProfile(String uuid, ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException;
+    ApprovalProfile editApprovalProfile(SecuredUUID uuid, ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException;
 
 }
