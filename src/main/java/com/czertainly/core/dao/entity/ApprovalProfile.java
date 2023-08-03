@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -20,12 +21,14 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
     @Column(name = "enabled")
     private boolean enabled;
 
+    @JsonBackReference
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.EAGER)
     private List<ApprovalProfileVersion> approvalProfileVersions = new ArrayList<>();
 
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)
     private List<ApprovalProfileRelation> approvalProfileRelations = new ArrayList<>();
 
+    @JsonBackReference
     public ApprovalProfileVersion getTheLatestApprovalProfileVersion() {
         return getApprovalProfileVersions().stream().max(Comparator.comparingInt(ApprovalProfileVersion::getVersion)).get();
     }

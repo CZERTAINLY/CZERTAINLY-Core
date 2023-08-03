@@ -14,10 +14,10 @@ public interface ApprovalRecipientRepository extends SecurityFilterRepository<Ap
     @Query("SELECT ar " +
             "FROM ApprovalRecipient ar JOIN ApprovalStep aps ON aps.uuid = ar.approvalStepUuid " +
             "WHERE ar.status = :status AND ar.approvalUuid = :approvalUuid AND " +
-            "      (aps.groupUuid = :groupUuid" +
-            "          OR aps.roleUuid in :roleUuid" +
+            "      (aps.groupUuid IN :groupUuid" +
+            "          OR aps.roleUuid IN :roleUuid" +
             "          OR aps.userUuid = :userUuid)")
-    List<ApprovalRecipient> findByResponsiblePersonAndStatusAndApproval(final UUID userUuid, final List<UUID> roleUuid, final UUID groupUuid, final ApprovalStatusEnum status, final UUID approvalUuid);
+    List<ApprovalRecipient> findByResponsiblePersonAndStatusAndApproval(final UUID userUuid, final List<UUID> roleUuid, final List<UUID> groupUuid, final ApprovalStatusEnum status, final UUID approvalUuid);
 
     List<ApprovalRecipient> findApprovalRecipientsByApprovalUuidAndStatus(final UUID approvalUuid, final ApprovalStatusEnum status);
 

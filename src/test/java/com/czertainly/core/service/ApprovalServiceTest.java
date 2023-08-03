@@ -63,10 +63,10 @@ public class ApprovalServiceTest extends ApprovalProfileData {
     @Test
     public void testApprovalProfileHistoryVersion() throws NotFoundException {
         approvalService.getApprovalDetail(approval.getUuid().toString());
-        approvalProfileService.editApprovalProfile(approvalProfile.getUuid().toString(), approvalProfileUpdateRequestDto);
-        approvalProfileService.editApprovalProfile(approvalProfile.getUuid().toString(), approvalProfileUpdateRequestDto);
+        approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
+        approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
 
-        final ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getUuid().toString(), 1);
+        final ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), 1);
         Assertions.assertEquals(approvalProfileRequestDto.getDescription(), approvalProfileDetailDto.getDescription());
     }
 
