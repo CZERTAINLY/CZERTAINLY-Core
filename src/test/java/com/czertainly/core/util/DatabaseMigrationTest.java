@@ -51,4 +51,11 @@ public class DatabaseMigrationTest {
 
         Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202303211718__Scep_Roles.getChecksum(), checksum);
     }
+
+    @Test
+    public void testCalculateChecksum_V202308050825__UpdateAcmeScepRolesPermissions() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202308050825__UpdateAcmeScepRolesPermissions.java");
+
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202308050825__UpdateAcmeScepRolesPermissions.getChecksum(), checksum);
+    }
 }
