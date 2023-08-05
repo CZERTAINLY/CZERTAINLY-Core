@@ -20,7 +20,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
@@ -34,10 +33,6 @@ public interface CertificateService extends ResourceExtensionService  {
     CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
-
-    List<Certificate> getCertificateEntityBySubjectDn(String subjectDn);
-
-    List<Certificate> getCertificateEntityByCommonName(String commonName);
 
     // TODO AUTH - unable to check access based on certificate content. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByContent(String content);
@@ -65,18 +60,6 @@ public interface CertificateService extends ResourceExtensionService  {
     Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException;
 
     Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
-
-    Certificate checkCreateCertificateWithMeta(
-            String certificate,
-            List<MetadataAttribute> meta,
-            String csr,
-            UUID keyUuid,
-            List<DataAttribute> csrAttributes,
-            List<RequestAttributeDto> signatureAttributes,
-            UUID connectorUuid,
-            UUID sourceCertificateUuid,
-            String issueAttributes
-    ) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
     CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
 
@@ -188,6 +171,11 @@ public interface CertificateService extends ResourceExtensionService  {
     StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto);
 
     /**
+     * Method to check if the permission is available for the user to create certificate and submit certificate request
+     */
+    void checkCreatePermissions();
+
+    /**
      * Method to check if the permission is available for the user to issue certificate
      */
     void checkIssuePermissions();
@@ -230,23 +218,27 @@ public interface CertificateService extends ResourceExtensionService  {
     List<CertificateContentDto> getCertificateContent(List<String> uuids);
 
     /**
-     * Create CSR Entity and store it in the database which is ready for issuing
+     * Create certificate request entity and certificate in status New, store it in the database ready for issuing
      * @param csr - PKCS10 certificate request to be added
      * @param signatureAttributes signatureAttributes used to sign the CSR. If the CSR is uploaded from the User
      *                            this parameter should be left empty
      * @param csrAttributes Attributes used to create CSR
+     * @param issueAttributes Attributes used to issue certificate
      * @param keyUuid UUID of the key used to sign the CSR
+     * @param raProfileUuid UUID of the RA profile to be used to issue certificate
+     * @param sourceCertificateUuid UUID of the source certificate specified in case of renew/rekey operation
+     * return Certificate detail DTO
      */
-    Certificate createCsr(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, UUID keyUuid) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException;
+    CertificateDetailDto submitCertificateRequest(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid) throws NoSuchAlgorithmException, InvalidKeyException, IOException;
 
     /**
      * Function to change the Certificate Entity from CSR to Certificate
      * @param uuid UUID of the entity to be transformed
      * @param certificateData Issued Certificate Data
      * @param meta Metadata of the certificate
-     * @return Certificate entity
+     * @return Certificate detail DTO
      */
-    Certificate updateCsrToCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException;
+    CertificateDetailDto issueNewCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException;
 
     /**
      * List certificates eligible for CA certificate of SCEP requests

@@ -68,6 +68,7 @@ public class Approval extends UniquelyIdentified {
     public ApprovalDto mapToDto() {
         final ApprovalDto dto = new ApprovalDto();
         dto.setApprovalUuid(this.uuid.toString());
+        dto.setCreatorUuid(this.creatorUuid.toString());
         dto.setResource(this.resource);
         dto.setResourceAction(this.action.getCode());
         dto.setVersion(this.getApprovalProfileVersion().getVersion());
@@ -87,8 +88,6 @@ public class Approval extends UniquelyIdentified {
     public ApprovalDetailDto mapToDetailDto() {
         final ApprovalDto approvalDto = mapToDto();
         final ApprovalDetailDto dto = new ApprovalDetailDto(approvalDto);
-
-        dto.setCreatorUuid(this.creatorUuid.toString());
 
         final ApprovalProfileVersion approvalProfileVersion = this.getApprovalProfileVersion();
         dto.setExpiry(approvalProfileVersion.getExpiry());

@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
@@ -13,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -52,6 +54,27 @@ public class AuthHelper {
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
+    }
+
+    public static boolean isLoggedProtocolUser() {
+        try {
+            CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            String username = userDetails.getUsername();
+            return username.equals(ACME_USERNAME) || username.equals(SCEP_USERNAME);
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+            throw new ValidationException(ValidationError.create("Cannot retrieve information of logged protocol user for Unknown/Anonymous user"));
+        }
+    }
+
+    public static NameAndUuidDto getUserIdentification() {
+        try {
+            CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            return new NameAndUuidDto(userDetails.getUserUuid(), userDetails.getUsername());
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+            throw new ValidationException(ValidationError.create("Cannot retrieve user identification for Unknown/Anonymous user"));
+        }
     }
 
     public static UserProfileDto getUserProfile() {
