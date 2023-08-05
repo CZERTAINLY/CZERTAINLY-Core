@@ -28,7 +28,7 @@ import java.util.Properties;
 /**
  * Migration script for the Access control changes.
  * The script will take the data from the core database and trigger API calls to the
- * Auth Service for creating SCEP role, user and the permissions
+ * Auth Service for updating ACME and SCEP role, to add all necessary certificate permissions
  */
 public class V202308050825__UpdateAcmeScepRolesPermissions extends BaseJavaMigration {
 
