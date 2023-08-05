@@ -155,8 +155,8 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public CertificateDetailDto createCsr(ClientCertificateRequestDto request) throws ValidationException, NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
-		return clientOperationService.createCsr(request);
+	public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
+		return clientOperationService.submitCertificateRequest(request);
 	}
 
 	@Override

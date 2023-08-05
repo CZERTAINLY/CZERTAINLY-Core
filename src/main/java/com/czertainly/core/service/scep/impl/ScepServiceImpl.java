@@ -442,12 +442,14 @@ public class ScepServiceImpl implements ScepService {
             response = clientOperationService.issueCertificate(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), requestDto);
         } catch (ConnectorException e) {
             throw new ScepException("Unable to use connector to issue certificate", e, FailInfo.BAD_REQUEST);
-        } catch (AlreadyExistException e) {
-            throw new ScepException("Certificate already exists", e, FailInfo.BAD_REQUEST);
         } catch (CertificateException e) {
             throw new ScepException("Unable to issue certificate", e, FailInfo.BAD_REQUEST);
         } catch (NoSuchAlgorithmException e) {
             throw new ScepException("Wrong algorithm to issue certificate", e, FailInfo.BAD_ALG);
+        } catch (IOException e) {
+            throw new ScepException("Unable to issue certificate. Error parsing CSR.", e, FailInfo.BAD_REQUEST);
+        } catch (InvalidKeyException e) {
+            throw new ScepException("Unable to issue certificate. Invalid key", e, FailInfo.BAD_REQUEST);
         }
 
         X509Certificate certificate;
@@ -484,8 +486,9 @@ public class ScepServiceImpl implements ScepService {
                     scepRequest
             );
         }
-        ClientCertificateRequestDto requestDto = new ClientCertificateRequestDto();
         ScepResponse scepResponse = new ScepResponse();
+        ClientCertificateRequestDto requestDto = new ClientCertificateRequestDto();
+        if (raProfile != null) requestDto.setRaProfileUuid(raProfile.getUuid());
         try {
             requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
         } catch (IOException e) {
@@ -493,18 +496,11 @@ public class ScepServiceImpl implements ScepService {
         }
         CertificateDetailDto response;
         try {
-            response = clientOperationService.createCsr(requestDto);
-        } catch (NotFoundException | CertificateException | IOException | NoSuchAlgorithmException |
-                 InvalidKeyException | NoSuchProviderException e) {
-            throw new ScepException("Unable to create CSR", e, FailInfo.BAD_REQUEST);
+            response = clientOperationService.submitCertificateRequest(requestDto);
+        } catch (NotFoundException | CertificateException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }
-        CertificateUpdateObjectsDto updateObjectsRequest = new CertificateUpdateObjectsDto();
-        updateObjectsRequest.setRaProfileUuid(raProfile.getUuid().toString());
-        try {
-            certificateService.updateCertificateObjects(SecuredUUID.fromString(response.getUuid()), updateObjectsRequest);
-        } catch (NotFoundException e) {
-            throw new ScepException("Cannot update Certificate " + response.getUuid(), e, FailInfo.BAD_REQUEST);
-        }
+
         addTransactionEntity(scepRequest.getTransactionId(), response.getUuid());
         scepResponse.setPkiStatus(PkiStatus.PENDING);
 

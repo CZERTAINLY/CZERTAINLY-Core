@@ -58,8 +58,10 @@ public class CertificateRequest extends UniquelyIdentifiedAndAudited  {
 
     public void setContent(String content) throws NoSuchAlgorithmException {
         this.content = content;
-        final byte[] contentDecoded = Base64.getDecoder().decode(content);
-        this.fingerprint = CertificateUtil.getThumbprint(contentDecoded);
+        if (this.fingerprint == null) {
+            final byte[] contentDecoded = Base64.getDecoder().decode(content);
+            this.fingerprint = CertificateUtil.getThumbprint(contentDecoded);
+        }
     }
 
     public List<DataAttribute> getAttributes() {
