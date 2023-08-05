@@ -54,7 +54,7 @@ public class DatabaseMigration {
         V202301311500__PublicKeyMigration(-761670493),
         V202303211718__Scep_Roles(-285333526),
         V202303230830__AttributeContentJsonMigration(1077049851),
-        V202308050825__UpdateAcmeScepRolesPermissions(497950194);
+        V202308050825__UpdateAcmeScepRolesPermissions(414709752);
 
         private final int checksum;
 
