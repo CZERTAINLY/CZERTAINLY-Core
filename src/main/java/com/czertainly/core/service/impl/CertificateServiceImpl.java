@@ -73,7 +73,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -238,18 +237,8 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<Certificate> getCertificateEntityBySubjectDn(String subjectDn) {
-        return certificateRepository.findBySubjectDn(subjectDn);
-    }
-
-    @Override
-    public List<Certificate> getCertificateEntityByCommonName(String commonName) {
-        return certificateRepository.findByCommonName(commonName);
-    }
-
-    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    // This method does not need security as it is not exposed by the controllers. This method also does not uses uuid
+    // This method does not need security as it is not exposed by the controllers. This method also does not use uuid
     public Certificate getCertificateEntityByContent(String content) {
         CertificateContent certificateContent = certificateContentRepository.findByContent(content);
         return certificateRepository.findByCertificateContent(certificateContent);
@@ -516,7 +505,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate entity = new Certificate();
         String fingerprint;
 
-        // by default we are working with the X.509 certificate
+        // by default, we are working with the X.509 certificate
         if (certificateType == null) {
             certificateType = CertificateType.X509;
         }
@@ -656,41 +645,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate checkCreateCertificateWithMeta(String certificate, List<MetadataAttribute> meta, String csr, UUID keyUuid, List<DataAttribute> csrAttributes, List<RequestAttributeDto> signatureAttributes, UUID connectorUuid, UUID sourceCertificateUuid, String issueAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
-        X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
-        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
-        if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
-            throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
-        }
-        final Certificate entity = createCertificateEntity(x509Cert);
-        entity.setKeyUuid(keyUuid);
-        entity.setSourceCertificateUuid(sourceCertificateUuid);
-        entity.setIssueAttributes(issueAttributes);
-
-        byte[] decodedCSR = Base64.getDecoder().decode(csr);
-        final String csrFingerprint = CertificateUtil.getThumbprint(decodedCSR);
-        Optional<CertificateRequest> certificateRequestOptional = certificateRequestRepository.findByFingerprint(csrFingerprint);
-
-        if (certificateRequestOptional.isPresent()) {
-            entity.setCertificateRequestUuid(certificateRequestOptional.get().getUuid());
-        } else {
-            CertificateRequest certificateRequest = entity.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
-            certificateRequest.setContent(csr);
-            certificateRequest.setAttributes(csrAttributes);
-            certificateRequest.setSignatureAttributes(signatureAttributes);
-            certificateRequest = certificateRequestRepository.save(certificateRequest);
-            entity.setCertificateRequestUuid(certificateRequest.getUuid());
-        }
-
-        certificateRepository.save(entity);
-
-        metadataService.createMetadataDefinitions(connectorUuid, meta);
-        metadataService.createMetadata(connectorUuid, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
-        certificateComplianceCheck(entity);
-        return entity;
-    }
-
-    @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String serialNumber) {
         try {
@@ -788,9 +742,7 @@ public class CertificateServiceImpl implements CertificateService {
         for (final Certificate certificate : certificates) {
             String oldStatus = certificate.getStatus().getLabel();
             if (updateCertificateStatusScheduled(certificate)) {
-                if (CertificateStatus.REVOKED.equals(certificate.getStatus())
-                        || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
-
+                if (CertificateStatus.REVOKED.equals(certificate.getStatus()) || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
                     try {
                         List<NotificationRecipient> recipient = certificate.getOwnerUuid() != null ? NotificationRecipient.buildUserNotificationRecipient(
                                 certificate.getOwnerUuid()) : (certificate.getGroupUuid() != null ? NotificationRecipient.buildGroupNotificationRecipient(
@@ -909,6 +861,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
+    public void checkCreatePermissions() {
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ISSUE)
     public void checkIssuePermissions() {
     }
 
@@ -980,44 +937,96 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate createCsr(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, UUID keyUuid) throws IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
-
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
+    public CertificateDetailDto submitCertificateRequest(String csr, List<RequestAttributeDto> signatureAttributes, List<DataAttribute> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid) throws NoSuchAlgorithmException, InvalidKeyException, IOException {
         final JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(csr);
         final Certificate certificate = new Certificate();
         CertificateUtil.prepareCsrObject(certificate, jcaObject);
         certificate.setKeyUuid(keyUuid);
         certificate.setStatus(CertificateStatus.NEW);
+        certificate.setCertificateType(CertificateType.X509); // TODO: for now it is always X509
+        certificate.setRaProfileUuid(raProfileUuid);
+        certificate.setIssueAttributes(AttributeDefinitionUtils.serializeRequestAttributes(issueAttributes));
+        certificate.setSourceCertificateUuid(sourceCertificateUuid);
 
-        CertificateRequest certificateRequest = certificate.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
-        certificateRequest.setContent(csr);
-        certificateRequest.setSignatureAttributes(signatureAttributes);
-        certificateRequest.setAttributes(csrAttributes);
-        certificateRequest = certificateRequestRepository.save(certificateRequest);
+        // set owner of certificate to logged user
+        try {
+            NameAndUuidDto userIdentification = AuthHelper.getUserIdentification();
+            certificate.setOwner(userIdentification.getName());
+            certificate.setOwnerUuid(UUID.fromString(userIdentification.getUuid()));
+        } catch (Exception e) {
+            logger.warn("Unable to set owner of new certificate to logged user: {}", e.getMessage());
+        }
+
+        // find if exists same certificate request by content
+        CertificateRequest certificateRequest;
+        byte[] decodedCSR = Base64.getDecoder().decode(csr);
+        final String csrFingerprint = CertificateUtil.getThumbprint(decodedCSR);
+        Optional<CertificateRequest> certificateRequestOptional = certificateRequestRepository.findByFingerprint(csrFingerprint);
+
+        if (certificateRequestOptional.isPresent()) {
+            certificateRequest = certificateRequestOptional.get();
+        } else {
+            certificateRequest = certificate.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
+            certificateRequest.setFingerprint(csrFingerprint);
+            certificateRequest.setContent(csr);
+            certificateRequest.setSignatureAttributes(signatureAttributes);
+            certificateRequest.setAttributes(csrAttributes);
+            certificateRequest = certificateRequestRepository.save(certificateRequest);
+        }
 
         certificate.setCertificateRequest(certificateRequest);
         certificate.setCertificateRequestUuid(certificateRequest.getUuid());
         certificateRepository.save(certificate);
-        return certificate;
+
+        certificateEventHistoryService.addEventHistory(CertificateEvent.CREATE_CSR, CertificateEventStatus.SUCCESS, "Certificate request created with the provided parameters", "", certificate);
+
+        logger.info("Certificate request submitted and certificate created {}", certificate);
+
+        return certificate.mapToDto();
     }
 
     @Override
-    public Certificate updateCsrToCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException {
+    public CertificateDetailDto issueNewCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
-        Certificate entity = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
-        CertificateUtil.prepareCertificate(entity, x509Cert);
+        Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        CertificateUtil.prepareCertificate(certificate, x509Cert);
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert));
-        entity.setFingerprint(fingerprint);
-        entity.setCertificateContent(certificateContent);
-        entity.setCertificateContentId(certificateContent.getId());
-        certificateRepository.save(entity);
-        metadataService.createMetadataDefinitions(null, meta);
-        metadataService.createMetadata(null, entity.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
-        certificateComplianceCheck(entity);
-        return entity;
+        certificate.setFingerprint(fingerprint);
+        certificate.setCertificateContent(certificateContent);
+        certificate.setCertificateContentId(certificateContent.getId());
+
+        // if key association is not sent, search in key inventory by fingerprint
+        if(certificate.getKeyUuid() == null && certificate.getPublicKeyFingerprint() != null) {
+            UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
+            certificate.setKeyUuid(keyUuid);
+        }
+
+        certificateRepository.save(certificate);
+
+        // save metadata
+        UUID connectorUuid = certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
+        metadataService.createMetadataDefinitions(connectorUuid, meta);
+        metadataService.createMetadata(connectorUuid, certificate.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
+
+        certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + certificate.getRaProfile().getName(), "", certificate);
+
+        // check compliance and validity of certificate
+        try {
+            certificateComplianceCheck(certificate);
+            updateCertificateIssuer(certificate);
+            certValidationService.validate(certificate);
+        } catch (Exception e) {
+            logger.warn("Unable to validate certificate {}, {}", certificate.getUuid(), e.getMessage());
+        }
+
+        logger.info("Certificate was successfully issued. {}", certificate.getUuid());
+
+        return certificate.mapToDto();
     }
 
     @Override
@@ -1035,9 +1044,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private String getExpiryTime(Date now, Date expiry) {
-        long diffInMillies = expiry.getTime() - now.getTime();
-        long difference = TimeUnit.DAYS.convert(diffInMillies, TimeUnit.MILLISECONDS);
-        if (diffInMillies <= 0) {
+        long diffInMilliseconds = expiry.getTime() - now.getTime();
+        long difference = TimeUnit.DAYS.convert(diffInMilliseconds, TimeUnit.MILLISECONDS);
+        if (diffInMilliseconds <= 0) {
             return "expired";
         } else if (difference < 10) {
             return "10";
