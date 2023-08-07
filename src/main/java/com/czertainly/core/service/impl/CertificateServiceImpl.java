@@ -743,18 +743,23 @@ public class CertificateServiceImpl implements CertificateService {
             String oldStatus = certificate.getStatus().getLabel();
             if (updateCertificateStatusScheduled(certificate)) {
                 if (CertificateStatus.REVOKED.equals(certificate.getStatus()) || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
-                    try {
-                        List<NotificationRecipient> recipient = certificate.getOwnerUuid() != null ? NotificationRecipient.buildUserNotificationRecipient(
-                                certificate.getOwnerUuid()) : (certificate.getGroupUuid() != null ? NotificationRecipient.buildGroupNotificationRecipient(
-                                certificate.getGroupUuid()) : null);
-                        notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
-                                certificate.getUuid(),
-                                recipient,
-                                oldStatus,
-                                certificate.getStatus().getLabel(),
-                                certificate.mapToListDto());
-                    } catch (Exception e) {
-                        logger.warn("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
+                    if (certificate.getOwnerUuid() == null && certificate.getGroupUuid() == null) {
+                        logger.debug("Certificate does not have owner or group. Not sending notification of status change. Certificate: {}", certificate);
+                    }
+                    else {
+                        try {
+                            List<NotificationRecipient> recipient = certificate.getOwnerUuid() != null
+                                    ? NotificationRecipient.buildUserNotificationRecipient(certificate.getOwnerUuid())
+                                    : NotificationRecipient.buildGroupNotificationRecipient(certificate.getGroupUuid());
+                            notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
+                                    certificate.getUuid(),
+                                    recipient,
+                                    oldStatus,
+                                    certificate.getStatus().getLabel(),
+                                    certificate.mapToListDto());
+                        } catch (Exception e) {
+                            logger.warn("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
+                        }
                     }
 
                     eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());

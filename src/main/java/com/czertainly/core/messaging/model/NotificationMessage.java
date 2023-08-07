@@ -1,13 +1,7 @@
 package com.czertainly.core.messaging.model;
 
-import com.czertainly.api.model.connector.notification.data.NotificationDataApproval;
-import com.czertainly.api.model.connector.notification.data.NotificationDataScheduledJobCompleted;
-import com.czertainly.api.model.connector.notification.data.NotificationDataCertificateStatusChanged;
-import com.czertainly.api.model.connector.notification.data.NotificationDataText;
 import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,14 +19,6 @@ public class NotificationMessage {
 
     private UUID resourceUUID;
 
-    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = "type")
-    @JsonSubTypes({
-            @JsonSubTypes.Type(value = NotificationDataText.class, name = "text"),
-            @JsonSubTypes.Type(value = NotificationDataCertificateStatusChanged.class, name = "certificate_status_changed"),
-            @JsonSubTypes.Type(value = NotificationDataScheduledJobCompleted.class, name = "scheduled_job_completed"),
-            @JsonSubTypes.Type(value = NotificationDataApproval.class, name = "approval_requested"),
-            @JsonSubTypes.Type(value = NotificationDataApproval.class, name = "approval_closed")
-    })
     private Object data;
 
     private List<NotificationRecipient> recipients;
