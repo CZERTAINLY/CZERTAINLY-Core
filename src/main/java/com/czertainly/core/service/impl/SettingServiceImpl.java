@@ -81,17 +81,19 @@ public class SettingServiceImpl implements SettingService {
     @Override
     public NotificationSettingsDto getNotificationSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
-        Map<NotificationType, String> valueMapped = null;
+        Map<NotificationType, String> valueMapped = new HashMap<>();
         if (!settings.isEmpty()) {
             String valueJson = settings.get(0).getValue();
-            ObjectMapper mapper = new ObjectMapper();
-            TypeReference<Map<NotificationType, String>> typeReference = new TypeReference<>() {
-            };
+            if(valueJson != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                TypeReference<Map<NotificationType, String>> typeReference = new TypeReference<>() {
+                };
 
-            try {
-                valueMapped = mapper.readValue(valueJson, typeReference);
-            } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                try {
+                    valueMapped = mapper.readValue(valueJson, typeReference);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
 

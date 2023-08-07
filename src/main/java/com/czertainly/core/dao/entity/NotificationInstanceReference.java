@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "notification_instance_reference")
-public class NotificationInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<NotificationInstanceDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+public class NotificationInstanceReference extends UniquelyIdentified implements Serializable, DtoMapper<NotificationInstanceDto>, ObjectAccessControlMapper<NameAndUuidDto> {
     @Column(name = "notification_instance_uuid")
     private UUID notificationInstanceUuid;
 

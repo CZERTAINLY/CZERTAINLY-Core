@@ -319,7 +319,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
         final List<Approval> approvalList = approvalRepository.findUsingSecurityFilter(securityFilter, additionalWhereClause, pageable, null);
-        final Long maxItems = approvalRepository.countUsingSecurityFilter(securityFilter, null);
+        final Long maxItems = approvalRepository.countUsingSecurityFilter(securityFilter, additionalWhereClause);
         final ApprovalResponseDto responseDto = new ApprovalResponseDto();
         responseDto.setApprovals(approvalList.stream()
                 .map(approval -> approval.mapToDto())
