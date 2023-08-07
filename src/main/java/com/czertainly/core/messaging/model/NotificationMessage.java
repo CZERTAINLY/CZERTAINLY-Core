@@ -5,12 +5,14 @@ import com.czertainly.api.model.core.auth.Resource;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.List;
 import java.util.UUID;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
+@ToString
 public class NotificationMessage {
 
     private NotificationType type;

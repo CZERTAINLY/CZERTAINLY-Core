@@ -10,6 +10,7 @@ import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.tasks.SchedulerJobProcessor;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 
 @Component
+@Transactional
 public class SchedulerListener {
 
     private ApplicationContext applicationContext;

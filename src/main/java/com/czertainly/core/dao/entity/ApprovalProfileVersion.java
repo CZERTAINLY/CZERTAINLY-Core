@@ -49,6 +49,7 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
         approvalProfileDto.setExpiry(this.expiry);
         approvalProfileDto.setVersion(this.version);
         approvalProfileDto.setNumberOfSteps(this.getApprovalSteps().size());
+        approvalProfileDto.setAssociations(this.getApprovalProfile().getApprovalProfileRelations().size());
         return approvalProfileDto;
     }
 
@@ -60,6 +61,8 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
         approvalProfileDetailDto.setName(this.getApprovalProfile().getName());
         approvalProfileDetailDto.setExpiry(this.expiry);
         approvalProfileDetailDto.setVersion(this.version);
+        approvalProfileDetailDto.setAssociations(this.getApprovalProfile().getApprovalProfileRelations().size());
+
         if (approvalSteps != null) {
             approvalProfileDetailDto.setApprovalSteps(getApprovalSteps().stream().map(as -> as.mapToDto()).collect(Collectors.toList()));
         }
