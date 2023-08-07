@@ -66,7 +66,10 @@ public class ActionListener {
                     logger.info("Created new Approval {} for object {}", approval.getUuid(), actionMessage.getResourceUuid());
                 }
                 catch (Exception e) {
-                    logger.error("Cannot create new approval for resource {} and object {}: {}", actionMessage.getResource().getLabel(), actionMessage.getResourceUuid(), e.toString());
+                    String errorMessage = String.format("Cannot create new approval to approve %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
+                    logger.error(errorMessage + " {}", e.getMessage());
+                    notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
+                            NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
                     throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Handling of action approval creation failed: " + e.getMessage());
                 }
                 return;
@@ -78,7 +81,7 @@ public class ActionListener {
             processTheActivity(actionMessage);
         } catch (Exception e) {
             String errorMessage = String.format("Failed to perform %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
-            logger.error(errorMessage, e);
+            logger.error(errorMessage + " {}", e.getMessage());
             notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
                     NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
             throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Unable to process action: " + e.getMessage());
