@@ -48,7 +48,7 @@ public class ApprovalRecipient extends UniquelyIdentified {
         dto.setApprovalRecipientUuid(this.uuid.toString());
         dto.setComment(this.comment);
         dto.setStatus(this.status);
-        dto.setUserUuid(this.userUuid.toString());
+        dto.setUserUuid(this.userUuid == null ? null : this.userUuid.toString());
         dto.setCreatedAt(this.createdAt);
         dto.setClosedAt(this.closedAt);
         return dto;

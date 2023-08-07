@@ -1,9 +1,6 @@
 package com.czertainly.core.messaging.listeners;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.v2.ClientCertificateRekeyRequestDto;
@@ -59,8 +56,13 @@ public class ActionListener {
             if (approvalProfileRelationOptional.isPresent() && !approvalProfileRelationOptional.get().isEmpty()) {
                 final ApprovalProfileRelation approvalProfileRelation = approvalProfileRelationOptional.get().get(0);
                 final ApprovalProfileVersion approvalProfileVersion = approvalProfileRelation.getApprovalProfile().getTheLatestApprovalProfileVersion();
-                final Approval approval = approvalService.createApproval(approvalProfileVersion, actionMessage.getResource(), actionMessage.getResourceAction(), actionMessage.getResourceUuid(), actionMessage.getUserUuid(), actionMessage.getData());
-                logger.info("Created new Approval {} for object {}", approval.getUuid(), actionMessage.getResourceUuid());
+                try {
+                    final Approval approval = approvalService.createApproval(approvalProfileVersion, actionMessage.getResource(), actionMessage.getResourceAction(), actionMessage.getResourceUuid(), actionMessage.getUserUuid(), actionMessage.getData());
+                    logger.info("Created new Approval {} for object {}", approval.getUuid(), actionMessage.getResourceUuid());
+                }
+                catch (ValidationException e) {
+                    logger.error("Cannot create new approval for resource {} and object {}: {}", actionMessage.getResource().getLabel(), actionMessage.getResourceUuid(), e.toString());
+                }
                 return;
             }
         }
