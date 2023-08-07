@@ -26,6 +26,11 @@ public class NotificationRecipient {
         return groupUuid != null ? List.of(new NotificationRecipient(RecipientTypeEnum.GROUP, groupUuid)) : null;
     }
 
+    public static List<NotificationRecipient> buildUserOrGroupNotificationRecipient(UUID userUuid, UUID groupUuid) {
+        return userUuid != null ? List.of(new NotificationRecipient(RecipientTypeEnum.USER, userUuid))
+                : (groupUuid != null ? List.of(new NotificationRecipient(RecipientTypeEnum.GROUP, groupUuid)) : null);
+    }
+
     public static List<NotificationRecipient> buildRoleNotificationRecipient(UUID roleUuid) {
         return roleUuid != null ? List.of(new NotificationRecipient(RecipientTypeEnum.ROLE, roleUuid)) : null;
     }
