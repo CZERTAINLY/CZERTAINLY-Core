@@ -1,12 +1,13 @@
 package com.czertainly.core.messaging.listeners;
 
-import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.MessageHandlingException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
-import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfileRelation;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
@@ -16,12 +17,13 @@ import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ActionMessage;
-import com.czertainly.core.security.authz.SecuredParentUUID;
-import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -34,6 +36,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
+@Transactional
 public class ActionListener {
     private static final Logger logger = LoggerFactory.getLogger(ActionListener.class);
 
@@ -49,19 +52,22 @@ public class ActionListener {
 
     private ObjectMapper mapper = new ObjectMapper();
 
+    private NotificationProducer notificationProducer;
+
     @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter")
-    public void processMessage(final ActionMessage actionMessage) throws NotFoundException {
+    public void processMessage(final ActionMessage actionMessage) throws MessageHandlingException {
         if (actionMessage.getApprovalUuid() == null) {
             final Optional<List<ApprovalProfileRelation>> approvalProfileRelationOptional = approvalProfileRelationRepository.findByResourceUuidAndResource(actionMessage.getRaProfileUuid(), Resource.RA_PROFILE);
             if (approvalProfileRelationOptional.isPresent() && !approvalProfileRelationOptional.get().isEmpty()) {
-                final ApprovalProfileRelation approvalProfileRelation = approvalProfileRelationOptional.get().get(0);
-                final ApprovalProfileVersion approvalProfileVersion = approvalProfileRelation.getApprovalProfile().getTheLatestApprovalProfileVersion();
                 try {
+                    final ApprovalProfileRelation approvalProfileRelation = approvalProfileRelationOptional.get().get(0);
+                    final ApprovalProfileVersion approvalProfileVersion = approvalProfileRelation.getApprovalProfile().getTheLatestApprovalProfileVersion();
                     final Approval approval = approvalService.createApproval(approvalProfileVersion, actionMessage.getResource(), actionMessage.getResourceAction(), actionMessage.getResourceUuid(), actionMessage.getUserUuid(), actionMessage.getData());
                     logger.info("Created new Approval {} for object {}", approval.getUuid(), actionMessage.getResourceUuid());
                 }
-                catch (ValidationException e) {
+                catch (Exception e) {
                     logger.error("Cannot create new approval for resource {} and object {}: {}", actionMessage.getResource().getLabel(), actionMessage.getResourceUuid(), e.toString());
+                    throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Handling of action approval creation failed: " + e.getMessage());
                 }
                 return;
             }
@@ -71,7 +77,11 @@ public class ActionListener {
             AuthHelper.authenticateAsUser(actionMessage.getUserUuid());
             processTheActivity(actionMessage);
         } catch (Exception e) {
-            logger.error("Unable to perform activity for resource {} and action {}.", actionMessage.getResource(), actionMessage.getResourceAction(), e);
+            String errorMessage = String.format("Failed to perform %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
+            logger.error(errorMessage, e);
+            notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
+                    NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
+            throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Unable to process action: " + e.getMessage());
         }
     }
 
@@ -138,5 +148,10 @@ public class ActionListener {
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
+    }
+
+    @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
     }
 }

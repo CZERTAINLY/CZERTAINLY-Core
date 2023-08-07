@@ -2,16 +2,12 @@ package com.czertainly.core.messaging.producers;
 
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approval.ApprovalDto;
-import com.czertainly.api.model.connector.notification.*;
-import com.czertainly.api.model.connector.notification.data.NotificationDataApproval;
-import com.czertainly.api.model.connector.notification.data.NotificationDataScheduledJobCompleted;
-import com.czertainly.api.model.connector.notification.data.NotificationDataCertificateStatusChanged;
-import com.czertainly.api.model.connector.notification.data.NotificationDataText;
+import com.czertainly.api.model.connector.notification.NotificationType;
+import com.czertainly.api.model.connector.notification.data.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -46,8 +42,8 @@ public class NotificationProducer {
     }
 
     protected void produceMessage(final NotificationMessage notificationMessage) {
-        if (notificationMessage.getRecipients() == null) {
-            logger.error("Recipients for notification {} can't be empty.", notificationMessage.getType());
+        if (notificationMessage.getRecipients() == null || notificationMessage.getRecipients().isEmpty()) {
+            logger.warn("Recipients for notification {} is empty. Message: {}", notificationMessage.getType(), notificationMessage);
         } else {
             rabbitTemplate.convertAndSend(RabbitMQConstants.EXCHANGE_NAME, RabbitMQConstants.NOTIFICATION_ROUTING_KEY, notificationMessage);
         }
@@ -62,8 +58,16 @@ public class NotificationProducer {
                 resource,
                 resourceUUID,
                 recipients,
-                certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus, newStatus, certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn())
-                : new NotificationDataCertificateStatusChanged(oldStatus, newStatus, certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
+                certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus, newStatus, certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn())
+                : new NotificationDataCertificateStatusChanged(oldStatus, newStatus, certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
+    }
+
+    public void produceNotificationCertificateActionPerformed(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, CertificateDto certificateDto, String action, String errorMessage) {
+        produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_ACTION_PERFORMED,
+                resource,
+                resourceUUID,
+                recipients,
+                new NotificationDataCertificateActionPerformed(action, certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null, errorMessage)));
     }
 
     public void produceNotificationScheduledJobCompleted(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String jobName, String jobType, String status) {

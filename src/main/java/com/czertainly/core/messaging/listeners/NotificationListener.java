@@ -7,10 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.connector.notification.NotificationProviderNotifyRequestDto;
 import com.czertainly.api.model.connector.notification.NotificationRecipientDto;
 import com.czertainly.api.model.connector.notification.NotificationType;
-import com.czertainly.api.model.connector.notification.data.NotificationDataApproval;
-import com.czertainly.api.model.connector.notification.data.NotificationDataCertificateStatusChanged;
-import com.czertainly.api.model.connector.notification.data.NotificationDataScheduledJobCompleted;
-import com.czertainly.api.model.connector.notification.data.NotificationDataText;
+import com.czertainly.api.model.connector.notification.data.*;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -28,6 +25,7 @@ import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.SettingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -37,6 +35,7 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 
 @Component
+@Transactional
 public class NotificationListener {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
@@ -97,7 +96,7 @@ public class NotificationListener {
         logger.debug("Received notification message: {}", notificationMessage);
 
         if (notificationMessage.getData() == null) {
-//                || !notificationMessage.getType().getNotificationData().isInstance(notificationMessage.getData())) {
+            // TODO: convert it with ObjectMapper before to check if it is correct type
             logger.warn("Missing notification data or has incompatible data type. Message: " + notificationMessage);
             return;
         }
@@ -110,12 +109,12 @@ public class NotificationListener {
             logger.debug("Sending notification message externally. Notification instance UUID: {}", notificationInstanceUUID);
             try {
                 sendExternalNotifications(UUID.fromString(notificationInstanceUUID), notificationMessage);
+                logger.debug("Sending notification message externally successful.");
             } catch (NotFoundException e) {
                 logger.warn("Notification instance {} configured for notification type {} was not found.", notificationInstanceUUID, notificationMessage.getType());
             } catch (Exception e) {
                 logger.error("Error in external notification with notification instance {}: {}", notificationInstanceUUID, e.toString());
             }
-            logger.debug("Sending notification message externally successful.");
         }
 
         // send internal notifications
@@ -126,7 +125,7 @@ public class NotificationListener {
             logger.error("Error in internal notification: {}", e.toString());
         }
 
-        logger.debug("Notification message handled successfully");
+        logger.debug("Notification message handled");
     }
 
 
@@ -194,7 +193,7 @@ public class NotificationListener {
     }
 
     private void sendInternalNotifications(NotificationMessage notificationMessage) throws ValidationException {
-        String[] messageAndDetail = getNotificationMessageAndDetail(notificationMessage.getType(), mapper.convertValue(notificationMessage.getData(), notificationMessage.getType().getNotificationData()));
+        String[] messageAndDetail = getNotificationMessageAndDetail(notificationMessage);
 
         String message = messageAndDetail[0];
         String detail = messageAndDetail[1];
@@ -221,8 +220,10 @@ public class NotificationListener {
         }
     }
 
-    private String[] getNotificationMessageAndDetail(NotificationType type, Object notificationData) throws ValidationException {
+    private String[] getNotificationMessageAndDetail(NotificationMessage notificationMessage) throws ValidationException {
         String[] result = new String[2];
+        NotificationType type = notificationMessage.getType();
+        Object notificationData = mapper.convertValue(notificationMessage.getData(), notificationMessage.getType().getNotificationData());
 
         switch (type) {
             case TEXT -> {
@@ -234,6 +235,12 @@ public class NotificationListener {
                 NotificationDataCertificateStatusChanged data = (NotificationDataCertificateStatusChanged) notificationData;
                 result[0] = String.format("Certificate status changed from %s to %s for certificate identified as '%s' with serial number '%s' issued by '%s'",
                         data.getOldStatus(), data.getNewStatus(), data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn());
+            }
+            case CERTIFICATE_ACTION_PERFORMED -> {
+                NotificationDataCertificateActionPerformed data = (NotificationDataCertificateActionPerformed) notificationData;
+                boolean failed = data.getErrorMessage() != null;
+                result[0] = String.format("Certificate action %s %s for certificate identified as '%s'", data.getAction(), failed ? "failed" : "successful", data.getSubjectDn());
+                result[1] = failed ? "Error message: " + data.getErrorMessage() : String.format("Certificate serial number '%s' issued by '%s'", data.getSerialNumber(), data.getIssuerDn());
             }
             case SCHEDULED_JOB_COMPLETED -> {
                 NotificationDataScheduledJobCompleted data = (NotificationDataScheduledJobCompleted) notificationData;
