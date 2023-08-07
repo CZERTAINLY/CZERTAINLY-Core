@@ -25,7 +25,9 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.messaging.model.ActionMessage;
+import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.ActionProducer;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -70,9 +72,16 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private ActionProducer actionProducer;
 
+    private NotificationProducer notificationProducer;
+
     @Autowired
     public void setActionProducer(ActionProducer actionProducer) {
         this.actionProducer = actionProducer;
+    }
+
+    @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
     }
 
     @Autowired
@@ -211,7 +220,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ISSUE)
     public void issueCertificateAction(final UUID certificateUuid, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
-        if(!isApproved) {
+        if (!isApproved) {
             certificateService.checkIssuePermissions();
         }
         issueCertificateInternal(certificateUuid);
@@ -271,7 +280,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void renewCertificateAction(final UUID certificateUuid, ClientCertificateRenewRequestDto request, boolean isApproved) throws NotFoundException, CertificateOperationException {
-        if(!isApproved) {
+        if (!isApproved) {
             certificateService.checkRenewPermissions();
         }
         Certificate certificate = validateNewCertificateForOperation(certificateUuid);
@@ -327,12 +336,21 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             }
 
         } catch (Exception e) {
-            certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName(): "", e.getMessage()), "", certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName() : "", e.getMessage()), "", certificate);
             logger.error("Failed to replace certificate in all locations during renew operation", e.getMessage());
             throw new CertificateOperationException("Failed to replace certificate in all locations during renew operation: " + e.getMessage());
         }
 
-        logger.info("Certificate Renewed: {}", certificate);
+        // notify
+        try {
+            logger.debug("Sending notification of certificate renewal. Certificate: {}", certificate);
+            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
+            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.RENEW.getCode(), null);
+        } catch (Exception e) {
+            logger.error("Sending notification for certificate renewal failed. Certificate: {}. Error: {}", certificate, e.getMessage());
+        }
+
+        logger.debug("Certificate Renewed: {}", certificate);
     }
 
     @Override
@@ -397,7 +415,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void rekeyCertificateAction(final UUID certificateUuid, ClientCertificateRekeyRequestDto request, boolean isApproved) throws NotFoundException, CertificateOperationException {
-        if(!isApproved) {
+        if (!isApproved) {
             certificateService.checkRenewPermissions();
         }
         Certificate certificate = validateNewCertificateForOperation(certificateUuid);
@@ -429,7 +447,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
             certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), certificate);
-            logger.error("Failed to renew Certificate", e.getMessage());
+            logger.error("Failed to rekey Certificate", e.getMessage());
             throw new CertificateOperationException("Failed to rekey certificate: " + e.getMessage());
         }
 
@@ -452,12 +470,21 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             }
 
         } catch (Exception e) {
-            certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName(): "", e.getMessage()), "", certificate);
+            certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName() : "", e.getMessage()), "", certificate);
             logger.error("Failed to replace certificate in all locations during rekey operation", e.getMessage());
             throw new CertificateOperationException("Failed to replace certificate in all locations during rekey operation: " + e.getMessage());
         }
 
-        logger.info("Certificate Rekeyed: {}", certificate);
+        // notify
+        try {
+            logger.debug("Sending notification of certificate rekey. Certificate: {}", certificate);
+            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
+            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.REKEY.getCode(), null);
+        } catch (Exception e) {
+            logger.error("Sending notification for certificate rekey failed. Certificate: {}. Error: {}", certificate, e.getMessage());
+        }
+
+        logger.debug("Certificate rekeyed: {}", certificate);
     }
 
     @Override
@@ -482,7 +509,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void revokeCertificateAction(final UUID certificateUuid, ClientCertificateRevocationDto request, boolean isApproved) throws NotFoundException, CertificateOperationException {
-        if(!isApproved) {
+        if (!isApproved) {
             certificateService.checkRevokePermissions();
         }
         final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
@@ -523,6 +550,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         } catch (Exception e) {
             logger.warn(e.getMessage());
         }
+
+        // notify
+        try {
+            logger.debug("Sending notification of certificate revoke. Certificate: {}", certificate);
+            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
+            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.REVOKE.getCode(), null);
+        } catch (Exception e) {
+            logger.error("Sending notification for certificate revoke failed. Certificate: {}. Error: {}", certificate, e.getMessage());
+        }
+
+        logger.debug("Certificate revoked: {}", certificate);
     }
 
     private Certificate validateOldCertificateForOperation(String certificateUuid, String raProfileUuid, ResourceAction action) throws NotFoundException {
@@ -601,6 +639,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         logger.info("Certificate {} was issued by authority", certificateUuid);
 
         certificateService.issueNewCertificate(certificateUuid, issueCaResponse.getCertificateData(), issueCaResponse.getMeta());
+
+        // notify
+        try {
+            logger.debug("Sending notification of certificate issue. Certificate: {}", certificate);
+            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
+            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.ISSUE.getCode(), null);
+        } catch (Exception e) {
+            logger.error("Sending notification for certificate issue failed. Certificate: {}. Error: {}", certificate, e.getMessage());
+        }
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
         response.setCertificateData(issueCaResponse.getCertificateData());
