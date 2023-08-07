@@ -60,6 +60,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.function.BiFunction;
@@ -749,7 +751,7 @@ public class LocationServiceImpl implements LocationService {
                 throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". RA profile is not existing or does not have set authority");
             }
             clientCertificateDataResponseDto = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.get().getAuthorityInstanceReferenceUuid()), raProfile.get().getSecuredUuid(), clientCertificateSignRequestDto);
-        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException | NoSuchAlgorithmException e) {
+        } catch (NotFoundException | java.security.cert.CertificateException | InvalidKeyException | IOException | NoSuchAlgorithmException e) {
             logger.debug("Failed to issue Certificate for Location " + location.getName() + ", " + location.getUuid() +
                     ": " + e.getMessage());
             throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". Reason: " + e.getMessage());
@@ -770,8 +772,8 @@ public class LocationServiceImpl implements LocationService {
                     certificateLocation.getCertificate().getSecuredUuid().toString(),
                     clientCertificateRenewRequestDto
             );
-        } catch (ConnectorException | AlreadyExistException | java.security.cert.CertificateException |
-                CertificateOperationException e) {
+        } catch (NotFoundException | IOException | java.security.cert.CertificateException |
+                 NoSuchAlgorithmException | InvalidKeyException e) {
             logger.debug("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() +
                     ", " + certificateLocation.getLocation().getUuid() + ": " + e.getMessage());
             throw new LocationException("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() + ". Reason: " + e.getMessage());

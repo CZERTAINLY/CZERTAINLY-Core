@@ -5,13 +5,19 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approvalprofile.*;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.ApprovalProfile;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
 import com.czertainly.core.dao.entity.ApprovalStep;
 import com.czertainly.core.dao.repository.ApprovalProfileRepository;
 import com.czertainly.core.dao.repository.ApprovalProfileVersionRepository;
 import com.czertainly.core.dao.repository.ApprovalStepRepository;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalProfileService;
@@ -37,6 +43,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     private ApprovalProfileVersionRepository approvalProfileVersionRepository;
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.LIST)
     public ApprovalProfileResponseDto listApprovalProfiles(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
@@ -55,7 +63,9 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     }
 
     @Override
-    public ApprovalProfileDetailDto getApprovalProfile(final String uuid, final Integer version) throws NotFoundException {
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DETAIL)
+    public ApprovalProfileDetailDto getApprovalProfile(final SecuredUUID uuid, final Integer version) throws NotFoundException {
         if (version == null) {
             return findApprovalProfileByUuid(uuid).getTheLatestApprovalProfileVersion().mapToDtoWithSteps();
         } else {
@@ -64,7 +74,9 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     }
 
     @Override
-    public void deleteApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.DELETE)
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DELETE)
+    public void deleteApprovalProfile(final SecuredUUID uuid) throws NotFoundException, ValidationException {
         final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
         if (approvalProfile.getApprovalProfileVersions().stream().filter(apv -> (apv.getApprovals() != null && apv.getApprovals().size() > 0)).findFirst().isPresent()) {
             throw new ValidationException(ValidationError.create("Unable to delete approval profile with existing approvals."));
@@ -77,18 +89,24 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     }
 
     @Override
-    public void enableApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.ENABLE)
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.ENABLE)
+    public void enableApprovalProfile(final SecuredUUID uuid) throws NotFoundException, ValidationException {
         final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
         enableDisableApprovalProfile(approvalProfile, true);
     }
 
     @Override
-    public void disableApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.DISABLE)
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.ENABLE)
+    public void disableApprovalProfile(final SecuredUUID uuid) throws NotFoundException, ValidationException {
         final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
         enableDisableApprovalProfile(approvalProfile, false);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.CREATE)
     public ApprovalProfile createApprovalProfile(final ApprovalProfileRequestDto approvalProfileRequestDto) throws NotFoundException, AlreadyExistException {
 
         if (approvalProfileRepository.findByName(approvalProfileRequestDto.getName()).isPresent()) {
@@ -114,7 +132,9 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     }
 
     @Override
-    public ApprovalProfile editApprovalProfile(final String uuid, final ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException {
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.UPDATE)
+    public ApprovalProfile editApprovalProfile(final SecuredUUID uuid, final ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException {
         final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
         final ApprovalProfileVersion approvalProfileVersionNew
                 = approvalProfile.getTheLatestApprovalProfileVersion().createNewVersionObject();
@@ -179,8 +199,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
         }
     }
 
-    private ApprovalProfile findApprovalProfileByUuid(final String uuid) throws NotFoundException {
-        final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository.findByUuid(SecuredUUID.fromString(uuid));
+    private ApprovalProfile findApprovalProfileByUuid(final SecuredUUID uuid) throws NotFoundException {
+        final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository.findByUuid(uuid);
         if (approvalProfileOptional.isPresent()) {
             return approvalProfileOptional.get();
         }

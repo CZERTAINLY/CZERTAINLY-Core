@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface NotificationInstanceReferenceRepository extends SecurityFilterRepository<NotificationInstanceReference, Long> {
+public interface NotificationInstanceReferenceRepository extends SecurityFilterRepository<NotificationInstanceReference, UUID> {
 
     Optional<NotificationInstanceReference> findByUuid(UUID uuid);
 

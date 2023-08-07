@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDetailDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -32,6 +33,7 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
     private int version = 1;
 
     @OneToMany(mappedBy = "approvalProfileVersion", fetch = FetchType.LAZY)
+    @JsonBackReference
     private List<Approval> approvals;
 
     @OneToMany(mappedBy = "approvalProfileVersion", fetch = FetchType.LAZY)

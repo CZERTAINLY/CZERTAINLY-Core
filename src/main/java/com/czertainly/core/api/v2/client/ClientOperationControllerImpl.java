@@ -1,6 +1,9 @@
 package com.czertainly.core.api.v2.client;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.client.v2.ClientOperationController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -11,6 +14,8 @@ import com.czertainly.core.service.v2.ClientOperationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -40,7 +45,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateDataResponseDto issueNewCertificate(
             String authorityUuid,
             String raProfileUuid,
-            String certificateUuid) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+            String certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
         return clientOperationService.issueNewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid);
     }
 
@@ -48,7 +53,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateDataResponseDto issueCertificate(
             String authorityUuid,
             String raProfileUuid,
-            ClientCertificateSignRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+            ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException {
         return clientOperationService.issueCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 
@@ -57,7 +62,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRenewRequestDto request) throws ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+            ClientCertificateRenewRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException {
         return clientOperationService.renewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 
@@ -66,8 +71,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRekeyRequestDto request)
-            throws NotFoundException, ConnectorException, AlreadyExistException, CertificateException, CertificateOperationException {
+            ClientCertificateRekeyRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException {
         return clientOperationService.rekeyCertificate(
                 SecuredParentUUID.fromString(authorityUuid),
                 SecuredUUID.fromString(raProfileUuid),
@@ -96,7 +100,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRevocationDto request) throws ConnectorException {
+            ClientCertificateRevocationDto request) throws NotFoundException {
         clientOperationService.revokeCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 }
