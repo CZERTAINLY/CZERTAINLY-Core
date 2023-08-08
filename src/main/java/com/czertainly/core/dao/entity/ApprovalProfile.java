@@ -21,12 +21,8 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
     @Column(name = "enabled")
     private boolean enabled;
 
-    /**
-     * The approval profile versions.
-     * We need EAGER fetch type here because we need to get the latest version of the approval profile.
-     */
     @JsonBackReference
-    @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)
     private List<ApprovalProfileVersion> approvalProfileVersions = new ArrayList<>();
 
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)

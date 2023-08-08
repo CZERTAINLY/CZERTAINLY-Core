@@ -44,11 +44,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Enumerated(EnumType.STRING)
     private ConnectorStatus status;
 
-    /**
-     * The list of function groups that are available for this connector.
-     * We need EAGER fetch type here, because we need to have the function groups available when we are creating the connector.
-     */
-    @OneToMany(fetch = FetchType.EAGER, mappedBy = "connector")
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "connector")
     private Set<Connector2FunctionGroup> functionGroups = new HashSet<>();
 
     @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)
