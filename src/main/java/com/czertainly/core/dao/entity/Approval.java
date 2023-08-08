@@ -13,7 +13,6 @@ import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Duration;
 import java.util.*;
 
 @Data
@@ -51,6 +50,9 @@ public class Approval extends UniquelyIdentified {
     @Column(name = "created_at")
     private Date createdAt;
 
+    @Column(name = "expiry_at")
+    private Date expiryAt;
+
     @Column(name = "closed_at")
     private Date closedAt;
 
@@ -60,10 +62,6 @@ public class Approval extends UniquelyIdentified {
     @Column(name = "object_data", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private Object objectData;
-
-    public Date getExpiryAt() {
-        return Date.from(this.createdAt.toInstant().plus(Duration.ofHours(this.getApprovalProfileVersion().getExpiry())));
-    }
 
     public ApprovalDto mapToDto() {
         final ApprovalDto dto = new ApprovalDto();
@@ -75,7 +73,7 @@ public class Approval extends UniquelyIdentified {
         dto.setStatus(this.getStatus());
         dto.setCreatedAt(this.createdAt);
         dto.setClosedAt(this.closedAt);
-        dto.setExpiryAt(this.getExpiryAt());
+        dto.setExpiryAt(this.expiryAt);
         dto.setObjectUuid(this.objectUuid.toString());
 
         final ApprovalProfile approvalProfile = this.getApprovalProfileVersion().getApprovalProfile();
