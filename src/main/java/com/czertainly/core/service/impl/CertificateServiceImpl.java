@@ -270,7 +270,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void deleteCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
