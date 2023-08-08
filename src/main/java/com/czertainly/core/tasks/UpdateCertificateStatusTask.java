@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.model.ScheduledTaskResult;
+import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.CertificateService;
 import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
@@ -13,11 +14,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 @NoArgsConstructor
-public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
+public class UpdateCertificateStatusTask extends SchedulerJobProcessor {
 
     private static final String JOB_NAME = "updateCertificateStatusJob";
-    private static  final String CRON_EXPRESSION = "0 0 * ? * *";
+    private static final String CRON_EXPRESSION = "0 0 * ? * *";
 
+    private ApprovalService approvalService;
     private CertificateService certificateService;
 
     @Override
@@ -50,7 +52,14 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
     @Transactional
     ScheduledTaskResult performJob(final String jobName) {
         int certificatesUpdated = certificateService.updateCertificatesStatusScheduled();
-        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, String.format("Updated status of %d certificates", certificatesUpdated));
+        int expiredApprovals = approvalService.checkApprovalsExpiration();
+
+        String message = String.format("Updated status of %d certificate(s).", certificatesUpdated);
+        if(expiredApprovals > 0) {
+            message += String.format(" Expired %d approval(s).", expiredApprovals);
+        }
+
+        return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, message);
     }
 
     // SETTERs
@@ -59,4 +68,10 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor{
     public void setCertificateService(CertificateService certificateService) {
         this.certificateService = certificateService;
     }
+
+    @Autowired
+    public void setApprovalService(ApprovalService approvalService) {
+        this.approvalService = approvalService;
+    }
+
 }
