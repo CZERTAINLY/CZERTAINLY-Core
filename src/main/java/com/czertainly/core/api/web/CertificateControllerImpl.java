@@ -109,11 +109,6 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public void validateAllCertificate() {
-		certValidationService.validateAllCertificates();
-	}
-
-	@Override
 	public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
 		return certificateService.getSearchableFieldInformationByGroup();
 	}
