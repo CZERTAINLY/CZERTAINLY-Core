@@ -40,6 +40,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -113,7 +114,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     @ExternalAuthorization(resource = Resource.APPROVAL, action = ResourceAction.APPROVE)
     public void approveApproval(final String uuid) throws NotFoundException {
         final Approval approval = findApprovalByUuid(uuid);
-        if(approval.getStatus() != ApprovalStatusEnum.PENDING) {
+        if (approval.getStatus() != ApprovalStatusEnum.PENDING) {
             throw new ValidationException("Cannot approve approval with other than pending state. Approval UUID: " + approval.getUuid());
         }
 
@@ -125,7 +126,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     @ExternalAuthorization(resource = Resource.APPROVAL, action = ResourceAction.APPROVE)
     public void rejectApproval(final String uuid) throws NotFoundException {
         final Approval approval = findApprovalByUuid(uuid);
-        if(approval.getStatus() != ApprovalStatusEnum.PENDING) {
+        if (approval.getStatus() != ApprovalStatusEnum.PENDING) {
             throw new ValidationException("Cannot reject approval with other than pending state. Approval UUID: " + approval.getUuid());
         }
 
@@ -155,6 +156,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             throw new ValidationException(ValidationError.create("There is already existing approval for resouce " + resource + " and object " + objectUuid));
         }
 
+        Date now = new Date();
         logger.info("Creating new Approval for ApprovalProfileVersion {} with resources {}/{}", approvalProfileVersion.getApprovalProfile().getName(), resource.name(), resourceAction.name());
         final Approval approval = new Approval();
         approval.setApprovalProfileVersion(approvalProfileVersion);
@@ -164,12 +166,31 @@ public class ApprovalServiceImpl implements ApprovalService {
         approval.setObjectUuid(objectUuid);
         approval.setCreatorUuid(userUuid);
         approval.setStatus(ApprovalStatusEnum.PENDING);
-        approval.setCreatedAt(new Date());
+        approval.setCreatedAt(now);
         approval.setObjectData(objectData);
+        if (approvalProfileVersion.getExpiry() > 0) {
+            approval.setExpiryAt(Date.from(now.toInstant().plus(Duration.ofHours(approvalProfileVersion.getExpiry()))));
+        }
+
         approvalRepository.save(approval);
 
         processApprovalToTheNextStep(approval.getUuid().toString(), null);
         return approval;
+    }
+
+    @Override
+    public int checkApprovalsExpiration() {
+        List<Approval> expiredApprovals = approvalRepository.findByStatusAndExpiryAtLessThan(ApprovalStatusEnum.PENDING, new Date());
+        for (Approval approval : expiredApprovals) {
+            try {
+                closeApproval(approval, ApprovalStatusEnum.EXPIRED, true);
+            }
+            catch (Exception e) {
+                logger.error("Failed to close expired approval {} for {} {} action", approval.getUuid(), approval.getResource().getLabel(), approval.getAction().getCode());
+            }
+        }
+
+        return expiredApprovals.size();
     }
 
     private ApprovalRecipient validateAndSetPendingApprovalRecipient(final UUID approvalUuid, final UserApprovalDto userApprovalDto, final ApprovalStatusEnum statusEnum) throws NotFoundException {
@@ -248,7 +269,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     private void closeApproval(Approval approval, ApprovalStatusEnum approvalStatus, boolean overrideFlow) {
-        if(overrideFlow) {
+        if (overrideFlow) {
             // close pending recipient because approval flow is overridden and going to be closed
             final List<ApprovalRecipient> approvalRecipients = approvalRecipientRepository.findApprovalRecipientsByApprovalUuidAndStatus(approval.getUuid(), ApprovalStatusEnum.PENDING);
             if (approvalRecipients == null || approvalRecipients.size() != 1) {
@@ -258,11 +279,10 @@ public class ApprovalServiceImpl implements ApprovalService {
             approvalRecipient.setStatus(approvalStatus);
             approvalRecipient.setClosedAt(new Date());
 
-            if(approvalStatus == ApprovalStatusEnum.EXPIRED) {
+            if (approvalStatus == ApprovalStatusEnum.EXPIRED) {
                 approvalRecipient.setComment("Approval expired");
                 logger.info("ApprovalRecipient {} is marked as {}", approvalRecipient.getUuid(), approvalStatus.getCode());
-            }
-            else {
+            } else {
                 final UserProfileDto userProfileDto = AuthHelper.getUserProfile();
                 approvalRecipient.setUserUuid(UUID.fromString(userProfileDto.getUser().getUuid()));
                 approvalRecipient.setComment("Approval flow overridden");
@@ -278,7 +298,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         approvalRepository.save(approval);
 
         // if approved, perform action linked with approval
-        if(approvalStatus == ApprovalStatusEnum.APPROVED) {
+        if (approvalStatus == ApprovalStatusEnum.APPROVED) {
             final ActionMessage actionMessage = new ActionMessage();
             actionMessage.setUserUuid(approval.getCreatorUuid());
             actionMessage.setApprovalUuid(approval.getUuid());
@@ -290,10 +310,10 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
 
         // send notification of closing approval
-        logger.info(String.format("Notification that the approval was closed with status %s was sent. Approval UUID: %s", approvalStatus, approval.getUuid()));
         notificationProducer.produceNotificationApprovalClosed(approval.getResource(), approval.getObjectUuid(),
                 NotificationRecipient.buildUserNotificationRecipient(approval.getCreatorUuid()),
                 approval.mapToDto(), approval.getCreatorUuid().toString());
+        logger.info(String.format("Notification that the approval was closed with status %s was sent. Approval UUID: %s", approvalStatus, approval.getUuid()));
     }
 
     private List<NotificationRecipient> prepareNotificationRecipients(final ApprovalStep approvalStep) {

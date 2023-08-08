@@ -33,5 +33,6 @@ public interface ApprovalService {
 
     Approval createApproval(final ApprovalProfileVersion approvalProfileVersion, final Resource resource, final ResourceAction resourceAction, final UUID objectUuid, final UUID userUuid, final Object objectData) throws NotFoundException;
 
+    int checkApprovalsExpiration();
 
 }
