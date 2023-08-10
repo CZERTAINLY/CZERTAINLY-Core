@@ -24,7 +24,7 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
     private UUID approvalProfileUuid;
 
     @Column(name = "expiry")
-    private int expiry;
+    private Integer expiry;
 
     @Column(name = "description")
     private String description;

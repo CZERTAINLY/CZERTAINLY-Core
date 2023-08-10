@@ -168,7 +168,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         approval.setStatus(ApprovalStatusEnum.PENDING);
         approval.setCreatedAt(now);
         approval.setObjectData(objectData);
-        if (approvalProfileVersion.getExpiry() > 0) {
+        if (approvalProfileVersion.getExpiry() != null && approvalProfileVersion.getExpiry() > 0) {
             approval.setExpiryAt(Date.from(now.toInstant().plus(Duration.ofHours(approvalProfileVersion.getExpiry()))));
         }
 
