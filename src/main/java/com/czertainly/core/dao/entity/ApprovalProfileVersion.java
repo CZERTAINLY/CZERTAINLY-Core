@@ -34,7 +34,7 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
 
     @JsonBackReference
     @OneToMany(mappedBy = "approvalProfileVersion")
-    private List<Approval> approvals;
+    private List<Approval> approvals = new ArrayList<>();
 
     @OneToMany(mappedBy = "approvalProfileVersion")
     private List<ApprovalStep> approvalSteps = new ArrayList<>();
