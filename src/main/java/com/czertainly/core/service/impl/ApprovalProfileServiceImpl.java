@@ -22,19 +22,27 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalProfileService;
 import com.czertainly.core.util.RequestValidatorHelper;
+import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class ApprovalProfileServiceImpl implements ApprovalProfileService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
 
     private ApprovalProfileRepository approvalProfileRepository;
 
@@ -52,9 +60,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
 
         final Long maxItems = approvalProfileRepository.countUsingSecurityFilter(filter, null);
         final ApprovalProfileResponseDto responseDto = new ApprovalProfileResponseDto();
-        responseDto.setApprovalProfiles(approvalProfileList.stream()
-                .map(approvalProfile -> approvalProfile.getTheLatestApprovalProfileVersion().mapToDto())
-                .collect(Collectors.toList()));
+        responseDto.setApprovalProfiles(approvalProfileList.stream().map(approvalProfile -> approvalProfile.getTheLatestApprovalProfileVersion().mapToDto()).collect(Collectors.toList()));
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -108,7 +114,9 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.CREATE)
     public ApprovalProfile createApprovalProfile(final ApprovalProfileRequestDto approvalProfileRequestDto) throws NotFoundException, AlreadyExistException {
-
+        if (approvalProfileRequestDto.getExpiry() != null && approvalProfileRequestDto.getExpiry() <= 0) {
+            throw new ValidationException("Expiry value (if set) should be greater than 0");
+        }
         if (approvalProfileRepository.findByName(approvalProfileRequestDto.getName()).isPresent()) {
             throw new AlreadyExistException("Approval profile with name " + approvalProfileRequestDto.getName() + " already exists.");
         }
@@ -135,30 +143,72 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.UPDATE)
     public ApprovalProfile editApprovalProfile(final SecuredUUID uuid, final ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException {
+        if (approvalProfileUpdateRequestDto.getExpiry() != null && approvalProfileUpdateRequestDto.getExpiry() <= 0) {
+            throw new ValidationException("Expiry value (if set) should be greater than 0");
+        }
+
         final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
-        final ApprovalProfileVersion approvalProfileVersionNew
-                = approvalProfile.getTheLatestApprovalProfileVersion().createNewVersionObject();
-
-        if (approvalProfileUpdateRequestDto.getDescription() != null) {
-            approvalProfileVersionNew.setDescription(approvalProfileUpdateRequestDto.getDescription());
+        ApprovalProfileVersion latestVersion = approvalProfile.getTheLatestApprovalProfileVersion();
+        if (approvalProfileVersionsEqual(latestVersion, approvalProfileUpdateRequestDto)) {
+            logger.debug("Latest version of approval profile {} is same as in request. New version is not created", approvalProfile.getName());
+            return approvalProfile;
         }
 
-        if (approvalProfileUpdateRequestDto.getExpiry() != null) {
-            approvalProfileVersionNew.setExpiry(approvalProfileUpdateRequestDto.getExpiry());
+        // check existence of approvals, if no approvals associated update current latest version
+        boolean createNewVersion = latestVersion.getApprovals().size() > 0;
+        if (createNewVersion) {
+            latestVersion = latestVersion.createNewVersionObject();
+            logger.debug("Creating new version of approval profile {} version {}.", approvalProfile.getName(), latestVersion.getVersion());
+        } else {
+            logger.debug("Updating latest version of approval profile {}.", approvalProfile.getName());
+
+            for (ApprovalStep step : latestVersion.getApprovalSteps()) {
+                approvalStepRepository.delete(step);
+            }
+            latestVersion.getApprovalSteps().clear();
         }
 
-        approvalProfileVersionRepository.save(approvalProfileVersionNew);
-        approvalProfile.getApprovalProfileVersions().add(approvalProfileVersionNew);
-        createApprovalSteps(approvalProfileVersionNew, approvalProfileUpdateRequestDto.getApprovalSteps());
-        return approvalProfileVersionNew.getApprovalProfile();
+        latestVersion.setDescription(approvalProfileUpdateRequestDto.getDescription());
+        latestVersion.setExpiry(approvalProfileUpdateRequestDto.getExpiry());
+
+        approvalProfileVersionRepository.save(latestVersion);
+        if (createNewVersion) approvalProfile.getApprovalProfileVersions().add(latestVersion);
+        createApprovalSteps(latestVersion, approvalProfileUpdateRequestDto.getApprovalSteps());
+
+        return latestVersion.getApprovalProfile();
     }
 
-    private void createApprovalSteps(final ApprovalProfileVersion approvalProfileVersion, final List<ApprovalStepDto> approvalStepDtos) throws NotFoundException {
+    private boolean approvalProfileVersionsEqual(ApprovalProfileVersion latestVersion, ApprovalProfileUpdateRequestDto request) {
+        // check approval profile props
+        if (latestVersion.getApprovalSteps().size() != request.getApprovalSteps().size() || latestVersion.getExpiry() != request.getExpiry() || !StringUtils.equals(latestVersion.getDescription(), request.getDescription())) {
+            return false;
+        }
+
+        // check approval profile steps
+        List<ApprovalStep> actualSteps = latestVersion.getApprovalSteps();
+        actualSteps.sort(Comparator.comparingInt(step -> step.getOrder()));
+        for (int i = 0; i < actualSteps.size(); i++) {
+            if (!Objects.equals(actualSteps.get(i).getUserUuid(), request.getApprovalSteps().get(i).getUserUuid())
+                    || !Objects.equals(actualSteps.get(i).getGroupUuid(), request.getApprovalSteps().get(i).getGroupUuid())
+                    || !Objects.equals(actualSteps.get(i).getRoleUuid(), request.getApprovalSteps().get(i).getRoleUuid())
+                    || !StringUtils.equals(actualSteps.get(i).getDescription(), request.getApprovalSteps().get(i).getDescription())
+                    || actualSteps.get(i).getRequiredApprovals() != request.getApprovalSteps().get(i).getRequiredApprovals()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void createApprovalSteps(final ApprovalProfileVersion approvalProfileVersion, final List<ApprovalStepDto> approvalStepDtos) throws ValidationException {
         if (approvalStepDtos == null || approvalStepDtos.isEmpty()) {
-            throw new NotFoundException("Unable to process approval profile without approval steps.");
+            throw new ValidationException("Unable to process approval profile without approval steps.");
         }
 
         approvalStepDtos.forEach(as -> {
+            if (as.getRequiredApprovals() <= 0) {
+                throw new ValidationException("Required approvals value should be greater than 0");
+            }
             validateAssignedPersons(as);
 
             final ApprovalStep approvalStep = new ApprovalStep();
