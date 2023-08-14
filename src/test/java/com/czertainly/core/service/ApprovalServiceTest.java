@@ -67,7 +67,7 @@ public class ApprovalServiceTest extends ApprovalProfileData {
         approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
 
         final ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), 1);
-        Assertions.assertEquals(approvalProfileRequestDto.getDescription(), approvalProfileDetailDto.getDescription());
+        Assertions.assertEquals(approvalProfileUpdateRequestDto.getDescription(), approvalProfileDetailDto.getDescription());
     }
 
     @Test

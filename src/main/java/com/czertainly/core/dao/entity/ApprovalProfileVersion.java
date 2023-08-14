@@ -24,7 +24,7 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
     private UUID approvalProfileUuid;
 
     @Column(name = "expiry")
-    private int expiry;
+    private Integer expiry;
 
     @Column(name = "description")
     private String description;
@@ -32,9 +32,9 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
     @Column(name = "version")
     private int version = 1;
 
-    @OneToMany(mappedBy = "approvalProfileVersion", fetch = FetchType.LAZY)
     @JsonBackReference
-    private List<Approval> approvals;
+    @OneToMany(mappedBy = "approvalProfileVersion", fetch = FetchType.LAZY)
+    private List<Approval> approvals = new ArrayList<>();
 
     @OneToMany(mappedBy = "approvalProfileVersion", fetch = FetchType.LAZY)
     private List<ApprovalStep> approvalSteps = new ArrayList<>();
