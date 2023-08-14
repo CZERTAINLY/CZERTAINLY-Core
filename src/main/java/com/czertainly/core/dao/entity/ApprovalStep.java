@@ -16,9 +16,9 @@ public class ApprovalStep extends UniquelyIdentified {
 
     @Column(name = "approval_profile_version_uuid")
     private UUID approvalProfileVersionUuid;
-
+    
+    @ManyToOne(fetch = FetchType.LAZY)
     @JsonBackReference
-    @ManyToOne
     @JoinColumn(name = "approval_profile_version_uuid", insertable = false, updatable = false)
     private ApprovalProfileVersion approvalProfileVersion;
 

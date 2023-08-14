@@ -13,7 +13,7 @@ import java.util.UUID;
 @Table(name = "attribute_content_item")
 public class AttributeContentItem extends UniquelyIdentified {
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attribute_content_uuid", nullable = false)
     private AttributeContent attributeContent;
 

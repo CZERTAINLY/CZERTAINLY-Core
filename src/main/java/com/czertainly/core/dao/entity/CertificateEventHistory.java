@@ -32,7 +32,7 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     @Column(name="additional_information", columnDefinition = "TEXT")
     private String additionalInformation;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "certificate_uuid", nullable = false, insertable = false, updatable = false)
     private Certificate certificate;
 

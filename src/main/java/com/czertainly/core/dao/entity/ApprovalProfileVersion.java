@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 @Table(name = "approval_profile_version")
 public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approval_profile_uuid", insertable = false, updatable = false)
     private ApprovalProfile approvalProfile;
 
@@ -33,10 +33,10 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
     private int version = 1;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "approvalProfileVersion")
+    @OneToMany(mappedBy = "approvalProfileVersion", fetch = FetchType.LAZY)
     private List<Approval> approvals = new ArrayList<>();
 
-    @OneToMany(mappedBy = "approvalProfileVersion")
+    @OneToMany(mappedBy = "approvalProfileVersion", fetch = FetchType.LAZY)
     private List<ApprovalStep> approvalSteps = new ArrayList<>();
 
 

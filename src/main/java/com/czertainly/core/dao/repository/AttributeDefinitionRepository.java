@@ -3,7 +3,6 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.core.dao.entity.AttributeDefinition;
-import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,7 +10,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-@Transactional
 public interface AttributeDefinitionRepository extends SecurityFilterRepository<AttributeDefinition, String> {
     Boolean existsByConnectorUuidAndAttributeUuidAndTypeAndContentType(UUID connectorUuid, UUID attributeUuid, AttributeType type, AttributeContentType contentType);
 

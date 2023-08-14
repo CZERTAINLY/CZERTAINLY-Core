@@ -29,10 +29,10 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
     private String description;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "complianceProfile", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "complianceProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<ComplianceProfileRule> complianceRules = new HashSet<>();
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "compliance_profile_2_compliance_group",
             joinColumns = @JoinColumn(name = "profile_uuid"),
@@ -40,7 +40,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
     private Set<ComplianceGroup> groups = new HashSet<>();
 
     @JsonBackReference
-    @ManyToMany(mappedBy = "complianceProfiles")
+    @ManyToMany(mappedBy = "complianceProfiles", fetch = FetchType.LAZY)
     private Set<RaProfile> raProfiles = new HashSet<>();
 
     @Override

@@ -4,12 +4,10 @@ import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import org.springframework.stereotype.Repository;
 
-import jakarta.transaction.Transactional;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-@Transactional
 public interface AcmeAuthorizationRepository extends SecurityFilterRepository<AcmeAuthorization, Long> {
     Optional<AcmeAuthorization> findByUuid(UUID uuid);
     Optional<AcmeAuthorization> findByAuthorizationId(String authorizationId);

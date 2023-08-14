@@ -47,17 +47,17 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     private Boolean termsOfServiceAgreed;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "acmeAccount")
+    @OneToMany(mappedBy = "acmeAccount", fetch = FetchType.LAZY)
     private Set<AcmeOrder> orders = new HashSet<>();
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ra_profile_uuid", nullable = false, insertable = false, updatable = false)
     private RaProfile raProfile;
 
     @Column(name = "ra_profile_uuid", nullable = false)
     private UUID raProfileUuid;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "acme_profile_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
 

@@ -49,6 +49,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import jakarta.transaction.Transactional;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
@@ -60,8 +61,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.io.*;
 import java.net.URL;
@@ -97,6 +99,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -270,7 +275,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void deleteCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
@@ -724,6 +728,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public int updateCertificatesStatusScheduled() {
         List<CertificateStatus> skipStatuses = List.of(CertificateStatus.NEW, CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
@@ -741,46 +746,45 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
         for (final Certificate certificate : certificates) {
             String oldStatus = certificate.getStatus().getLabel();
-            if (updateCertificateStatusScheduled(certificate)) {
-                if (CertificateStatus.REVOKED.equals(certificate.getStatus()) || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
-                    try {
-                        logger.debug("Sending notification of status change. Certificate: {}", certificate);
-                        List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
-                        notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
-                                certificate.getUuid(),
-                                recipients,
-                                oldStatus,
-                                certificate.getStatus().getLabel(),
-                                certificate.mapToListDto());
-                    } catch (Exception e) {
-                        logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
-                    }
-
-                    eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
-                    logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
-                }
-                ++certificatesUpdated;
+            TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+            try {
+                updateCertificateStatusScheduled(certificate);
+                transactionManager.commit(status);
+            } catch (Exception e) {
+                logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate.toString(), e);
+                transactionManager.rollback(status);
+                continue;
             }
+
+            if (CertificateStatus.REVOKED.equals(certificate.getStatus()) || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
+                try {
+                    logger.debug("Sending notification of status change. Certificate: {}", certificate);
+                    List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
+                    notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
+                            certificate.getUuid(),
+                            recipients,
+                            oldStatus,
+                            certificate.getStatus().getLabel(),
+                            certificate.mapToListDto());
+                } catch (Exception e) {
+                    logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
+                }
+
+                eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
+                logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
+            }
+            ++certificatesUpdated;
         }
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificates.size());
         return certificatesUpdated;
     }
 
-    private boolean updateCertificateStatusScheduled(Certificate certificate) {
-        try {
-            updateCertificateIssuer(certificate);
-            certValidationService.validate(certificate);
-            if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) {
-                complianceService.checkComplianceOfCertificate(certificate);
-            }
-        } catch (Exception e) {
-            logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate {}. Certificate {}", e.getMessage(), certificate.toString());
-            certificate.setStatusValidationTimestamp(LocalDateTime.now());
-            certificateRepository.save(certificate);
-
-            return false;
+    private void updateCertificateStatusScheduled(Certificate certificate) throws ConnectorException, CertificateException, IOException {
+        updateCertificateIssuer(certificate);
+        certValidationService.validate(certificate);
+        if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) {
+            complianceService.checkComplianceOfCertificate(certificate);
         }
-        return true;
     }
 
     @Override
@@ -1174,7 +1178,6 @@ public class CertificateServiceImpl implements CertificateService {
         return dto;
     }
 
-    @Async
     // TODO - move to search service
     private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter) {
         List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
