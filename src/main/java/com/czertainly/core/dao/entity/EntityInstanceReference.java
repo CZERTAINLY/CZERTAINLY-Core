@@ -32,7 +32,7 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
     @Column(name = "kind")
     private String kind;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 
@@ -42,7 +42,7 @@ public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implem
     @Column(name="connector_name")
     private String connectorName;
 
-    @OneToMany(mappedBy = "entityInstanceReference")
+    @OneToMany(mappedBy = "entityInstanceReference", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<Location> locations = new HashSet<>();
 

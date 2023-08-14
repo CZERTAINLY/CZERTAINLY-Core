@@ -24,10 +24,10 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
     @Enumerated(EnumType.STRING)
     private FunctionGroupCode code;
 
-    @OneToMany(fetch = FetchType.EAGER, mappedBy = "functionGroup")
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "functionGroup")
     private Set<Endpoint> endpoints = new HashSet<>();
 
-    @OneToMany(fetch = FetchType.EAGER, mappedBy = "functionGroup")
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "functionGroup")
     private Set<Connector2FunctionGroup> connectors = new HashSet<>();
 
     public String getName() {

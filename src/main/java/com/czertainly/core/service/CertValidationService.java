@@ -10,8 +10,6 @@ import java.util.List;
 public interface CertValidationService {
     List<Certificate> getCertificateChain(Certificate certificate);
 
-    void validateAllCertificates();
-
     void validateCertificates(List<Certificate> certificates);
 
     void validate(Certificate certificate) throws NotFoundException, CertificateException, IOException;

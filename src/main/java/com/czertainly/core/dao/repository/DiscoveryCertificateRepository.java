@@ -6,13 +6,11 @@ import com.czertainly.core.dao.entity.DiscoveryHistory;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
-import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-@Transactional
 public interface DiscoveryCertificateRepository extends SecurityFilterRepository<DiscoveryCertificate, Long> {
     Optional<DiscoveryCertificate> findByUuid(UUID uuid);
     List<DiscoveryCertificate> findByDiscovery(DiscoveryHistory history);

@@ -19,14 +19,14 @@ public class ApprovalRecipient extends UniquelyIdentified {
     @Column(name = "approval_step_uuid")
     private UUID approvalStepUuid;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approval_step_uuid", insertable = false, updatable = false)
     private ApprovalStep approvalStep;
 
     @Column(name = "approval_uuid")
     private UUID approvalUuid;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approval_uuid", insertable = false, updatable = false)
     private Approval approval;
 

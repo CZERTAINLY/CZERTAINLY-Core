@@ -13,9 +13,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "discovery_certificate")
 public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<DiscoveryCertificateDto> {
-    /**
-     *
-     */
+
     private static final long serialVersionUID = 9115753988094130017L;
 
     @Column(name = "common_name")
@@ -33,14 +31,14 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     @Column(name = "not_after")
     private Date notAfter;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "certificate_content_id", nullable = false, insertable = false, updatable = false)
     private CertificateContent certificateContent;
 
     @Column(name = "certificate_content_id", nullable = false)
     private Long certificateContentId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "discovery_uuid", nullable = false, insertable = false, updatable = false)
     private DiscoveryHistory discovery;
 

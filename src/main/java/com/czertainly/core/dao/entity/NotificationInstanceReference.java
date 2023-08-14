@@ -4,12 +4,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -33,7 +28,7 @@ public class NotificationInstanceReference extends UniquelyIdentified implements
     @Column(name = "kind")
     private String kind;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 
@@ -43,7 +38,7 @@ public class NotificationInstanceReference extends UniquelyIdentified implements
     @Column(name = "connector_name")
     private String connectorName;
 
-    @OneToMany(mappedBy = "notificationInstanceReference")
+    @OneToMany(mappedBy = "notificationInstanceReference", fetch = FetchType.LAZY)
     private List<NotificationInstanceMappedAttributes> notificationInstanceMappedAttributes;
 
     public UUID getNotificationInstanceUuid() {

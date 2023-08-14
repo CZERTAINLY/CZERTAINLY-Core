@@ -14,7 +14,7 @@ public class ScepTransaction extends UniquelyIdentified {
     @Column(name="transaction_id")
     private String transactionId;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
     @JoinColumn(name = "certificate_uuid", insertable = false, updatable = false)
     private Certificate certificate;
@@ -22,7 +22,7 @@ public class ScepTransaction extends UniquelyIdentified {
     @Column(name = "certificate_uuid")
     private UUID certificateUuid;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
     @JoinColumn(name = "scep_profile_uuid", insertable = false, updatable = false)
     private ScepProfile scepProfile;

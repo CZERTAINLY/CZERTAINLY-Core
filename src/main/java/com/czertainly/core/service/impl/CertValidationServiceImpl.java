@@ -39,19 +39,6 @@ public class CertValidationServiceImpl implements CertValidationService {
     private CertificateRepository certificateRepository;
 
     @Override
-    @Async("threadPoolTaskExecutor")
-    public void validateAllCertificates() {
-        List<Certificate> certificates = certificateRepository.findByStatus(CertificateStatus.UNKNOWN);
-        for (Certificate certificate : certificates) {
-            try {
-                validate(certificate);
-            } catch (Exception e) {
-                logger.warn("Unable to validate the certificate {}", certificate.toString());
-            }
-        }
-    }
-
-    @Override
     public void validateCertificates(List<Certificate> certificates) {
         for (Certificate certificate : certificates) {
             try {

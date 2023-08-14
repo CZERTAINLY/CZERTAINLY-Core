@@ -22,7 +22,7 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
     private boolean enabled;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)
     private List<ApprovalProfileVersion> approvalProfileVersions = new ArrayList<>();
 
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)

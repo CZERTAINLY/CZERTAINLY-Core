@@ -24,7 +24,7 @@ public class ScheduledJobHistory extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private SchedulerJobExecutionStatus schedulerExecutionStatus;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scheduled_job_uuid", insertable = false, updatable = false)
     private ScheduledJob scheduledJob;
 

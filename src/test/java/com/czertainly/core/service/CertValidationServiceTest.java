@@ -70,12 +70,6 @@ public class CertValidationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateAllCertificates() {
-        // TODO validateAllCertificates is async - currently not tested properly
-        certValidationService.validateAllCertificates();
-    }
-
-    @Test
     public void testValidateCertificates() {
         // TODO validateCertificates is async - currently not tested properly
         certValidationService.validateCertificates(List.of());

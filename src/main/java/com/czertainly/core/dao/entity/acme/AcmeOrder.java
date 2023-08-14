@@ -28,14 +28,14 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name="order_id")
     private String orderId;
 
-    @OneToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_uuid", nullable = false, insertable = false, updatable = false)
     private AcmeAccount acmeAccount;
 
     @Column(name = "account_uuid")
     private UUID acmeAccountUuid;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "certificate_ref", insertable = false, updatable = false)
     private Certificate certificateReference;
 
@@ -62,7 +62,7 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     private OrderStatus status;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "order")
+    @OneToMany(mappedBy = "order", fetch = FetchType.LAZY)
     private Set<AcmeAuthorization> authorizations = new HashSet<>();
 
     @Override

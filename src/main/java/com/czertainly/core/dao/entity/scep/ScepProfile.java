@@ -35,7 +35,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "require_manual_approval")
     private Boolean requireManualApproval;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
     @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
@@ -49,7 +49,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "revoke_certificate_attributes")
     private String revokeCertificateAttributes;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
     @JoinColumn(name = "ca_certificate_uuid", insertable = false, updatable = false)
     private Certificate caCertificate;

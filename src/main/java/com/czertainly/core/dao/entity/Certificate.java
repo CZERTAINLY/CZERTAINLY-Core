@@ -87,14 +87,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "subject_alternative_names")
     private String subjectAlternativeNames;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
 
     @Column(name = "ra_profile_uuid")
     private UUID raProfileUuid;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private Group group;
 
@@ -106,7 +106,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @OneToMany(
             mappedBy = "certificate",
-            cascade = CascadeType.ALL
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY
             //orphanRemoval = true
     )
     @JsonBackReference
@@ -139,7 +140,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private ComplianceStatus complianceStatus;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "certificate")
+    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY)
     private Set<CertificateEventHistory> eventHistories = new HashSet<>();
 
     @Column(name = "user_uuid")

@@ -18,9 +18,6 @@ import java.io.Serializable;
 @Table(name = "\"group\"")
 public class Group extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<GroupDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
-    /**
-     *
-     */
     private static final long serialVersionUID = 6407781756692461875L;
 
     @Column(name = "name")

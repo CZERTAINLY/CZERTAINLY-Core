@@ -24,14 +24,14 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "description")
     private String description;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "token_profile_uuid", insertable = false, updatable = false)
     private TokenProfile tokenProfile;
 
     @Column(name = "token_profile_uuid")
     private UUID tokenProfileUuid;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "token_instance_uuid", insertable = false, updatable = false)
     private TokenInstanceReference tokenInstanceReference;
 
@@ -44,7 +44,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "owner")
     private String owner;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private Group group;
 
@@ -52,11 +52,11 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     private UUID groupUuid;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<CryptographicKeyItem> items = new HashSet<>();
 
     @JsonBackReference
-    @OneToMany(mappedBy = "key")
+    @OneToMany(mappedBy = "key", fetch = FetchType.LAZY)
     private Set<Certificate> certificates = new HashSet<>();
 
     public String getName() {

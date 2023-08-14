@@ -3,14 +3,12 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
-import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.UUID;
 
 @Repository
-@Transactional
 public interface AttributeContent2ObjectRepository extends SecurityFilterRepository<AttributeContent2Object, String>  {
 
     List<AttributeContent2Object> findByObjectUuidAndObjectType(UUID uuid, Resource resource);

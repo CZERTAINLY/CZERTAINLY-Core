@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-
 @Entity
 @Table(name = "ra_profile")
 public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto>, Securable, ObjectAccessControlMapper<NameAndUuidDto> {
@@ -44,7 +43,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "attributes", length = Integer.MAX_VALUE)
     private String attributes;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
     private AuthorityInstanceReference authorityInstanceReference;
 
@@ -54,33 +53,32 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "enabled")
     private Boolean enabled;
 
-    @ManyToMany(cascade = CascadeType.ALL)
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinTable(
             name = "ra_profile_2_compliance_profile",
             joinColumns = @JoinColumn(name = "ra_profile_uuid"),
             inverseJoinColumns = @JoinColumn(name = "compliance_profile_uuid"))
     private Set<ComplianceProfile> complianceProfiles;
 
-    @OneToOne(mappedBy = "raProfile")
+    @OneToOne(mappedBy = "raProfile", fetch = FetchType.LAZY)
     private RaProfileProtocolAttribute protocolAttribute;
 
     /**
      * Acme related objects for RA Profile
      */
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "acme_profile_uuid", insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
 
     @Column(name = "acme_profile_uuid")
     private UUID acmeProfileUuid;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scep_profile_uuid", insertable = false, updatable = false)
     private ScepProfile scepProfile;
 
     @Column(name = "scep_profile_uuid")
     private UUID scepProfileUuid;
-
 
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
@@ -96,7 +94,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setAcmeAvailable(true);
         return dto;
     }
-
 
     public RaProfileScepDetailResponseDto mapToScepDto() {
         RaProfileScepDetailResponseDto dto = new RaProfileScepDetailResponseDto();

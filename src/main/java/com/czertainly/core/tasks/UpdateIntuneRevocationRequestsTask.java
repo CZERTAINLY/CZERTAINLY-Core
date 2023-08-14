@@ -19,6 +19,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
+import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ import java.util.UUID;
 
 @Component
 @NoArgsConstructor
+@Transactional
 public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateIntuneRevocationRequestsTask.class);
@@ -83,7 +85,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
     }
 
     @Override
-    ScheduledTaskResult performJob(String jobName) {
+    public ScheduledTaskResult performJob(String jobName) {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Executing Intune revocation requests update task");
         AuthHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
 

@@ -45,14 +45,14 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     @Column(name = "description")
     private String description;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     private Connector connector;
 
     @Column(name = "connector_uuid", nullable = false)
     private UUID connectorUuid;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinColumn(name = "group_uuid")
     private ComplianceGroup group;
 
@@ -60,7 +60,7 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
     private UUID groupUuid;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "complianceRule")
+    @OneToMany(mappedBy = "complianceRule", fetch = FetchType.LAZY)
     private Set<ComplianceProfileRule> rules;
 
     @Override

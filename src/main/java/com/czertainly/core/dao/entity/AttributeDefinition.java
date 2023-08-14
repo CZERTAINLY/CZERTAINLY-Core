@@ -19,7 +19,7 @@ import java.util.UUID;
 @Table(name = "attribute_definition")
 public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 

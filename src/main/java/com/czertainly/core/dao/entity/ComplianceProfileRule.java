@@ -25,7 +25,7 @@ import java.util.UUID;
 @Table(name = "compliance_profile_rule")
 public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceProfileRuleDto> {
 
-    @OneToOne(cascade = CascadeType.PERSIST)
+    @ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     @JoinColumn(name = "rule_uuid")
     private ComplianceRule complianceRule;
 
@@ -35,7 +35,7 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
     @Column(name = "attributes")
     private String attributes;
 
-    @OneToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "compliance_profile_uuid")
     private ComplianceProfile complianceProfile;
 
