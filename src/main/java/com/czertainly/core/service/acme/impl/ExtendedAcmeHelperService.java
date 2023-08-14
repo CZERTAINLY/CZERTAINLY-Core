@@ -568,7 +568,6 @@ public class ExtendedAcmeHelperService {
         order.setStatus(OrderStatus.PROCESSING);
         acmeOrderRepository.save(order);
         createCert(order, certificateSignRequestDto);
-
     }
 
     private String JcaPKCS10CertificationRequestToString(JcaPKCS10CertificationRequest csr) throws IOException {
@@ -581,7 +580,6 @@ public class ExtendedAcmeHelperService {
         return decodedCsr.toString();
     }
 
-    @Async("threadPoolTaskExecutor")
     private void createCert(AcmeOrder order, ClientCertificateSignRequestDto certificateSignRequestDto) {
         if (logger.isDebugEnabled()) {
             logger.debug("Initiating issue Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());

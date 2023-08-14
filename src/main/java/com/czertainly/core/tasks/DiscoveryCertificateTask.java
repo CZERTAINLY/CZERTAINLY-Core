@@ -28,6 +28,7 @@ import java.util.Date;
 
 @Component
 @NoArgsConstructor
+@Transactional
 public class DiscoveryCertificateTask extends SchedulerJobProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryCertificateTask.class);
@@ -67,8 +68,7 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
 
     @Override
     @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
-    @Transactional
-    ScheduledTaskResult performJob(final String jobName) {
+    public ScheduledTaskResult performJob(final String jobName) {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
         AuthHelper.authenticateAsUser(scheduledJob.getUserUuid());
 
