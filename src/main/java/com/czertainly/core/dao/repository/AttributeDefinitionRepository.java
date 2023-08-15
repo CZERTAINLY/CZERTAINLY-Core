@@ -30,4 +30,9 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     List<AttributeDefinition> findByConnectorUuidAndGlobalAndType(UUID connectorUuid, Boolean global, AttributeType type);
 
     List<AttributeDefinition> findByGlobalAndType(Boolean global, AttributeType type);
+
+    List<AttributeDefinition> findByType(AttributeType type);
+
+    List<AttributeDefinition> findByTypeAndContentType(AttributeType type, AttributeContentType contentType);
+
 }

@@ -10,12 +10,13 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ResourceService;
+import com.czertainly.core.util.converter.AttributeContentTypeConverter;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -40,11 +41,12 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     @InitBinder
     public void initBinder(final WebDataBinder webdataBinder) {
         webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
+        webdataBinder.registerCustomEditor(AttributeContentType.class, new AttributeContentTypeConverter());
     }
 
     @Override
-    public List<CustomAttributeDefinitionDto> listCustomAttributes() {
-        return attributeService.listAttributes(SecurityFilter.create());
+    public List<CustomAttributeDefinitionDto> listCustomAttributes(AttributeContentType attributeContentType) {
+        return attributeService.listAttributes(attributeContentType);
     }
 
     @Override

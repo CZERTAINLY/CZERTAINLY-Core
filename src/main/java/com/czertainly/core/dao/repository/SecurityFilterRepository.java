@@ -23,8 +23,6 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
 
     List<T> findUsingSecurityFilter(SecurityFilter filter, boolean enabled);
 
-    List<T> findUsingSecurityFilterAndType(SecurityFilter filter, AttributeType type);
-
     List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause);
 
     List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Pageable p, BiFunction<Root<T>, CriteriaBuilder, Order> order);
