@@ -20,6 +20,7 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.NotificationInstanceMappedAttributes;
 import com.czertainly.core.dao.entity.NotificationInstanceReference;
+import com.czertainly.core.dao.repository.NotificationInstanceMappedAttributeRepository;
 import com.czertainly.core.dao.repository.NotificationInstanceReferenceRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -46,6 +47,8 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     @Autowired
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
+    @Autowired
+    private NotificationInstanceMappedAttributeRepository notificationInstanceMappedAttributeRepository;
     @Autowired
     private ConnectorService connectorService;
     @Autowired
@@ -98,9 +101,12 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         notificationInstanceRef.setKind(request.getKind());
         notificationInstanceRef.setConnectorName(connector.getName());
         notificationInstanceRef.setConnectorUuid(connector.getUuid());
-        NotificationInstanceReference savedInstance = notificationInstanceReferenceRepository.save(notificationInstanceRef);
-        updateMappedAttributes(savedInstance, request.getAttributeMappings());
-        return notificationInstanceReferenceRepository.save(savedInstance).mapToDto();
+        notificationInstanceReferenceRepository.save(notificationInstanceRef);
+
+        updateMappedAttributes(notificationInstanceRef, request.getAttributeMappings());
+        notificationInstanceReferenceRepository.save(notificationInstanceRef);
+
+        return notificationInstanceRef.mapToDto();
     }
 
     @Override
@@ -119,6 +125,12 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
                 connector);
 
         notificationInstanceRef.setDescription(request.getDescription());
+
+        for (NotificationInstanceMappedAttributes mappedAttribute : notificationInstanceRef.getMappedAttributes()) {
+            notificationInstanceMappedAttributeRepository.delete(mappedAttribute);
+        }
+        notificationInstanceRef.getMappedAttributes().clear();
+
         updateMappedAttributes(notificationInstanceRef, request.getAttributeMappings());
         return notificationInstanceReferenceRepository.save(notificationInstanceRef).mapToDto();
     }
@@ -183,13 +195,13 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     private static void updateMappedAttributes(NotificationInstanceReference savedInstance, List<AttributeMappingDto> request) {
-        savedInstance.setNotificationInstanceMappedAttributes(request.stream().map(attributeMappingDto -> {
-            NotificationInstanceMappedAttributes mappedAttributes = new NotificationInstanceMappedAttributes();
-            mappedAttributes.setNotificationInstanceRefUuid(savedInstance.getUuid());
-            mappedAttributes.setAttributeDefinitionUuid(mappedAttributes.getAttributeDefinitionUuid());
-            mappedAttributes.setMappingAttributeUuid(mappedAttributes.getMappingAttributeUuid());
-            mappedAttributes.setMappingAttributeName(mappedAttributes.getMappingAttributeName());
-            return mappedAttributes;
+        savedInstance.setMappedAttributes(request.stream().map(attributeMappingDto -> {
+            NotificationInstanceMappedAttributes mappedAttribute = new NotificationInstanceMappedAttributes();
+            mappedAttribute.setNotificationInstanceRefUuid(savedInstance.getUuid());
+            mappedAttribute.setAttributeDefinitionUuid(UUID.fromString(attributeMappingDto.getCustomAttributeUuid()));
+            mappedAttribute.setMappingAttributeUuid(UUID.fromString(attributeMappingDto.getMappingAttributeUuid()));
+            mappedAttribute.setMappingAttributeName(attributeMappingDto.getMappingAttributeName());
+            return mappedAttribute;
         }).collect(Collectors.toList()));
     }
 

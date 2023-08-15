@@ -64,11 +64,6 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public List<T> findUsingSecurityFilterAndType(SecurityFilter filter, AttributeType type) {
-        return findUsingSecurityFilter(filter, (root, cb) -> cb.equal(root.get("type"), type));
-    }
-
-    @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, null);
         return entityManager.createQuery(cr).getResultList();

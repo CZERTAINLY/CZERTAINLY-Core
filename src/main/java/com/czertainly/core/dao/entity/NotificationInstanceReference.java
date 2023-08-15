@@ -38,8 +38,8 @@ public class NotificationInstanceReference extends UniquelyIdentified implements
     @Column(name = "connector_name")
     private String connectorName;
 
-    @OneToMany(mappedBy = "notificationInstanceReference", fetch = FetchType.LAZY)
-    private List<NotificationInstanceMappedAttributes> notificationInstanceMappedAttributes;
+    @OneToMany(mappedBy = "notificationInstanceReference", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<NotificationInstanceMappedAttributes> mappedAttributes;
 
     public UUID getNotificationInstanceUuid() {
         return notificationInstanceUuid;
@@ -99,12 +99,12 @@ public class NotificationInstanceReference extends UniquelyIdentified implements
         this.connectorUuid = connectorUuid;
     }
 
-    public List<NotificationInstanceMappedAttributes> getNotificationInstanceMappedAttributes() {
-        return notificationInstanceMappedAttributes;
+    public List<NotificationInstanceMappedAttributes> getMappedAttributes() {
+        return mappedAttributes;
     }
 
-    public void setNotificationInstanceMappedAttributes(List<NotificationInstanceMappedAttributes> notificationInstanceMappedAttributes) {
-        this.notificationInstanceMappedAttributes = notificationInstanceMappedAttributes;
+    public void setMappedAttributes(List<NotificationInstanceMappedAttributes> mappedAttributes) {
+        this.mappedAttributes = mappedAttributes;
     }
 
     @Override
@@ -118,7 +118,7 @@ public class NotificationInstanceReference extends UniquelyIdentified implements
         if (this.connector != null) {
             dto.setConnectorUuid(this.connector.getUuid().toString());
         }
-        dto.setAttributeMappings(this.getNotificationInstanceMappedAttributes()
+        dto.setAttributeMappings(this.getMappedAttributes()
                 .stream()
                 .map(NotificationInstanceMappedAttributes::mapToDto)
                 .collect(Collectors.toList()));
