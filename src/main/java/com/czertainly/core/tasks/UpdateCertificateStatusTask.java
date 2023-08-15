@@ -50,8 +50,6 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor {
 
     @Override
     @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.CERTIFICATE, operation = OperationType.UPDATE)
-    // TODO: must be public or refactored, transaction should not block update of all certificates,
-    //  maybe transaction should be used only for fetching the data, but update will run without it in background
     public ScheduledTaskResult performJob(final String jobName) {
         int certificatesUpdated = certificateService.updateCertificatesStatusScheduled();
         int expiredApprovals = approvalService.checkApprovalsExpiration();

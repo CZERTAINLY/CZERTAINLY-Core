@@ -21,7 +21,6 @@ import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,7 +101,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListAttributes() {
-        List<CustomAttributeDefinitionDto> attributes = attributeService.listAttributes(SecurityFilter.create());
+        List<CustomAttributeDefinitionDto> attributes = attributeService.listAttributes(null);
         Assertions.assertNotNull(attributes);
         Assertions.assertFalse(attributes.isEmpty());
         Assertions.assertEquals(1, attributes.size());

@@ -17,6 +17,7 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRe
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -32,10 +33,10 @@ public interface AttributeService {
     /**
      * Function to list the available custom attributes stored in the database
      *
-     * @param filter : Secutry filter for Access Control
+     * @param attributeContentType : Attribute content type to filter custom attributes
      * @return - List of Custom Attributes stored in the database
      */
-    List<CustomAttributeDefinitionDto> listAttributes(SecurityFilter filter);
+    List<CustomAttributeDefinitionDto> listAttributes(AttributeContentType attributeContentType);
 
     /**
      * Function to list the available global metadata stored in the database
