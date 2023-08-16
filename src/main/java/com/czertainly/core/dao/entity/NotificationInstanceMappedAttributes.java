@@ -48,6 +48,10 @@ public class NotificationInstanceMappedAttributes extends UniquelyIdentified imp
         this.attributeDefinitionUuid = attributeDefinitionUuid;
     }
 
+    public AttributeDefinition getAttributeDefinition() {
+        return attributeDefinition;
+    }
+
     public UUID getMappingAttributeUuid() {
         return mappingAttributeUuid;
     }
@@ -68,6 +72,7 @@ public class NotificationInstanceMappedAttributes extends UniquelyIdentified imp
     public AttributeMappingDto mapToDto() {
         AttributeMappingDto dto = new AttributeMappingDto();
         dto.setCustomAttributeUuid(this.attributeDefinitionUuid.toString());
+        dto.setCustomAttributeLabel(this.getAttributeDefinition().mapToCustomAttributeDefinitionDetailDto().getLabel());
         dto.setMappingAttributeUuid(this.mappingAttributeUuid.toString());
         dto.setMappingAttributeName(this.mappingAttributeName);
         return dto;

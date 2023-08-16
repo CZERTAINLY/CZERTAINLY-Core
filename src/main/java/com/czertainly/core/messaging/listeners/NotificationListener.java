@@ -30,7 +30,6 @@ import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.SettingService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -297,7 +296,7 @@ public class NotificationListener {
         Object notificationData = mapper.convertValue(notificationMessage.getData(), notificationMessage.getType().getNotificationData());
 
         switch (type) {
-            case TEXT -> {
+            case OTHER -> {
                 NotificationDataText data = (NotificationDataText) notificationData;
                 result[0] = data.getText();
                 result[1] = data.getDetail();
