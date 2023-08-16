@@ -79,7 +79,7 @@ public class NotificationProducer {
     }
 
     public void produceNotificationText(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String text, String detail) {
-        produceMessage(new NotificationMessage(NotificationType.TEXT,
+        produceMessage(new NotificationMessage(NotificationType.OTHER,
                 resource,
                 resourceUUID,
                 recipients,
