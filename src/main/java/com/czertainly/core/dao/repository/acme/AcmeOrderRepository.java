@@ -12,8 +12,12 @@ import java.util.UUID;
 
 @Repository
 public interface AcmeOrderRepository extends SecurityFilterRepository<AcmeOrder, Long> {
+
     Optional<AcmeOrder> findByUuid(UUID uuid);
+
     Optional<AcmeOrder> findByOrderId(String orderId);
+
     Optional<AcmeOrder> findByCertificateId(String certificateId);
+
     List<AcmeOrder> findByAcmeAccountAndExpiresBefore(AcmeAccount account, Date expires);
 }
