@@ -2,6 +2,7 @@ package com.czertainly.core.service.v2.impl;
 
 import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.approval.ApprovalResponseDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -18,6 +19,7 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -32,6 +34,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
@@ -61,6 +64,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CertificateRepository certificateRepository;
     private LocationService locationService;
     private CertificateService certificateService;
+    private ApprovalService approvalService;
     private CertificateEventHistoryService certificateEventHistoryService;
     private ExtendedAttributeService extendedAttributeService;
     private CertValidationService certValidationService;
@@ -103,6 +107,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Autowired
     public void setCertificateService(CertificateService certificateService) {
         this.certificateService = certificateService;
+    }
+
+    @Autowired
+    public ApprovalService getApprovalService() {
+        return approvalService;
     }
 
     @Autowired
@@ -202,12 +211,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto certificate = submitCertificateRequest(certificateRequestDto);
 
         final ActionMessage actionMessage = new ActionMessage();
-        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+        actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
+        actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
         actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserIdentification().getUuid()));
         actionMessage.setResource(Resource.CERTIFICATE);
         actionMessage.setResourceAction(ResourceAction.ISSUE);
         actionMessage.setResourceUuid(UUID.fromString(certificate.getUuid()));
-        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
         actionProducer.produceMessage(actionMessage);
 
         final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
@@ -223,15 +232,59 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         if (!isApproved) {
             certificateService.checkIssuePermissions();
         }
-        issueCertificateInternal(certificateUuid);
+
+        final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        if (certificate.getStatus() != CertificateStatus.NEW) {
+            throw new ValidationException(ValidationError.create(String.format("Cannot issue New certificate with status %s. Certificate: %s", certificate.getStatus().getLabel(), certificate)));
+        }
+        if (certificate.getRaProfile() == null) {
+            throw new ValidationException(ValidationError.create(String.format("Cannot issue New certificate with no RA Profile associated. Certificate: %s", certificate)));
+        }
+        if (certificate.getCertificateRequest() == null) {
+            throw new ValidationException(ValidationError.create(String.format("Cannot issue New certificate with no certificate request. Certificate: %s", certificate)));
+        }
+
+        CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
+        caRequest.setPkcs10(certificate.getCertificateRequest().getContent());
+        caRequest.setAttributes(AttributeDefinitionUtils.deserializeRequestAttributes(certificate.getIssueAttributes()));
+        caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(certificate.getRaProfile().mapToDto().getAttributes()));
+        CertificateDataResponseDto issueCaResponse = certificateApiClient.issueCertificate(
+                certificate.getRaProfile().getAuthorityInstanceReference().getConnector().mapToDto(),
+                certificate.getRaProfile().getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                caRequest);
+
+        logger.info("Certificate {} was issued by authority", certificateUuid);
+
+        certificateService.issueNewCertificate(certificateUuid, issueCaResponse.getCertificateData(), issueCaResponse.getMeta());
+
+        // notify
+        try {
+            logger.debug("Sending notification of certificate issue. Certificate: {}", certificate);
+            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
+            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.ISSUE.getCode(), null);
+        } catch (Exception e) {
+            logger.error("Sending notification for certificate issue failed. Certificate: {}. Error: {}", certificate, e.getMessage());
+        }
     }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueNewCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final String certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
-        certificateService.checkIssuePermissions();
-        return issueCertificateInternal(UUID.fromString(certificateUuid));
+
+        final ActionMessage actionMessage = new ActionMessage();
+        actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
+        actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
+        actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserIdentification().getUuid()));
+        actionMessage.setResource(Resource.CERTIFICATE);
+        actionMessage.setResourceAction(ResourceAction.ISSUE);
+        actionMessage.setResourceUuid(UUID.fromString(certificateUuid));
+        actionProducer.produceMessage(actionMessage);
+
+        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
+        response.setCertificateData("");
+        response.setUuid(certificateUuid);
+        return response;
     }
 
     @Override
@@ -260,13 +313,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto newCertificate = submitCertificateRequest(certificateRequestDto);
 
         final ActionMessage actionMessage = new ActionMessage();
-        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+        actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
+        actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
         actionMessage.setData(request);
         actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserIdentification().getUuid()));
         actionMessage.setResource(Resource.CERTIFICATE);
         actionMessage.setResourceAction(ResourceAction.RENEW);
         actionMessage.setResourceUuid(UUID.fromString(newCertificate.getUuid()));
-        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
 
         actionProducer.produceMessage(actionMessage);
 
@@ -395,13 +448,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto newCertificate = submitCertificateRequest(certificateRequestDto);
 
         final ActionMessage actionMessage = new ActionMessage();
-        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+        actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
+        actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
         actionMessage.setData(request);
         actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserIdentification().getUuid()));
         actionMessage.setResource(Resource.CERTIFICATE);
         actionMessage.setResourceAction(ResourceAction.REKEY);
         actionMessage.setResourceUuid(UUID.fromString(newCertificate.getUuid()));
-        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
 
         actionProducer.produceMessage(actionMessage);
 
@@ -494,13 +547,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         validateOldCertificateForOperation(certificateUuid, raProfileUuid.toString(), ResourceAction.REVOKE);
 
         final ActionMessage actionMessage = new ActionMessage();
-        actionMessage.setAuthorityUuid(authorityUuid.getValue());
+        actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
+        actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
         actionMessage.setData(request);
         actionMessage.setUserUuid(UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid()));
         actionMessage.setResource(Resource.CERTIFICATE);
         actionMessage.setResourceAction(ResourceAction.REVOKE);
         actionMessage.setResourceUuid(UUID.fromString(certificateUuid));
-        actionMessage.setRaProfileUuid(raProfileUuid.getValue());
 
         actionProducer.produceMessage(actionMessage);
     }
@@ -613,46 +666,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         return extendedAttributeService.validateRevokeCertificateAttributes(raProfile, attributes);
-    }
-
-    private ClientCertificateDataResponseDto issueCertificateInternal(UUID certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
-        final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-        if (certificate.getStatus() != CertificateStatus.NEW) {
-            throw new ValidationException(ValidationError.create(String.format("Cannot issue New certificate with status %s. Certificate: %s", certificate.getStatus().getLabel(), certificate)));
-        }
-        if (certificate.getRaProfile() == null) {
-            throw new ValidationException(ValidationError.create(String.format("Cannot issue New certificate with no RA Profile associated. Certificate: %s", certificate)));
-        }
-        if (certificate.getCertificateRequest() == null) {
-            throw new ValidationException(ValidationError.create(String.format("Cannot issue New certificate with no certificate request. Certificate: %s", certificate)));
-        }
-
-        CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
-        caRequest.setPkcs10(certificate.getCertificateRequest().getContent());
-        caRequest.setAttributes(AttributeDefinitionUtils.deserializeRequestAttributes(certificate.getIssueAttributes()));
-        caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(certificate.getRaProfile().mapToDto().getAttributes()));
-        CertificateDataResponseDto issueCaResponse = certificateApiClient.issueCertificate(
-                certificate.getRaProfile().getAuthorityInstanceReference().getConnector().mapToDto(),
-                certificate.getRaProfile().getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                caRequest);
-
-        logger.info("Certificate {} was issued by authority", certificateUuid);
-
-        certificateService.issueNewCertificate(certificateUuid, issueCaResponse.getCertificateData(), issueCaResponse.getMeta());
-
-        // notify
-        try {
-            logger.debug("Sending notification of certificate issue. Certificate: {}", certificate);
-            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
-            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.ISSUE.getCode(), null);
-        } catch (Exception e) {
-            logger.error("Sending notification for certificate issue failed. Certificate: {}. Error: {}", certificate, e.getMessage());
-        }
-
-        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
-        response.setCertificateData(issueCaResponse.getCertificateData());
-        response.setUuid(certificate.getUuid().toString());
-        return response;
     }
 
     /**
@@ -856,5 +869,4 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             );
         }
     }
-
 }
