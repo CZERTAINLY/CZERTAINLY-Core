@@ -57,7 +57,7 @@ public class ActionListener {
     @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter")
     public void processMessage(final ActionMessage actionMessage) throws MessageHandlingException {
         if (actionMessage.getApprovalUuid() == null) {
-            final Optional<List<ApprovalProfileRelation>> approvalProfileRelationOptional = approvalProfileRelationRepository.findByResourceUuidAndResource(actionMessage.getRaProfileUuid(), Resource.RA_PROFILE);
+            final Optional<List<ApprovalProfileRelation>> approvalProfileRelationOptional = approvalProfileRelationRepository.findByResourceUuidAndResource(actionMessage.getApprovalProfileResourceUuid(), actionMessage.getApprovalProfileResource());
             if (approvalProfileRelationOptional.isPresent() && !approvalProfileRelationOptional.get().isEmpty()) {
                 try {
                     final ApprovalProfileRelation approvalProfileRelation = approvalProfileRelationOptional.get().get(0);
@@ -78,7 +78,7 @@ public class ActionListener {
 
         try {
             AuthHelper.authenticateAsUser(actionMessage.getUserUuid());
-            processTheActivity(actionMessage);
+            processAction(actionMessage);
         } catch (Exception e) {
             String errorMessage = String.format("Failed to perform %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
             logger.error(errorMessage + " {}", e.getMessage());
@@ -88,16 +88,16 @@ public class ActionListener {
         }
     }
 
-    private void processTheActivity(final ActionMessage actionMessage) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+    private void processAction(final ActionMessage actionMessage) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
         switch (actionMessage.getResource()) {
             case CERTIFICATE -> {
-                processCertificateActivity(actionMessage);
+                processCertificateAction(actionMessage);
             }
             default -> logger.error("There is not allow other resources than CERTIFICATE (for now)");
         }
     }
 
-    private void processCertificateActivity(final ActionMessage actionMessage) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException {
+    private void processCertificateAction(final ActionMessage actionMessage) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException {
         Certificate certificate = null;
         if (actionMessage.getResourceUuid() != null) {
             Optional<Certificate> certificateOptional = certificateRepository.findByUuid(actionMessage.getResourceUuid());
