@@ -118,10 +118,6 @@ public class NotificationInstanceReference extends UniquelyIdentified implements
         if (this.connector != null) {
             dto.setConnectorUuid(this.connector.getUuid().toString());
         }
-        dto.setAttributeMappings(this.getMappedAttributes()
-                .stream()
-                .map(NotificationInstanceMappedAttributes::mapToDto)
-                .collect(Collectors.toList()));
         return dto;
     }
 
