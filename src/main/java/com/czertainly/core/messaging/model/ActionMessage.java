@@ -8,11 +8,6 @@ import java.util.UUID;
 
 @Data
 public class ActionMessage {
-
-    private UUID authorityUuid;
-
-    private UUID raProfileUuid;
-
     private Resource resource;
 
     private ResourceAction resourceAction;
@@ -22,6 +17,10 @@ public class ActionMessage {
     private UUID userUuid;
 
     private Object data;
+
+    private Resource approvalProfileResource;
+
+    private UUID approvalProfileResourceUuid;
 
     private UUID approvalUuid;
 
