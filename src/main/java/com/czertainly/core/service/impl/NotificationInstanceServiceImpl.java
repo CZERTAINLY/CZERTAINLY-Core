@@ -114,14 +114,12 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.UPDATE)
     public NotificationInstanceDto editNotificationInstance(UUID uuid, NotificationInstanceUpdateRequestDto request) throws ConnectorException {
         NotificationInstanceReference notificationInstanceRef = getNotificationInstanceReferenceEntity(uuid);
-        NotificationInstanceDto ref = getNotificationInstanceDtoFromEntity(notificationInstanceRef);
-
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(notificationInstanceRef.getConnectorUuid()));
 
         saveNotificationProviderInstance(notificationInstanceRef.getNotificationInstanceUuid(),
                 request,
-                ref.getKind(),
-                ref.getName(),
+                notificationInstanceRef.getKind(),
+                notificationInstanceRef.getName(),
                 connector);
 
         notificationInstanceRef.setDescription(request.getDescription());
@@ -156,6 +154,10 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     private NotificationInstanceDto getNotificationInstanceDtoFromEntity(NotificationInstanceReference notificationInstanceReference) throws ConnectorException {
         NotificationInstanceDto notificationInstanceDto = notificationInstanceReference.mapToDto();
+        notificationInstanceDto.setAttributeMappings(notificationInstanceReference.getMappedAttributes()
+                .stream()
+                .map(NotificationInstanceMappedAttributes::mapToDto)
+                .collect(Collectors.toList()));
 
         if (notificationInstanceReference.getConnector() == null) {
             notificationInstanceDto.setConnectorName(notificationInstanceReference.getConnectorName() + " (Deleted)");
@@ -194,7 +196,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
                 notificationInstanceDto);
     }
 
-    private static void updateMappedAttributes(NotificationInstanceReference savedInstance, List<AttributeMappingDto> request) {
+    private void updateMappedAttributes(NotificationInstanceReference savedInstance, List<AttributeMappingDto> request) {
         savedInstance.setMappedAttributes(request.stream().map(attributeMappingDto -> {
             NotificationInstanceMappedAttributes mappedAttribute = new NotificationInstanceMappedAttributes();
             mappedAttribute.setNotificationInstanceRefUuid(savedInstance.getUuid());
