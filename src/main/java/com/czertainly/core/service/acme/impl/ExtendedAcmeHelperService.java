@@ -7,7 +7,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.JwsBody;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.acme.*;
-import com.czertainly.api.model.core.authority.RevocationReason;
+import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
@@ -710,10 +710,10 @@ public class ExtendedAcmeHelperService {
         }
 
         // if the revocation reason is null, set it to UNSPECIFIED, otherwise get the code from the request
-        final RevocationReason reason = request.getReason() == null ? RevocationReason.UNSPECIFIED : RevocationReason.fromCode(request.getReason().getCode());
+        final CertificateRevocationReason reason = request.getReason() == null ? CertificateRevocationReason.UNSPECIFIED : CertificateRevocationReason.fromReasonCode(request.getReason());
         // when the reason is null, it means, that is not in the list
         if (reason == null) {
-            final String details = "Allowed revocation reason codes are: " + Arrays.toString(Arrays.stream(RevocationReason.values()).map(RevocationReason::getCode).toArray());
+            final String details = "Allowed revocation reason codes are: " + Arrays.toString(Arrays.stream(CertificateRevocationReason.values()).map(CertificateRevocationReason::getCode).toArray());
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.BAD_REVOCATION_REASON, details);
         }
         revokeRequest.setReason(reason);
