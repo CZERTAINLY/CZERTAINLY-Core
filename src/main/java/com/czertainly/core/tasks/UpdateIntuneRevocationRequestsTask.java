@@ -2,7 +2,7 @@ package com.czertainly.core.tasks;
 
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.core.authority.RevocationReason;
+import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
@@ -178,7 +178,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
                 }
 
                 ClientCertificateRevocationDto revocationDto = new ClientCertificateRevocationDto();
-                revocationDto.setReason(RevocationReason.UNSPECIFIED);
+                revocationDto.setReason(CertificateRevocationReason.UNSPECIFIED);
                 revocationDto.setAttributes(new ArrayList<>());
 
                 // if certificate is already revoked, do not try to revoke by CA
