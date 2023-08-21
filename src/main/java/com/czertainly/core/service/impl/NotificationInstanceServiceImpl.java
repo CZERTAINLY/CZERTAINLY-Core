@@ -8,6 +8,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceDto;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceRequestDto;
+import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -16,6 +17,7 @@ import com.czertainly.api.model.core.notification.AttributeMappingDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceUpdateRequestDto;
+import com.czertainly.api.model.core.settings.NotificationSettingsDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.NotificationInstanceMappedAttributes;
@@ -25,10 +27,7 @@ import com.czertainly.core.dao.repository.NotificationInstanceReferenceRepositor
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.core.service.NotificationInstanceService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,18 +44,48 @@ import java.util.stream.Collectors;
 public class NotificationInstanceServiceImpl implements NotificationInstanceService {
     private static final Logger logger = LoggerFactory.getLogger(NotificationInstanceServiceImpl.class);
 
-    @Autowired
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
-    @Autowired
     private NotificationInstanceMappedAttributeRepository notificationInstanceMappedAttributeRepository;
-    @Autowired
     private ConnectorService connectorService;
-    @Autowired
     private CredentialService credentialService;
-    @Autowired
     private NotificationInstanceApiClient notificationInstanceApiClient;
-    @Autowired
     private AttributeService attributeService;
+    private SettingService settingService;
+
+    @Autowired
+    public void setNotificationInstanceReferenceRepository(NotificationInstanceReferenceRepository notificationInstanceReferenceRepository) {
+        this.notificationInstanceReferenceRepository = notificationInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setNotificationInstanceMappedAttributeRepository(NotificationInstanceMappedAttributeRepository notificationInstanceMappedAttributeRepository) {
+        this.notificationInstanceMappedAttributeRepository = notificationInstanceMappedAttributeRepository;
+    }
+
+    @Autowired
+    public void setConnectorService(ConnectorService connectorService) {
+        this.connectorService = connectorService;
+    }
+
+    @Autowired
+    public void setCredentialService(CredentialService credentialService) {
+        this.credentialService = credentialService;
+    }
+
+    @Autowired
+    public void setNotificationInstanceApiClient(NotificationInstanceApiClient notificationInstanceApiClient) {
+        this.notificationInstanceApiClient = notificationInstanceApiClient;
+    }
+
+    @Autowired
+    public void setAttributeService(AttributeService attributeService) {
+        this.attributeService = attributeService;
+    }
+
+    @Autowired
+    public void setSettingService(SettingService settingService) {
+        this.settingService = settingService;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.REQUEST)
@@ -223,5 +252,23 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         }
         attributeService.deleteAttributeContent(notificationInstanceRef.getUuid(), Resource.NOTIFICATION_INSTANCE);
         notificationInstanceReferenceRepository.delete(notificationInstanceRef);
+
+        // check notifications settings and remove deleted instance if used
+        NotificationSettingsDto notificationsSettings = settingService.getNotificationSettings();
+        if(notificationsSettings != null) {
+            boolean updated = false;
+            for (NotificationType notificationType : NotificationType.values()) {
+                String notificationInstanceUuid = notificationsSettings.getNotificationsMapping().get(notificationType);
+                if(notificationInstanceUuid != null && UUID.fromString(notificationInstanceUuid).equals(notificationInstanceRef.getUuid())) {
+                    updated = true;
+                    notificationsSettings.getNotificationsMapping().remove(notificationType);
+                }
+            }
+
+            if(updated) {
+                logger.debug("Updating notifications settings. Removing deleted notification instance");
+                settingService.updateNotificationSettings(notificationsSettings);
+            }
+        }
     }
 }
