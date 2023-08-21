@@ -1,8 +1,8 @@
 package com.czertainly.core.messaging.producers;
 
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
-import com.czertainly.core.messaging.model.enums.ResourceTypeEnum;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -23,8 +23,8 @@ public class EventProducer {
         rabbitTemplate.convertAndSend(RabbitMQConstants.EXCHANGE_NAME, RabbitMQConstants.EVENT_ROUTING_KEY, eventMessage);
     }
 
-    public void produceEventCertificateMessage(final UUID certificateUUID, final String name) {
-        final EventMessage eventMessage = new EventMessage(ResourceTypeEnum.CERTIFICATE, certificateUUID, name);
+    public void produceCertificateEventMessage(final UUID certificateUUID, final String eventName, final String eventStatus, final String message, final String detail) {
+        final EventMessage eventMessage = new EventMessage(Resource.CERTIFICATE, certificateUUID, eventName, eventStatus, message, detail);
         produceMessage(eventMessage);
     }
 

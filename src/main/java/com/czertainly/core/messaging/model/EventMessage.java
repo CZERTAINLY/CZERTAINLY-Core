@@ -1,54 +1,26 @@
 package com.czertainly.core.messaging.model;
 
-import com.czertainly.core.messaging.model.enums.EventTypeEnum;
-import com.czertainly.core.messaging.model.enums.ResourceTypeEnum;
-import com.czertainly.core.messaging.model.enums.ServiceEnum;
+import com.czertainly.api.model.core.auth.Resource;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 import java.util.UUID;
 
-@NoArgsConstructor
-@Getter(AccessLevel.PROTECTED)
-@Setter(AccessLevel.PROTECTED)
+@Getter
+@ToString
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class EventMessage {
 
-    @JsonProperty
-    private ServiceEnum service;
+    private Resource resource;
 
-    @JsonProperty
-    private ResourceTypeEnum resource;
-
-    @JsonProperty
     private UUID resourceUUID;
 
-    @JsonProperty
-    private EventTypeEnum type;
+    private String eventName;
 
-    @JsonProperty
-    private String name;
+    private String eventStatus;
 
-    public EventMessage(ServiceEnum service, ResourceTypeEnum resource, EventTypeEnum type) {
-        this.service = service;
-        this.resource = resource;
-        this.type = type;
-    }
+    private String eventMessage;
 
-    public EventMessage(ResourceTypeEnum resource, UUID resourceUUID, String name) {
-        this.service = ServiceEnum.CORE;
-        this.type = EventTypeEnum.EVENTS;
-        this.resource = resource;
-        this.resourceUUID = resourceUUID;
-        this.name = name;
-    }
-
-    @Override
-    public String toString() {
-        return String.format("EventMessage (%s, %s, %s, %s, %s)",
-                service.getValue(),
-                type.getValue(),
-                resource.getValue(),
-                resourceUUID,
-                name);
-    }
+    private String eventDetail;
 }
