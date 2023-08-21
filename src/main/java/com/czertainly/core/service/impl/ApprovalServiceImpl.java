@@ -3,14 +3,13 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.approval.ApprovalDetailDto;
-import com.czertainly.api.model.client.approval.ApprovalResponseDto;
-import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
-import com.czertainly.api.model.client.approval.UserApprovalDto;
+import com.czertainly.api.model.client.approval.*;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
+import com.czertainly.api.model.core.certificate.CertificateEvent;
+import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Approval;
@@ -23,6 +22,7 @@ import com.czertainly.core.dao.repository.ApprovalStepRepository;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.ActionProducer;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -60,6 +60,8 @@ public class ApprovalServiceImpl implements ApprovalService {
     private NotificationProducer notificationProducer;
 
     private ActionProducer actionProducer;
+
+    private EventProducer eventProducer;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.REQUEST)
@@ -173,6 +175,11 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
 
         approvalRepository.save(approval);
+
+        // TODO: produce only for certificates for now until refactoring and uniting of event history for all resources
+        if(resource == Resource.CERTIFICATE) {
+            eventProducer.produceCertificateEventMessage(objectUuid, CertificateEvent.APPROVAL_REQUEST.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Approval requested for action %s with approval profile %s", resourceAction.getCode(), approvalProfileVersion.getApprovalProfile().getName()), null);
+        }
 
         processApprovalToTheNextStep(approval.getUuid().toString(), null);
         return approval;
@@ -309,10 +316,17 @@ public class ApprovalServiceImpl implements ApprovalService {
             actionProducer.produceMessage(actionMessage);
         }
 
+        // send event of approval closed
+        // TODO: produce only for certificates for now until refactoring and uniting of event history for all resources
+        ApprovalDto approvalDto = approval.mapToDto();
+        if(approval.getResource() == Resource.CERTIFICATE) {
+            eventProducer.produceCertificateEventMessage(approval.getObjectUuid(), CertificateEvent.APPROVAL_CLOSE.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Approval for action %s with approval profile %s closed with status %s", approval.getAction().getCode(), approvalDto.getApprovalProfileName(), approvalStatus.getLabel()), null);
+        }
+
         // send notification of closing approval
         notificationProducer.produceNotificationApprovalClosed(approval.getResource(), approval.getObjectUuid(),
                 NotificationRecipient.buildUserNotificationRecipient(approval.getCreatorUuid()),
-                approval.mapToDto(), approval.getCreatorUuid().toString());
+                approvalDto, approval.getCreatorUuid().toString());
         logger.info(String.format("Notification that the approval was closed with status %s was sent. Approval UUID: %s", approvalStatus, approval.getUuid()));
     }
 
@@ -376,5 +390,10 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Autowired
     public void setActionProducer(ActionProducer actionProducer) {
         this.actionProducer = actionProducer;
+    }
+
+    @Autowired
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
     }
 }

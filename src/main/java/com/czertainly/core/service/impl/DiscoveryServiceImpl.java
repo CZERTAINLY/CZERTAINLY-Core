@@ -402,11 +402,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
                 additionalInfo.put("Discovery Kind", modal.getKind());
                 certificateEventHistoryService.addEventHistory(
+                        entry.getUuid(),
                         CertificateEvent.DISCOVERY,
                         CertificateEventStatus.SUCCESS,
                         "Discovered from Connector: " + modal.getConnectorName() + " via discovery: " + modal.getName(),
-                        MetaDefinitions.serialize(additionalInfo),
-                        entry
+                        MetaDefinitions.serialize(additionalInfo)
                 );
             } catch (Exception e) {
                 logger.error(e.getMessage());

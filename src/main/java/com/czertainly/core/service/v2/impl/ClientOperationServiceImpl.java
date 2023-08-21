@@ -362,10 +362,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             CertificateDetailDto certificateDetailDto = certificateService.issueNewCertificate(certificateUuid, renewCaResponse.getCertificateData(), renewCaResponse.getMeta());
 
             additionalInformation.put("New Certificate Serial Number", certificateDetailDto.getSerialNumber());
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
+            certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation));
         } catch (Exception e) {
-            certificateEventHistoryService.addEventHistory(CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
-            certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), certificate);
+            certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             logger.error("Failed to renew Certificate", e.getMessage());
             throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
         }
@@ -381,15 +381,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     pushRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(cl.getPushAttributes()));
 
                     locationService.removeCertificateFromLocation(SecuredParentUUID.fromUUID(cl.getLocation().getEntityInstanceReferenceUuid()), cl.getLocation().getSecuredUuid(), oldCertificate.getUuid().toString());
-                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), "", oldCertificate);
+                    certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), "");
 
                     locationService.pushCertificateToLocation(SecuredParentUUID.fromUUID(cl.getLocation().getEntityInstanceReferenceUuid()), cl.getLocation().getSecuredUuid(), certificate.getUuid().toString(), pushRequest);
-                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Pushed to Location " + cl.getLocation().getName(), "", certificate);
+                    certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Pushed to Location " + cl.getLocation().getName(), "");
                 }
             }
 
         } catch (Exception e) {
-            certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName() : "", e.getMessage()), "", certificate);
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName() : "", e.getMessage()), "");
             logger.error("Failed to replace certificate in all locations during renew operation", e.getMessage());
             throw new CertificateOperationException("Failed to replace certificate in all locations during renew operation: " + e.getMessage());
         }
@@ -496,10 +496,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             CertificateDetailDto certificateDetailDto = certificateService.issueNewCertificate(certificateUuid, renewCaResponse.getCertificateData(), renewCaResponse.getMeta());
 
             additionalInformation.put("New Certificate Serial Number", certificateDetailDto.getSerialNumber());
-            certificateEventHistoryService.addEventHistory(CertificateEvent.REKEY, CertificateEventStatus.SUCCESS, "Rekeyed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
+            certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.SUCCESS, "Rekeyed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation));
         } catch (Exception e) {
-            certificateEventHistoryService.addEventHistory(CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), oldCertificate);
-            certificateEventHistoryService.addEventHistory(CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation), certificate);
+            certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             logger.error("Failed to rekey Certificate", e.getMessage());
             throw new CertificateOperationException("Failed to rekey certificate: " + e.getMessage());
         }
@@ -515,15 +515,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     pushRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(cl.getPushAttributes()));
 
                     locationService.removeCertificateFromLocation(SecuredParentUUID.fromUUID(cl.getLocation().getEntityInstanceReferenceUuid()), cl.getLocation().getSecuredUuid(), oldCertificate.getUuid().toString());
-                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), "", oldCertificate);
+                    certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Removed from Location " + cl.getLocation().getName(), "");
 
                     locationService.pushCertificateToLocation(SecuredParentUUID.fromUUID(cl.getLocation().getEntityInstanceReferenceUuid()), cl.getLocation().getSecuredUuid(), certificate.getUuid().toString(), pushRequest);
-                    certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Pushed to Location " + cl.getLocation().getName(), "", certificate);
+                    certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.SUCCESS, "Pushed to Location " + cl.getLocation().getName(), "");
                 }
             }
 
         } catch (Exception e) {
-            certificateEventHistoryService.addEventHistory(CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName() : "", e.getMessage()), "", certificate);
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName() : "", e.getMessage()), "");
             logger.error("Failed to replace certificate in all locations during rekey operation", e.getMessage());
             throw new CertificateOperationException("Failed to replace certificate in all locations during rekey operation: " + e.getMessage());
         }
@@ -583,9 +583,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
-            certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked. Reason: " + caRequest.getReason().getLabel(), "", certificate);
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked. Reason: " + caRequest.getReason().getLabel(), "");
         } catch (Exception e) {
-            certificateEventHistoryService.addEventHistory(CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "", certificate);
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "");
             logger.error("Failed to revoke Certificate", e.getMessage());
             throw new CertificateOperationException("Failed to revoke certificate: " + e.getMessage());
         }

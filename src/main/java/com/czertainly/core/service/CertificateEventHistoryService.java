@@ -16,18 +16,20 @@ import java.util.UUID;
 // TODO AUTH - should be secured?
 public interface CertificateEventHistoryService {
     List<CertificateEventHistoryDto> getCertificateEventHistory(UUID uuid) throws NotFoundException;
-    void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate);
     CertificateEventHistory getEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate);
     void asyncSaveAllInBatch(List<CertificateEventHistory> certificateEventHistories);
-    void addEventHistoryForRequest(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson, CertificateEvent event, CertificateEventStatus status, String message);
 
     /**
      * Method to add event into the Certificate history.
+     * @param certificateUuid UUID of certificate that should record the event
      * @param event Certificate event
      * @param status Event result
      * @param message Short message for the event
      * @param additionalInformation Additional information as key-value pairs
-     * @param certificate Certificate entity that should record the event
      */
-    void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, HashMap<String, Object> additionalInformation, Certificate certificate);
+    void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status, String message, HashMap<String, Object> additionalInformation);
+
+    void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation);
+
+    void addEventHistoryForRequest(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson, CertificateEvent event, CertificateEventStatus status, String message);
 }

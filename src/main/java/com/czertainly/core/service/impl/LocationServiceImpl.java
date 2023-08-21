@@ -394,11 +394,11 @@ public class LocationServiceImpl implements LocationService {
             additionalInformation.put("locationUuid", location.getUuid());
             additionalInformation.put("cause", message);
             certificateEventHistoryService.addEventHistory(
+                    certificate.getUuid(),
                     CertificateEvent.UPDATE_LOCATION,
                     CertificateEventStatus.FAILED,
                     message,
-                    additionalInformation,
-                    certificate
+                    additionalInformation
             );
             logger.debug("Failed to remove Certificate {} from Location {},{}: {}", certificate.getUuid(),
                     location.getName(), location.getUuid(), e.getMessage());
@@ -411,11 +411,11 @@ public class LocationServiceImpl implements LocationService {
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("locationUuid", location.getUuid());
         certificateEventHistoryService.addEventHistory(
+                certificate.getUuid(),
                 CertificateEvent.UPDATE_LOCATION,
                 CertificateEventStatus.SUCCESS,
                 message,
-                additionalInformation,
-                certificate
+                additionalInformation
         );
 
         logger.info("Certificate {} removed from Location {}", certificateUuid, location.getName());
@@ -448,11 +448,11 @@ public class LocationServiceImpl implements LocationService {
                 HashMap<String, Object> additionalInformation = new HashMap<>();
                 additionalInformation.put("locationUuid", cl.getLocation().getUuid());
                 certificateEventHistoryService.addEventHistory(
+                        certificate.getUuid(),
                         CertificateEvent.UPDATE_LOCATION,
                         CertificateEventStatus.SUCCESS,
                         message,
-                        additionalInformation,
-                        certificate
+                        additionalInformation
                 );
 
                 logger.info("Certificate {} removed from Location {}", certificateUuid, cl.getLocation().getName());
@@ -463,11 +463,11 @@ public class LocationServiceImpl implements LocationService {
                 additionalInformation.put("locationUuid", cl.getLocation().getUuid());
                 additionalInformation.put("cause", message);
                 certificateEventHistoryService.addEventHistory(
+                        certificate.getUuid(),
                         CertificateEvent.UPDATE_LOCATION,
                         CertificateEventStatus.FAILED,
                         message,
-                        additionalInformation,
-                        certificate
+                        additionalInformation
                 );
                 logger.debug("Failed to remove Certificate {} from Location {}, {}: {}", certificate.getUuid(),
                         cl.getLocation().getName(), cl.getLocation().getUuid(), e.getMessage());
@@ -490,11 +490,11 @@ public class LocationServiceImpl implements LocationService {
             additionalInformation.put("locationUuid", location.getUuid());
             additionalInformation.put("cause", message);
             certificateEventHistoryService.addEventHistory(
+                    certificate.getUuid(),
                     CertificateEvent.UPDATE_LOCATION,
                     CertificateEventStatus.FAILED,
                     message,
-                    additionalInformation,
-                    certificate
+                    additionalInformation
             );
             logger.debug("Location {}, {} does not support multiple entries", location.getName(), location.getUuid());
             throw new LocationException("Location " + location.getName() + " does not support multiple entries");
@@ -805,11 +805,11 @@ public class LocationServiceImpl implements LocationService {
             additionalInformation.put("locationUuid", location.getUuid());
             additionalInformation.put("cause", e.getMessage());
             certificateEventHistoryService.addEventHistory(
+                    certificate.getUuid(),
                     CertificateEvent.UPDATE_LOCATION,
                     CertificateEventStatus.FAILED,
                     message,
-                    additionalInformation,
-                    certificate
+                    additionalInformation
             );
             logger.debug("Failed to push Certificate {} to Location {}, {}: {}",
                     certificate.getUuid(), location.getName(), location.getUuid(), e.getMessage());
@@ -859,11 +859,11 @@ public class LocationServiceImpl implements LocationService {
         HashMap<String, Object> additionalInformation = new HashMap<>();
         additionalInformation.put("locationUuid", location.getUuid());
         certificateEventHistoryService.addEventHistory(
+                certificate.getUuid(),
                 CertificateEvent.UPDATE_LOCATION,
                 CertificateEventStatus.SUCCESS,
                 message,
-                additionalInformation,
-                certificate
+                additionalInformation
         );
     }
 
