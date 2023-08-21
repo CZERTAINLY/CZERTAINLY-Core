@@ -770,7 +770,7 @@ public class CertificateServiceImpl implements CertificateService {
                     logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
                 }
 
-                eventProducer.produceEventCertificateMessage(certificate.getUuid(), certificate.getStatus().getCode());
+                eventProducer.produceEventCertificateMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Certificate status changed from {} to {}.", oldStatus, certificate.getStatus().getLabel()), null);
                 logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
             }
             ++certificatesUpdated;

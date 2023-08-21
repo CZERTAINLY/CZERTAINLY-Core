@@ -10,9 +10,9 @@ import lombok.ToString;
 import java.util.List;
 import java.util.UUID;
 
-@NoArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
 @ToString
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class NotificationMessage {
 
     private NotificationType type;
