@@ -30,7 +30,7 @@ public class EventListener {
     public void processMessage(EventMessage eventMessage) {
         switch (eventMessage.getResource()) {
             case CERTIFICATE -> {
-                certificateEventHistoryService.addEventHistory(CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail(), null);
+                certificateEventHistoryService.addEventHistory(eventMessage.getResourceUUID(), CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail());
             }
             default -> logger.warn("Event handling is supported only for certificates for now");
         }

@@ -23,7 +23,7 @@ public class EventProducer {
         rabbitTemplate.convertAndSend(RabbitMQConstants.EXCHANGE_NAME, RabbitMQConstants.EVENT_ROUTING_KEY, eventMessage);
     }
 
-    public void produceEventCertificateMessage(final UUID certificateUUID, final String eventName, final String eventStatus, final String message, final String detail) {
+    public void produceCertificateEventMessage(final UUID certificateUUID, final String eventName, final String eventStatus, final String message, final String detail) {
         final EventMessage eventMessage = new EventMessage(Resource.CERTIFICATE, certificateUUID, eventName, eventStatus, message, detail);
         produceMessage(eventMessage);
     }
