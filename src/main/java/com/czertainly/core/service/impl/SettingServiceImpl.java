@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.management.Notification;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +30,7 @@ import java.util.UUID;
 @Transactional
 public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
-    public static final String NOTFICATIONS_MAPPING_NAME = "notificationsMapping";
+    public static final String NOTIFICATIONS_MAPPING_NAME = "notificationsMapping";
 
     private static final Logger logger = LoggerFactory.getLogger(SettingServiceImpl.class);
 
@@ -112,7 +111,7 @@ public class SettingServiceImpl implements SettingService {
         if (settings.isEmpty()) {
             setting = new Setting();
             setting.setSection(SettingsSection.NOTIFICATIONS);
-            setting.setName(NOTFICATIONS_MAPPING_NAME);
+            setting.setName(NOTIFICATIONS_MAPPING_NAME);
         } else {
             setting = settings.get(0);
         }
