@@ -1,7 +1,7 @@
 package com.czertainly.core.tasks;
 
 import com.czertainly.api.clients.SchedulerApiClient;
-import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.scheduler.SchedulerJobDto;
@@ -28,17 +28,33 @@ public abstract class SchedulerJobProcessor {
 
     private Logger logger = LoggerFactory.getLogger(SchedulerJobProcessor.class);
 
-    @Autowired
-    SchedulerApiClient schedulerApiClient;
+    protected SchedulerApiClient schedulerApiClient;
 
-    @Autowired
-    ScheduledJobsRepository scheduledJobsRepository;
+    protected ScheduledJobsRepository scheduledJobsRepository;
 
-    @Autowired
-    ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+    protected ScheduledJobHistoryRepository scheduledJobHistoryRepository;
 
-    @Autowired
     private NotificationProducer notificationProducer;
+
+    @Autowired
+    public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
+        this.scheduledJobsRepository = scheduledJobsRepository;
+    }
+
+    @Autowired
+    public void setSchedulerApiClient(SchedulerApiClient schedulerApiClient) {
+        this.schedulerApiClient = schedulerApiClient;
+    }
+
+    @Autowired
+    public void setScheduledJobHistoryRepository(ScheduledJobHistoryRepository scheduledJobHistoryRepository) {
+        this.scheduledJobHistoryRepository = scheduledJobHistoryRepository;
+    }
+
+    @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
+    }
 
     abstract String getDefaultJobName();
 
@@ -66,7 +82,7 @@ public abstract class SchedulerJobProcessor {
         return saveJobDefinition(jobName, cronExpression, oneTime, objectData);
     }
 
-    public void processTask(final String jobName) throws ConnectorException, SchedulerException {
+    public void processTask(final String jobName) throws SchedulerException, NotFoundException {
         final ScheduledJobHistory scheduledJobHistory = registerJobHistory(jobName);
         final ScheduledTaskResult result = performJob(jobName);
         updateJobHistory(scheduledJobHistory, result);
@@ -87,16 +103,15 @@ public abstract class SchedulerJobProcessor {
 
         if (SchedulerJobExecutionStatus.SUCCESS.equals(status) && scheduledJob != null && scheduledJob.isOneTime()) {
             schedulerApiClient.deleteScheduledJob(jobName);
-//            scheduledJobsRepository.deleteById(scheduledJob.getUuid());
             logger.info("Scheduled job {} was deleted/unscheduled because it was one time job only.", jobName);
         }
     }
 
-    private ScheduledJobHistory registerJobHistory(final String jobName) {
+    private ScheduledJobHistory registerJobHistory(final String jobName) throws NotFoundException {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
         if (scheduledJob == null) {
             logger.error("There is no such job {} registered.", jobName);
-            return null;
+            throw new NotFoundException(String.format("Scheduled job with name %s not found.", jobName));
         }
 
         final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();

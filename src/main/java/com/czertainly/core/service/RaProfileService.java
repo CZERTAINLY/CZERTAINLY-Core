@@ -104,7 +104,7 @@ public interface RaProfileService extends ResourceExtensionService {
      * @param filter Security Filter
      * @return Boolean of permission
      */
-    Boolean evaluateNullableRaPermissions(SecurityFilter filter);
+    boolean evaluateNullableRaPermissions(SecurityFilter filter);
 
     /**
      * Function to list the RA Profiles associated with the SCEP Profiles

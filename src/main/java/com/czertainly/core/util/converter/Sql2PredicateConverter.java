@@ -19,6 +19,9 @@ import java.util.*;
 
 public class Sql2PredicateConverter {
 
+    private Sql2PredicateConverter() {
+    }
+
     private static final String OCSP_VERIFICATION = "%\"OCSP Verification\":{\"status\":\"%STATUS%\"%";
     private static final String SIGNATURE_VERIFICATION = "%\"Signature Verification\":{\"status\":\"%STATUS%\"%";
     private static final String CRL_VERIFICATION = "%\"CRL Verification\":{\"status\":\"%STATUS%\"%";
@@ -79,9 +82,14 @@ public class Sql2PredicateConverter {
     }
 
     private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, SearchCondition searchCondition, Expression expression, Root root, SearchableFields searchableFields, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
-
-        if (expression == null && searchableFields.getPathToBeJoin() == null) {
-            expression = prepareExpression(root, searchableFields.getCode());
+        if (expression == null) {
+            if (searchableFields.getPathToBeJoin() == null) {
+                expression = prepareExpression(root, searchableFields.getCode());
+            }
+            else {
+                final Join join = prepareJoin(root, searchableFields.getPathToBeJoin());
+                expression = join.get(searchableFields.getCode());
+            }
         }
 
         if (expressionValue == null) {
@@ -99,18 +107,12 @@ public class Sql2PredicateConverter {
         if (isBoolean) {
             if (searchableFields.getExpectedValue() == null) {
                 switch (searchCondition) {
-                    case EQUALS -> {
-                        predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
-                    }
-                    case NOT_EQUALS -> {
-                        predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
-                    }
+                    case EQUALS -> predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                    case NOT_EQUALS -> predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
                 }
                 return predicate;
             } else {
                 final Boolean booleanValue = Boolean.parseBoolean(expressionValue.toString());
-                final Join join = prepareJoin(root, searchableFields.getPathToBeJoin());
-                expression = join.get(searchableFields.getCode());
                 expressionValue = searchableFields.getExpectedValue();
                 if (SearchCondition.EQUALS.equals(searchCondition) && !booleanValue) {
                     searchCondition = SearchCondition.NOT_EQUALS;
@@ -121,9 +123,7 @@ public class Sql2PredicateConverter {
         }
 
         switch (searchCondition) {
-            case EQUALS -> {
-                predicate = criteriaBuilder.equal(expression, expressionValue);
-            }
+            case EQUALS -> predicate = criteriaBuilder.equal(expression, expressionValue);
             case NOT_EQUALS -> {
                 if (searchableFields.getPathToBeJoin() != null) {
                     predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, expressionValue), criteriaBuilder.equal(expression, expressionValue)), criteriaBuilder.isNull(expression));

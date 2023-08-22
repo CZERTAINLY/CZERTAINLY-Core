@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
 import java.lang.reflect.InvocationTargetException;
@@ -26,6 +27,9 @@ import java.util.stream.Collectors;
 public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizationVoter<MethodInvocation> {
 
     protected final Log logger = LogFactory.getLog(this.getClass());
+
+    private static final String PARENT_NAME_PROP_NAME = "parentName";
+    private static final String PARENT_ACTION_PROP_NAME = "parentAction";
 
     private final OpaClient opaClient;
 
@@ -64,11 +68,11 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                     .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
 
             Optional<ParentUUIDGetter> parentUUIDGetter = getParentUUIDGetter(attributes);
-            if(properties.get("parentName") != Resource.NONE.getCode()) {
+            if (!Resource.NONE.getCode().equals(properties.get(PARENT_NAME_PROP_NAME))) {
                 int result = voteResource(principal, methodInvocation, properties, parentUUIDGetter, true);
-                if(result == ACCESS_DENIED){
-                    setDeniedResource(properties.get("parentName"));
-                    setDeniedResourceAction(properties.get("parentAction"));
+                if (result == ACCESS_DENIED) {
+                    setDeniedResource(properties.get(PARENT_NAME_PROP_NAME));
+                    setDeniedResourceAction(properties.get(PARENT_ACTION_PROP_NAME));
                     return result;
                 }
             }
@@ -83,14 +87,14 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
     private int voteResource(String principal, MethodInvocation methodInvocation, Map<String, String> properties, Optional<ParentUUIDGetter> parentUUIDGetter, boolean parentResource) {
         Map<String, String> voteProperties = properties;
 
-        if(parentResource) {
+        if (parentResource) {
             Map<String, String> parentProperties = properties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            parentProperties.put("name", properties.get("parentName"));
-            parentProperties.put("action", properties.get("parentAction"));
+            parentProperties.put("name", properties.get(PARENT_NAME_PROP_NAME));
+            parentProperties.put("action", properties.get(PARENT_ACTION_PROP_NAME));
             voteProperties = parentProperties;
         }
-        voteProperties.remove("parentName");
-        voteProperties.remove("parentAction");
+        voteProperties.remove(PARENT_NAME_PROP_NAME);
+        voteProperties.remove(PARENT_ACTION_PROP_NAME);
 
         OpaRequestedResource resource = new OpaRequestedResource(voteProperties);
 
@@ -98,8 +102,7 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
         List<SecuredUUID> objectUUIDs = parentResource ? extractParentUUIDsFromMethodArguments(methodInvocation) : extractUUIDsFromMethodArguments(methodInvocation);
 
         // Parent UUID Getter not used for now, remove later
-        if(!parentResource) {
-            if (parentUUIDGetter.isPresent()) {
+        if (!parentResource && parentUUIDGetter.isPresent()) {
                 if (objectUUIDs.isEmpty()) {
                     logger.error("ParentUUIDGetter specified but no object uuids were found. Access will be denied.");
                     setDeniedResource(voteProperties.get("name"));
@@ -108,18 +111,15 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                 } else {
                     List<String> parentsUUIDs = parentUUIDGetter.get().getParentsUUID(
                             objectUUIDs.stream()
-                                    .map(SecuredUUID::toString)
-                                    .collect(Collectors.toList())
-                    );
+                                    .map(SecuredUUID::toString).toList());
                     resource.setParentObjectUUIDs(parentsUUIDs);
                 }
-            }
+
         }
 
         if (!objectUUIDs.isEmpty()) {
             List<String> uuids = objectUUIDs.stream()
-                    .map(SecuredUUID::toString)
-                    .collect(Collectors.toList());
+                    .map(SecuredUUID::toString).toList();
             resource.setObjectUUIDs(uuids);
         }
 
@@ -199,7 +199,7 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
         List<SecuredUUID> uuids = new ArrayList<>();
 
         Arrays.stream(methodInvocation.getArguments())
-                .filter(arg -> arg instanceof SecuredParentUUID)
+                .filter(SecuredParentUUID.class::isInstance)
                 .forEach(arg -> uuids.add((SecuredParentUUID) arg));
 
         Arrays.stream(methodInvocation.getArguments())
@@ -220,18 +220,16 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
     }
 
     private void setDeniedResource(String resourceName) {
-        if(RequestContextHolder.getRequestAttributes() != null) {
-            RequestContextHolder.getRequestAttributes().setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME",
-                    resourceName,
-                    121);
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        if (requestAttributes != null) {
+            requestAttributes.setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", resourceName, 121);
         }
     }
 
     private void setDeniedResourceAction(String resourceActionName) {
-        if (RequestContextHolder.getRequestAttributes() != null) {
-            RequestContextHolder.getRequestAttributes().setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME",
-                    resourceActionName,
-                    121);
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        if (requestAttributes != null) {
+            requestAttributes.setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", resourceActionName, 121);
         }
     }
 }

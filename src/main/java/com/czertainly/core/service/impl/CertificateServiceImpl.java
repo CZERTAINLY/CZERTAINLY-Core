@@ -175,7 +175,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
-        filter.setParentRefProperty("raProfileUuid");
+        setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
@@ -192,8 +192,7 @@ public class CertificateServiceImpl implements CertificateService {
         final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
-                .map(Certificate::mapToListDto)
-                .collect(Collectors.toList());
+                .map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final CertificateResponseDto responseDto = new CertificateResponseDto();
@@ -218,7 +217,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         dto.setMetadata(metadataService.getFullMetadataWithNullResource(entity.getUuid(), Resource.CERTIFICATE, List.of(Resource.DISCOVERY)));
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CERTIFICATE));
-        dto.setRelatedCertificates(certificateRepository.findBySourceCertificateUuid(entity.getUuid()).stream().map(Certificate::mapToListDto).collect(Collectors.toList()));
+        dto.setRelatedCertificates(certificateRepository.findBySourceCertificateUuid(entity.getUuid()).stream().map(Certificate::mapToListDto).toList());
         return dto;
     }
 
@@ -328,7 +327,7 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     public void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
         logger.info("Bulk updating certificate objects: RA {} group {} owner {}", request.getRaProfileUuid(), request.getGroupUuid(), request.getOwnerUuid());
-        filter.setParentRefProperty("raProfileUuid");
+        setupSecurityFilter(filter);
         if (request.getRaProfileUuid() != null) {
             bulkUpdateRaProfile(filter, request);
         }
@@ -345,22 +344,17 @@ public class CertificateServiceImpl implements CertificateService {
     @Async("threadPoolTaskExecutor")
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     public void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException {
-        filter.setParentRefProperty("raProfileUuid");
-//        Integer totalItems;
-//        BulkOperationResponse bulkOperationResponse = new BulkOperationResponse();
+        setupSecurityFilter(filter);
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getUuids() != null && !request.getUuids().isEmpty())) {
             for (String uuid : request.getUuids()) {
                 try {
                     deleteCertificate(SecuredUUID.fromString(uuid));
                 } catch (Exception e) {
-                    logger.error("Unable to delete the certificate.", e.getMessage());
+                    logger.error("Unable to delete the certificate: {}", e.getMessage());
                 }
             }
         } else {
-//            List<Certificate> certList = (List<Certificate>) searchService.completeSearchQueryExecutor(request.getFilters(), "Certificate", getSearchableFieldInformation());
-//            totalItems = certList.size();
-
             String joins = "WHERE c.userUuid IS NULL";
             String data = searchService.createCriteriaBuilderString(filter, true);
             if (!data.equals("")) {
@@ -370,8 +364,6 @@ public class CertificateServiceImpl implements CertificateService {
             String customQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), joins, false, false, "");
 
             List<Certificate> certListDyn = (List<Certificate>) searchService.customQueryExecutor(customQuery);
-
-//            bulkOperationResponse.setFailedItem(Long.valueOf(totalItems - certListDyn.size()));
 
             for (List<Certificate> certificates : partitionList(certListDyn)) {
                 certificateRepository.deleteAll(certificates);
@@ -394,12 +386,12 @@ public class CertificateServiceImpl implements CertificateService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
 
         final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
-        if (metadataSearchFieldObject.size() > 0) {
+        if (!metadataSearchFieldObject.isEmpty()) {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
         }
 
         final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
-        if (customAttrSearchFieldObject.size() > 0) {
+        if (!customAttrSearchFieldObject.isEmpty()) {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
         }
 
@@ -407,11 +399,11 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
@@ -420,9 +412,9 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
@@ -670,18 +662,13 @@ public class CertificateServiceImpl implements CertificateService {
         final LocationsResponseDto locationsResponseDto = locationService.listLocations(SecurityFilter.create(), new SearchRequestDto());
         final List<String> locations = locationsResponseDto.getLocations()
                 .stream()
-                .map(LocationDto::getUuid)
-                .collect(Collectors.toList());
+                .map(LocationDto::getUuid).toList();
 
-        final List<LocationDto> locationsCertificate = certificateEntity.getLocations().stream()
+        return certificateEntity.getLocations().stream()
                 .map(CertificateLocation::getLocation)
                 .sorted(Comparator.comparing(Location::getCreated).reversed())
                 .map(Location::mapToDtoSimple)
-                .filter(e -> locations.contains(e.getUuid()))
-                .collect(Collectors.toList());
-
-        return locationsCertificate;
-
+                .filter(e -> locations.contains(e.getUuid())).toList();
     }
 
 
@@ -745,7 +732,7 @@ public class CertificateServiceImpl implements CertificateService {
         int certificatesUpdated = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
         for (final Certificate certificate : certificates) {
-            String oldStatus = certificate.getStatus().getLabel();
+            CertificateStatus oldStatus = certificate.getStatus();
             TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
             try {
                 updateCertificateStatusScheduled(certificate);
@@ -758,7 +745,7 @@ public class CertificateServiceImpl implements CertificateService {
 
             if (!oldStatus.equals(certificate.getStatus())) {
                 // change certificate status event
-                eventProducer.produceCertificateEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Certificate status changed from %s to %s.", oldStatus, certificate.getStatus().getLabel()), null);
+                eventProducer.produceCertificateEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Certificate status changed from %s to %s.", oldStatus.getLabel(), certificate.getStatus().getLabel()), null);
                 logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
 
                 if (CertificateStatus.REVOKED.equals(certificate.getStatus()) || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
@@ -768,7 +755,7 @@ public class CertificateServiceImpl implements CertificateService {
                         notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
                                 certificate.getUuid(),
                                 recipients,
-                                oldStatus,
+                                oldStatus.getLabel(),
                                 certificate.getStatus().getLabel(),
                                 certificate.mapToListDto());
                     } catch (Exception e) {
@@ -818,14 +805,14 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public Long statisticsCertificateCount(SecurityFilter filter) {
-        filter.setParentRefProperty("raProfileUuid");
+        setupSecurityFilter(filter);
         return certificateRepository.countUsingSecurityFilter(filter);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
-        filter.setParentRefProperty("raProfileUuid");
+        setupSecurityFilter(filter);
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter);
 
         //Compliance Mapping
@@ -937,7 +924,7 @@ public class CertificateServiceImpl implements CertificateService {
                 dto.setCertificateContent(certificate.getCertificateContent().getContent());
                 response.add(dto);
             } catch (Exception e) {
-                logger.error("Unable to get the certificate content {}. Exception: ", uuid, e.getMessage());
+                logger.error("Unable to get the certificate content {}. Exception: {}", uuid, e.getMessage());
             }
         }
         return response;
@@ -1039,15 +1026,14 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled) {
-        filter.setParentRefProperty("raProfileUuid");
+        setupSecurityFilter(filter);
 
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
                 (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.or(cb.equal(root.get("status"), CertificateStatus.VALID), cb.equal(root.get("status"), CertificateStatus.EXPIRING))));
         return certificates
                 .stream()
                 .filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled))
-                .map(Certificate::mapToListDto)
-                .collect(Collectors.toList());
+                .map(Certificate::mapToListDto).toList();
     }
 
     private String getExpiryTime(Date now, Date expiry) {
@@ -1077,11 +1063,11 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
@@ -1090,9 +1076,9 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()))
@@ -1112,7 +1098,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Deprecated
     private CertificateResponseDto getCertificatesWithFilter(SearchRequestDto request, SecurityFilter filter) {
-        logger.debug("Certificate search request: {}", request.toString());
+        logger.debug("Certificate search request: {}", request);
         CertificateResponseDto certificateResponseDto = new CertificateResponseDto();
         if (request.getItemsPerPage() == null) {
             request.setItemsPerPage(DEFAULT_PAGE_SIZE);
@@ -1129,10 +1115,7 @@ public class CertificateServiceImpl implements CertificateService {
                             filter, null,
                             p, (root, cb) -> cb.desc(root.get("created")))
                     .stream()
-                    .map(Certificate::mapToListDto)
-                    .collect(Collectors.toList()
-                    )
-            );
+                    .map(Certificate::mapToListDto).toList());
             certificateResponseDto.setItemsPerPage(request.getItemsPerPage());
             certificateResponseDto.setPageNumber(request.getPageNumber());
         } else {
@@ -1141,7 +1124,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateResponseDto.setTotalItems(dynamicSearchInternalResponse.getTotalItems());
             certificateResponseDto.setTotalPages(dynamicSearchInternalResponse.getTotalPages());
             certificateResponseDto.setPageNumber(request.getPageNumber());
-            certificateResponseDto.setCertificates(((List<Certificate>) dynamicSearchInternalResponse.getResult()).stream().map(Certificate::mapToListDto).collect(Collectors.toList()));
+            certificateResponseDto.setCertificates(((List<Certificate>) dynamicSearchInternalResponse.getResult()).stream().map(Certificate::mapToListDto).toList());
         }
         return certificateResponseDto;
     }
@@ -1186,7 +1169,7 @@ public class CertificateServiceImpl implements CertificateService {
     private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter) {
         List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
         CertificateComplianceCheckDto dto = new CertificateComplianceCheckDto();
-        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).map(UUID::toString).collect(Collectors.toList()));
+        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).map(UUID::toString).toList());
         checkCompliance(dto);
     }
 
@@ -1200,32 +1183,6 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
-
-    // TODO: Predicate for future use to construct the conditions, and forward to the data repository
-
-    //    private Predicate createPredicate(List<SearchFilterRequestDto> filters) {
-//        BooleanBuilder predicate = new BooleanBuilder();
-//
-//        Path<Certificate> certificate = Expressions.path(Certificate.class, "certificate");
-//        try {
-//            Class fieldClass = Certificate.class.getField(filters.get(0).getField().getCode()).getClass();
-//            Path<Class> certificateField = Expressions.path(Class.class, certificate, filters.get(0).getField().getCode());
-//
-//
-//            PathBuilder<Certificate> entityPath = new PathBuilder<Certificate>(Certificate.class, "certificate");
-//            StringPath sp = entityPath.get(filters.get(0).getField().getCode(), fieldClass.getClass());
-//
-//            predicate.and(entityPath.get.eq(filters.get(0).getValue()));
-//
-//            Expressions.predicate(Ops.AND, certificateField, filters.get(0).getValue().toString());
-//        } catch (NoSuchFieldException e) {
-//            e.printStackTrace();
-//        }
-//        Expressions.predicate(Ops.AND, )
-//        filters.get(0).getField().getClass()
-//
-//        return predicate;
-//    }
     private boolean downloadUploadChain(Certificate certificate) {
         List<String> chainCertificates = downloadChainFromAia(certificate);
         List<Certificate> uploadedCertificate = new ArrayList<>();
@@ -1461,5 +1418,9 @@ public class CertificateServiceImpl implements CertificateService {
             certificates.add(fullList.subList(i, Math.min(i + DELETE_BATCH_SIZE, fullList.size())));
         }
         return certificates;
+    }
+
+    private void setupSecurityFilter(SecurityFilter filter) {
+        filter.setParentRefProperty("raProfileUuid");
     }
 }

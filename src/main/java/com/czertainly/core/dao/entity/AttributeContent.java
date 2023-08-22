@@ -6,9 +6,9 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "attribute_content")
@@ -41,11 +41,11 @@ public class AttributeContent extends UniquelyIdentified {
     }
 
     public <T extends BaseAttributeContent> List<T> getAttributeContent() {
-        return (List<T>) getAttributeContentItems().stream().map(AttributeContentItem::getJson).collect(Collectors.toList());
+        return (List<T>) getAttributeContentItems().stream().map(AttributeContentItem::getJson).toList();
     }
 
     public void addAttributeContent(List<BaseAttributeContent> baseAttributeContents) {
-        baseAttributeContents.stream().forEach(bAttr -> getAttributeContentItems().add(new AttributeContentItem(this, bAttr)));
+        baseAttributeContents.forEach(bAttr -> getAttributeContentItems().add(new AttributeContentItem(this, bAttr)));
     }
 
     public List<AttributeContentItem> getAttributeContentItems() {
@@ -58,7 +58,7 @@ public class AttributeContent extends UniquelyIdentified {
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("attributeContent", attributeContentItems != null ? attributeContentItems.toArray().toString() : "-----")
+                .append("attributeContent", attributeContentItems != null ? Arrays.toString(attributeContentItems.toArray()) : "-----")
                 .append("uuid", uuid)
                 .append("attributeDefinitionUuid", attributeDefinitionUuid)
                 .toString();

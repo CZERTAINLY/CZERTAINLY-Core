@@ -22,7 +22,6 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalProfileService;
 import com.czertainly.core.util.RequestValidatorHelper;
-import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,13 +35,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class ApprovalProfileServiceImpl implements ApprovalProfileService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(ApprovalProfileServiceImpl.class);
 
     private ApprovalProfileRepository approvalProfileRepository;
 
@@ -60,7 +58,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
 
         final Long maxItems = approvalProfileRepository.countUsingSecurityFilter(filter, null);
         final ApprovalProfileResponseDto responseDto = new ApprovalProfileResponseDto();
-        responseDto.setApprovalProfiles(approvalProfileList.stream().map(approvalProfile -> approvalProfile.getTheLatestApprovalProfileVersion().mapToDto()).collect(Collectors.toList()));
+        responseDto.setApprovalProfiles(approvalProfileList.stream().map(approvalProfile -> approvalProfile.getTheLatestApprovalProfileVersion().mapToDto()).toList());
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -84,10 +82,10 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DELETE)
     public void deleteApprovalProfile(final SecuredUUID uuid) throws NotFoundException, ValidationException {
         final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
-        if (approvalProfile.getApprovalProfileVersions().stream().filter(apv -> (apv.getApprovals() != null && apv.getApprovals().size() > 0)).findFirst().isPresent()) {
+        if (approvalProfile.getApprovalProfileVersions().stream().anyMatch(apv -> (apv.getApprovals() != null && !apv.getApprovals().isEmpty()))) {
             throw new ValidationException(ValidationError.create("Unable to delete approval profile with existing approvals."));
         }
-        approvalProfile.getApprovalProfileVersions().stream().forEach(apv -> {
+        approvalProfile.getApprovalProfileVersions().forEach(apv -> {
             approvalStepRepository.deleteAll(apv.getApprovalSteps());
             approvalProfileVersionRepository.delete(apv);
         });
@@ -155,7 +153,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
         }
 
         // check existence of approvals, if no approvals associated update current latest version
-        boolean createNewVersion = latestVersion.getApprovals().size() > 0;
+        boolean createNewVersion = !latestVersion.getApprovals().isEmpty();
         if (createNewVersion) {
             latestVersion = latestVersion.createNewVersionObject();
             logger.debug("Creating new version of approval profile {} version {}.", approvalProfile.getName(), latestVersion.getVersion());
@@ -180,13 +178,13 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
 
     private boolean approvalProfileVersionsEqual(ApprovalProfileVersion latestVersion, ApprovalProfileUpdateRequestDto request) {
         // check approval profile props
-        if (latestVersion.getApprovalSteps().size() != request.getApprovalSteps().size() || latestVersion.getExpiry() != request.getExpiry() || !StringUtils.equals(latestVersion.getDescription(), request.getDescription())) {
+        if (latestVersion.getApprovalSteps().size() != request.getApprovalSteps().size() || !Objects.equals(latestVersion.getExpiry(), request.getExpiry()) || !StringUtils.equals(latestVersion.getDescription(), request.getDescription())) {
             return false;
         }
 
         // check approval profile steps
         List<ApprovalStep> actualSteps = latestVersion.getApprovalSteps();
-        actualSteps.sort(Comparator.comparingInt(step -> step.getOrder()));
+        actualSteps.sort(Comparator.comparingInt(ApprovalStep::getOrder));
         for (int i = 0; i < actualSteps.size(); i++) {
             if (!Objects.equals(actualSteps.get(i).getUserUuid(), request.getApprovalSteps().get(i).getUserUuid())
                     || !Objects.equals(actualSteps.get(i).getGroupUuid(), request.getApprovalSteps().get(i).getGroupUuid())
