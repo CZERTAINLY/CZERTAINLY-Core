@@ -33,10 +33,11 @@ public class DatabaseMigration {
                     line = filterBomFromString(line);
                     firstLineProcessed = true;
                 }
-                crc32.update(trimLineBreak(line).getBytes(StandardCharsets.UTF_8));
+                String trimmed = trimLineBreak(line);
+                crc32.update(trimmed != null ? trimmed.getBytes(StandardCharsets.UTF_8) : new byte[0]);
             }
         } catch (IOException e) {
-            System.out.printf("Error while trying to read file %s: %s\n", filePath, e.getMessage());
+            System.out.printf("Error while trying to read file %s: %s%n", filePath, e.getMessage());
             System.exit(1);
         }
 

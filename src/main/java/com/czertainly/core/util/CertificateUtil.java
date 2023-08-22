@@ -44,8 +44,8 @@ import java.util.*;
 
 public class CertificateUtil {
 
-    public static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
-    public static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
+    private static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
+    private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
     @SuppressWarnings("serial")
     private static final Map<String, String> SAN_TYPE_MAP = new HashMap<>();
@@ -229,8 +229,7 @@ public class CertificateUtil {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
         messageDigest.update(encodedContent);
         byte[] digest = messageDigest.digest();
-        String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
-        return thumbprint;
+        return DatatypeConverter.printHexBinary(digest).toLowerCase();
     }
 
     public static String getSha1Thumbprint(byte[] encodedContent)
@@ -238,8 +237,7 @@ public class CertificateUtil {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
         messageDigest.update(encodedContent);
         byte[] digest = messageDigest.digest();
-        String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
-        return thumbprint;
+        return DatatypeConverter.printHexBinary(digest).toLowerCase();
     }
 
     public static String getThumbprint(X509Certificate certificate)
@@ -361,9 +359,9 @@ public class CertificateUtil {
     public static String formatCsr(String unformattedCsr) {
         try {
             JcaPKCS10CertificationRequest jcaPKCS10CertificationRequest = csrStringToJcaObject(unformattedCsr);
-            return JcaObjectToString(jcaPKCS10CertificationRequest);
+            return jcaObjectToString(jcaPKCS10CertificationRequest);
         } catch (CertificateException e) {
-            logger.debug("Failed to parse and format CSR : ", unformattedCsr);
+            logger.debug("Failed to parse and format CSR: {}", unformattedCsr);
             logger.error(e.getMessage());
             return unformattedCsr;
         }
@@ -381,7 +379,7 @@ public class CertificateUtil {
         }
     }
 
-    private static String JcaObjectToString(JcaPKCS10CertificationRequest pkcs10CertificationRequest) throws CertificateException {
+    private static String jcaObjectToString(JcaPKCS10CertificationRequest pkcs10CertificationRequest) throws CertificateException {
         try {
             PemObject pemCSR = new PemObject("CERTIFICATE REQUEST", pkcs10CertificationRequest.getEncoded());
             StringWriter decodedCsr = new StringWriter();

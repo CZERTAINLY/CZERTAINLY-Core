@@ -7,10 +7,9 @@ import java.io.OutputStream;
 
 public class CachedBodyServletOutputStream extends ServletOutputStream {
 
-    public OutputStream outputStream;
-    private CustomHttpServletResponseWrapper wrappedResponse;
-    private ServletOutputStream servletOutputStream = new ServletOutputStream(){
-        boolean isReady = true;
+    private final OutputStream outputStream;
+    private final CustomHttpServletResponseWrapper wrappedResponse;
+    private final ServletOutputStream servletOutputStream = new ServletOutputStream(){
         WriteListener writeListener = null;
 
         @Override
@@ -19,12 +18,12 @@ public class CachedBodyServletOutputStream extends ServletOutputStream {
         }
 
         public boolean isReady(){
-            return isReady;
+            return true;
         }
         @Override
         public void write(int w) throws IOException {
             outputStream.write(w);
-            wrappedResponse.rawData.add(Integer.valueOf(w).byteValue());
+            wrappedResponse.rawData.add((byte) w);
         }
     };
 
