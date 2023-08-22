@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -77,11 +76,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
     public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled) {
         filter.setParentRefProperty("authorityInstanceReferenceUuid");
-        if (enabled == null || !enabled.isPresent()) {
-            return raProfileRepository.findUsingSecurityFilter(filter).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
-        } else {
-            return raProfileRepository.findUsingSecurityFilter(filter, enabled.get()).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
-        }
+        return enabled.map(isEnabled -> raProfileRepository.findUsingSecurityFilter(filter, isEnabled).stream().map(RaProfile::mapToDtoSimple).toList()).orElseGet(() -> raProfileRepository.findUsingSecurityFilter(filter).stream().map(RaProfile::mapToDtoSimple).toList());
     }
 
     @Override
@@ -255,8 +250,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void bulkRemoveAssociatedAcmeProfile(List<SecuredUUID> uuids) {
         List<RaProfile> raProfiles = raProfileRepository.findAllByUuidIn(
-                uuids.stream().map(SecuredUUID::getValue).collect(Collectors.toList())
-        );
+                uuids.stream().map(SecuredUUID::getValue).toList());
         raProfiles.forEach(raProfile -> raProfile.setAcmeProfile(null));
         raProfileRepository.saveAll(raProfiles);
     }
@@ -264,8 +258,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Override
     public void bulkRemoveAssociatedScepProfile(List<SecuredUUID> uuids) {
         List<RaProfile> raProfiles = raProfileRepository.findAllByUuidIn(
-                uuids.stream().map(SecuredUUID::getValue).collect(Collectors.toList())
-        );
+                uuids.stream().map(SecuredUUID::getValue).toList());
         raProfiles.forEach(raProfile -> raProfile.setScepProfile(null));
         raProfileRepository.saveAll(raProfiles);
     }
@@ -394,7 +387,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
-    public Boolean evaluateNullableRaPermissions(SecurityFilter filter) {
+    public boolean evaluateNullableRaPermissions(SecurityFilter filter) {
         return !filter.getResourceFilter().areOnlySpecificObjectsAllowed();
     }
 
@@ -415,8 +408,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return raProfileRepository.findUsingSecurityFilter(filter)
                 .stream()
-                .map(RaProfile::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+                .map(RaProfile::mapToAccessControlObjects).toList();
     }
 
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
@@ -451,7 +443,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         };
 
         final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(securityFilter, additionalWhereClause);
-        return approvalProfileRelations.stream().map(apr -> apr.getApprovalProfile().getTheLatestApprovalProfileVersion().mapToDto()).collect(Collectors.toList());
+        return approvalProfileRelations.stream().map(apr -> apr.getApprovalProfile().getTheLatestApprovalProfileVersion().mapToDto()).toList();
     }
 
     @Override
@@ -510,7 +502,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 authorityInstanceRef.getConnector().mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid());
 
-        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
+        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).toList();
         for (RequestAttributeDto requestAttributeDto : attributes) {
             if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
                 DataAttribute referencedAttribute = attributeService.getReferenceAttribute(authorityInstanceRef.getConnectorUuid(), requestAttributeDto.getName());
@@ -576,9 +568,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     private List<SimplifiedComplianceProfileDto> getComplianceProfilesForRaProfile(String raProfileUuid, SecurityFilter filter) {
         return complianceProfileRepository.findUsingSecurityFilter(filter)
                 .stream()
-                .filter(e -> e.getRaProfiles().stream().map(RaProfile::getUuid).map(UUID::toString).collect(Collectors.toList()).contains(raProfileUuid))
-                .map(ComplianceProfile::raProfileMapToDto)
-                .collect(Collectors.toList());
+                .filter(e -> e.getRaProfiles().stream().map(RaProfile::getUuid).map(UUID::toString).toList().contains(raProfileUuid))
+                .map(ComplianceProfile::raProfileMapToDto).toList();
     }
 
 

@@ -108,7 +108,7 @@ public class NotificationProducer {
         // check first if creator is not logged in now
         try {
             UserProfileDto userProfileDto = AuthHelper.getUserProfile();
-            if (userProfileDto.getUser().getUuid() == creatorUuid) return userProfileDto.getUser().getUsername();
+            if (userProfileDto.getUser().getUuid().equals(creatorUuid)) return userProfileDto.getUser().getUsername();
         }
         catch (ValidationException e) {
             // anonymous user, retrieve user details

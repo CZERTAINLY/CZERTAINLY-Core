@@ -11,7 +11,6 @@ import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.ScheduledJob;
-import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.DiscoveryService;
 import com.czertainly.core.util.AuthHelper;
@@ -33,13 +32,16 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryCertificateTask.class);
 
-    private ScheduledJobsRepository scheduledJobsRepository;
-
     private DiscoveryService discoveryService;
 
     private ObjectMapper mapper = new ObjectMapper();
 
-    private static final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmm");
+    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmm");
+
+    @Autowired
+    public void setDiscoveryService(DiscoveryService discoveryService) {
+        this.discoveryService = discoveryService;
+    }
 
     @Override
     String getDefaultJobName() {
@@ -90,18 +92,6 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
 
     private String prepareTimeSuffix() {
         return "_" + sdf.format(new Date());
-    }
-
-    //SETTERs
-
-    @Autowired
-    public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
-        this.scheduledJobsRepository = scheduledJobsRepository;
-    }
-
-    @Autowired
-    public void setDiscoveryService(DiscoveryService discoveryService) {
-        this.discoveryService = discoveryService;
     }
 
 }

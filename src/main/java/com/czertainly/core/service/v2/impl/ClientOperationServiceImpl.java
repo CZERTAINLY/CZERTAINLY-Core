@@ -2,7 +2,6 @@ package com.czertainly.core.service.v2.impl;
 
 import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.approval.ApprovalResponseDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -19,7 +18,6 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
-import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -34,7 +32,6 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
@@ -340,7 +337,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         Certificate oldCertificate = certificateRepository.findByUuid(certificate.getSourceCertificateUuid()).orElseThrow(() -> new NotFoundException(Certificate.class, certificate.getSourceCertificateUuid()));
         RaProfile raProfile = certificate.getRaProfile();
 
-        logger.debug("Renewing Certificate: ", oldCertificate);
+        logger.debug("Renewing Certificate: {}", oldCertificate);
 
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
         caRequest.setPkcs10(certificate.getCertificateRequest().getContent());
@@ -366,15 +363,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
-            logger.error("Failed to renew Certificate", e.getMessage());
+            logger.error("Failed to renew Certificate: {}", e.getMessage());
             throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
         }
 
         Location location = null;
         try {
-            /** replace certificate in the locations if needed */
+            // replace certificate in the locations if needed
             if (request.isReplaceInLocations()) {
-                logger.info("Replacing certificates in locations for certificate: " + certificate.getUuid());
+                logger.info("Replacing certificates in locations for certificate: {}", certificate);
                 for (CertificateLocation cl : oldCertificate.getLocations()) {
                     location = cl.getLocation();
                     PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
@@ -390,7 +387,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName() : "", e.getMessage()), "");
-            logger.error("Failed to replace certificate in all locations during renew operation", e.getMessage());
+            logger.error("Failed to replace certificate in all locations during renew operation: {}", e.getMessage());
             throw new CertificateOperationException("Failed to replace certificate in all locations during renew operation: " + e.getMessage());
         }
 
@@ -475,7 +472,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         Certificate oldCertificate = certificateRepository.findByUuid(certificate.getSourceCertificateUuid()).orElseThrow(() -> new NotFoundException(Certificate.class, certificate.getSourceCertificateUuid()));
         RaProfile raProfile = certificate.getRaProfile();
 
-        logger.debug("Rekeying Certificate: ", oldCertificate);
+        logger.debug("Rekeying Certificate: {}", oldCertificate);
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
         caRequest.setPkcs10(certificate.getCertificateRequest().getContent());
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(raProfile.mapToDto().getAttributes()));
@@ -500,7 +497,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
-            logger.error("Failed to rekey Certificate", e.getMessage());
+            logger.error("Failed to rekey Certificate: {}", e.getMessage());
             throw new CertificateOperationException("Failed to rekey certificate: " + e.getMessage());
         }
 
@@ -508,7 +505,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         try {
             /** replace certificate in the locations if needed */
             if (request.isReplaceInLocations()) {
-                logger.info("Replacing certificates in locations for certificate: " + certificate.getUuid());
+                logger.info("Replacing certificates in locations for certificate: {}", certificate);
                 for (CertificateLocation cl : oldCertificate.getLocations()) {
                     location = cl.getLocation();
                     PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
@@ -524,7 +521,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_LOCATION, CertificateEventStatus.FAILED, String.format("Failed to replace certificate in location %s: %s", location != null ? location.getName() : "", e.getMessage()), "");
-            logger.error("Failed to replace certificate in all locations during rekey operation", e.getMessage());
+            logger.error("Failed to replace certificate in all locations during rekey operation: {}", e.getMessage());
             throw new CertificateOperationException("Failed to replace certificate in all locations during rekey operation: " + e.getMessage());
         }
 
@@ -568,7 +565,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         RaProfile raProfile = certificate.getRaProfile();
 
-        logger.debug("Revoking Certificate: ", certificate);
+        logger.debug("Revoking Certificate: {}", certificate);
 
         CertRevocationDto caRequest = new CertRevocationDto();
         caRequest.setReason(request.getReason());
@@ -586,7 +583,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked. Reason: " + caRequest.getReason().getLabel(), "");
         } catch (Exception e) {
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "");
-            logger.error("Failed to revoke Certificate", e.getMessage());
+            logger.error("Failed to revoke Certificate: {}", e.getMessage());
             throw new CertificateOperationException("Failed to revoke certificate: " + e.getMessage());
         }
 
@@ -624,7 +621,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         if (oldCertificate.getRaProfileUuid() == null || !oldCertificate.getRaProfileUuid().toString().equals(raProfileUuid)) {
             throw new ValidationException(String.format("Cannot perform operation %s on certificate. Existing Certificate RA profile is different than RA profile of request. Certificate: %s", action.getCode(), oldCertificate));
         }
-        if (!oldCertificate.getRaProfile().getEnabled()) {
+        if (Boolean.FALSE.equals(oldCertificate.getRaProfile().getEnabled())) {
             throw new ValidationException(String.format("Cannot perform operation %s on certificate with disabled RA profile. Certificate: %s", action.getCode(), oldCertificate));
         }
         extendedAttributeService.validateLegacyConnector(oldCertificate.getRaProfile().getAuthorityInstanceReference().getConnector());
@@ -855,18 +852,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         try {
             pkcs10 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(csr).getEncoded());
         } catch (IOException e) {
-            logger.debug("Failed to parse CSR: " + e);
+            logger.debug("Failed to parse CSR", e);
             throw new CertificateException(e);
         }
         return Map.of("csr", pkcs10, "attributes", merged);
-    }
-
-
-    private void checkNewStatus(CertificateStatus status) {
-        if (status.equals(CertificateStatus.NEW)) {
-            throw new ValidationException(
-                    ValidationError.create("Cannot perform operation on certificate with status NEW")
-            );
-        }
     }
 }

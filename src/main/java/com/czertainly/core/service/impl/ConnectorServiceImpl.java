@@ -97,14 +97,14 @@ public class ConnectorServiceImpl implements ConnectorService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
     public List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) {
-        List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDto).collect(Collectors.toList());
-        if (functionGroup != null && functionGroup.isPresent()) {
+        List<ConnectorDto> connectors = connectorRepository.findUsingSecurityFilter(filter).stream().map(Connector::mapToDto).toList();
+        if (functionGroup.isPresent()) {
             connectors = filterByFunctionGroup(connectors, functionGroup.get());
         }
-        if (kind != null && kind.isPresent()) {
+        if (kind.isPresent()) {
             connectors = filterByKind(connectors, kind.get());
         }
-        if (status != null && status.isPresent()) {
+        if (status.isPresent()) {
             connectors = filterByStatus(connectors, status.get());
         }
         return connectors;
@@ -320,7 +320,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         return connector.getFunctionGroups();
     }
 
-    private void addFunctionGroupToConnector(FunctionGroup functionGroup, List<String> kinds, Connector connector) throws NotFoundException {
+    private void addFunctionGroupToConnector(FunctionGroup functionGroup, List<String> kinds, Connector connector) {
         Connector2FunctionGroup c2fg = new Connector2FunctionGroup();
         c2fg.setConnector(connector);
         c2fg.setFunctionGroup(functionGroup);
@@ -398,8 +398,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 List<ConnectDto> result = reValidateConnector(connector.mapToDto());
 
                 List<FunctionGroupDto> functionGroups = result.stream()
-                        .map(ConnectDto::getFunctionGroup)
-                        .collect(Collectors.toList());
+                        .map(ConnectDto::getFunctionGroup).toList();
 
                 setFunctionGroups(functionGroups, connector);
 
@@ -421,8 +420,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         List<ConnectDto> result = reValidateConnector(connector.mapToDto());
 
         List<FunctionGroupDto> functionGroups = result.stream()
-                .map(ConnectDto::getFunctionGroup)
-                .collect(Collectors.toList());
+                .map(ConnectDto::getFunctionGroup).toList();
 
         setFunctionGroups(functionGroups, connector);
 
@@ -442,7 +440,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         List<ValidationError> errors = new ArrayList<>();
         List<ConnectDto> responses = new ArrayList<>();
 
-        List<FunctionGroupCode> connectFunctionGroupCodeList = functions.stream().map(BaseFunctionGroupDto::getFunctionGroupCode).collect(Collectors.toList());
+        List<FunctionGroupCode> connectFunctionGroupCodeList = functions.stream().map(BaseFunctionGroupDto::getFunctionGroupCode).toList();
         Map<FunctionGroupCode, List<String>> connectFunctionGroupKindMap = new HashMap<>();
 
         for (BaseFunctionGroupDto f : functions) {
@@ -454,7 +452,7 @@ public class ConnectorServiceImpl implements ConnectorService {
             if (uuid != null && connector.getUuid().toString().equals(uuid.toString())) {
                 continue;
             }
-            List<FunctionGroupCode> connectorFunctionGroups = connector.getFunctionGroups().stream().map(Connector2FunctionGroup::getFunctionGroup).collect(Collectors.toList()).stream().map(FunctionGroup::getCode).collect(Collectors.toList());
+            List<FunctionGroupCode> connectorFunctionGroups = connector.getFunctionGroups().stream().map(Connector2FunctionGroup::getFunctionGroup).toList().stream().map(FunctionGroup::getCode).toList();
             if (connectFunctionGroupCodeList.equals(connectorFunctionGroups)) {
                 Map<FunctionGroupCode, List<String>> connectorFunctionGroupKindMap = new HashMap<>();
 
@@ -563,7 +561,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
-        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
+        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).toList();
         for (RequestAttributeDto requestAttributeDto : attributes) {
             if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
                 DataAttribute referencedAttribute = attributeService.getReferenceAttribute(connector.getUuid(), requestAttributeDto.getName());
@@ -706,8 +704,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return connectorRepository.findUsingSecurityFilter(filter)
                 .stream()
-                .map(Connector::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+                .map(Connector::mapToAccessControlObjects).toList();
     }
 
     @Override
@@ -754,9 +751,9 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorRepository.delete(connector);
     }
 
-    private void complianceRuleGroupUpdate(Connector connector, Boolean update) {
-        if (connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode)
-                .collect(Collectors.toList()).contains(FunctionGroupCode.COMPLIANCE_PROVIDER) && !connector.getStatus().equals(ConnectorStatus.WAITING_FOR_APPROVAL)) {
+    private void complianceRuleGroupUpdate(Connector connector, boolean update) {
+        if (connector.mapToDto().getFunctionGroups().stream().map(FunctionGroupDto::getFunctionGroupCode).toList()
+                .contains(FunctionGroupCode.COMPLIANCE_PROVIDER) && !connector.getStatus().equals(ConnectorStatus.WAITING_FOR_APPROVAL)) {
             logger.info("Connector Implements Compliance Provider. Initiating request to update the rules and group for: {}", connector);
             try {
                 if (update) {
