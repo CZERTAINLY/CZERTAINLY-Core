@@ -61,10 +61,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CertificateRepository certificateRepository;
     private LocationService locationService;
     private CertificateService certificateService;
-    private ApprovalService approvalService;
     private CertificateEventHistoryService certificateEventHistoryService;
     private ExtendedAttributeService extendedAttributeService;
-    private CertValidationService certValidationService;
     private CertificateApiClient certificateApiClient;
     private MetadataService metadataService;
     private AttributeService attributeService;
@@ -107,11 +105,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Autowired
-    public ApprovalService getApprovalService() {
-        return approvalService;
-    }
-
-    @Autowired
     public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
         this.certificateEventHistoryService = certificateEventHistoryService;
     }
@@ -119,11 +112,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Autowired
     public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
         this.extendedAttributeService = extendedAttributeService;
-    }
-
-    @Autowired
-    public void setCertValidationService(CertValidationService certValidationService) {
-        this.certValidationService = certValidationService;
     }
 
     @Autowired
