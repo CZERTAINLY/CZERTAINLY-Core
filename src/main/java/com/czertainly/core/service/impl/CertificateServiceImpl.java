@@ -960,6 +960,11 @@ public class CertificateServiceImpl implements CertificateService {
 
         if (certificateRequestOptional.isPresent()) {
             certificateRequest = certificateRequestOptional.get();
+            // if no CSR attributes are assigned to CSR, update them with ones provided
+            if((certificateRequest.getAttributes() == null || certificateRequest.getAttributes().isEmpty())
+                    && csrAttributes != null && !csrAttributes.isEmpty()) {
+                certificateRequest.setAttributes(csrAttributes);
+            }
         } else {
             certificateRequest = certificate.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
             certificateRequest.setFingerprint(csrFingerprint);

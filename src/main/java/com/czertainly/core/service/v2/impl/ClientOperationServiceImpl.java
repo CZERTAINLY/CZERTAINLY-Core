@@ -170,7 +170,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         Map<String, Object> csrMap = generateCsr(request.getPkcs10(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes());
         String pkcs10 = (String) csrMap.get("csr");
-        List<DataAttribute> merged = (List<DataAttribute>) csrMap.get("merged");
+        List<DataAttribute> merged = (List<DataAttribute>) csrMap.get("attributes");
         CertificateDetailDto certificate = certificateService.submitCertificateRequest(pkcs10, request.getSignatureAttributes(), merged, request.getIssueAttributes(), request.getKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid());
 
         // create custom Attributes
@@ -250,6 +250,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         } catch (Exception e) {
             logger.error("Sending notification for certificate issue failed. Certificate: {}. Error: {}", certificate, e.getMessage());
         }
+
+        // push certificate to locations
+        for (CertificateLocation cl:certificate.getLocations()) {
+            try {
+                locationService.pushNewCertificateToLocationAction(cl.getId(), false);
+            } catch (Exception e) {
+                logger.error("Failed to push issued certificate to location: {}", e.getMessage());
+            }
+        }
+
+        logger.debug("Certificate issued: {}", certificate);
     }
 
     @Override
@@ -386,6 +397,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.RENEW.getCode(), null);
         } catch (Exception e) {
             logger.error("Sending notification for certificate renewal failed. Certificate: {}. Error: {}", certificate, e.getMessage());
+        }
+
+        if(!request.replaceInLocations) {
+            // push certificate to locations
+            for (CertificateLocation cl:certificate.getLocations()) {
+                try {
+                    locationService.pushNewCertificateToLocationAction(cl.getId(), true);
+                } catch (Exception e) {
+                    logger.error("Failed to push renewed certificate to location: {}", e.getMessage());
+                }
+            }
         }
 
         logger.debug("Certificate Renewed: {}", certificate);
