@@ -40,9 +40,13 @@ import jakarta.transaction.Transactional;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
@@ -57,6 +61,8 @@ import java.util.*;
 @Transactional
 public class ClientOperationServiceImpl implements ClientOperationService {
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
+    private PlatformTransactionManager transactionManager;
+
     private RaProfileRepository raProfileRepository;
     private CertificateRepository certificateRepository;
     private LocationService locationService;
@@ -70,8 +76,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CryptographicKeyService keyService;
 
     private ActionProducer actionProducer;
-
     private NotificationProducer notificationProducer;
+
+    @Autowired
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
 
     @Autowired
     public void setActionProducer(ActionProducer actionProducer) {
@@ -180,9 +190,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @Transactional(Transactional.TxType.NOT_SUPPORTED)
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException {
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
         certificateRequestDto.setCsrAttributes(request.getCsrAttributes());
@@ -193,7 +204,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateRequestDto.setIssueAttributes(request.getAttributes());
         certificateRequestDto.setCustomAttributes(request.getCustomAttributes());
 
-        CertificateDetailDto certificate = submitCertificateRequest(certificateRequestDto);
+        CertificateDetailDto certificate;
+        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        try {
+            certificate = submitCertificateRequest(certificateRequestDto);
+            transactionManager.commit(status);
+        } catch (Exception e) {
+            transactionManager.rollback(status);
+            throw new CertificateOperationException("Failed to submit certificate request: " + e.getMessage());
+        }
 
         final ActionMessage actionMessage = new ActionMessage();
         actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
@@ -252,7 +271,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
 
         // push certificate to locations
-        for (CertificateLocation cl:certificate.getLocations()) {
+        for (CertificateLocation cl : certificate.getLocations()) {
             try {
                 locationService.pushNewCertificateToLocationAction(cl.getId(), false);
             } catch (Exception e) {
@@ -267,7 +286,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueNewCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final String certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
-
         final ActionMessage actionMessage = new ActionMessage();
         actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
         actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
@@ -284,9 +302,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @Transactional(Transactional.TxType.NOT_SUPPORTED)
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException {
         Certificate oldCertificate = validateOldCertificateForOperation(certificateUuid, raProfileUuid.toString(), ResourceAction.RENEW);
 
         // CSR decision making
@@ -306,7 +325,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateRequestDto.setSourceCertificateUuid(oldCertificate.getUuid());
         certificateRequestDto.setCustomAttributes(AttributeDefinitionUtils.getClientAttributes(attributeService.getCustomAttributesWithValues(oldCertificate.getUuid(), Resource.CERTIFICATE)));
 
-        CertificateDetailDto newCertificate = submitCertificateRequest(certificateRequestDto);
+        CertificateDetailDto newCertificate;
+        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        try {
+            newCertificate = submitCertificateRequest(certificateRequestDto);
+            transactionManager.commit(status);
+        } catch (Exception e) {
+            transactionManager.rollback(status);
+            throw new CertificateOperationException("Failed to submit certificate request for certificate renewal: " + e.getMessage());
+        }
 
         final ActionMessage actionMessage = new ActionMessage();
         actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
@@ -399,9 +426,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             logger.error("Sending notification for certificate renewal failed. Certificate: {}. Error: {}", certificate, e.getMessage());
         }
 
-        if(!request.replaceInLocations) {
+        if (!request.replaceInLocations) {
             // push certificate to locations
-            for (CertificateLocation cl:certificate.getLocations()) {
+            for (CertificateLocation cl : certificate.getLocations()) {
                 try {
                     locationService.pushNewCertificateToLocationAction(cl.getId(), true);
                 } catch (Exception e) {
@@ -414,9 +441,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @Transactional(Transactional.TxType.NOT_SUPPORTED)
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRekeyRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException {
+    public ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRekeyRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException {
         Certificate oldCertificate = validateOldCertificateForOperation(certificateUuid, raProfileUuid.toString(), ResourceAction.REKEY);
 
         // CSR decision making
@@ -452,7 +480,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateRequestDto.setSourceCertificateUuid(oldCertificate.getUuid());
         certificateRequestDto.setCustomAttributes(AttributeDefinitionUtils.getClientAttributes(attributeService.getCustomAttributesWithValues(oldCertificate.getUuid(), Resource.CERTIFICATE)));
 
-        CertificateDetailDto newCertificate = submitCertificateRequest(certificateRequestDto);
+        CertificateDetailDto newCertificate;
+        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        try {
+            newCertificate = submitCertificateRequest(certificateRequestDto);
+            transactionManager.commit(status);
+        } catch (Exception e) {
+            transactionManager.rollback(status);
+            throw new CertificateOperationException("Failed to submit certificate request for certificate rekey: " + e.getMessage());
+        }
 
         final ActionMessage actionMessage = new ActionMessage();
         actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
