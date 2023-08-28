@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
@@ -155,9 +156,14 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setName(name);
         dto.setDescription(this.description);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class)));
-        dto.setAuthorityInstanceUuid(authorityInstanceReference != null ? authorityInstanceReference.getUuid().toString() : null);
-        dto.setAuthorityInstanceName(this.authorityInstanceName);
         dto.setEnabled(enabled);
+
+        if (authorityInstanceReference != null) {
+            dto.setAuthorityInstanceUuid(authorityInstanceReference.getUuid().toString());
+            dto.setAuthorityInstanceName(this.authorityInstanceName);
+            dto.setLegacyAuthority(authorityInstanceReference.getConnector() == null ? null
+                    : authorityInstanceReference.getConnector().getFunctionGroups().stream().anyMatch(fg -> fg.getFunctionGroup().getCode().equals(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER)));
+        }
         return dto;
     }
 
@@ -258,7 +264,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     }
 
     public RaProfileProtocolAttribute getProtocolAttribute() {
-        if(protocolAttribute == null) {
+        if (protocolAttribute == null) {
             return new RaProfileProtocolAttribute();
         }
         return protocolAttribute;
