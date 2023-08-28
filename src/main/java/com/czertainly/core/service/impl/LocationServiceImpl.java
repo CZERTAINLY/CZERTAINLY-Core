@@ -19,6 +19,7 @@ import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
@@ -375,7 +376,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new NotFoundException(CertificateLocation.class, clId));
 
         try {
-            removeCertificateFromLocation(location, certificateInLocation);
+            removeCertificateFromLocation(certificateInLocation);
         } catch (ConnectorException e) {
             // record event in the certificate history
             String message = "Remove from Location " + location.getName();
@@ -487,11 +488,15 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + location.getName() + " does not support multiple entries");
         }
 
-        pushCertificateToLocation(
-                location, certificate,
-                request.getAttributes(), List.of());
-
-        logger.info("Certificate {} successfully pushed to Location {}", certificateUuid, location.getName());
+        if (certificate.getStatus().equals(CertificateStatus.NEW)) {
+            addCertificateToLocation(location, certificate, request.getAttributes(), List.of());
+            logger.info("Certificate {} is added to location {} and prepared to be pushed after issue", certificate, location.getName());
+        } else {
+            pushCertificateToLocation(
+                    location, certificate,
+                    request.getAttributes(), List.of());
+            logger.info("Certificate {} successfully pushed to Location {}", certificate, location.getName());
+        }
 
         final LocationDto dto = location.mapToDto();
         dto.getCertificates().forEach(e -> e.setMetadata(metadataService.getFullMetadata(UUID.fromString(e.getCertificateUuid()), Resource.CERTIFICATE, UUID.fromString(dto.getUuid()), Resource.LOCATION)));
@@ -772,8 +777,7 @@ public class LocationServiceImpl implements LocationService {
                     generateCsrRequestDto
             );
         } catch (ConnectorException e) {
-            logger.debug("Failed to generate CSR for the Location " + location.getName() + ", " + location.getUuid() +
-                    ", with Attributes " + csrAttributes + ": " + e.getMessage());
+            logger.debug("Failed to generate CSR for the Location {}, {}, with Attributes {}. Error: {}", location.getName(), location.getUuid(), csrAttributes, e.getMessage());
             throw new LocationException("Failed to generate CSR for Location " + location.getName() + ". Reason: " + e.getMessage());
         }
         return generateCsrResponseDto;
@@ -973,61 +977,40 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private void removeCertificateFromLocation(CertificateLocation certificateLocation) throws ConnectorException {
+        Location location = certificateLocation.getLocation();
+        Certificate certificate = certificateLocation.getCertificate();
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
-        removeCertificateRequestDto.setLocationAttributes(certificateLocation.getLocation().getRequestAttributes());
+        removeCertificateRequestDto.setLocationAttributes(location.getRequestAttributes());
         List<MetadataAttribute> metadata = metadataService.getMetadata(
                 certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
-                certificateLocation.getCertificate().getUuid(),
-                Resource.CERTIFICATE,
-                certificateLocation.getLocation().getUuid(),
-                Resource.LOCATION);
-        removeCertificateRequestDto.setCertificateMetadata(metadata);
-        attributeService.deleteAttributeContent(
-                certificateLocation.getCertificate().getUuid(),
-                Resource.CERTIFICATE,
-                certificateLocation.getLocation().getUuid(),
-                Resource.LOCATION,
-                AttributeType.META
-        );
-        locationApiClient.removeCertificateFromLocation(
-                certificateLocation.getLocation().getEntityInstanceReference().getConnector().mapToDto(),
-                certificateLocation.getLocation().getEntityInstanceReference().getEntityInstanceUuid(),
-                removeCertificateRequestDto
-        );
-
-        certificateLocationRepository.delete(certificateLocation);
-    }
-
-    private void removeCertificateFromLocation(Location entity, CertificateLocation certificateLocation) throws ConnectorException {
-        RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
-        removeCertificateRequestDto.setLocationAttributes(entity.getRequestAttributes());
-        List<MetadataAttribute> metadata = metadataService.getMetadata(
-                certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
-                certificateLocation.getCertificate().getUuid(),
+                certificate.getUuid(),
                 Resource.CERTIFICATE,
                 certificateLocation.getLocation().getUuid(),
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
 
-        locationApiClient.removeCertificateFromLocation(
-                entity.getEntityInstanceReference().getConnector().mapToDto(),
-                entity.getEntityInstanceReference().getEntityInstanceUuid(),
-                removeCertificateRequestDto
-        );
+        if (!certificate.getStatus().equals(CertificateStatus.NEW)) {
+            logger.info("Removing certificate {} from location {} in entity provider", certificate, location.getName());
+            locationApiClient.removeCertificateFromLocation(
+                    location.getEntityInstanceReference().getConnector().mapToDto(),
+                    location.getEntityInstanceReference().getEntityInstanceUuid(),
+                    removeCertificateRequestDto
+            );
+        }
 
         certificateLocationRepository.delete(certificateLocation);
 
         attributeService.deleteAttributeContent(
-                certificateLocation.getCertificate().getUuid(),
+                certificate.getUuid(),
                 Resource.CERTIFICATE,
-                certificateLocation.getLocation().getUuid(),
+                location.getUuid(),
                 Resource.LOCATION,
                 AttributeType.META
         );
 
-        entity.getCertificates().remove(certificateLocation);
+        location.getCertificates().remove(certificateLocation);
 
-        locationRepository.save(entity);
+        locationRepository.save(location);
     }
 
     private List<DataAttribute> mergeAndValidateAttributes(EntityInstanceReference entityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
