@@ -40,7 +40,7 @@ public class ConnectorRegistrationServiceTest extends BaseSpringBootTest {
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");
         request.setAuthType(AuthType.NONE);
-        request.setUrl("localhost:3665");
+        request.setUrl("http://localhost:3665");
         connectorRegistrationService.registerConnector(request);
     }
 
