@@ -1,10 +1,7 @@
 package com.czertainly.core.service.scep.impl;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ScepException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
@@ -442,7 +439,7 @@ public class ScepServiceImpl implements ScepService {
             response = clientOperationService.issueCertificate(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), requestDto);
         } catch (ConnectorException e) {
             throw new ScepException("Unable to use connector to issue certificate", e, FailInfo.BAD_REQUEST);
-        } catch (CertificateException e) {
+        } catch (CertificateException | CertificateOperationException e) {
             throw new ScepException("Unable to issue certificate", e, FailInfo.BAD_REQUEST);
         } catch (NoSuchAlgorithmException e) {
             throw new ScepException("Wrong algorithm to issue certificate", e, FailInfo.BAD_ALG);
