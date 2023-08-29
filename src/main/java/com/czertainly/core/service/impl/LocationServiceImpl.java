@@ -471,6 +471,10 @@ public class LocationServiceImpl implements LocationService {
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
+        if (certificate.getStatus().equals(CertificateStatus.REJECTED)) {
+            throw new ValidationException(ValidationError.create(String.format("Cannot push rejected certificate %s to location %s", certificate, location.getName())));
+        }
+
         if (!location.isSupportMultipleEntries() && !location.getCertificates().isEmpty()) {
             // record event in the certificate history
             String message = "Location " + location.getName() + " does not support multiple entries";
@@ -989,7 +993,7 @@ public class LocationServiceImpl implements LocationService {
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
 
-        if (!certificate.getStatus().equals(CertificateStatus.NEW)) {
+        if (!certificate.getStatus().equals(CertificateStatus.NEW) && !certificate.getStatus().equals(CertificateStatus.REJECTED)) {
             logger.info("Removing certificate {} from location {} in entity provider", certificate, location.getName());
             locationApiClient.removeCertificateFromLocation(
                     location.getEntityInstanceReference().getConnector().mapToDto(),

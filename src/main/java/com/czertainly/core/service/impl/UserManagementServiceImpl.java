@@ -202,10 +202,8 @@ public class UserManagementServiceImpl implements UserManagementService {
             }
             try {
                 certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
-                if (certificate.getStatus().equals(CertificateStatus.NEW)) {
-                    throw new ValidationException(ValidationError.create(
-                            "Cannot create user for certificate with state NEW"
-                    ));
+                if (certificate.getStatus().equals(CertificateStatus.NEW) || certificate.getStatus().equals(CertificateStatus.REJECTED)) {
+                    throw new ValidationException(ValidationError.create("Cannot create user for certificate with status " + certificate.getStatus().getLabel()));
                 }
             } catch (NotFoundException | NoSuchAlgorithmException e) {
                 logger.debug("New Certificate uploaded for the user");

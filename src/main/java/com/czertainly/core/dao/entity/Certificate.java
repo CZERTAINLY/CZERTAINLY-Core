@@ -174,7 +174,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         final CertificateDetailDto dto = new CertificateDetailDto();
         dto.setCommonName(commonName);
         dto.setIssuerCommonName(issuerCommonName);
-        if (!status.equals(CertificateStatus.NEW)) {
+        if (!status.equals(CertificateStatus.NEW) && !status.equals(CertificateStatus.REJECTED)) {
             dto.setCertificateContent(certificateContent.getContent());
             dto.setIssuerDn(issuerDn);
             dto.setNotBefore(notBefore);

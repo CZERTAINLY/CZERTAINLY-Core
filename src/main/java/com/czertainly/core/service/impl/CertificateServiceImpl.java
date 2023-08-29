@@ -717,7 +717,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public int updateCertificatesStatusScheduled() {
-        List<CertificateStatus> skipStatuses = List.of(CertificateStatus.NEW, CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
+        List<CertificateStatus> skipStatuses = List.of(CertificateStatus.NEW, CertificateStatus.REJECTED, CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
@@ -833,7 +833,7 @@ public class CertificateServiceImpl implements CertificateService {
         for (Certificate certificate : certificates) {
             groupStat.merge(certificate.getGroup() != null ? certificate.getGroup().getName() : "Unknown", 1L, Long::sum);
             raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unknown", 1L, Long::sum);
-            if (!certificate.getStatus().equals(CertificateStatus.NEW)) {
+            if (!certificate.getStatus().equals(CertificateStatus.NEW) && !certificate.getStatus().equals(CertificateStatus.REJECTED)) {
                 typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
                 expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
                 bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);

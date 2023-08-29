@@ -1,5 +1,6 @@
 package com.czertainly.core.messaging.model;
 
+import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
 import lombok.Data;
@@ -23,5 +24,7 @@ public class ActionMessage {
     private UUID approvalProfileResourceUuid;
 
     private UUID approvalUuid;
+
+    private ApprovalStatusEnum approvalStatus;
 
 }

@@ -231,7 +231,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ISSUE)
     public void issueCertificateAction(final UUID certificateUuid, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
         if (!isApproved) {
             certificateService.checkIssuePermissions();
@@ -302,6 +301,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
+    public void issueCertificateRejectedAction(final UUID certificateUuid) throws NotFoundException {
+        final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        certificate.setStatus(CertificateStatus.REJECTED);
+        certificateRepository.save(certificate);
+    }
+
+    @Override
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
@@ -354,7 +361,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void renewCertificateAction(final UUID certificateUuid, ClientCertificateRenewRequestDto request, boolean isApproved) throws NotFoundException, CertificateOperationException {
         if (!isApproved) {
             certificateService.checkRenewPermissions();
@@ -509,7 +515,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.RENEW)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void rekeyCertificateAction(final UUID certificateUuid, ClientCertificateRekeyRequestDto request, boolean isApproved) throws NotFoundException, CertificateOperationException {
         if (!isApproved) {
             certificateService.checkRenewPermissions();
@@ -603,7 +608,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void revokeCertificateAction(final UUID certificateUuid, ClientCertificateRevocationDto request, boolean isApproved) throws NotFoundException, CertificateOperationException {
         if (!isApproved) {
             certificateService.checkRevokePermissions();
@@ -661,7 +665,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private Certificate validateOldCertificateForOperation(String certificateUuid, String raProfileUuid, ResourceAction action) throws NotFoundException {
         Certificate oldCertificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
-        if (oldCertificate.getStatus().equals(CertificateStatus.NEW) || oldCertificate.getStatus().equals(CertificateStatus.REVOKED)) {
+        if (oldCertificate.getStatus().equals(CertificateStatus.NEW) || oldCertificate.getStatus().equals(CertificateStatus.REJECTED) || oldCertificate.getStatus().equals(CertificateStatus.REVOKED)) {
             throw new ValidationException(String.format("Cannot perform operation %s on certificate with status %s. Certificate: %s", action.getCode(), oldCertificate.getStatus().getLabel(), oldCertificate));
         }
         if (oldCertificate.getRaProfileUuid() == null || !oldCertificate.getRaProfileUuid().toString().equals(raProfileUuid)) {
