@@ -49,6 +49,8 @@ public interface ClientOperationService {
             boolean isApproved
     ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException;
 
+    void issueCertificateRejectedAction(final UUID certificateUuid) throws NotFoundException;
+
     ClientCertificateDataResponseDto renewCertificate(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,

@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.MessageHandlingException;
+import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
@@ -44,11 +45,7 @@ public class ActionListener {
 
     private ApprovalService approvalService;
 
-    private ApprovalRepository approvalRepository;
-
     private ClientOperationService clientOperationService;
-
-    private CertificateRepository certificateRepository;
 
     private ObjectMapper mapper = new ObjectMapper();
 
@@ -64,8 +61,7 @@ public class ActionListener {
                     final ApprovalProfileVersion approvalProfileVersion = approvalProfileRelation.getApprovalProfile().getTheLatestApprovalProfileVersion();
                     final Approval approval = approvalService.createApproval(approvalProfileVersion, actionMessage.getResource(), actionMessage.getResourceAction(), actionMessage.getResourceUuid(), actionMessage.getUserUuid(), actionMessage.getData());
                     logger.info("Created new Approval {} for object {}", approval.getUuid(), actionMessage.getResourceUuid());
-                }
-                catch (Exception e) {
+                } catch (Exception e) {
                     String errorMessage = String.format("Cannot create new approval to approve %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
                     logger.error(errorMessage + " {}", e.getMessage());
                     notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
@@ -98,15 +94,15 @@ public class ActionListener {
     }
 
     private void processCertificateAction(final ActionMessage actionMessage) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException {
-        Certificate certificate = null;
-        if (actionMessage.getResourceUuid() != null) {
-            Optional<Certificate> certificateOptional = certificateRepository.findByUuid(actionMessage.getResourceUuid());
-            if (certificateOptional.isPresent()) {
-                certificate = certificateOptional.get();
+        boolean isApproved = false;
+        if (actionMessage.getApprovalUuid() != null) {
+            isApproved = actionMessage.getApprovalStatus().equals(ApprovalStatusEnum.APPROVED);
+            if (!isApproved) {
+                clientOperationService.issueCertificateRejectedAction(actionMessage.getResourceUuid());
+                return;
             }
         }
 
-        boolean isApproved = actionMessage.getApprovalUuid() != null;
         switch (actionMessage.getResourceAction()) {
             case ISSUE -> {
                 clientOperationService.issueCertificateAction(actionMessage.getResourceUuid(), isApproved);
@@ -139,18 +135,8 @@ public class ActionListener {
     }
 
     @Autowired
-    public void setApprovalRepository(ApprovalRepository approvalRepository) {
-        this.approvalRepository = approvalRepository;
-    }
-
-    @Autowired
     public void setClientOperationService(ClientOperationService clientOperationService) {
         this.clientOperationService = clientOperationService;
-    }
-
-    @Autowired
-    public void setCertificateRepository(CertificateRepository certificateRepository) {
-        this.certificateRepository = certificateRepository;
     }
 
     @Autowired

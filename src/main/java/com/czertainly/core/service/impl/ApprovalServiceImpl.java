@@ -177,7 +177,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         approvalRepository.save(approval);
 
         // TODO: produce only for certificates for now until refactoring and uniting of event history for all resources
-        if(resource == Resource.CERTIFICATE) {
+        if (resource == Resource.CERTIFICATE) {
             eventProducer.produceCertificateEventMessage(objectUuid, CertificateEvent.APPROVAL_REQUEST.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Approval requested for action %s with approval profile %s", resourceAction.getCode(), approvalProfileVersion.getApprovalProfile().getName()), null);
         }
 
@@ -191,8 +191,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         for (Approval approval : expiredApprovals) {
             try {
                 closeApproval(approval, ApprovalStatusEnum.EXPIRED, true);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 logger.error("Failed to close expired approval {} for {} {} action", approval.getUuid(), approval.getResource().getLabel(), approval.getAction().getCode());
             }
         }
@@ -305,21 +304,20 @@ public class ApprovalServiceImpl implements ApprovalService {
         approvalRepository.save(approval);
 
         // if approved, perform action linked with approval
-        if (approvalStatus == ApprovalStatusEnum.APPROVED) {
-            final ActionMessage actionMessage = new ActionMessage();
-            actionMessage.setUserUuid(approval.getCreatorUuid());
-            actionMessage.setApprovalUuid(approval.getUuid());
-            actionMessage.setData(approval.getObjectData());
-            actionMessage.setResourceUuid(approval.getObjectUuid());
-            actionMessage.setResource(approval.getResource());
-            actionMessage.setResourceAction(approval.getAction());
-            actionProducer.produceMessage(actionMessage);
-        }
+        final ActionMessage actionMessage = new ActionMessage();
+        actionMessage.setUserUuid(approval.getCreatorUuid());
+        actionMessage.setApprovalUuid(approval.getUuid());
+        actionMessage.setApprovalStatus(approvalStatus);
+        actionMessage.setData(approval.getObjectData());
+        actionMessage.setResourceUuid(approval.getObjectUuid());
+        actionMessage.setResource(approval.getResource());
+        actionMessage.setResourceAction(approval.getAction());
+        actionProducer.produceMessage(actionMessage);
 
         // send event of approval closed
         // TODO: produce only for certificates for now until refactoring and uniting of event history for all resources
         ApprovalDto approvalDto = approval.mapToDto();
-        if(approval.getResource() == Resource.CERTIFICATE) {
+        if (approval.getResource() == Resource.CERTIFICATE) {
             eventProducer.produceCertificateEventMessage(approval.getObjectUuid(), CertificateEvent.APPROVAL_CLOSE.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Approval for action %s with approval profile %s closed with status %s", approval.getAction().getCode(), approvalDto.getApprovalProfileName(), approvalStatus.getLabel()), null);
         }
 
