@@ -109,7 +109,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Override
     // Internal purpose only
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException {
-        if(certificate.getStatus().equals(CertificateStatus.NEW)) {
+        if(certificate.getStatus().equals(CertificateStatus.NEW) || certificate.getStatus().equals(CertificateStatus.REJECTED)) {
             return;
         }
         logger.debug("Checking the Compliance of the Certificate: {}", certificate);
