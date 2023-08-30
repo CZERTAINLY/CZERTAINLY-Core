@@ -42,12 +42,13 @@ public class ApprovalStep extends UniquelyIdentified {
 
     public ApprovalStepDto mapToDto() {
         final ApprovalStepDto approvalStepDto = new ApprovalStepDto();
-        approvalStepDto.setRequiredApprovals(this.requiredApprovals);
-        approvalStepDto.setOrder(this.order);
+        approvalStepDto.setUuid(this.uuid);
         approvalStepDto.setUserUuid(this.userUuid);
         approvalStepDto.setRoleUuid(this.roleUuid);
         approvalStepDto.setGroupUuid(this.groupUuid);
         approvalStepDto.setDescription(this.description);
+        approvalStepDto.setOrder(this.order);
+        approvalStepDto.setRequiredApprovals(this.requiredApprovals);
         return approvalStepDto;
     }
 
@@ -55,7 +56,6 @@ public class ApprovalStep extends UniquelyIdentified {
         final ApprovalStepDto approvalStepDto = mapToDto();
         final ApprovalDetailStepDto dto = new ApprovalDetailStepDto(approvalStepDto);
         dto.setApprovalStepRecipients(new ArrayList<>());
-        dto.setApprovalStepUuid(this.uuid.toString());
         return dto;
     }
 

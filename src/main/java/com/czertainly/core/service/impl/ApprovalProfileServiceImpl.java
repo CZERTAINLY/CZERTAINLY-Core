@@ -21,6 +21,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalProfileService;
+import com.czertainly.core.util.ApprovalRecipientHelper;
 import com.czertainly.core.util.RequestValidatorHelper;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -48,6 +49,8 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
 
     private ApprovalProfileVersionRepository approvalProfileVersionRepository;
 
+    private ApprovalRecipientHelper approvalRecipientHelper;
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.LIST)
@@ -70,11 +73,15 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DETAIL)
     public ApprovalProfileDetailDto getApprovalProfile(final SecuredUUID uuid, final Integer version) throws NotFoundException {
+        ApprovalProfileDetailDto approvalProfileDetailDto;
         if (version == null) {
-            return findApprovalProfileByUuid(uuid).getTheLatestApprovalProfileVersion().mapToDtoWithSteps();
+            approvalProfileDetailDto = findApprovalProfileByUuid(uuid).getTheLatestApprovalProfileVersion().mapToDtoWithSteps();
         } else {
-            return findApprovalProfileByUuid(uuid).getApprovalProfileVersionByVersion(version).mapToDtoWithSteps();
+            approvalProfileDetailDto = findApprovalProfileByUuid(uuid).getApprovalProfileVersionByVersion(version).mapToDtoWithSteps();
         }
+
+        approvalProfileDetailDto.getApprovalSteps().forEach(approvalStep -> approvalRecipientHelper.fillApprovalStepDto(approvalStep));
+        return approvalProfileDetailDto;
     }
 
     @Override
@@ -198,7 +205,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
         return true;
     }
 
-    private void createApprovalSteps(final ApprovalProfileVersion approvalProfileVersion, final List<ApprovalStepDto> approvalStepDtos) throws ValidationException {
+    private void createApprovalSteps(final ApprovalProfileVersion approvalProfileVersion, final List<ApprovalStepRequestDto> approvalStepDtos) throws ValidationException {
         if (approvalStepDtos == null || approvalStepDtos.isEmpty()) {
             throw new ValidationException("Unable to process approval profile without approval steps.");
         }
@@ -224,7 +231,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
         approvalProfileVersionRepository.save(approvalProfileVersion);
     }
 
-    private void validateAssignedPersons(final ApprovalStepDto as) {
+    private void validateAssignedPersons(final ApprovalStepRequestDto as) {
         boolean isAssignedResponsibleUser = false;
         if (as.getRoleUuid() != null) {
             isAssignedResponsibleUser = true;
@@ -279,5 +286,10 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     @Autowired
     public void setApprovalProfileVersionRepository(ApprovalProfileVersionRepository approvalProfileVersionRepository) {
         this.approvalProfileVersionRepository = approvalProfileVersionRepository;
+    }
+
+    @Autowired
+    public void setApprovalRecipientHelper(ApprovalRecipientHelper approvalRecipientHelper) {
+        this.approvalRecipientHelper = approvalRecipientHelper;
     }
 }
