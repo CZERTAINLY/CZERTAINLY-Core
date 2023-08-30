@@ -320,7 +320,9 @@ public class ScepRequest {
         }
         assert decryptedData != null;
         try {
-            pkcs10Request = new JcaPKCS10CertificationRequest(decryptedData);
+            if (messageType.equals(MessageType.PKCS_REQ) || messageType.equals(MessageType.RENEWAL_REQ)) {
+                pkcs10Request = new JcaPKCS10CertificationRequest(decryptedData);
+            }
         } catch (IOException e) {
             String errorMessage = "Failed to load decrypted PKCS#10 request";
             logger.error(errorMessage + ": ", e);
