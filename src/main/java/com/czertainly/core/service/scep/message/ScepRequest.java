@@ -246,7 +246,7 @@ public class ScepRequest {
     }
 
     private void readRequest() throws ScepException, IOException {
-        if (! (messageType.equals(MessageType.PKCS_REQ)) ) {
+        if (!messageType.equals(MessageType.PKCS_REQ) && !messageType.equals(MessageType.RENEWAL_REQ) && !messageType.equals(MessageType.CERT_POLL)) {
             throw new ScepException("Wrong type of message: " + messageType, FailInfo.BAD_REQUEST);
         }
 
