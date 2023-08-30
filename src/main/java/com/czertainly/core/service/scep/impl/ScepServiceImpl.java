@@ -448,7 +448,7 @@ public class ScepServiceImpl implements ScepService {
         }
 
         ScepResponse scepResponse = new ScepResponse();
-        if (response.getCertificateData() == null) {
+        if (response.getCertificateData() == null || response.getCertificateData().isEmpty()) {
             // certificate is not yet issued
             addTransactionEntity(scepRequest.getTransactionId(), response.getUuid());
             scepResponse.setPkiStatus(PkiStatus.PENDING);
