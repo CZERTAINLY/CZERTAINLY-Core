@@ -110,7 +110,7 @@ public class NotificationListener {
 
         if (notificationMessage.getData() == null) {
             // TODO: convert it with ObjectMapper before to check if it is correct type
-            logger.warn("Missing notification data or has incompatible data type. Message: " + notificationMessage);
+            logger.warn("Missing notification data or has incompatible data type. Message: {}", notificationMessage);
             return;
         }
 
@@ -126,7 +126,7 @@ public class NotificationListener {
             } catch (NotFoundException e) {
                 logger.warn("Notification instance {} configured for notification type {} was not found.", notificationInstanceUUID, notificationMessage.getType());
             } catch (ConnectorException e) {
-                logger.warn("Error in sending request to connector of notification instance {} configured for notification type {}: {}", notificationInstanceUUID, notificationMessage.getType(), e);
+                logger.warn("Error in sending request to connector of notification instance {} configured for notification type {}: {}", notificationInstanceUUID, notificationMessage.getType(), e.getMessage(), e);
             } catch (ValidationException e) {
                 logger.warn("Validation error in sending notification to connector of notification instance {} configured for notification type {}: {}", notificationInstanceUUID, notificationMessage.getType(), e.getMessage());
             } catch (Exception e) {
@@ -153,7 +153,7 @@ public class NotificationListener {
         try {
             mappingAttributes = notificationInstanceApiClient.listMappingAttributes(connector, notificationInstanceReference.getKind());
         } catch (ConnectorException e) {
-            logger.error("Cannot retrieve mapping attributes from connector: " + e.getMessage());
+            logger.error("Cannot retrieve mapping attributes from connector: {}", e.getMessage());
             throw e;
         }
 
@@ -210,7 +210,7 @@ public class NotificationListener {
                 List<RequestAttributeDto> mappedAttributes = new ArrayList<>();
                 HashMap<String, ResponseAttributeDto> mappedContent = new HashMap<>();
                 for (NotificationInstanceMappedAttributes mappedAttribute : notificationInstanceReference.getMappedAttributes()) {
-                    Optional<ResponseAttributeDto> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().toString().equals(mappedAttribute.getAttributeDefinitionUuid().toString())).findFirst();
+                    Optional<ResponseAttributeDto> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid().toString())).findFirst();
                     if (recipientCustomAttribute.isPresent()) {
                         mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), recipientCustomAttribute.get());
                     }
@@ -253,7 +253,7 @@ public class NotificationListener {
             try {
                 notificationInstanceApiClient.sendNotification(connector, notificationInstanceReference.getNotificationInstanceUuid().toString(), notificationProviderNotifyRequestDto);
             } catch (ConnectorException e) {
-                logger.error("Cannot send notification to connector: " + e.getMessage());
+                logger.error("Cannot send notification to connector: {}", e.getMessage());
                 throw e;
             }
         } else {
@@ -333,7 +333,7 @@ public class NotificationListener {
     }
 
     private String getApprovalNotificationDetail(NotificationDataApproval approvalData) {
-        return String.format("Approval profile name: %s,\nResource: %s,\nResource action: %s,\nObject UUID: %s",
+        return String.format("Approval profile name: %s,%nResource: %s,%nResource action: %s,%nObject UUID: %s",
                 approvalData.getApprovalProfileName(), approvalData.getResource().getLabel(), approvalData.getResourceAction(), approvalData.getObjectUuid());
     }
 
