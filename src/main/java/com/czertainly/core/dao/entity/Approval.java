@@ -87,13 +87,12 @@ public class Approval extends UniquelyIdentified {
         final ApprovalDto approvalDto = mapToDto();
         final ApprovalDetailDto dto = new ApprovalDetailDto(approvalDto);
 
-        final ApprovalProfileVersion approvalProfileVersion = this.getApprovalProfileVersion();
-        dto.setExpiry(approvalProfileVersion.getExpiry());
-        dto.setDescription(approvalProfileVersion.getDescription());
+        dto.setExpiry(this.approvalProfileVersion.getExpiry());
+        dto.setDescription(this.approvalProfileVersion.getDescription());
 
         final List<ApprovalDetailStepDto> approvalStepDtoList = new ArrayList<>();
         if (this.getApprovalRecipients() != null) {
-            this.getApprovalRecipients().stream().forEach(recipient -> processRecipient(recipient, approvalStepDtoList));
+            this.getApprovalRecipients().forEach(recipient -> processRecipient(recipient, approvalStepDtoList));
         }
         dto.setApprovalSteps(approvalStepDtoList);
 
@@ -101,7 +100,7 @@ public class Approval extends UniquelyIdentified {
     }
 
     private void processRecipient(final ApprovalRecipient recipient, final List<ApprovalDetailStepDto> approvalStepDtos) {
-        final Optional<ApprovalDetailStepDto> approvalStepDto = approvalStepDtos.stream().filter(as -> as.getApprovalStepUuid().equals(recipient.getApprovalStepUuid().toString())).findFirst();
+        final Optional<ApprovalDetailStepDto> approvalStepDto = approvalStepDtos.stream().filter(as -> as.getUuid().toString().equals(recipient.getApprovalStepUuid().toString())).findFirst();
         if (approvalStepDto.isPresent()) {
             approvalStepDto.get().getApprovalStepRecipients().add(recipient.mapToDto());
         } else {
