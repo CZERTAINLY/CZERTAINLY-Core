@@ -106,7 +106,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @OneToMany(
             mappedBy = "certificate",
-            cascade = CascadeType.ALL,
             fetch = FetchType.LAZY
             //orphanRemoval = true
     )
