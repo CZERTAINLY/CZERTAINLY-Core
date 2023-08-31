@@ -20,6 +20,7 @@ import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
@@ -53,7 +54,10 @@ public class ActionListener {
 
     @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter")
     public void processMessage(final ActionMessage actionMessage) throws MessageHandlingException {
-        if (actionMessage.getApprovalUuid() == null) {
+        boolean hasApproval = actionMessage.getApprovalUuid() != null;
+        boolean isApproved = hasApproval && actionMessage.getApprovalStatus().equals(ApprovalStatusEnum.APPROVED);
+
+        if (!hasApproval) {
             final Optional<List<ApprovalProfileRelation>> approvalProfileRelationOptional = approvalProfileRelationRepository.findByResourceUuidAndResource(actionMessage.getApprovalProfileResourceUuid(), actionMessage.getApprovalProfileResource());
             if (approvalProfileRelationOptional.isPresent() && !approvalProfileRelationOptional.get().isEmpty()) {
                 try {
@@ -74,39 +78,38 @@ public class ActionListener {
 
         try {
             AuthHelper.authenticateAsUser(actionMessage.getUserUuid());
-            processAction(actionMessage);
+            processAction(actionMessage, hasApproval, isApproved);
         } catch (Exception e) {
-            String errorMessage = String.format("Failed to perform %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
-            logger.error(errorMessage + " {}", e.getMessage());
+            String errorMessage = String.format("Failed to perform %s %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode(), isApproved ? "" : " rejected");
+            logger.error("{}: {}", errorMessage, e.getMessage());
             notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
                     NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
             throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Unable to process action: " + e.getMessage());
         }
     }
 
-    private void processAction(final ActionMessage actionMessage) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
         switch (actionMessage.getResource()) {
             case CERTIFICATE -> {
-                processCertificateAction(actionMessage);
+                processCertificateAction(actionMessage, hasApproval, isApproved);
             }
-            default -> logger.error("There is not allow other resources than CERTIFICATE (for now)");
+            default -> logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }
     }
 
-    private void processCertificateAction(final ActionMessage actionMessage) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException {
-        boolean isApproved = false;
-        if (actionMessage.getApprovalUuid() != null) {
-            isApproved = actionMessage.getApprovalStatus().equals(ApprovalStatusEnum.APPROVED);
-            if (!isApproved) {
-                clientOperationService.issueCertificateRejectedAction(actionMessage.getResourceUuid());
-                return;
+    private void processCertificateAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException {
+        // handle rejected actions
+        if (hasApproval && !isApproved) {
+            switch (actionMessage.getResourceAction()) {
+                case ISSUE, RENEW, REKEY -> clientOperationService.issueCertificateRejectedAction(actionMessage.getResourceUuid());
+                default -> logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
             }
+            return;
         }
 
+        // handle
         switch (actionMessage.getResourceAction()) {
-            case ISSUE -> {
-                clientOperationService.issueCertificateAction(actionMessage.getResourceUuid(), isApproved);
-            }
+            case ISSUE -> clientOperationService.issueCertificateAction(actionMessage.getResourceUuid(), isApproved);
             case REKEY -> {
                 final ClientCertificateRekeyRequestDto clientCertificateRekeyRequestDto = mapper.convertValue(actionMessage.getData(), ClientCertificateRekeyRequestDto.class);
                 clientOperationService.rekeyCertificateAction(actionMessage.getResourceUuid(), clientCertificateRekeyRequestDto, isApproved);
@@ -119,6 +122,7 @@ public class ActionListener {
                 final ClientCertificateRevocationDto clientCertificateRevocationDto = mapper.convertValue(actionMessage.getData(), ClientCertificateRevocationDto.class);
                 clientOperationService.revokeCertificateAction(actionMessage.getResourceUuid(), clientCertificateRevocationDto, isApproved);
             }
+            default -> logger.error("Action listener does not support action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
         }
     }
 

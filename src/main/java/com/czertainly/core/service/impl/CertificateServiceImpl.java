@@ -280,19 +280,19 @@ public class CertificateServiceImpl implements CertificateService {
         List<ValidationError> errors = new ArrayList<>();
 
         if (certificate.getUserUuid() != null) {
-            errors.add(ValidationError.create("Certificate is used by an User"));
+            errors.add(ValidationError.create("Certificate is used by some user."));
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Certificate is used by an User", "");
         }
 
         if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete certificate", errors);
+            throw new ValidationException("Could not delete certificate.", errors);
         }
 
         // remove certificate from Locations
         try {
             locationService.removeCertificateFromLocations(uuid);
         } catch (ConnectorException e) {
-            logger.error("Failed to remove Certificate {} from Locations", uuid);
+            logger.error("Failed to remove Certificate {} from Locations.", uuid);
         }
 
         CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty())
@@ -345,13 +345,17 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     public void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException {
         setupSecurityFilter(filter);
+
+        UUID loggedUserUuid = null;
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getUuids() != null && !request.getUuids().isEmpty())) {
             for (String uuid : request.getUuids()) {
                 try {
                     deleteCertificate(SecuredUUID.fromString(uuid));
                 } catch (Exception e) {
-                    logger.error("Unable to delete the certificate: {}", e.getMessage());
+                    logger.error("Unable to delete the certificate {}: {}", uuid, e.getMessage());
+                    if (loggedUserUuid == null) loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+                    notificationProducer.produceNotificationText(Resource.CERTIFICATE, UUID.fromString(uuid), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to delete the certificate " + uuid, e.getMessage());
                 }
             }
         } else {
@@ -961,7 +965,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (certificateRequestOptional.isPresent()) {
             certificateRequest = certificateRequestOptional.get();
             // if no CSR attributes are assigned to CSR, update them with ones provided
-            if((certificateRequest.getAttributes() == null || certificateRequest.getAttributes().isEmpty())
+            if ((certificateRequest.getAttributes() == null || certificateRequest.getAttributes().isEmpty())
                     && csrAttributes != null && !csrAttributes.isEmpty()) {
                 certificateRequest.setAttributes(csrAttributes);
             }
