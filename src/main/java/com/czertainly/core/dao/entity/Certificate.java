@@ -193,8 +193,10 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setKeySize(keySize);
         dto.setUuid(uuid.toString());
         dto.setStatus(status);
-        dto.setOwner(owner);
         dto.setCertificateType(certificateType);
+        dto.setOwner(owner);
+        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
+
         /**
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
          * When the details of the certificate is requested, the Service will transform the result into the user understandable
@@ -273,6 +275,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setStatus(status);
         dto.setFingerprint(fingerprint);
         dto.setOwner(owner);
+        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
         /**
