@@ -29,6 +29,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalService;
+import com.czertainly.core.util.ApprovalRecipientHelper;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.RequestValidatorHelper;
 import jakarta.persistence.criteria.*;
@@ -43,7 +44,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -56,6 +56,8 @@ public class ApprovalServiceImpl implements ApprovalService {
     private ApprovalRecipientRepository approvalRecipientRepository;
 
     private ApprovalStepRepository approvalStepRepository;
+
+    private ApprovalRecipientHelper approvalRecipientHelper;
 
     private NotificationProducer notificationProducer;
 
@@ -88,7 +90,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             final Join joinApprovalRecipient = root.join("approvalRecipients", JoinType.LEFT);
             final Predicate statusPredicate = joinApprovalRecipient.get("status").in(prepareApprovalRecipientStatuses(withHistory));
             final Predicate userUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("userUuid"), UUID.fromString(userProfileDto.getUser().getUuid()));
-            final Predicate roleUuidPredicate = joinApprovalRecipient.get("approvalStep").get("roleUuid").in(userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).collect(Collectors.toList()));
+            final Predicate roleUuidPredicate = joinApprovalRecipient.get("approvalStep").get("roleUuid").in(userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).toList());
             final Predicate groupUuidPredicate = joinApprovalRecipient.get("approvalStep").get("groupUuid").in(userProfileDto.getUser().getGroupUuid() != null ? List.of(UUID.fromString(userProfileDto.getUser().getGroupUuid())) : List.of());
             return cb.and(statusPredicate, cb.or(userUuidPredicate, roleUuidPredicate, groupUuidPredicate));
         };
@@ -108,7 +110,12 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.REQUEST)
     public ApprovalDetailDto getApprovalDetail(final String uuid) throws NotFoundException {
-        return findApprovalByUuid(uuid).mapToDetailDto();
+        ApprovalDetailDto approvalDetailDto = findApprovalByUuid(uuid).mapToDetailDto();
+
+        approvalDetailDto.setCreatorUsername(approvalRecipientHelper.getUsername(approvalDetailDto.getCreatorUuid()));
+        approvalDetailDto.getApprovalSteps().forEach(approvalStep -> approvalRecipientHelper.fillApprovalDetailStepDto(approvalStep));
+
+        return approvalDetailDto;
     }
 
     @Override
@@ -215,7 +222,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         final List<ApprovalRecipient> approvalRecipients
                 = approvalRecipientRepository.findByResponsiblePersonAndStatusAndApproval(
                 UUID.fromString(userProfileDto.getUser().getUuid()),
-                userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).collect(Collectors.toList()),
+                userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).toList(),
                 userProfileDto.getUser().getGroupUuid() != null ? List.of(UUID.fromString(userProfileDto.getUser().getGroupUuid())) : List.of(),
                 ApprovalStatusEnum.PENDING,
                 approvalUuid);
@@ -240,7 +247,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     private void processApprovalToTheNextStep(final String approvalUuid, final ApprovalRecipient lastProcessedApprovalRecipient) throws NotFoundException {
 
         final List<ApprovalRecipient> approvalRecipients = approvalRecipientRepository.findApprovalRecipientsByApprovalUuidAndStatus(UUID.fromString(approvalUuid), ApprovalStatusEnum.PENDING);
-        if (approvalRecipients != null && approvalRecipients.size() > 0) {
+        if (approvalRecipients != null && !approvalRecipients.isEmpty()) {
             throw new ValidationException(ValidationError.create("There are still exist some pending steps for Approval " + approvalUuid));
         }
 
@@ -265,7 +272,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                         prepareNotificationRecipients(nextApprovalStep),
                         approval.mapToDto(),
                         approval.getCreatorUuid().toString());
-                logger.info("Notification message about new approvals needed for the step was sent. " + approvalUuid);
+                logger.info("Notification message about new approvals needed for the step was sent. Approval UUID: {}", approvalUuid);
             }
         } else {
             logger.info("There is no more steps and the approval can be closed as successful.");
@@ -354,8 +361,11 @@ public class ApprovalServiceImpl implements ApprovalService {
         final Long maxItems = approvalRepository.countUsingSecurityFilter(securityFilter, additionalWhereClause);
         final ApprovalResponseDto responseDto = new ApprovalResponseDto();
         responseDto.setApprovals(approvalList.stream()
-                .map(approval -> approval.mapToDto())
-                .collect(Collectors.toList()));
+                .map(a -> {
+                    ApprovalDto dto = a.mapToDto();
+                    dto.setCreatorUsername(this.approvalRecipientHelper.getUsername(dto.getCreatorUuid()));
+                    return dto;
+                }).toList());
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -393,5 +403,10 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Autowired
     public void setEventProducer(EventProducer eventProducer) {
         this.eventProducer = eventProducer;
+    }
+
+    @Autowired
+    public void setApprovalRecipientHelper(ApprovalRecipientHelper approvalRecipientHelper) {
+        this.approvalRecipientHelper = approvalRecipientHelper;
     }
 }
