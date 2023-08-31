@@ -51,6 +51,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +59,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -464,6 +464,36 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
+    public void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException {
+        CertificateLocation certificateLocation = certificateLocationRepository.findById(certificateLocationId).orElseThrow(() -> new NotFoundException(CertificateLocation.class, certificateLocationId));
+        Certificate certificate = certificateLocation.getCertificate();
+        Location location = certificateLocation.getLocation();
+
+        List<MetadataAttribute> metadata = metadataService.getMetadata(
+                certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
+                certificate.getUuid(),
+                Resource.CERTIFICATE,
+                location.getUuid(),
+                Resource.LOCATION);
+        removeStash(location, metadata);
+
+        certificateLocationRepository.delete(certificateLocation);
+
+        attributeService.deleteAttributeContent(
+                certificate.getUuid(),
+                Resource.CERTIFICATE,
+                location.getUuid(),
+                Resource.LOCATION,
+                AttributeType.META
+        );
+
+        location.getCertificates().remove(certificateLocation);
+
+        locationRepository.save(location);
+        logger.debug("Removed rejected certificate {} from location {}", certificate, location.getName());
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto pushCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
@@ -493,7 +523,7 @@ public class LocationServiceImpl implements LocationService {
         }
 
         if (certificate.getStatus().equals(CertificateStatus.NEW)) {
-            addCertificateToLocation(location, certificate, request.getAttributes(), List.of());
+            addCertificateToLocation(location, certificate, request.getAttributes(), List.of(), List.of());
             logger.info("Certificate {} is added to location {} and prepared to be pushed after issue", certificate, location.getName());
         } else {
             pushCertificateToLocation(
@@ -621,9 +651,7 @@ public class LocationServiceImpl implements LocationService {
 
         // add new Certificate to Location
         try {
-            addCertificateToLocation(
-                    location, certificate,
-                    generateCsrResponseDto.getPushAttributes(), request.getCsrAttributes());
+            addCertificateToLocation(location, certificate, generateCsrResponseDto.getPushAttributes(), request.getCsrAttributes(), generateCsrResponseDto.getMetadata());
         } catch (Exception e) {
             logger.error("Failed to add new certificate to location: {}", e.getMessage());
             removeStash(location, generateCsrResponseDto.getMetadata());
@@ -727,9 +755,7 @@ public class LocationServiceImpl implements LocationService {
 
         // add renewed Certificate to Location
         try {
-            addCertificateToLocation(
-                    certificateLocation.getLocation(), certificate,
-                    generateCsrResponseDto.getPushAttributes(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()));
+            addCertificateToLocation(certificateLocation.getLocation(), certificate, generateCsrResponseDto.getPushAttributes(), AttributeDefinitionUtils.getClientAttributes(certificateLocation.getCsrAttributes()), generateCsrResponseDto.getMetadata());
 
         } catch (Exception e) {
             logger.error("Failed to add new Certificate: {}", e.getMessage());
@@ -802,7 +828,8 @@ public class LocationServiceImpl implements LocationService {
                 throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". RA profile is not existing or does not have set authority");
             }
             clientCertificateDataResponseDto = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.get().getAuthorityInstanceReferenceUuid()), raProfile.get().getSecuredUuid(), clientCertificateSignRequestDto);
-        } catch (NotFoundException | java.security.cert.CertificateException | CertificateOperationException | InvalidKeyException | IOException |
+        } catch (NotFoundException | java.security.cert.CertificateException | CertificateOperationException |
+                 InvalidKeyException | IOException |
                  NoSuchAlgorithmException e) {
             logger.debug("Failed to issue Certificate for Location {}, {}: {}", location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". Reason: " + e.getMessage());
@@ -823,7 +850,8 @@ public class LocationServiceImpl implements LocationService {
                     certificateLocation.getCertificate().getSecuredUuid().toString(),
                     clientCertificateRenewRequestDto
             );
-        } catch (NotFoundException | IOException | java.security.cert.CertificateException | CertificateOperationException
+        } catch (NotFoundException | IOException | java.security.cert.CertificateException |
+                 CertificateOperationException
                  | NoSuchAlgorithmException | InvalidKeyException e) {
             logger.debug("Failed to renew Certificate for Location {}, {}: {}", certificateLocation.getLocation().getName(), certificateLocation.getLocation().getUuid(), e.getMessage());
             throw new LocationException("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() + ". Reason: " + e.getMessage());
@@ -831,7 +859,7 @@ public class LocationServiceImpl implements LocationService {
         return clientCertificateDataResponseDto;
     }
 
-    private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes) throws LocationException {
+    private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes, List<MetadataAttribute> certificateMetadata) throws LocationException {
         //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
         //stored in the database
         List<BaseAttribute> fullPushAttributes;
@@ -843,6 +871,15 @@ public class LocationServiceImpl implements LocationService {
             logger.error("Unable to find the location with uuid: {}", location.getUuid());
             throw new LocationException("Failed to get Attributes for Location: " + location.getName() + ". Location not found");
         }
+
+        metadataService.createMetadataDefinitions(location.getEntityInstanceReference().getConnector().getUuid(), certificateMetadata);
+        metadataService.createMetadata(location.getEntityInstanceReference().getConnector().getUuid(),
+                certificate.getUuid(),
+                location.getUuid(),
+                location.getName(),
+                certificateMetadata,
+                Resource.CERTIFICATE,
+                Resource.LOCATION);
 
         List<DataAttribute> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
         List<DataAttribute> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
@@ -993,14 +1030,12 @@ public class LocationServiceImpl implements LocationService {
                 Resource.LOCATION);
         removeCertificateRequestDto.setCertificateMetadata(metadata);
 
-        if (!certificate.getStatus().equals(CertificateStatus.NEW) && !certificate.getStatus().equals(CertificateStatus.REJECTED)) {
-            logger.info("Removing certificate {} from location {} in entity provider", certificate, location.getName());
-            locationApiClient.removeCertificateFromLocation(
-                    location.getEntityInstanceReference().getConnector().mapToDto(),
-                    location.getEntityInstanceReference().getEntityInstanceUuid(),
-                    removeCertificateRequestDto
-            );
-        }
+        logger.info("Removing certificate {} from location {} in entity provider", certificate, location.getName());
+        locationApiClient.removeCertificateFromLocation(
+                location.getEntityInstanceReference().getConnector().mapToDto(),
+                location.getEntityInstanceReference().getEntityInstanceUuid(),
+                removeCertificateRequestDto
+        );
 
         certificateLocationRepository.delete(certificateLocation);
 

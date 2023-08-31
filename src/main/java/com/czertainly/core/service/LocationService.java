@@ -132,6 +132,14 @@ public interface LocationService extends ResourceExtensionService {
     void removeCertificateFromLocations(SecuredUUID certificateUuid) throws NotFoundException;
 
     /**
+     * Remove rejected new Certificate from location as result of async issue approval reject process.
+     *
+     * @param certificateLocationId    ID of CertificateLocation entity
+     * @throws NotFoundException when the CertificateLocation with the given Id is not found.
+     */
+    void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException;
+
+    /**
      * Push existing Certificate to the given Location.
      *
      * @param entityUuid               UUID of entity
@@ -149,7 +157,7 @@ public interface LocationService extends ResourceExtensionService {
      *
      * @param certificateLocationId    ID of CertificateLocation entity
      * @param isRenewal       indication if certificate to be pushed was renewed
-     * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
+     * @throws NotFoundException when the CertificateLocation with the given Id is not found.
      * @throws LocationException when the Certificate failed to be pushed to the Location.
      */
     void pushNewCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException;

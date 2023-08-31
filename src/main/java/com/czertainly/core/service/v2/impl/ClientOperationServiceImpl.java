@@ -304,6 +304,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     public void issueCertificateRejectedAction(final UUID certificateUuid) throws NotFoundException {
         final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        Iterator<CertificateLocation> iterator = certificate.getLocations().iterator();
+        while (iterator.hasNext()) {
+            CertificateLocation cl = iterator.next();
+            try {
+                locationService.removeRejectedCertificateFromLocationAction(cl.getId());
+                iterator.remove();
+            } catch (Exception e) {
+                logger.error("Failed to remove certificate from location: {}", e.getMessage());
+            }
+        }
+
         certificate.setStatus(CertificateStatus.REJECTED);
         certificateRepository.save(certificate);
     }
