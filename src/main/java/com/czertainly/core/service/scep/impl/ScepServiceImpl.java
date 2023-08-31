@@ -317,15 +317,16 @@ public class ScepServiceImpl implements ScepService {
         }
 
         // validate challenge password, if configured
-        if (!validateScepChallengePassword(scepRequest.getChallengePassword())) {
-            return buildResponse(scepRequest, buildFailedResponse(new ScepException("Challenge password validation failed.", FailInfo.BAD_MESSAGE_CHECK), scepRequest.getTransactionId()));
-        }
-
-        // validate the request POP
-        try {
-            verifyRequest(scepRequest);
-        } catch (ScepException e) {
-            return buildResponse(scepRequest, buildFailedResponse(e, scepRequest.getTransactionId()));
+        if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ) || scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ)) {
+            if (!validateScepChallengePassword(scepRequest.getChallengePassword())) {
+                return buildResponse(scepRequest, buildFailedResponse(new ScepException("Challenge password validation failed.", FailInfo.BAD_MESSAGE_CHECK), scepRequest.getTransactionId()));
+            }
+            // validate the request POP
+            try {
+                verifyRequest(scepRequest);
+            } catch (ScepException e) {
+                return buildResponse(scepRequest, buildFailedResponse(e, scepRequest.getTransactionId()));
+            }
         }
 
         if (scepTransactionRepository.existsByTransactionIdAndScepProfile(scepRequest.getTransactionId(), scepProfile)) {
