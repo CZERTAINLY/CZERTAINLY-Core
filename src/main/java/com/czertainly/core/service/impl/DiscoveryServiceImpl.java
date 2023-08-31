@@ -31,6 +31,8 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -92,6 +94,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private AttributeService attributeService;
     @Autowired
     private AttributeContentRepository attributeContentRepository;
+
+    @Autowired
+    private NotificationProducer notificationProducer;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -236,6 +241,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public void createDiscoveryAsync(DiscoveryHistory modal) {
         createDiscovery(modal);
+
+        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+        notificationProducer.produceNotificationText(Resource.DISCOVERY, modal.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", modal.getName(), modal.getStatus()), modal.getMessage());
     }
 
     @Override
@@ -318,7 +326,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             discoveryRepository.save(modal);
             logger.error(e.getMessage());
         } catch (Exception e) {
-
             modal.setStatus(DiscoveryStatus.FAILED);
             modal.setMessage(e.getMessage());
             discoveryRepository.save(modal);
