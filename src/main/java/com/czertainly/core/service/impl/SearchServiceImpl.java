@@ -46,18 +46,6 @@ public class SearchServiceImpl implements SearchService {
     private GroupRepository groupRepository;
 
     @Override
-    public SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values, SearchableFieldType fieldType, List<SearchCondition> conditions) {
-        SearchFieldDataDto dto = new SearchFieldDataDto();
-        dto.setFieldIdentifier(field.getCode());
-        dto.setFieldLabel(label);
-        dto.setMultiValue(multiValue);
-        dto.setValue(values);
-        dto.setType(fieldType);
-        dto.setConditions(conditions);
-        return dto;
-    }
-
-    @Override
     public Object completeSearchQueryExecutor(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson) {
 
         String sqlQuery = "select c from " + entity + " c";
@@ -87,34 +75,6 @@ public class SearchServiceImpl implements SearchService {
         Object result = query.getResultList();
         return result;
     }
-
-    @Override
-    public Object nativeQueryExecutor(String sqlQuery) {
-        logger.debug("Executing query: {}", sqlQuery);
-        Query query = entityManager.createNativeQuery(sqlQuery);
-        Object result = null;
-        try {
-            result = query.getResultList();
-        } catch (PersistenceException e) {
-            logger.warn("Result is empty: {}", e.getMessage());
-        }
-        return result;
-    }
-
-    @Override
-    @Async("threadPoolTaskExecutor")
-    public Object asyncNativeQueryExecutor(String sqlQuery) {
-        logger.debug("Executing query: {}", sqlQuery);
-        Query query = entityManager.createNativeQuery(sqlQuery);
-        Object result = null;
-        try {
-            result = query.getResultList();
-        } catch (PersistenceException e) {
-            logger.warn("Result is empty: {}", e.getMessage());
-        }
-        return result;
-    }
-
 
     @Override
     public DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson, String additionalWhereClause) {
