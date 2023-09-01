@@ -54,7 +54,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
-        mockServer = new WireMockServer(3665);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
@@ -91,7 +91,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setName("testConnector");
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:"+mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -156,7 +156,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");
         request.setAuthType(AuthType.NONE);
-        request.setUrl("http://localhost:3665");
+        request.setUrl("http://localhost:"+mockServer.port());
 
         ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
@@ -196,7 +196,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
         request.setAuthType(AuthType.NONE);
-        request.setUrl("http://localhost:3665");
+        request.setUrl("http://localhost:"+mockServer.port());
 
         ConnectorDto dto = connectorService.editConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
@@ -241,7 +241,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
 
         Connector connector = new Connector();
         connector.setName("testConnector");
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:"+mockServer.port());
         connector = connectorRepository.save(connector);
 
         addFunctionGroupToConnector(caFunctionGroup, Collections.singletonList(kindName), connector);
