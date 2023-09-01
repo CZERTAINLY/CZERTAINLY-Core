@@ -20,11 +20,8 @@ import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
-import com.czertainly.core.dao.entity.Location;
-import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
 import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -69,15 +66,9 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     private EntityInstanceApiClient entityInstanceApiClient;
     private AttributeService attributeService;
     private AttributeContentRepository attributeContentRepository;
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
 
     @PersistenceContext
     private EntityManager entityManager;
-
-    @Autowired
-    public void setAttributeContent2ObjectRepository(AttributeContent2ObjectRepository attributeContent2ObjectRepository) {
-        this.attributeContent2ObjectRepository = attributeContent2ObjectRepository;
-    }
 
     @Autowired
     public void setAttributeContentRepository(AttributeContentRepository attributeContentRepository) {
@@ -124,7 +115,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
             searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
 
             final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.ENTITY);
-            objectUUIDs.addAll(attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
+            objectUUIDs.addAll(entityInstanceReferenceRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
         }
 
         final BiFunction<Root<EntityInstanceReference>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
