@@ -55,14 +55,14 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
-        mockServer = new WireMockServer(3665);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
         connector.setName(CONNECTOR_NAME);
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:"+mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -195,7 +195,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector2");
-        request.setUrl("http://localhost:3665");
+        request.setUrl("http://localhost:"+mockServer.port());
 
         ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
@@ -222,7 +222,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson("[]")));
 
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
-        request.setUrl("http://localhost:3665");
+        request.setUrl("http://localhost:"+mockServer.port());
 
         ConnectorDto dto = connectorService.editConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);

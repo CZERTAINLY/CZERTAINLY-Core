@@ -23,7 +23,7 @@ public class ConnectorRegistrationServiceTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
-        mockServer = new WireMockServer(3665);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
@@ -40,7 +40,7 @@ public class ConnectorRegistrationServiceTest extends BaseSpringBootTest {
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");
         request.setAuthType(AuthType.NONE);
-        request.setUrl("http://localhost:3665");
+        request.setUrl("http://localhost:"+mockServer.port());
         connectorRegistrationService.registerConnector(request);
     }
 
