@@ -49,14 +49,14 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
-        mockServer = new WireMockServer(3665);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
         connector.setName("entityInstanceConnector");
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:"+mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

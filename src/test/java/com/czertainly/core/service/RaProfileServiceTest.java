@@ -69,7 +69,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
 
     @BeforeEach
     public void setUp() {
-        mockServer = new WireMockServer(3665);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
@@ -84,7 +84,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
         certificate = certificateRepository.save(certificate);
 
         connector = new Connector();
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:"+mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

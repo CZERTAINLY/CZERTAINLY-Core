@@ -80,13 +80,13 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() throws GeneralSecurityException, IOException {
-        mockServer = new WireMockServer(3665);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:"+mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
