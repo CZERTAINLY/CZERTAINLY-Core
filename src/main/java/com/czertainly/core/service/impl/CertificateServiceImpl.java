@@ -647,12 +647,18 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String serialNumber) {
+        Certificate certificate = null;
+        CertificateStatus oldStatus = CertificateStatus.UNKNOWN;
         try {
-            Certificate certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
+            certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
+            oldStatus = certificate.getStatus();
             certificate.setStatus(CertificateStatus.REVOKED);
             certificateRepository.save(certificate);
         } catch (NotFoundException e) {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
+        }
+        if (certificate != null) {
+            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, CertificateStatus.REVOKED);
         }
     }
 
@@ -708,7 +714,25 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException {
+    public Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
+        Certificate certificate = getCertificateEntity(uuid);
+        CertificateStatus oldStatus = certificate.getStatus();
+        if (certificate.getStatus() != CertificateStatus.NEW && certificate.getStatus() != CertificateStatus.REJECTED) {
+            updateCertificateIssuer(certificate);
+            if (certificate.getStatus() != CertificateStatus.EXPIRED) {
+                certValidationService.validate(certificate);
+            }
+        }
+
+        if (!oldStatus.equals(certificate.getStatus())) {
+            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, certificate.getStatus());
+            try {
+                notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificate.mapToListDto());
+            } catch (Exception e) {
+                logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
+            }
+        }
+
         String validationResult = getCertificateEntity(uuid).getCertificateValidationResult();
         try {
             return MetaDefinitions.deserializeValidation(validationResult);
@@ -742,29 +766,17 @@ public class CertificateServiceImpl implements CertificateService {
                 updateCertificateStatusScheduled(certificate);
                 transactionManager.commit(status);
             } catch (Exception e) {
-                logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate, e);
+                logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate, e.getMessage(), e);
                 transactionManager.rollback(status);
                 continue;
             }
 
             if (!oldStatus.equals(certificate.getStatus())) {
-                // change certificate status event
-                eventProducer.produceCertificateEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Certificate status changed from %s to %s.", oldStatus.getLabel(), certificate.getStatus().getLabel()), null);
-                logger.info("Certificate {} event was sent with status {}", certificate.getUuid(), certificate.getStatus().getCode());
-
-                if (CertificateStatus.REVOKED.equals(certificate.getStatus()) || CertificateStatus.EXPIRING.equals(certificate.getStatus())) {
-                    try {
-                        logger.debug("Sending notification of status change. Certificate: {}", certificate);
-                        List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
-                        notificationProducer.produceNotificationCertificateStatusChanged(Resource.CERTIFICATE,
-                                certificate.getUuid(),
-                                recipients,
-                                oldStatus.getLabel(),
-                                certificate.getStatus().getLabel(),
-                                certificate.mapToListDto());
-                    } catch (Exception e) {
-                        logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
-                    }
+                eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, certificate.getStatus());
+                try {
+                    notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificate.mapToListDto());
+                } catch (Exception e) {
+                    logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
                 }
             }
 
@@ -1018,6 +1030,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + certificate.getRaProfile().getName(), "");
 
+        CertificateStatus oldStatus = CertificateStatus.NEW;
         // check compliance and validity of certificate
         try {
             certificateComplianceCheck(certificate);
@@ -1027,9 +1040,15 @@ public class CertificateServiceImpl implements CertificateService {
             logger.warn("Unable to validate certificate {}, {}", certificate.getUuid(), e.getMessage());
         }
 
+        CertificateDetailDto certificateDto = certificate.mapToDto();
+        if (!oldStatus.equals(certificate.getStatus())) {
+            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, certificate.getStatus());
+            notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificateDto);
+        }
+
         logger.info("Certificate was successfully issued. {}", certificate.getUuid());
 
-        return certificate.mapToDto();
+        return certificateDto;
     }
 
     @Override

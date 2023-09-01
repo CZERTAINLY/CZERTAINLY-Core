@@ -14,7 +14,7 @@ public class CustomAuditAware implements AuditorAware<String> {
     public Optional<String> getCurrentAuditor() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null)
-            return Optional.of(ObjectType.BE.name());
+            return Optional.of("system");
 
         if (authentication.getPrincipal() instanceof User) {
             String username = ((User) authentication.getPrincipal()).getUsername();

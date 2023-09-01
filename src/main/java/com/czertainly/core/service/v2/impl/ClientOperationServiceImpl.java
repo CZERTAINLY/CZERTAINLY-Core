@@ -27,6 +27,7 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.ActionProducer;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -77,6 +78,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private ActionProducer actionProducer;
     private NotificationProducer notificationProducer;
+    private EventProducer eventProducer;
 
     @Autowired
     public void setTransactionManager(PlatformTransactionManager transactionManager) {
@@ -91,6 +93,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Autowired
     public void setNotificationProducer(NotificationProducer notificationProducer) {
         this.notificationProducer = notificationProducer;
+    }
+
+    @Autowired
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
     }
 
     @Autowired
@@ -315,8 +322,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             }
         }
 
+        CertificateStatus oldStatus = certificate.getStatus();
         certificate.setStatus(CertificateStatus.REJECTED);
         certificateRepository.save(certificate);
+
+        eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, certificate.getStatus());
+        notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificate.mapToListDto());
     }
 
     @Override
@@ -649,6 +660,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
 
         try {
+            CertificateStatus oldStatus = certificate.getStatus();
             certificate.setStatus(CertificateStatus.REVOKED);
             certificate.setRevokeAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getAttributes())));
             logger.debug("Certificate revoked. Proceeding to check and destroy key");
@@ -658,6 +670,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             }
             certificateRepository.save(certificate);
 
+            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, certificate.getStatus());
+            notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificate.mapToListDto());
         } catch (Exception e) {
             logger.warn(e.getMessage());
         }

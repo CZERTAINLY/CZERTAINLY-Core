@@ -19,6 +19,7 @@ import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalService;
@@ -80,7 +81,7 @@ public class ActionListener {
             AuthHelper.authenticateAsUser(actionMessage.getUserUuid());
             processAction(actionMessage, hasApproval, isApproved);
         } catch (Exception e) {
-            String errorMessage = String.format("Failed to perform %s %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode(), isApproved ? "" : " rejected");
+            String errorMessage = String.format("Failed to perform %s %s%s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode(), isApproved ? "" : " rejected");
             logger.error("{}: {}", errorMessage, e.getMessage());
             notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
                     NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
