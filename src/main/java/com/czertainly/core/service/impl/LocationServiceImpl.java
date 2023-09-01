@@ -75,7 +75,6 @@ public class LocationServiceImpl implements LocationService {
 
     private LocationRepository locationRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
     private CertificateLocationRepository certificateLocationRepository;
     private AttributeContentRepository attributeContentRepository;
     private RaProfileRepository raProfileRepository;
@@ -104,11 +103,6 @@ public class LocationServiceImpl implements LocationService {
     @Autowired
     public void setLocationRepository(LocationRepository locationRepository) {
         this.locationRepository = locationRepository;
-    }
-
-    @Autowired
-    public void setAttributeContent2ObjectRepository(AttributeContent2ObjectRepository attributeContent2ObjectRepository) {
-        this.attributeContent2ObjectRepository = attributeContent2ObjectRepository;
     }
 
     @Autowired
@@ -176,7 +170,7 @@ public class LocationServiceImpl implements LocationService {
             searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
 
             final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.LOCATION);
-            objectUUIDs.addAll(attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
+            objectUUIDs.addAll(locationRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
         }
 
         final BiFunction<Root<Location>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);

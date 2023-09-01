@@ -152,7 +152,7 @@ public class Sql2PredicateConverter {
     }
 
     private static Predicate retrievePredicateForNull(final CriteriaBuilder criteriaBuilder, final Root root, final SearchableFields searchableFields, final Expression expression) {
-        if (searchableFields.getCode().contains(".")) {
+        if (searchableFields != null && searchableFields.getCode().contains(".")) {
             int indexOfDot = searchableFields.getCode().indexOf(".");
             final String mainPropertyString = searchableFields.getCode().substring(0, indexOfDot);
             final Expression mainExpression = prepareExpression(root, mainPropertyString);
