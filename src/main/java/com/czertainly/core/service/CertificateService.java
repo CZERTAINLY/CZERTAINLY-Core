@@ -131,7 +131,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return Certificate Validation result
      * @throws NotFoundException
      */
-    Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException;
+    Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
     /**
      * Function to update status of certificates by scheduled event
