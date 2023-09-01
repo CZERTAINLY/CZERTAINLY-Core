@@ -211,12 +211,12 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         final Approval approval = findApprovalByUuid(approvalUuid.toString());
         if (approval.getCreatorUuid().toString().equals(userProfileDto.getUser().getUuid())) {
-            throw new ValidationException(ValidationError.create("User " + userProfileDto.getUser().getUsername() + " can't approve/reject this action, because he has created this approval."));
+            throw new ValidationException(ValidationError.create("Approval " + approvalUuid + " can't be approved/rejected by the same user " + userProfileDto.getUser().getUsername() + " that created it."));
         }
 
         final List<ApprovalRecipient> approvalRecipientsByUser = approvalRecipientRepository.findByApprovalUuidAndUserUuid(approvalUuid, UUID.fromString(userProfileDto.getUser().getUuid()));
         if (approvalRecipientsByUser != null && !approvalRecipientsByUser.isEmpty()) {
-            throw new ValidationException("User " + userProfileDto.getUser().getUsername() + " can't approve/reject this action, because he has already made decision in past.");
+            throw new ValidationException("User " + userProfileDto.getUser().getUsername() + " already made decision about the approval " + approvalUuid + ". Can't approve/reject it again.");
         }
 
         final List<ApprovalRecipient> approvalRecipients
