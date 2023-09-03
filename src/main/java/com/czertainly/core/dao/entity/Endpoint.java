@@ -25,7 +25,7 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     @Column(name = "required")
     private Boolean required;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "function_group_uuid", nullable = false, insertable = false, updatable = false)
     private FunctionGroup functionGroup;
 

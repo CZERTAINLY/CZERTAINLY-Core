@@ -31,7 +31,7 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
     @Column(name="decommissioned")
     private Boolean decommissioned;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     private Connector connector;
 
@@ -39,11 +39,11 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
     private UUID connectorUuid;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "group")
+    @OneToMany(mappedBy = "group", fetch = FetchType.LAZY)
     private Set<ComplianceRule> rules;
 
     @JsonBackReference
-    @ManyToMany(mappedBy = "groups")
+    @ManyToMany(mappedBy = "groups", fetch = FetchType.LAZY)
     private Set<ComplianceProfile> complianceProfiles;
 
     public ComplianceGroupsResponseDto mapToGroupResponse(){

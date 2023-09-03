@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
@@ -25,7 +26,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-
 @Entity
 @Table(name = "ra_profile")
 public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto>, Securable, ObjectAccessControlMapper<NameAndUuidDto> {
@@ -44,7 +44,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "attributes", length = Integer.MAX_VALUE)
     private String attributes;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
     private AuthorityInstanceReference authorityInstanceReference;
 
@@ -54,33 +54,32 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "enabled")
     private Boolean enabled;
 
-    @ManyToMany(cascade = CascadeType.ALL)
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinTable(
             name = "ra_profile_2_compliance_profile",
             joinColumns = @JoinColumn(name = "ra_profile_uuid"),
             inverseJoinColumns = @JoinColumn(name = "compliance_profile_uuid"))
     private Set<ComplianceProfile> complianceProfiles;
 
-    @OneToOne(mappedBy = "raProfile")
+    @OneToOne(mappedBy = "raProfile", fetch = FetchType.LAZY)
     private RaProfileProtocolAttribute protocolAttribute;
 
     /**
      * Acme related objects for RA Profile
      */
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "acme_profile_uuid", insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
 
     @Column(name = "acme_profile_uuid")
     private UUID acmeProfileUuid;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scep_profile_uuid", insertable = false, updatable = false)
     private ScepProfile scepProfile;
 
     @Column(name = "scep_profile_uuid")
     private UUID scepProfileUuid;
-
 
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
@@ -96,7 +95,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setAcmeAvailable(true);
         return dto;
     }
-
 
     public RaProfileScepDetailResponseDto mapToScepDto() {
         RaProfileScepDetailResponseDto dto = new RaProfileScepDetailResponseDto();
@@ -158,9 +156,14 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setName(name);
         dto.setDescription(this.description);
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class)));
-        dto.setAuthorityInstanceUuid(authorityInstanceReference != null ? authorityInstanceReference.getUuid().toString() : null);
-        dto.setAuthorityInstanceName(this.authorityInstanceName);
         dto.setEnabled(enabled);
+
+        if (authorityInstanceReference != null) {
+            dto.setAuthorityInstanceUuid(authorityInstanceReference.getUuid().toString());
+            dto.setAuthorityInstanceName(this.authorityInstanceName);
+            dto.setLegacyAuthority(authorityInstanceReference.getConnector() == null ? null
+                    : authorityInstanceReference.getConnector().getFunctionGroups().stream().anyMatch(fg -> fg.getFunctionGroup().getCode().equals(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER)));
+        }
         return dto;
     }
 
@@ -261,7 +264,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     }
 
     public RaProfileProtocolAttribute getProtocolAttribute() {
-        if(protocolAttribute == null) {
+        if (protocolAttribute == null) {
             return new RaProfileProtocolAttribute();
         }
         return protocolAttribute;

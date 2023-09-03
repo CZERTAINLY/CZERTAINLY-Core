@@ -1,10 +1,7 @@
 package com.czertainly.core.service.scep.impl;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ScepException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
@@ -320,15 +317,16 @@ public class ScepServiceImpl implements ScepService {
         }
 
         // validate challenge password, if configured
-        if (!validateScepChallengePassword(scepRequest.getChallengePassword())) {
-            return buildResponse(scepRequest, buildFailedResponse(new ScepException("Challenge password validation failed.", FailInfo.BAD_MESSAGE_CHECK), scepRequest.getTransactionId()));
-        }
-
-        // validate the request POP
-        try {
-            verifyRequest(scepRequest);
-        } catch (ScepException e) {
-            return buildResponse(scepRequest, buildFailedResponse(e, scepRequest.getTransactionId()));
+        if (scepRequest.getMessageType().equals(MessageType.PKCS_REQ) || scepRequest.getMessageType().equals(MessageType.RENEWAL_REQ)) {
+            if (!validateScepChallengePassword(scepRequest.getChallengePassword())) {
+                return buildResponse(scepRequest, buildFailedResponse(new ScepException("Challenge password validation failed.", FailInfo.BAD_MESSAGE_CHECK), scepRequest.getTransactionId()));
+            }
+            // validate the request POP
+            try {
+                verifyRequest(scepRequest);
+            } catch (ScepException e) {
+                return buildResponse(scepRequest, buildFailedResponse(e, scepRequest.getTransactionId()));
+            }
         }
 
         if (scepTransactionRepository.existsByTransactionIdAndScepProfile(scepRequest.getTransactionId(), scepProfile)) {
@@ -429,8 +427,6 @@ public class ScepServiceImpl implements ScepService {
             );
         }
         ClientCertificateSignRequestDto requestDto = new ClientCertificateSignRequestDto();
-        ScepResponse scepResponse = new ScepResponse();
-
         try {
             requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
             requestDto.setAttributes(issueAttributes);
@@ -442,12 +438,22 @@ public class ScepServiceImpl implements ScepService {
             response = clientOperationService.issueCertificate(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), requestDto);
         } catch (ConnectorException e) {
             throw new ScepException("Unable to use connector to issue certificate", e, FailInfo.BAD_REQUEST);
-        } catch (AlreadyExistException e) {
-            throw new ScepException("Certificate already exists", e, FailInfo.BAD_REQUEST);
-        } catch (CertificateException e) {
+        } catch (CertificateException | CertificateOperationException e) {
             throw new ScepException("Unable to issue certificate", e, FailInfo.BAD_REQUEST);
         } catch (NoSuchAlgorithmException e) {
             throw new ScepException("Wrong algorithm to issue certificate", e, FailInfo.BAD_ALG);
+        } catch (IOException e) {
+            throw new ScepException("Unable to issue certificate. Error parsing CSR.", e, FailInfo.BAD_REQUEST);
+        } catch (InvalidKeyException e) {
+            throw new ScepException("Unable to issue certificate. Invalid key", e, FailInfo.BAD_REQUEST);
+        }
+
+        ScepResponse scepResponse = new ScepResponse();
+        if (response.getCertificateData() == null || response.getCertificateData().isEmpty()) {
+            // certificate is not yet issued
+            addTransactionEntity(scepRequest.getTransactionId(), response.getUuid());
+            scepResponse.setPkiStatus(PkiStatus.PENDING);
+            return scepResponse;
         }
 
         X509Certificate certificate;
@@ -484,8 +490,9 @@ public class ScepServiceImpl implements ScepService {
                     scepRequest
             );
         }
-        ClientCertificateRequestDto requestDto = new ClientCertificateRequestDto();
         ScepResponse scepResponse = new ScepResponse();
+        ClientCertificateRequestDto requestDto = new ClientCertificateRequestDto();
+        if (raProfile != null) requestDto.setRaProfileUuid(raProfile.getUuid());
         try {
             requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
         } catch (IOException e) {
@@ -493,18 +500,12 @@ public class ScepServiceImpl implements ScepService {
         }
         CertificateDetailDto response;
         try {
-            response = clientOperationService.createCsr(requestDto);
+            response = clientOperationService.submitCertificateRequest(requestDto);
         } catch (NotFoundException | CertificateException | IOException | NoSuchAlgorithmException |
-                 InvalidKeyException | NoSuchProviderException e) {
-            throw new ScepException("Unable to create CSR", e, FailInfo.BAD_REQUEST);
+                 InvalidKeyException e) {
+            throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }
-        CertificateUpdateObjectsDto updateObjectsRequest = new CertificateUpdateObjectsDto();
-        updateObjectsRequest.setRaProfileUuid(raProfile.getUuid().toString());
-        try {
-            certificateService.updateCertificateObjects(SecuredUUID.fromString(response.getUuid()), updateObjectsRequest);
-        } catch (NotFoundException e) {
-            throw new ScepException("Cannot update Certificate " + response.getUuid(), e, FailInfo.BAD_REQUEST);
-        }
+
         addTransactionEntity(scepRequest.getTransactionId(), response.getUuid());
         scepResponse.setPkiStatus(PkiStatus.PENDING);
 
@@ -515,6 +516,11 @@ public class ScepServiceImpl implements ScepService {
         ScepTransaction scepTransaction = scepTransactionRepository.findByTransactionIdAndScepProfile(transactionId, scepProfile).orElse(null);
         assert scepTransaction != null;
         Certificate certificate = scepTransaction.getCertificate();
+
+        if (certificate.getStatus() == CertificateStatus.REJECTED) {
+            return buildFailedResponse(new ScepException("Certificate issuance was rejected", FailInfo.BAD_REQUEST), transactionId);
+        }
+
         ScepResponse scepResponse = new ScepResponse();
         if (certificate.getStatus() != CertificateStatus.NEW) {
             scepResponse.setPkiStatus(PkiStatus.SUCCESS);
@@ -537,16 +543,22 @@ public class ScepServiceImpl implements ScepService {
         ScepResponse scepResponse = new ScepResponse();
         try {
             ScepTransaction transaction = getTransaction(scepRequest.getTransactionId());
-            if (transaction != null
-                    && !transaction.getCertificate().getStatus().equals(CertificateStatus.NEW)) {
-                X509Certificate certificate = CertificateUtil.parseCertificate(transaction.getCertificate().getCertificateContent().getContent());
-                scepResponse.setCertificateChain(getIssuedCertificateChain(transaction.getCertificate()));
-                scepResponse.setPkiStatus(PkiStatus.SUCCESS);
-                sendIntuneSuccessNotification(
-                        intuneClient,
-                        scepRequest,
-                        certificate
-                );
+            if (transaction != null) {
+                Certificate certificate = transaction.getCertificate();
+                if (certificate.getStatus() == CertificateStatus.REJECTED) {
+                    return buildFailedResponse(new ScepException("Certificate issuance was rejected", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
+                }
+
+                if (!certificate.getStatus().equals(CertificateStatus.NEW)) {
+                    X509Certificate x509Certificate = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
+                    scepResponse.setCertificateChain(getIssuedCertificateChain(certificate));
+                    scepResponse.setPkiStatus(PkiStatus.SUCCESS);
+                    sendIntuneSuccessNotification(
+                            intuneClient,
+                            scepRequest,
+                            x509Certificate
+                    );
+                }
             } else {
                 scepResponse.setPkiStatus(PkiStatus.PENDING);
             }
@@ -582,7 +594,7 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private List<X509Certificate> getIssuedCertificateChain(Certificate certificate) throws ScepException {
-        if(!this.scepProfile.isIncludeCaCertificateChain() && !this.scepProfile.isIncludeCaCertificate()) {
+        if (!this.scepProfile.isIncludeCaCertificateChain() && !this.scepProfile.isIncludeCaCertificate()) {
             try {
                 return List.of(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
             } catch (CertificateException e) {

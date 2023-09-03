@@ -202,7 +202,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.info("Request to list RA Profiles for the profile with UUID: {}", uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Associated RA Profiles: {}", complianceProfile.getRaProfiles());
-        List<String> raProfileUuids = raProfileService.listRaProfiles(SecurityFilter.create(), null).stream().map(RaProfileDto::getUuid).collect(Collectors.toList());
+        List<String> raProfileUuids = raProfileService.listRaProfiles(SecurityFilter.create(), Optional.empty()).stream().map(RaProfileDto::getUuid).collect(Collectors.toList());
         return complianceProfile.getRaProfiles().stream().filter(e -> raProfileUuids.contains(e.getUuid().toString())).map(RaProfile::mapToDtoSimplified).collect(Collectors.toList());
     }
 

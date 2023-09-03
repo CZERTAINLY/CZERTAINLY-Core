@@ -37,7 +37,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     @Column(name = "attributes", length = Integer.MAX_VALUE)
     private String attributes;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "token_instance_ref_uuid", insertable = false, updatable = false)
     private TokenInstanceReference tokenInstanceReference;
 

@@ -1,6 +1,19 @@
 package com.czertainly.core.config;
 
-import com.czertainly.api.clients.*;
+import com.czertainly.api.clients.AttributeApiClient;
+import com.czertainly.api.clients.AuthorityInstanceApiClient;
+import com.czertainly.api.clients.BaseApiClient;
+import com.czertainly.api.clients.CertificateApiClient;
+import com.czertainly.api.clients.ComplianceApiClient;
+import com.czertainly.api.clients.ConnectorApiClient;
+import com.czertainly.api.clients.DiscoveryApiClient;
+import com.czertainly.api.clients.EndEntityApiClient;
+import com.czertainly.api.clients.EndEntityProfileApiClient;
+import com.czertainly.api.clients.EntityInstanceApiClient;
+import com.czertainly.api.clients.HealthApiClient;
+import com.czertainly.api.clients.LocationApiClient;
+import com.czertainly.api.clients.NotificationInstanceApiClient;
+import com.czertainly.api.clients.SchedulerApiClient;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
 import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
@@ -63,6 +76,11 @@ public class ApplicationConfig {
     @Bean
     public AuthorityInstanceApiClient authorityInstanceApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
         return new AuthorityInstanceApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public NotificationInstanceApiClient notificationInstanceApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new NotificationInstanceApiClient(webClient, defaultTrustManagers);
     }
 
     @Bean
@@ -134,5 +152,10 @@ public class ApplicationConfig {
     @Bean
     public CryptographicOperationsApiClient cryptographicOperationsApiClient(WebClient webClient, TrustManager[] defaultTrustManagers) {
         return new CryptographicOperationsApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
+    public SchedulerApiClient schedulerApiClient() {
+        return new SchedulerApiClient();
     }
 }

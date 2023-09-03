@@ -31,6 +31,8 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -51,7 +53,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.X509Certificate;
@@ -94,6 +95,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     private AttributeContentRepository attributeContentRepository;
 
+    @Autowired
+    private NotificationProducer notificationProducer;
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -112,7 +116,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
 
             final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.DISCOVERY);
-            objectUUIDs.addAll(certificateRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
+            objectUUIDs.addAll(discoveryRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
         }
 
         final BiFunction<Root<DiscoveryHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
@@ -235,26 +239,28 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Async("threadPoolTaskExecutor")
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void createDiscovery(DiscoveryDto request, DiscoveryHistory modal)
-            throws ConnectorException {
+    public void createDiscoveryAsync(DiscoveryHistory modal) {
+        createDiscovery(modal);
 
-        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
-                SecuredUUID.fromString(request.getConnectorUuid()),
-                FunctionGroupCode.DISCOVERY_PROVIDER,
-                request.getAttributes(),
-                request.getKind());
+        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+        notificationProducer.produceNotificationText(Resource.DISCOVERY, modal.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", modal.getName(), modal.getStatus()), modal.getMessage());
+    }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
+    public void createDiscovery(DiscoveryHistory modal) {
+        logger.info("Starting creating discovery {}", modal.getName());
         try {
             DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
-            dtoRequest.setName(request.getName());
-            dtoRequest.setKind(request.getKind());
+            dtoRequest.setName(modal.getName());
+            dtoRequest.setKind(modal.getKind());
 
             // Load complete credential data
-            credentialService.loadFullCredentialData(attributes);
-            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(attributes));
+            final List<DataAttribute> dataAttributeList = AttributeDefinitionUtils.deserialize(modal.getAttributes().toString(), DataAttribute.class);
+            credentialService.loadFullCredentialData(dataAttributeList);
+            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributeList));
 
-            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
+            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(modal.getConnectorUuid().toString()));
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
             modal.setDiscoveryConnectorReference(response.getUuid());
@@ -262,7 +268,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
             getRequest.setName(response.getName());
-            getRequest.setKind(request.getKind());
+            getRequest.setKind(modal.getKind());
             getRequest.setPageNumber(1);
             getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
 
@@ -320,7 +326,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             discoveryRepository.save(modal);
             logger.error(e.getMessage());
         } catch (Exception e) {
-
             modal.setStatus(DiscoveryStatus.FAILED);
             modal.setMessage(e.getMessage());
             discoveryRepository.save(modal);
@@ -330,7 +335,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
-    public DiscoveryHistory createDiscoveryModal(DiscoveryDto request) throws AlreadyExistException, ConnectorException {
+    public DiscoveryHistory createDiscoveryModal(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
         }
@@ -344,6 +349,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 FunctionGroupCode.DISCOVERY_PROVIDER,
                 request.getAttributes(),
                 request.getKind());
+
         attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.DISCOVERY);
         DiscoveryHistory modal = new DiscoveryHistory();
         modal.setName(request.getName());
@@ -354,9 +360,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         modal.setKind(request.getKind());
 
-        discoveryRepository.save(modal);
-
-        attributeService.createAttributeContent(modal.getUuid(), request.getCustomAttributes(), Resource.DISCOVERY);
+        if (saveEntity) {
+            modal = discoveryRepository.save(modal);
+            attributeService.createAttributeContent(modal.getUuid(), request.getCustomAttributes(), Resource.DISCOVERY);
+        }
 
         return modal;
     }
@@ -402,11 +409,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
                 additionalInfo.put("Discovery Kind", modal.getKind());
                 certificateEventHistoryService.addEventHistory(
+                        entry.getUuid(),
                         CertificateEvent.DISCOVERY,
                         CertificateEventStatus.SUCCESS,
                         "Discovered from Connector: " + modal.getConnectorName() + " via discovery: " + modal.getName(),
-                        MetaDefinitions.serialize(additionalInfo),
-                        entry
+                        MetaDefinitions.serialize(additionalInfo)
                 );
             } catch (Exception e) {
                 logger.error(e.getMessage());
@@ -496,4 +503,5 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
         return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.DISCOVERY, AttributeType.CUSTOM);
     }
+
 }

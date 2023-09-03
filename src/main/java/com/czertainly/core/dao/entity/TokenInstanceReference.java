@@ -37,7 +37,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
     @Column(name = "kind")
     private String kind;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 
@@ -50,7 +50,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
     @Column(name = "attributes")
     private String attributes;
 
-    @OneToMany(mappedBy = "tokenInstanceReference")
+    @OneToMany(mappedBy = "tokenInstanceReference", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<TokenProfile> tokenProfiles = new HashSet<>();
 

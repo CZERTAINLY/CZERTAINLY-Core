@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
@@ -52,6 +53,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         com.czertainly.api.model.core.auth.RoleRequestDto requestDto = new com.czertainly.api.model.core.auth.RoleRequestDto();
         requestDto.setName(request.getName());
         requestDto.setDescription(request.getDescription());
+        requestDto.setEmail(request.getEmail());
         requestDto.setSystemRole(false);
         RoleDetailDto dto = roleManagementApiClient.createRole(requestDto);
         attributeService.createAttributeContent(UUID.fromString(dto.getUuid()), request.getCustomAttributes(), Resource.ROLE);
@@ -66,6 +68,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
         com.czertainly.api.model.core.auth.RoleRequestDto requestDto = new com.czertainly.api.model.core.auth.RoleRequestDto();
         requestDto.setName(request.getName());
         requestDto.setDescription(request.getDescription());
+        requestDto.setEmail(request.getEmail());
         requestDto.setSystemRole(false);
         RoleDetailDto dto = roleManagementApiClient.updateRole(roleUuid, requestDto);
         attributeService.updateAttributeContent(UUID.fromString(dto.getUuid()), request.getCustomAttributes(), Resource.ROLE);
@@ -89,6 +92,8 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
     public SubjectPermissionsDto addPermissions(String roleUuid, RolePermissionsRequestDto request) {
+        checkSystemRole(roleUuid);
+
         return roleManagementApiClient.savePermissions(roleUuid, request);
     }
 
@@ -107,18 +112,24 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
     public void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsRequestDto> request) {
+        checkSystemRole(roleUuid);
+
         roleManagementApiClient.addResourcePermissionObjects(roleUuid, resourceUuid, request);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
     public void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto request) {
+        checkSystemRole(roleUuid);
+
         roleManagementApiClient.updateResourcePermissionObjects(roleUuid, resourceUuid, objectUuid, request);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
     public void removeResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid) {
+        checkSystemRole(roleUuid);
+
         roleManagementApiClient.removeResourcePermissionObjects(roleUuid, resourceUuid, objectUuid);
     }
 
@@ -141,5 +152,12 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getRole(uuid.toString());
+    }
+
+    private void checkSystemRole(String roleUuid) {
+        RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(roleUuid);
+        if (roleDetailDto.getSystemRole()) {
+            throw new ValidationException("Cannot edit permissions of system role: " + roleDetailDto.getName());
+        }
     }
 }

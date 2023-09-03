@@ -20,6 +20,7 @@ import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
@@ -34,10 +35,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.security.Principal;
+import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
@@ -46,8 +44,8 @@ import java.util.*;
 
 public class CertificateUtil {
 
-    public static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
-    public static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
+    private static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
+    private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
     @SuppressWarnings("serial")
     private static final Map<String, String> SAN_TYPE_MAP = new HashMap<>();
@@ -85,15 +83,28 @@ public class CertificateUtil {
         try {
             X509Certificate certificate = (X509Certificate) new CertificateFactory().engineGenerateCertificate(new ByteArrayInputStream(decoded));
             if (certificate.getPublicKey() == null) {
-                java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("x.509");
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Certificate has no public key, trying to generate certificate with BouncyCastleProvider: {}", Base64.getEncoder().encodeToString(decoded));
+                }
+                java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME);
                 return (X509Certificate) certificateFactory.generateCertificate(new ByteArrayInputStream(decoded));
             }
             return certificate;
         } catch (Exception e) {
+            if (logger.isDebugEnabled()) {
+                logger.debug("Failed to generate certificate, trying to generate certificate from iterator: {}, {}", e.getMessage(), Base64.getEncoder().encodeToString(decoded));
+            }
             X509Certificate certificate = (X509Certificate) new CertificateFactory().engineGenerateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
             if (certificate.getPublicKey() == null) {
-                java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("x.509");
-                return (X509Certificate) certificateFactory.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
+                try {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Certificate has no public key, trying to generate certificate with BouncyCastleProvider: {}", Base64.getEncoder().encodeToString(decoded));
+                    }
+                    java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME);
+                    return (X509Certificate) certificateFactory.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
+                } catch (NoSuchProviderException ex) {
+                    logger.error("Requested provider not available: ",  ex);
+                }
             }
             return certificate;
         }
@@ -218,8 +229,7 @@ public class CertificateUtil {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
         messageDigest.update(encodedContent);
         byte[] digest = messageDigest.digest();
-        String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
-        return thumbprint;
+        return DatatypeConverter.printHexBinary(digest).toLowerCase();
     }
 
     public static String getSha1Thumbprint(byte[] encodedContent)
@@ -227,8 +237,7 @@ public class CertificateUtil {
         MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
         messageDigest.update(encodedContent);
         byte[] digest = messageDigest.digest();
-        String thumbprint = DatatypeConverter.printHexBinary(digest).toLowerCase();
-        return thumbprint;
+        return DatatypeConverter.printHexBinary(digest).toLowerCase();
     }
 
     public static String getThumbprint(X509Certificate certificate)
@@ -350,9 +359,9 @@ public class CertificateUtil {
     public static String formatCsr(String unformattedCsr) {
         try {
             JcaPKCS10CertificationRequest jcaPKCS10CertificationRequest = csrStringToJcaObject(unformattedCsr);
-            return JcaObjectToString(jcaPKCS10CertificationRequest);
+            return jcaObjectToString(jcaPKCS10CertificationRequest);
         } catch (CertificateException e) {
-            logger.debug("Failed to parse and format CSR : ", unformattedCsr);
+            logger.debug("Failed to parse and format CSR: {}", unformattedCsr);
             logger.error(e.getMessage());
             return unformattedCsr;
         }
@@ -370,7 +379,7 @@ public class CertificateUtil {
         }
     }
 
-    private static String JcaObjectToString(JcaPKCS10CertificationRequest pkcs10CertificationRequest) throws CertificateException {
+    private static String jcaObjectToString(JcaPKCS10CertificationRequest pkcs10CertificationRequest) throws CertificateException {
         try {
             PemObject pemCSR = new PemObject("CERTIFICATE REQUEST", pkcs10CertificationRequest.getEncoded());
             StringWriter decodedCsr = new StringWriter();

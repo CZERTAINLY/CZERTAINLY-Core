@@ -44,30 +44,30 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Enumerated(EnumType.STRING)
     private ConnectorStatus status;
 
-    @OneToMany(fetch = FetchType.EAGER, mappedBy = "connector")
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "connector")
     private Set<Connector2FunctionGroup> functionGroups = new HashSet<>();
 
-    @OneToMany(mappedBy = "connectorUuid")
+    @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<Credential> credentials = new HashSet<>();
 
-    @OneToMany(mappedBy = "connector")
+    @OneToMany(mappedBy = "connector", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<AuthorityInstanceReference> authorityInstanceReferences = new HashSet<>();
 
-    @OneToMany(mappedBy = "connector")
+    @OneToMany(mappedBy = "connector", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<EntityInstanceReference> entityInstanceReferences = new HashSet<>();
 
-    @OneToMany(mappedBy = "connectorUuid")
+    @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<TokenInstanceReference> tokenInstanceReferences = new HashSet<>();
 
-    @OneToMany(mappedBy = "connectorUuid")
+    @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<AttributeDefinition> attributeDefinitions = new HashSet<>();
 
-    @OneToMany(mappedBy = "connectorUuid")
+    @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<AttributeContent2Object> attributeContent2Objects = new HashSet<>();
 

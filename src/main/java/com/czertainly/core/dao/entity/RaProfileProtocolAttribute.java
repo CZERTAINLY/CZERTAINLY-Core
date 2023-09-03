@@ -5,12 +5,11 @@ import jakarta.persistence.*;
 
 import java.util.UUID;
 
-
 @Entity
 @Table(name = "ra_profile_protocol_attribute")
 public class RaProfileProtocolAttribute extends UniquelyIdentified {
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
     @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
@@ -34,7 +33,6 @@ public class RaProfileProtocolAttribute extends UniquelyIdentified {
 
     @Column(name = "scep_issue_certificate_attributes")
     private String scepIssueCertificateAttributes;
-
 
     public String getAcmeIssueCertificateAttributes() {
         return acmeIssueCertificateAttributes;

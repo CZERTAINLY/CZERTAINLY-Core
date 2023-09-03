@@ -15,7 +15,7 @@ public class Connector2FunctionGroup {
 	@SequenceGenerator(name = "connector_2_function_group_seq", sequenceName = "connector_2_function_group_id_seq", allocationSize = 1)
 	private Long id;
 	
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
     @JsonIgnore
     private Connector connector;
@@ -23,8 +23,7 @@ public class Connector2FunctionGroup {
 	@Column(name = "connector_uuid", nullable = false)
 	private UUID connectorUuid;
 
-
-	@ManyToOne
+	@ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "function_group_uuid", nullable = false, insertable = false, updatable = false)
 	private FunctionGroup functionGroup;
 

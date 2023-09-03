@@ -40,15 +40,15 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     private SearchService searchService;
 
     @Override
-    public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, HashMap<String, Object> additionalInformation, Certificate certificate) {
-        addEventHistory(event, status, message, MetaDefinitions.serialize(additionalInformation), certificate);
+    public void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status, String message, HashMap<String, Object> additionalInformation) {
+        addEventHistory(certificateUuid, event, status, message, MetaDefinitions.serialize(additionalInformation));
     }
 
     @Override
-    public void addEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate) {
+    public void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation) {
         CertificateEventHistory history = new CertificateEventHistory();
         history.setEvent(event);
-        history.setCertificateUuid(certificate.getUuid());
+        history.setCertificateUuid(certificateUuid);
         history.setStatus(status);
         history.setAdditionalInformation(additionalInformation);
         history.setMessage(message);

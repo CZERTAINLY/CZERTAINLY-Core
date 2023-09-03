@@ -33,7 +33,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     @Column(name = "kind")
     private String kind;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     private Connector connector;
 
@@ -43,7 +43,7 @@ public class AuthorityInstanceReference extends UniquelyIdentifiedAndAudited imp
     @Column(name="connector_name")
     private String connectorName;
 
-    @OneToMany(mappedBy = "authorityInstanceReference")
+    @OneToMany(mappedBy = "authorityInstanceReference", fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<RaProfile> raProfiles = new HashSet<>();
 

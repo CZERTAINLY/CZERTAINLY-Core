@@ -33,10 +33,11 @@ public class DatabaseMigration {
                     line = filterBomFromString(line);
                     firstLineProcessed = true;
                 }
-                crc32.update(trimLineBreak(line).getBytes(StandardCharsets.UTF_8));
+                String trimmed = trimLineBreak(line);
+                crc32.update(trimmed != null ? trimmed.getBytes(StandardCharsets.UTF_8) : new byte[0]);
             }
         } catch (IOException e) {
-            System.out.printf("Error while trying to read file %s: %s\n", filePath, e.getMessage());
+            System.out.printf("Error while trying to read file %s: %s%n", filePath, e.getMessage());
             System.exit(1);
         }
 
@@ -53,7 +54,8 @@ public class DatabaseMigration {
         V202211141030__AttributeV2TablesAndMigration(-1479676999),
         V202301311500__PublicKeyMigration(-761670493),
         V202303211718__Scep_Roles(-285333526),
-        V202303230830__AttributeContentJsonMigration(1077049851);
+        V202303230830__AttributeContentJsonMigration(1077049851),
+        V202308050825__UpdateAcmeScepRolesPermissions(414709752);
 
         private final int checksum;
 

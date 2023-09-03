@@ -35,7 +35,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
     @Column(name = "attributes", length = 4096)
     private String attributes;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "entity_instance_ref_uuid", insertable = false, updatable = false)
     private EntityInstanceReference entityInstanceReference;
 
@@ -47,7 +47,8 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     @OneToMany(
             mappedBy = "location",
-            cascade = CascadeType.ALL
+            cascade = CascadeType.ALL,
+            fetch = FetchType.LAZY
             //orphanRemoval = true
     )
     @JsonBackReference
@@ -170,6 +171,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
             cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
             cilDto.setSerialNumber(certificateLocation.getCertificate().getSerialNumber());
             cilDto.setCertificateUuid(certificateLocation.getCertificate().getUuid().toString());
+            cilDto.setStatus(certificateLocation.getCertificate().getStatus());
             cilDto.setWithKey(certificateLocation.isWithKey());
             cilDto.setPushAttributes(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getPushAttributes()));
             cilDto.setCsrAttributes(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getCsrAttributes()));

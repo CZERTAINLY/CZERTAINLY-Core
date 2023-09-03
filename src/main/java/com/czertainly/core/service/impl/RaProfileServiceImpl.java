@@ -2,6 +2,8 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
@@ -30,6 +32,9 @@ import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -42,7 +47,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.function.BiFunction;
 
 @Service
 @Transactional
@@ -50,30 +55,20 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     private static final Logger logger = LoggerFactory.getLogger(RaProfileServiceImpl.class);
 
-    @Autowired
     private RaProfileRepository raProfileRepository;
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    @Autowired
     private AuthorityInstanceApiClient authorityInstanceApiClient;
-    @Autowired
     private CertificateRepository certificateRepository;
-    @Autowired
     private AcmeProfileRepository acmeProfileRepository;
-    @Autowired
     private ExtendedAttributeService extendedAttributeService;
-    @Autowired
     private ComplianceService complianceService;
-    @Autowired
     private ComplianceProfileRepository complianceProfileRepository;
-    @Autowired
     private AttributeService attributeService;
-    @Autowired
     private PermissionEvaluator permissionEvaluator;
-    @Autowired
     private RaProfileProtocolAttributeRepository raProfileProtocolAttributeRepository;
-    @Autowired
     private ScepProfileRepository scepProfileRepository;
+    private ApprovalProfileRelationRepository approvalProfileRelationRepository;
+    private ApprovalProfileRepository approvalProfileRepository;
 
 
     @Override
@@ -81,11 +76,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
     public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled) {
         filter.setParentRefProperty("authorityInstanceReferenceUuid");
-        if (enabled == null || !enabled.isPresent()) {
-            return raProfileRepository.findUsingSecurityFilter(filter).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
-        } else {
-            return raProfileRepository.findUsingSecurityFilter(filter, enabled.get()).stream().map(RaProfile::mapToDtoSimple).collect(Collectors.toList());
-        }
+        return enabled.map(isEnabled -> raProfileRepository.findUsingSecurityFilter(filter, isEnabled).stream().map(RaProfile::mapToDtoSimple).toList()).orElseGet(() -> raProfileRepository.findUsingSecurityFilter(filter).stream().map(RaProfile::mapToDtoSimple).toList());
     }
 
     @Override
@@ -259,8 +250,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void bulkRemoveAssociatedAcmeProfile(List<SecuredUUID> uuids) {
         List<RaProfile> raProfiles = raProfileRepository.findAllByUuidIn(
-                uuids.stream().map(SecuredUUID::getValue).collect(Collectors.toList())
-        );
+                uuids.stream().map(SecuredUUID::getValue).toList());
         raProfiles.forEach(raProfile -> raProfile.setAcmeProfile(null));
         raProfileRepository.saveAll(raProfiles);
     }
@@ -268,8 +258,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Override
     public void bulkRemoveAssociatedScepProfile(List<SecuredUUID> uuids) {
         List<RaProfile> raProfiles = raProfileRepository.findAllByUuidIn(
-                uuids.stream().map(SecuredUUID::getValue).collect(Collectors.toList())
-        );
+                uuids.stream().map(SecuredUUID::getValue).toList());
         raProfiles.forEach(raProfile -> raProfile.setScepProfile(null));
         raProfileRepository.saveAll(raProfiles);
     }
@@ -389,7 +378,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
     public List<SimplifiedComplianceProfileDto> getComplianceProfiles(String authorityUuid, String raProfileUuid, SecurityFilter filter) throws NotFoundException {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
@@ -398,7 +387,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
-    public Boolean evaluateNullableRaPermissions(SecurityFilter filter) {
+    public boolean evaluateNullableRaPermissions(SecurityFilter filter) {
         return !filter.getResourceFilter().areOnlySpecificObjectsAllowed();
     }
 
@@ -413,13 +402,13 @@ public class RaProfileServiceImpl implements RaProfileService {
         return getRaProfileEntity(raProfileUuid).mapToScepDto();
     }
 
+
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return raProfileRepository.findUsingSecurityFilter(filter)
                 .stream()
-                .map(RaProfile::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+                .map(RaProfile::mapToAccessControlObjects).toList();
     }
 
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
@@ -441,12 +430,79 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.LIST)
+    public List<ApprovalProfileDto> getAssociatedApprovalProfiles(final String authorityInstanceUuid, final String raProfileUuid, final SecurityFilter securityFilter) throws NotFoundException {
+        //Evaluate RA profile permissions
+        ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
+
+        final BiFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> {
+            final Predicate resourcePredicate = cb.equal(root.get("resource"), Resource.RA_PROFILE);
+            final Predicate resourceUuidPredicate = cb.equal(root.get("resourceUuid"), UUID.fromString(raProfileUuid));
+            return cb.and(resourcePredicate, resourceUuidPredicate);
+        };
+
+        final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(securityFilter, additionalWhereClause);
+        return approvalProfileRelations.stream().map(apr -> apr.getApprovalProfile().getTheLatestApprovalProfileVersion().mapToDto()).toList();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DETAIL)
+    public ApprovalProfileRelationDto associateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException {
+        //Evaluate RA profile permissions
+        ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
+
+        final Optional<ApprovalProfile> approvalProfileOptional = approvalProfileRepository.findByUuid(approvalProfileUuid);
+        if (!approvalProfileOptional.isPresent()) {
+            throw new NotFoundException("There is no such approval profile: " + approvalProfileUuid.getValue());
+        }
+
+        final Optional<List<ApprovalProfileRelation>> approvalProfileRelationsOptional = approvalProfileRelationRepository.findByResourceUuid(UUID.fromString(raProfileUuid));
+        if (approvalProfileRelationsOptional.isPresent() && !approvalProfileRelationsOptional.get().isEmpty()) {
+            throw new ValidationException(ValidationError.create("There is not possible to have more than ONE associated approval profile for the RA profile uuid: " + raProfileUuid));
+        }
+
+        final ApprovalProfileRelation approvalProfileRelation = new ApprovalProfileRelation();
+        approvalProfileRelation.setApprovalProfile(approvalProfileOptional.get());
+        approvalProfileRelation.setApprovalProfileUuid(approvalProfileOptional.get().getUuid());
+        approvalProfileRelation.setResource(Resource.RA_PROFILE);
+        approvalProfileRelation.setResourceUuid(UUID.fromString(raProfileUuid));
+        approvalProfileRelationRepository.save(approvalProfileRelation);
+
+        logger.info("There was registered new relation between Approval profile {} and RA profile {}", approvalProfileUuid.getValue(), raProfileUuid);
+
+        return approvalProfileRelation.mapToDto();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.DETAIL)
+    public void disassociateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException {
+        //Evaluate RA profile permissions
+        ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
+
+        final BiFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> {
+            final Predicate resourcePredicate = cb.equal(root.get("resource"), Resource.RA_PROFILE);
+            final Predicate resourceUuidPredicate = cb.equal(root.get("resourceUuid"), UUID.fromString(raProfileUuid));
+            final Predicate approvalProfileUuidPredicate = cb.equal(root.get("approvalProfileUuid"), approvalProfileUuid.getValue());
+            return cb.and(resourcePredicate, resourceUuidPredicate, approvalProfileUuidPredicate);
+        };
+
+        final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
+
+        if (approvalProfileRelations == null || approvalProfileRelations.isEmpty()) {
+            throw new NotFoundException("There is no such approval profile (" + approvalProfileUuid.getValue() + ") associated with Ra profile (" + raProfileUuid + ")");
+        }
+
+        approvalProfileRelations.stream().forEach(approvalProfileRelation -> logger.info("There will be removed approval profile {} from ra profile {}", approvalProfileRelation.getApprovalProfileUuid(), approvalProfileRelation.getResourceUuid()));
+        approvalProfileRelationRepository.deleteAll(approvalProfileRelations);
+    }
+
     private List<DataAttribute> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
         List<BaseAttribute> definitions = authorityInstanceApiClient.listRAProfileAttributes(
                 authorityInstanceRef.getConnector().mapToDto(),
                 authorityInstanceRef.getAuthorityInstanceUuid());
 
-        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
+        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).toList();
         for (RequestAttributeDto requestAttributeDto : attributes) {
             if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
                 DataAttribute referencedAttribute = attributeService.getReferenceAttribute(authorityInstanceRef.getConnectorUuid(), requestAttributeDto.getName());
@@ -512,8 +568,80 @@ public class RaProfileServiceImpl implements RaProfileService {
     private List<SimplifiedComplianceProfileDto> getComplianceProfilesForRaProfile(String raProfileUuid, SecurityFilter filter) {
         return complianceProfileRepository.findUsingSecurityFilter(filter)
                 .stream()
-                .filter(e -> e.getRaProfiles().stream().map(RaProfile::getUuid).map(UUID::toString).collect(Collectors.toList()).contains(raProfileUuid))
-                .map(ComplianceProfile::raProfileMapToDto)
-                .collect(Collectors.toList());
+                .filter(e -> e.getRaProfiles().stream().map(RaProfile::getUuid).map(UUID::toString).toList().contains(raProfileUuid))
+                .map(ComplianceProfile::raProfileMapToDto).toList();
+    }
+
+
+    // SETTERs
+
+    @Autowired
+    public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
+        this.raProfileRepository = raProfileRepository;
+    }
+
+    @Autowired
+    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
+        this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setAuthorityInstanceApiClient(AuthorityInstanceApiClient authorityInstanceApiClient) {
+        this.authorityInstanceApiClient = authorityInstanceApiClient;
+    }
+
+    @Autowired
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
+    }
+
+    @Autowired
+    public void setAcmeProfileRepository(AcmeProfileRepository acmeProfileRepository) {
+        this.acmeProfileRepository = acmeProfileRepository;
+    }
+
+    @Autowired
+    public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
+        this.extendedAttributeService = extendedAttributeService;
+    }
+
+    @Autowired
+    public void setComplianceService(ComplianceService complianceService) {
+        this.complianceService = complianceService;
+    }
+
+    @Autowired
+    public void setComplianceProfileRepository(ComplianceProfileRepository complianceProfileRepository) {
+        this.complianceProfileRepository = complianceProfileRepository;
+    }
+
+    @Autowired
+    public void setAttributeService(AttributeService attributeService) {
+        this.attributeService = attributeService;
+    }
+
+    @Autowired
+    public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
+        this.permissionEvaluator = permissionEvaluator;
+    }
+
+    @Autowired
+    public void setRaProfileProtocolAttributeRepository(RaProfileProtocolAttributeRepository raProfileProtocolAttributeRepository) {
+        this.raProfileProtocolAttributeRepository = raProfileProtocolAttributeRepository;
+    }
+
+    @Autowired
+    public void setScepProfileRepository(ScepProfileRepository scepProfileRepository) {
+        this.scepProfileRepository = scepProfileRepository;
+    }
+
+    @Autowired
+    public void setApprovalProfileRelationRepository(ApprovalProfileRelationRepository approvalProfileRelationRepository) {
+        this.approvalProfileRelationRepository = approvalProfileRelationRepository;
+    }
+
+    @Autowired
+    public void setApprovalProfileRepository(ApprovalProfileRepository approvalProfileRepository) {
+        this.approvalProfileRepository = approvalProfileRepository;
     }
 }

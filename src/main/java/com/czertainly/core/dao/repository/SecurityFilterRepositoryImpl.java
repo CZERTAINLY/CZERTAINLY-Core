@@ -64,11 +64,6 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public List<T> findUsingSecurityFilterAndType(SecurityFilter filter, AttributeType type) {
-        return findUsingSecurityFilter(filter, (root, cb) -> cb.equal(root.get("type"), type));
-    }
-
-    @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, null);
         return entityManager.createQuery(cr).getResultList();
@@ -76,6 +71,10 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public List<T> findUsingSecurityFilterByCustomCriteriaQuery(SecurityFilter filter, Root<T> root, CriteriaQuery<T> criteriaQuery, Predicate customPredicates) {
+        if(root == null) {
+            final Class<T> entity = this.entityInformation.getJavaType();
+            root = criteriaQuery.from(entity);
+        }
         final List<Predicate> predicates = getPredicates(filter, null, root, null);
         predicates.add(customPredicates);
 
@@ -138,11 +137,13 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             predicates.add(additionalWhereClause.apply(root, cb));
         }
 
-        if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
-            predicates.add(root.get("uuid").in(filter.getResourceFilter().getAllowedObjects()));
-        } else {
-            if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
-                predicates.add(root.get("uuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
+        if (filter.getResourceFilter() != null) {
+            if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
+                predicates.add(root.get("uuid").in(filter.getResourceFilter().getAllowedObjects()));
+            } else {
+                if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
+                    predicates.add(root.get("uuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
+                }
             }
         }
 

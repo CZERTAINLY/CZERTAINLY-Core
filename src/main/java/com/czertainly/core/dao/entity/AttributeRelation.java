@@ -12,7 +12,7 @@ import java.util.UUID;
 @Table(name = "attribute_relation")
 public class AttributeRelation extends UniquelyIdentified {
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attribute_definition_uuid", insertable = false, updatable = false)
     private AttributeDefinition attributeDefinition;
 

@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class ConnectorServiceTest extends BaseSpringBootTest {
+class ConnectorServiceTest extends BaseSpringBootTest {
 
     private static final String CONNECTOR_NAME = "testConnector1";
 
@@ -55,14 +55,14 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
-        mockServer = new WireMockServer(3665);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
 
         connector = new Connector();
         connector.setName(CONNECTOR_NAME);
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:"+mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -87,8 +87,8 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListConnectors() throws NotFoundException {
-        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), null, null, null);
+    void testListConnectors() throws NotFoundException {
+        List<ConnectorDto> connectors = connectorService.listConnectors(SecurityFilter.create(), Optional.empty(), Optional.empty(), Optional.empty());
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
         Assertions.assertEquals(1, connectors.size());
@@ -96,10 +96,10 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListConnectorsByFunctionGroup() throws NotFoundException {
+    void testListConnectorsByFunctionGroup() throws NotFoundException {
         List<ConnectorDto> connectors = connectorService.listConnectors(
                 SecurityFilter.create(),
-                Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER), null, null
+                Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER), Optional.empty(), Optional.empty()
         );
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
@@ -108,22 +108,22 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListConnectorsByFunctionGroup_notFound() throws NotFoundException {
+    void testListConnectorsByFunctionGroup_notFound() throws NotFoundException {
         List<ConnectorDto> connectors = connectorService.listConnectors(
                 SecurityFilter.create(),
                 Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
-                null, null
+                Optional.empty(), Optional.empty()
         );
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
 
     @Test
-    public void testListConnectorsByFunctionGroupAndKind() throws NotFoundException {
+    void testListConnectorsByFunctionGroupAndKind() throws NotFoundException {
         List<ConnectorDto> connectors = connectorService.listConnectors(
                 SecurityFilter.create(),
                 Optional.of(FunctionGroupCode.CREDENTIAL_PROVIDER), Optional.of("ApiKey"),
-                null
+                Optional.empty()
         );
         Assertions.assertNotNull(connectors);
         Assertions.assertFalse(connectors.isEmpty());
@@ -132,29 +132,29 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListConnectorsByFunctionGroupAndKind_notFound() throws NotFoundException {
+    void testListConnectorsByFunctionGroupAndKind_notFound() throws NotFoundException {
         Assertions.assertEquals(0,
                 connectorService.listConnectors(
                         SecurityFilter.create(),
                         Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
-                        Optional.of("wrong-kind"), null).size()
+                        Optional.of("wrong-kind"), Optional.empty()).size()
         );
 
     }
 
     @Test
-    public void testListConnectorsByFunctionGroupAndKind_noConnectorOfKind() throws NotFoundException {
+    void testListConnectorsByFunctionGroupAndKind_noConnectorOfKind() throws NotFoundException {
         List<ConnectorDto> connectors = connectorService.listConnectors(
                 SecurityFilter.create(),
                 Optional.of(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER),
-                Optional.of("wrong-kind"), null
+                Optional.of("wrong-kind"), Optional.empty()
         );
         Assertions.assertNotNull(connectors);
         Assertions.assertTrue(connectors.isEmpty());
     }
 
     @Test
-    public void testGetAllAttributesOfConnector() throws ConnectorException {
+    void testGetAllAttributesOfConnector() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -166,12 +166,12 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAllAttributesOfConnector_notFund() {
+    void testGetAllAttributesOfConnector_notFund() {
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getAllAttributesOfConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testGetConnector() throws ConnectorException {
+    void testGetConnector() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
@@ -183,19 +183,19 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetConnector_notFound() {
+    void testGetConnector_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testAddConnector() throws ConnectorException, AlreadyExistException {
+    void testAddConnector() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
 
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector2");
-        request.setUrl("http://localhost:3665");
+        request.setUrl("http://localhost:"+mockServer.port());
 
         ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
@@ -203,55 +203,55 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddConnector_validationFail() {
+    void testAddConnector_validationFail() {
         ConnectorRequestDto request = new ConnectorRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> connectorService.createConnector(request));
     }
 
     @Test
-    public void testAddConnector_alreadyExist() {
+    void testAddConnector_alreadyExist() {
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName(CONNECTOR_NAME);
         Assertions.assertThrows(AlreadyExistException.class, () -> connectorService.createConnector(request));
     }
 
     @Test
-    public void testEditConnector() throws ConnectorException {
+    void testEditConnector() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
 
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
-        request.setUrl("http://localhost:3665");
+        request.setUrl("http://localhost:"+mockServer.port());
 
         ConnectorDto dto = connectorService.editConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
     }
 
     @Test
-    public void testEditConnector_notFound() {
+    void testEditConnector_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.editConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), new ConnectorUpdateRequestDto()));
     }
 
     @Test
-    public void testRemoveConnector() throws NotFoundException {
+    void testRemoveConnector() throws NotFoundException {
         connectorService.deleteConnector(connector.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
     }
 
     @Test
-    public void testRemoveConnector_notFound() {
+    void testRemoveConnector_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.deleteConnector(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testBulkRemove() throws NotFoundException {
+    void testBulkRemove() throws NotFoundException {
         connectorService.bulkDeleteConnector(List.of(connector.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> connectorService.getConnector(connector.getSecuredUuid()));
     }
 
     @Test
-    public void testApproveConnector() throws NotFoundException {
+    void testApproveConnector() throws NotFoundException {
         Connector waitingConnector = new Connector();
         waitingConnector.setStatus(ConnectorStatus.WAITING_FOR_APPROVAL);
         waitingConnector = connectorRepository.save(waitingConnector);
@@ -262,12 +262,12 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testApproveConnector_ValidationFail() {
+    void testApproveConnector_ValidationFail() {
         Assertions.assertThrows(ValidationException.class, () -> connectorService.approve(connector.getSecuredUuid()));
     }
 
     @Test
-    public void testApproveConnector_notFound() {
+    void testApproveConnector_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> connectorService.approve(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
@@ -275,7 +275,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCheckHealth() throws ConnectorException {
+    void testCheckHealth() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get("/v1/health")
                 .willReturn(WireMock.okJson("{ \"status\": \"ok\" }")));
@@ -287,7 +287,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCheckHealth_notFound() {
+    void testCheckHealth_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> connectorService.checkHealth(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
@@ -295,7 +295,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAttributes() throws ConnectorException {
+    void testGetAttributes() throws ConnectorException {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
@@ -308,7 +308,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAttributes_validationFail() {
+    void testGetAttributes_validationFail() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> connectorService.getAttributes(
@@ -320,7 +320,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAttributes_notFound() {
+    void testGetAttributes_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> connectorService.getAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
@@ -331,7 +331,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateAttributes() throws ConnectorException {
+    void testValidateAttributes() throws ConnectorException {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
@@ -344,7 +344,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateAttributes_validationFail() {
+    void testValidateAttributes_validationFail() {
         Assertions.assertThrows(ValidationException.class,
                 () -> connectorService.validateAttributes(
                         connector.getSecuredUuid(),
@@ -356,7 +356,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateAttributes_validationFailOnConnector() throws ConnectorException {
+    void testValidateAttributes_validationFailOnConnector() throws ConnectorException {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
@@ -370,7 +370,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateAttributes_validationFailOnConnectorException() {
+    void testValidateAttributes_validationFailOnConnectorException() {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
@@ -388,7 +388,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateAttributes_notFound() {
+    void testValidateAttributes_notFound() {
         Assertions.assertThrows(NotFoundException.class,
                 () -> connectorService.validateAttributes(
                         SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"),
@@ -400,7 +400,7 @@ public class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetObjectsForResource() {
+    void testGetObjectsForResource() {
         List<NameAndUuidDto> dtos = connectorService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(1, dtos.size());
     }

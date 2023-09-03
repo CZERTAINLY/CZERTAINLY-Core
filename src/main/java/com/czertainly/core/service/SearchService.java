@@ -13,16 +13,10 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import java.util.List;  
 
 public interface SearchService {
-    SearchFieldDataDto getSearchField(SearchableFields field, String label, Boolean multiValue, List<Object> values,
-                                      SearchableFieldType fieldType, List<SearchCondition> conditions);
     Object completeSearchQueryExecutor(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson);
     DynamicSearchInternalResponse dynamicSearchQueryExecutor(SearchRequestDto searchRequestDto, String entity, List<SearchFieldDataDto> originalJson, String additionalWhereClause);
 
     Object customQueryExecutor(String sqlQuery);
-
-    Object nativeQueryExecutor(String sqlQuery);
-
-    Object asyncNativeQueryExecutor(String sqlQuery);
 
     String getCompleteSearchQuery(List<SearchFilterRequestDto> filters, String entity, String joinQuery, List<SearchFieldDataDto> originalJson, Boolean conditionOnly, Boolean nativeCode);
 

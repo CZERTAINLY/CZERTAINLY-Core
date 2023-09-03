@@ -22,7 +22,6 @@ import org.springframework.web.context.request.RequestContextHolder;
 
 import java.net.ConnectException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class ExceptionHandlingAdvice {
@@ -73,7 +72,7 @@ public class ExceptionHandlingAdvice {
      */
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorMessageDto HttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException ex) {
+    public ErrorMessageDto handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
@@ -102,7 +101,7 @@ public class ExceptionHandlingAdvice {
 
         return ex.getErrors().stream()
                 .map(ValidationError::getErrorDescription)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -231,20 +230,17 @@ public class ExceptionHandlingAdvice {
         AuthenticationServiceExceptionDto responseDto = new AuthenticationServiceExceptionDto();
         responseDto.setCode("ACCESS_DENIED");
         responseDto.setStatusCode(HttpStatus.FORBIDDEN.value());
-        if(response == null){
-            responseDto.setMessage("Access denied for the specified operation");
+
+        Object resourceName = attributes == null ? null : attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", 121);
+        Object resourceActionName = attributes == null ? null : attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", 121);
+        if (resourceName != null && !((String) resourceName).isEmpty() && resourceActionName != null && !((String) resourceActionName).isEmpty()) {
+            responseDto.setMessage("Access Denied. Required '"
+                    + BeautificationUtil.camelToHumanForm((String) resourceActionName)
+                    + "' permission for '"
+                    + BeautificationUtil.camelToHumanForm((String) resourceName)
+                    + "'");
         } else {
-            Object resourceName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", 121);
-            Object resourceActionName = attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", 121);
-            if (resourceName != null && !((String) resourceName).isEmpty() && resourceActionName != null && !((String) resourceActionName).isEmpty()) {
-                responseDto.setMessage("Access Denied. Required '"
-                        + BeautificationUtil.camelToHumanForm((String) resourceActionName)
-                        + "' permission for '"
-                        + BeautificationUtil.camelToHumanForm((String) resourceName)
-                        + "'");
-            } else {
-                responseDto.setMessage("Access denied for the specified operation");
-            }
+            responseDto.setMessage("Access denied for the specified operation");
         }
         return response.body(responseDto);
     }
@@ -256,7 +252,7 @@ public class ExceptionHandlingAdvice {
      */
     @ExceptionHandler(AcmeProblemDocumentException.class)
     public ResponseEntity<ProblemDocument> handleAcmeProblemDocumentException(AcmeProblemDocumentException ex) {
-        LOG.warn("ACME Error: {}", ex.getProblemDocument().toString());
+        LOG.warn("ACME Error: {}", ex.getProblemDocument());
         ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
         if (ex.getAdditionalHeaders() != null) {
             for (String entry : ex.getAdditionalHeaders().keySet()) {
@@ -300,7 +296,7 @@ public class ExceptionHandlingAdvice {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ResponseEntity<AuthenticationServiceExceptionDto> handleCertificateOperationException(AuthenticationServiceException ex) {
         Integer statusCode = HttpStatus.BAD_REQUEST.value();
-        if(ex.getException() != null){
+        if (ex.getException() != null) {
             statusCode = ex.getException().getStatusCode();
         }
         ResponseEntity.BodyBuilder response = ResponseEntity.status(statusCode).contentType(MediaType.valueOf("application/problem+json"));

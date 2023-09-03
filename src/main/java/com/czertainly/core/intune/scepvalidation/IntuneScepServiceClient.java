@@ -23,9 +23,11 @@
 
 package com.czertainly.core.intune.scepvalidation;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +38,8 @@ import org.slf4j.LoggerFactory;
 
 import com.czertainly.core.intune.scepvalidation.IntuneScepServiceException.ErrorCode;
 
+import javax.naming.ServiceUnavailableException;
+
 /*
 This class was updated for the integration of the platform with the Intune server.
 It is placed under the package `com.czertainly.core.intune` and further maintained by
@@ -43,11 +47,11 @@ the development team.
 
 The important modification are marked with the comment "MODIFICATION"
 */
+
 /**
  * Client to access the ScepRequestValidationFEService in Intune
  */
-public class IntuneScepServiceClient extends IntuneClient
-{
+public class IntuneScepServiceClient extends IntuneClient {
 
     private ObjectMapper objectMapper = new ObjectMapper();
     private String serviceVersion = "2018-02-20";
@@ -57,226 +61,209 @@ public class IntuneScepServiceClient extends IntuneClient
     private final static String NOTIFY_FAILURE_URL = "ScepActions/failureNotification";
     private final static String SERVICE_VERSION_PROP_NAME = VALIDATION_SERVICE_NAME + "Version";
     private final static String PROVIDER_NAME_AND_VERSION_NAME = "PROVIDER_NAME_AND_VERSION";
-    
+
     private String providerNameAndVersion = null;
-    private HashMap<String,String> additionalHeaders = new HashMap<String, String>();;
+    private final HashMap<String, String> additionalHeaders = new HashMap<>();
 
     private static final Logger log = LoggerFactory.getLogger(IntuneScepServiceClient.class);
-    
+
     /**
      * IntuneScepService Client constructor
+     *
      * @param configProperties Properties object containing client configuration information.
      * @throws IllegalArgumentException
      */
-    public IntuneScepServiceClient(Properties configProperties) throws IllegalArgumentException 
-    {
+    public IntuneScepServiceClient(Properties configProperties) throws IllegalArgumentException {
         this(configProperties, null, null, null);
     }
-    
+
     /**
      * IntuneScepService Client constructor meant for dependency injection
+     *
      * @param configProperties
      * @param adalClient
      * @param httpClientBuilder
      * @throws IllegalArgumentException
      */
-    public IntuneScepServiceClient(Properties configProperties, MSALClientWrapper msalClient, ADALClientWrapper adalClient, HttpClientBuilder httpClientBuilder) throws IllegalArgumentException
-    {
+    public IntuneScepServiceClient(Properties configProperties, MSALClientWrapper msalClient, ADALClientWrapper adalClient, HttpClientBuilder httpClientBuilder) throws IllegalArgumentException {
         super(configProperties, msalClient, adalClient, httpClientBuilder);
-        
-        if(configProperties == null)
-        {
-            throw new IllegalArgumentException("The argument 'configProperties' is missing"); 
+
+        if (configProperties == null) {
+            throw new IllegalArgumentException("The argument 'configProperties' is missing");
         }
-        
-        configProperties.getProperty(SERVICE_VERSION_PROP_NAME,this.serviceVersion);
-        
+
+        configProperties.getProperty(SERVICE_VERSION_PROP_NAME, this.serviceVersion);
+
         providerNameAndVersion = configProperties.getProperty(PROVIDER_NAME_AND_VERSION_NAME);
-        if(providerNameAndVersion == null)
-        {
+        if (providerNameAndVersion == null) {
             throw new IllegalArgumentException("The property '" + PROVIDER_NAME_AND_VERSION_NAME + "' is missing from the property file.");
         }
-        
+
         additionalHeaders.put("UserAgent", providerNameAndVersion);
     }
 
     /**
      * Validates whether the given Certificate Request is a valid and from Microsoft Intune.
-     * If the request is not valid an exception will be thrown.  
-     * 
+     * If the request is not valid an exception will be thrown.
+     * <p>
      * IMPORTANT: If an exception is thrown the SCEP server should not issue a certificate to the client.
-     *  
-     * @param transactionId The transactionId of the Certificate Request
+     *
+     * @param transactionId      The transactionId of the Certificate Request
      * @param certificateRequest Base 64 encoded PKCS10 packet
      * @throws IntuneScepServiceException The Certificate Request failed validation
-     * @throws Exception Unexpected validation
+     * @throws Exception                  Unexpected validation
      */
-    public void ValidateRequest(String transactionId, String certificateRequest) throws IntuneScepServiceException, Exception
-    {
-        if(transactionId == null || transactionId.isEmpty())
-        {
+    public void ValidateRequest(String transactionId, String certificateRequest) throws IntuneScepServiceException, Exception {
+        if (transactionId == null || transactionId.isEmpty()) {
             throw new IllegalArgumentException("The argument 'transactionId' is missing");
-        }     
-        
-        if(certificateRequest == null || certificateRequest.isEmpty())
-        {
+        }
+
+        if (certificateRequest == null || certificateRequest.isEmpty()) {
             throw new IllegalArgumentException("The argument 'certificateRequest' is missing");
         }
         ObjectNode requestBody = objectMapper.createObjectNode();
 
         requestBody.put(
                 "request", (objectMapper.createObjectNode())
-                    .put("transactionId", transactionId)
-                    .put("certificateRequest", certificateRequest)
-                    .put("callerInfo", this.providerNameAndVersion));
-        
+                        .put("transactionId", transactionId)
+                        .put("certificateRequest", certificateRequest)
+                        .put("callerInfo", this.providerNameAndVersion));
+
         Post(requestBody, VALIDATION_URL, transactionId);
     }
-    
+
     /**
      * Send a Success notification to the SCEP Service.
-     * 
+     * <p>
      * IMPORTANT: If an exception is thrown the SCEP server should not issue a certificate to the client.
-     * 
-     * @param transactionId The transactionId of the CSR
-     * @param certificateRequest Base 64 encoded PKCS10 packet
-     * @param certThumbprint Thumbprint of the certificate issued.
-     * @param certSerialNumber Serial number of the certificate issued.
-     * @param certExpirationDate The date time string should be formated as web UTC time (YYYY-MM-DDThh:mm:ss.sssTZD) ISO 8601. 
+     *
+     * @param transactionId        The transactionId of the CSR
+     * @param certificateRequest   Base 64 encoded PKCS10 packet
+     * @param certThumbprint       Thumbprint of the certificate issued.
+     * @param certSerialNumber     Serial number of the certificate issued.
+     * @param certExpirationDate   The date time string should be formated as web UTC time (YYYY-MM-DDThh:mm:ss.sssTZD) ISO 8601.
      * @param certIssuingAuthority Issuing Authority that issued the certificate.
-     * @param caConfiguration CA Configuration that issued the certificate.
+     * @param caConfiguration      CA Configuration that issued the certificate.
      * @param certificateAuthority Certificate Authority that issued the certificate.
      * @throws IntuneScepServiceException The service reported a failure in processing the notification examine the exception error code.
-     * @throws Exception Unexpected error
+     * @throws Exception                  Unexpected error
      */
-    public void SendSuccessNotification(String transactionId, String certificateRequest, String certThumbprint, String certSerialNumber, String certExpirationDate, String certIssuingAuthority, String caConfiguration, String certificateAuthority) throws IntuneScepServiceException, Exception
-    {
-        if(transactionId == null || transactionId.isEmpty())
-        {
+    public void SendSuccessNotification(String transactionId, String certificateRequest, String certThumbprint, String certSerialNumber, String certExpirationDate, String certIssuingAuthority, String caConfiguration, String certificateAuthority) throws IntuneScepServiceException, Exception {
+        if (transactionId == null || transactionId.isEmpty()) {
             throw new IllegalArgumentException("The argument 'transactionId' is missing");
-        }     
-        
-        if(certificateRequest == null || certificateRequest.isEmpty())
-        {
+        }
+
+        if (certificateRequest == null || certificateRequest.isEmpty()) {
             throw new IllegalArgumentException("The argument 'certificateRequest' is missing");
-        }     
-        
-        if(certThumbprint == null || certThumbprint.isEmpty())
-        {
+        }
+
+        if (certThumbprint == null || certThumbprint.isEmpty()) {
             throw new IllegalArgumentException("The argument 'certThumbprint' is missing");
-        }     
-        
-        if(certSerialNumber == null || certSerialNumber.isEmpty())
-        {
+        }
+
+        if (certSerialNumber == null || certSerialNumber.isEmpty()) {
             throw new IllegalArgumentException("The argument 'certSerialNumber' is missing");
-        }     
-        
-        if(certExpirationDate == null || certExpirationDate.isEmpty())
-        {
+        }
+
+        if (certExpirationDate == null || certExpirationDate.isEmpty()) {
             throw new IllegalArgumentException("The argument 'certExpirationDate' is missing");
-        }     
-        
-        if(certIssuingAuthority == null || certIssuingAuthority.isEmpty())
-        {
+        }
+
+        if (certIssuingAuthority == null || certIssuingAuthority.isEmpty()) {
             throw new IllegalArgumentException("The argument 'certIssuingAuthority' is missing");
-        }     
+        }
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put(
                 "notification", (objectMapper.createObjectNode())
-                    .put("transactionId", transactionId)
-                    .put("certificateRequest", certificateRequest)
-                    .put("certificateThumbprint", certThumbprint)
-                    .put("certificateSerialNumber", certSerialNumber)
-                    .put("certificateExpirationDateUtc", certExpirationDate)
-                    .put("issuingCertificateAuthority", certIssuingAuthority)
-                    .put("callerInfo", this.providerNameAndVersion)
-                    .put("caConfiguration", caConfiguration)
-                    .put("certificateAuthority", certificateAuthority));
-        
+                        .put("transactionId", transactionId)
+                        .put("certificateRequest", certificateRequest)
+                        .put("certificateThumbprint", certThumbprint)
+                        .put("certificateSerialNumber", certSerialNumber)
+                        .put("certificateExpirationDateUtc", certExpirationDate)
+                        .put("issuingCertificateAuthority", certIssuingAuthority)
+                        .put("callerInfo", this.providerNameAndVersion)
+                        .put("caConfiguration", caConfiguration)
+                        .put("certificateAuthority", certificateAuthority));
+
         Post(requestBody, NOTIFY_SUCCESS_URL, transactionId);
     }
-    
+
     /**
-     * Send a Failure notification to the SCEP service. 
-     * 
+     * Send a Failure notification to the SCEP service.
+     * <p>
      * IMPORTANT: If this method is called the SCEP server should not issue a certificate to the client.
-     * 
-     * @param transactionId The transactionId of the CSR
+     *
+     * @param transactionId      The transactionId of the CSR
      * @param certificateRequest Base 64 encoded PKCS10 packet
-     * @param hResult 32-bit error code formulated using the instructions specified in https://msdn.microsoft.com/en-us/library/cc231198.aspx. 
-     * The value specified will be reported in the Intune management console and will be used by the administrator to troubleshoot the issue. 
-     * It is recommended that your product provide documentation about the meaning of the error codes reported.
-     * @param errorDescription Description of what error occurred. Max length = 255 chars
+     * @param hResult            32-bit error code formulated using the instructions specified in https://msdn.microsoft.com/en-us/library/cc231198.aspx.
+     *                           The value specified will be reported in the Intune management console and will be used by the administrator to troubleshoot the issue.
+     *                           It is recommended that your product provide documentation about the meaning of the error codes reported.
+     * @param errorDescription   Description of what error occurred. Max length = 255 chars
      * @throws IntuneScepServiceException The service reported a failure in processing the notification examine the exception error code.
-     * @throws Exception Unexpected error
+     * @throws Exception                  Unexpected error
      */
-    public void SendFailureNotification(String transactionId, String certificateRequest, long hResult, String errorDescription) throws IntuneScepServiceException, Exception
-    {
-        if(transactionId == null || transactionId.isEmpty())
-        {
+    public void SendFailureNotification(String transactionId, String certificateRequest, long hResult, String errorDescription) throws IntuneScepServiceException, Exception {
+        if (transactionId == null || transactionId.isEmpty()) {
             throw new IllegalArgumentException("The argument 'transactionId' is missing");
-        }     
-        
-        if(certificateRequest == null || certificateRequest.isEmpty())
-        {
+        }
+
+        if (certificateRequest == null || certificateRequest.isEmpty()) {
             throw new IllegalArgumentException("The argument 'certificateRequest' is missing");
-        }       
-        
-        if(errorDescription == null || errorDescription.isEmpty())
-        {
+        }
+
+        if (errorDescription == null || errorDescription.isEmpty()) {
             throw new IllegalArgumentException("The argument 'errorDescription' is missing");
-        }  
+        }
 
         ObjectMapper objectMapper = new ObjectMapper();
         ObjectNode requestBody = objectMapper.createObjectNode();
         requestBody.put(
                 "notification", (objectMapper.createObjectNode())
-                    .put("transactionId", transactionId)
-                    .put("certificateRequest", certificateRequest)
-                    .put("hResult", hResult)
-                    .put("errorDescription", errorDescription)
-                    .put("callerInfo", this.providerNameAndVersion));
-        
+                        .put("transactionId", transactionId)
+                        .put("certificateRequest", certificateRequest)
+                        .put("hResult", hResult)
+                        .put("errorDescription", errorDescription)
+                        .put("callerInfo", this.providerNameAndVersion));
+
         Post(requestBody, NOTIFY_FAILURE_URL, transactionId);
     }
-    
-    private void Post(JsonNode requestBody, String urlSuffix, String transactionId) throws IntuneScepServiceException, Exception
-    {
+
+    private void Post(JsonNode requestBody, String urlSuffix, String transactionId) throws IntuneClientException, ServiceUnavailableException, IOException, ExecutionException {
         //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         UUID activityId = UUID.randomUUID();
-        
-        try 
-        {
+
+        try {
             JsonNode result = this.PostRequest(VALIDATION_SERVICE_NAME,
-                     urlSuffix, 
-                     serviceVersion, 
-                     requestBody,
-                     activityId,
-                     additionalHeaders);
-            
-            log.info("Activity " + activityId + " has completed.");
+                    urlSuffix,
+                    serviceVersion,
+                    requestBody,
+                    activityId,
+                    additionalHeaders);
+
+            log.info("Activity {} has completed.", activityId);
             log.info(result.toString());
-            
+
             String code = result.get("code").asText();
             String errorDescription = result.get("errorDescription").asText();
 
             IntuneScepServiceException e = new IntuneScepServiceException(code, errorDescription, transactionId, activityId);
 
-            if (!e.getParsedErrorCode().equals(ErrorCode.Success))
-            {
+            if (!e.getParsedErrorCode().equals(ErrorCode.Success)) {
 
                 log.warn(e.getMessage());
                 throw e;
             }
-        }
-        catch(Exception e)
-        { 
-            if (!(e instanceof IntuneScepServiceException))
-            {
+        } catch (InterruptedException e) {
+            log.error("Interrupted! ActivityId:" + activityId + "," +
+                    "TransactionId:" + transactionId + "," +
+                    "ExceptionMessage:" + e.getMessage(), e);
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            if (!(e instanceof IntuneScepServiceException)) {
                 log.error(
                         "ActivityId:" + activityId + "," +
-                        "TransactionId:" + transactionId + "," +
-                        "ExceptionMessage:" + e.getMessage()
+                                "TransactionId:" + transactionId + "," +
+                                "ExceptionMessage:" + e.getMessage()
                         , e);
             }
             throw e;

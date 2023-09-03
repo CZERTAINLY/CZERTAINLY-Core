@@ -7,7 +7,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.JwsBody;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.acme.*;
-import com.czertainly.api.model.core.authority.RevocationReason;
+import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
@@ -568,7 +568,6 @@ public class ExtendedAcmeHelperService {
         order.setStatus(OrderStatus.PROCESSING);
         acmeOrderRepository.save(order);
         createCert(order, certificateSignRequestDto);
-
     }
 
     private String JcaPKCS10CertificationRequestToString(JcaPKCS10CertificationRequest csr) throws IOException {
@@ -581,12 +580,12 @@ public class ExtendedAcmeHelperService {
         return decodedCsr.toString();
     }
 
-    @Async("threadPoolTaskExecutor")
     private void createCert(AcmeOrder order, ClientCertificateSignRequestDto certificateSignRequestDto) {
         if (logger.isDebugEnabled()) {
             logger.debug("Initiating issue Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());
         }
         try {
+            // TODO should be by approvals ?
             ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(order.getAcmeAccount().getRaProfile().getAuthorityInstanceReferenceUuid()), order.getAcmeAccount().getRaProfile().getSecuredUuid(), certificateSignRequestDto);
             order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
             order.setCertificateReference(certificateService.getCertificateEntity(SecuredUUID.fromString(certificateOutput.getUuid())));
@@ -711,10 +710,10 @@ public class ExtendedAcmeHelperService {
         }
 
         // if the revocation reason is null, set it to UNSPECIFIED, otherwise get the code from the request
-        final RevocationReason reason = request.getReason() == null ? RevocationReason.UNSPECIFIED : RevocationReason.fromCode(request.getReason().getCode());
+        final CertificateRevocationReason reason = request.getReason() == null ? CertificateRevocationReason.UNSPECIFIED : CertificateRevocationReason.fromReasonCode(request.getReason());
         // when the reason is null, it means, that is not in the list
         if (reason == null) {
-            final String details = "Allowed revocation reason codes are: " + Arrays.toString(Arrays.stream(RevocationReason.values()).map(RevocationReason::getCode).toArray());
+            final String details = "Allowed revocation reason codes are: " + Arrays.toString(Arrays.stream(CertificateRevocationReason.values()).map(CertificateRevocationReason::getCode).toArray());
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.BAD_REVOCATION_REASON, details);
         }
         revokeRequest.setReason(reason);

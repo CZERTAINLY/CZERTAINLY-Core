@@ -16,6 +16,7 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRe
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.*;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
@@ -93,9 +94,13 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
-    public List<CustomAttributeDefinitionDto> listAttributes(SecurityFilter filter) {
+    public List<CustomAttributeDefinitionDto> listAttributes(AttributeContentType attributeContentType) {
         logger.info("Fetching custom attributes");
-        return attributeDefinitionRepository.findUsingSecurityFilterAndType(filter, AttributeType.CUSTOM).stream().map(e -> {
+
+        List<AttributeDefinition> customAttributes = attributeContentType == null ? attributeDefinitionRepository.findByType(AttributeType.CUSTOM):
+                attributeDefinitionRepository.findByTypeAndContentType(AttributeType.CUSTOM, attributeContentType);
+
+        return customAttributes.stream().map(e -> {
             CustomAttributeDefinitionDto customAttributeDefinitionDto = e.mapToCustomAttributeDefinitionDto();
             customAttributeDefinitionDto.setResources(attributeRelationRepository.findByAttributeDefinitionUuid(e.getUuid()).stream().map(AttributeRelation::getResource).collect(Collectors.toList()));
             return customAttributeDefinitionDto;

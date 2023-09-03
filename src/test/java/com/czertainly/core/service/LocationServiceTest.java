@@ -17,6 +17,7 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -73,7 +74,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
-        mockServer = new WireMockServer(3665);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
@@ -87,12 +88,13 @@ public class LocationServiceTest extends BaseSpringBootTest {
         certificate = certificateRepository.save(certificate);
 
         certificateWithoutLocation = new Certificate();
+        certificateWithoutLocation.setStatus(CertificateStatus.VALID);
         certificateWithoutLocation.setCertificateContentId(certificateContent.getId());
         certificateWithoutLocation.setSerialNumber("aa4ab59d436a88dae957");
         certificateWithoutLocation = certificateRepository.save(certificateWithoutLocation);
 
         Connector connector = new Connector();
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:"+mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 

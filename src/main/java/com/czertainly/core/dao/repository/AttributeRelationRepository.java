@@ -5,12 +5,10 @@ import com.czertainly.core.dao.entity.AttributeRelation;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.UUID;
 
 @Repository
-@Transactional
 public interface AttributeRelationRepository extends JpaRepository<AttributeRelation, String> {
     List<AttributeRelation> findByAttributeDefinitionUuidAndResource(UUID attributeDefinitionUuid, Resource resource);
 
