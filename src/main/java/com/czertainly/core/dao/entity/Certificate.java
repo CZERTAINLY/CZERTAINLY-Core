@@ -128,6 +128,10 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "issuer_serial_number")
     private String issuerSerialNumber;
 
+    @Column(name = "issuer_certificate_uuid")
+    private String issuerCertificateUuid;
+
+
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
 
@@ -185,6 +189,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setSubjectAlternativeNames(MetaDefinitions.deserialize(subjectAlternativeNames));
             dto.setIssuerSerialNumber(issuerSerialNumber);
             dto.setSerialNumber(serialNumber);
+
         }
         dto.setSourceCertificateUuid(sourceCertificateUuid);
         dto.setSubjectDn(subjectDn);
@@ -195,6 +200,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setStatus(status);
         dto.setCertificateType(certificateType);
         dto.setOwner(owner);
+        dto.setIssuerCertificateUuid(issuerCertificateUuid);
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
         /**
@@ -275,6 +281,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setStatus(status);
         dto.setFingerprint(fingerprint);
         dto.setOwner(owner);
+        dto.setIssuerCertificateUuid(issuerCertificateUuid);
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
@@ -675,6 +682,15 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public void setIssueAttributes(String issueAttributes) {
         this.issueAttributes = issueAttributes;
     }
+
+    public String getIssuerCertificateUuid() {
+        return issuerCertificateUuid;
+    }
+
+    public void setIssuerCertificateUuid(String issuerCertificateUuid) {
+        this.issuerCertificateUuid = issuerCertificateUuid;
+    }
+
 
     public String getRevokeAttributes() {
         return revokeAttributes;
