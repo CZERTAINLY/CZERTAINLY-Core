@@ -445,9 +445,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+//    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     //Auth is not required for methods. It is only internally used by other services to update the issuers of the certificate
-    public void updateCertificateIssuer(Certificate certificate) throws NotFoundException {
+    public void updateCertificateChain(Certificate certificate) {
         if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
+            boolean issuerInInventory = false;
             for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
                 X509Certificate subCert;
                 X509Certificate issCert;
@@ -459,7 +461,7 @@ public class CertificateServiceImpl implements CertificateService {
                 }
 
                 if (issuer.getIssuerSerialNumber() == null) {
-                    updateCertificateIssuer(issuer);
+                    updateCertificateChain(issuer);
                 }
 
                 if (verifySignature(subCert, issCert)) {
@@ -472,7 +474,10 @@ public class CertificateServiceImpl implements CertificateService {
                         try {
                             subjectCert.verify(issuerCert.getPublicKey());
                             certificate.setIssuerSerialNumber(issuer.getSerialNumber());
+                            certificate.setIssuerCertificateUuid(String.valueOf(issuer.uuid));
                             certificateRepository.save(certificate);
+                            issuerInInventory = true;
+                            break;
                         } catch (Exception e) {
                             logger.debug("Error when getting the issuer");
                         }
@@ -482,8 +487,45 @@ public class CertificateServiceImpl implements CertificateService {
                     }
                 }
             }
+            if (!issuerInInventory) {
+                List<String> aiaChain = downloadChainFromAia(certificate);
+                Certificate previousCertificate = certificate;
+                for (String chainCertificate: aiaChain) {
+                    try {
+                        Certificate nextInChain = checkCreateCertificate(chainCertificate);
+                        previousCertificate.setIssuerCertificateUuid(String.valueOf(nextInChain.uuid));
+                        previousCertificate.setIssuerSerialNumber(nextInChain.getSerialNumber());
+                        previousCertificate = nextInChain;
+                    } catch (AlreadyExistException | NoSuchAlgorithmException | CertificateException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
         }
     }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public List<Certificate> getCertificateChain(Certificate certificate) {
+        List<Certificate> chainCertificates = new ArrayList<>();
+        Certificate lastCertificate = certificate;
+        while (lastCertificate.getIssuerCertificateUuid() != null) {
+            try {
+                Certificate issuerCertificate = getCertificateEntity(SecuredUUID.fromString(lastCertificate.getIssuerCertificateUuid()));
+                chainCertificates.add(issuerCertificate);
+                lastCertificate = issuerCertificate;
+            } catch (NotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
+//        Check if last certificate is self-signed, if not try to create chain further
+        if (!lastCertificate.getIssuerDn().equals(lastCertificate.getSubjectDn())) {
+            updateCertificateChain(lastCertificate);
+            if (lastCertificate.getIssuerCertificateUuid() != null) chainCertificates.addAll(getCertificateChain(lastCertificate));
+        }
+        return chainCertificates;
+    }
+
 
     private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
         try {
@@ -718,7 +760,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntity(uuid);
         CertificateStatus oldStatus = certificate.getStatus();
         if (certificate.getStatus() != CertificateStatus.NEW && certificate.getStatus() != CertificateStatus.REJECTED) {
-            updateCertificateIssuer(certificate);
+            updateCertificateChain(certificate);
             if (certificate.getStatus() != CertificateStatus.EXPIRED) {
                 certValidationService.validate(certificate);
             }
@@ -787,7 +829,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private void updateCertificateStatusScheduled(Certificate certificate) throws ConnectorException, CertificateException, IOException {
-        updateCertificateIssuer(certificate);
+        updateCertificateChain(certificate);
         certValidationService.validate(certificate);
         if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) {
             complianceService.checkComplianceOfCertificate(certificate);
@@ -1034,7 +1076,7 @@ public class CertificateServiceImpl implements CertificateService {
         // check compliance and validity of certificate
         try {
             certificateComplianceCheck(certificate);
-            updateCertificateIssuer(certificate);
+            updateCertificateChain(certificate);
             certValidationService.validate(certificate);
         } catch (Exception e) {
             logger.warn("Unable to validate certificate {}, {}", certificate.getUuid(), e.getMessage());
@@ -1228,7 +1270,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         if (!uploadedCertificate.isEmpty()) {
             try {
-                updateCertificateIssuer(certificate);
+                updateCertificateChain(certificate);
             } catch (Exception e) {
                 logger.warn("Unable to update the issuer of the certificate {}", certificate.getSerialNumber());
             }

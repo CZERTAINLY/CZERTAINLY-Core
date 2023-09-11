@@ -426,7 +426,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private void updateCertificateIssuers(List<Certificate> certificates) {
         for (Certificate certificate : certificates) {
             try {
-                certificateService.updateCertificateIssuer(certificate);
+                certificateService.updateCertificateChain(certificate);
             } catch (NotFoundException e) {
                 logger.warn("Unable to update the issuer for certificate {}", certificate.getSerialNumber());
             }
