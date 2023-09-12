@@ -50,7 +50,7 @@ public interface CertificateService extends ResourceExtensionService  {
 
     void updateCertificateChain(Certificate certificate) throws NotFoundException;
 
-    List<Certificate> getCertificateChain(Certificate certificate);
+    List<CertificateDto> getCertificateChain(Certificate certificate);
 
     /**
      * Creates the Certificate entity

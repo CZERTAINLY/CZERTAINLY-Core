@@ -129,8 +129,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private String issuerSerialNumber;
 
     @Column(name = "issuer_certificate_uuid")
-    private String issuerCertificateUuid;
-
+    private UUID issuerCertificateUuid;
 
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
@@ -200,7 +199,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setStatus(status);
         dto.setCertificateType(certificateType);
         dto.setOwner(owner);
-        dto.setIssuerCertificateUuid(issuerCertificateUuid);
+        if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
         /**
@@ -281,7 +280,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setStatus(status);
         dto.setFingerprint(fingerprint);
         dto.setOwner(owner);
-        dto.setIssuerCertificateUuid(issuerCertificateUuid);
+        if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
@@ -683,11 +682,11 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.issueAttributes = issueAttributes;
     }
 
-    public String getIssuerCertificateUuid() {
+    public UUID getIssuerCertificateUuid() {
         return issuerCertificateUuid;
     }
 
-    public void setIssuerCertificateUuid(String issuerCertificateUuid) {
+    public void setIssuerCertificateUuid(UUID issuerCertificateUuid) {
         this.issuerCertificateUuid = issuerCertificateUuid;
     }
 
