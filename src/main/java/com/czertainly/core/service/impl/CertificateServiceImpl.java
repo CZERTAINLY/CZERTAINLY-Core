@@ -449,8 +449,10 @@ public class CertificateServiceImpl implements CertificateService {
 //    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     //Auth is not required for methods. It is only internally used by other services to update the issuers of the certificate
     public void updateCertificateChain(Certificate certificate) {
+//        Check if the certificate is self-signed
         if (!certificate.getSubjectDn().equals(certificate.getIssuerDn())) {
             boolean issuerInInventory = false;
+//            Try to find issuer certificate in repository
             for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
                 X509Certificate subCert;
                 X509Certificate issCert;
@@ -460,6 +462,7 @@ public class CertificateServiceImpl implements CertificateService {
                 } catch (Exception e) {
                     continue;
                 }
+//                verify signature for a certificate with matching Subject DN, if it matches, the issuer is found
                 if (verifySignature(subCert, issCert)) {
                     try {
                         X509Certificate issuerCert = CertificateUtil
@@ -473,6 +476,7 @@ public class CertificateServiceImpl implements CertificateService {
                             certificate.setIssuerCertificateUuid(issuer.getUuid());
                             certificateRepository.save(certificate);
                             issuerInInventory = true;
+//                           If the issuer of certificate doesn't have its issuer, try to update issuer for this certificate as well
                             if (issuer.getIssuerSerialNumber() == null) {
                                 updateCertificateChain(issuer);
                             }
@@ -486,12 +490,14 @@ public class CertificateServiceImpl implements CertificateService {
                     }
                 }
             }
+//            If the issuer isn't in inventory, try to download it from AIA
             if (!issuerInInventory) {
                 List<String> aiaChain = downloadChainFromAia(certificate);
                 Certificate previousCertificate = certificate;
                 for (String chainCertificate : aiaChain) {
                     try {
                         Certificate nextInChain;
+//                      If the certificate from isn't in repository, create it, otherwise only update issuer uuid and serial number
                         try {
                             nextInChain = checkCreateCertificate(chainCertificate);
                         } catch (AlreadyExistException e) {
@@ -518,6 +524,7 @@ public class CertificateServiceImpl implements CertificateService {
             return chainCertificates;
         }
         Certificate lastCertificate = certificate;
+//        Go up the certificate chain until certificate without issuer is found
         while (lastCertificate.getIssuerCertificateUuid() != null) {
             try {
                 Certificate issuerCertificate = getCertificateEntity(SecuredUUID.fromUUID(lastCertificate.getIssuerCertificateUuid()));
@@ -530,6 +537,7 @@ public class CertificateServiceImpl implements CertificateService {
 //        Check if last certificate is self-signed, if not try to create chain further
         if (!lastCertificate.getSubjectDn().equals(lastCertificate.getIssuerDn())) {
             updateCertificateChain(lastCertificate);
+//            Check if update was successful and issuer was updated
             if (lastCertificate.getIssuerCertificateUuid() != null)
                 chainCertificates.addAll(getCertificateChain(lastCertificate));
         }
