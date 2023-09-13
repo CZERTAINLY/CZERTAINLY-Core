@@ -17,7 +17,6 @@ import com.czertainly.core.util.OcspUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -252,19 +251,17 @@ public class CertValidationServiceImpl implements CertValidationService {
                 String ocspOutput = "";
                 String ocspMessage = "";
                 for (String ocspUrl : ocspUrls) {
-                    String ocspStatus = OcspUtil.checkOcsp(certX509, x509Issuer,
-                            ocspUrl);
-                    if (ocspStatus.equals("Success")) {
+                    CertificateValidationStatus ocspStatus = OcspUtil.checkOcsp(certX509, x509Issuer, ocspUrl);
+                    if (ocspStatus.equals(CertificateValidationStatus.SUCCESS)) {
                         ocspOutput = "Success";
-                        ocspMessage += "OCSP verification success from " + ocspUrl;
-                    } else if (ocspStatus.equals("Failed")) {
+                        ocspMessage += "OCSP verification successful from " + ocspUrl;
+                    } else if (ocspStatus.equals(CertificateValidationStatus.REVOKED)) {
                         ocspOutput = "Failed";
                         ocspMessage += "Certificate was revoked according to information from OCSP.\nOCSP URL: " + ocspUrl;
                         break;
                     } else {
                         ocspOutput = "Unknown";
-                        ocspMessage += "OCSP check result is unknown.\nOCSP URL: " + ocspUrl;
-
+                        ocspMessage += "OCSP Check result is unknown.\nOCSP URL: " + ocspUrl;
                     }
                 }
                 if (ocspOutput.equals("Success")) {
@@ -308,7 +305,7 @@ public class CertValidationServiceImpl implements CertValidationService {
                         isRevoked = true;
                         break;
                     }
-                } catch (TimeoutException | SocketTimeoutException e) {
+                } catch (SocketTimeoutException e) {
                     logger.error(e.getMessage());
                     isCRLFailed = true;
                     validationOutput.put(
@@ -445,21 +442,18 @@ public class CertValidationServiceImpl implements CertValidationService {
                 String ocspOutput = "";
                 String ocspMessage = "";
                 for (String ocspUrl : ocspUrls) {
-                    String ocspStatus = OcspUtil.checkOcsp(certX509, x509Issuer,
-                            ocspUrl);
-                    if (ocspStatus.equals("Success")) {
+                    CertificateValidationStatus ocspStatus = OcspUtil.checkOcsp(certX509, x509Issuer, ocspUrl);
+                    if (ocspStatus.equals(CertificateValidationStatus.SUCCESS)) {
                         ocspOutput = "Success";
                         ocspMessage += "OCSP verification successful from " + ocspUrl;
-                    } else if (ocspStatus.equals("Failed")) {
+                    } else if (ocspStatus.equals(CertificateValidationStatus.REVOKED)) {
                         ocspOutput = "Failed";
                         ocspMessage += "Certificate was revoked according to information from OCSP.\nOCSP URL: " + ocspUrl;
                         break;
                     } else {
                         ocspOutput = "Unknown";
                         ocspMessage += "OCSP Check result is unknown.\nOCSP URL: " + ocspUrl;
-
                     }
-
                 }
                 if (ocspOutput.equals("Success")) {
                     if (status != CertificateStatus.EXPIRING) {
@@ -502,7 +496,7 @@ public class CertValidationServiceImpl implements CertValidationService {
                         isRevoked = true;
                         break;
                     }
-                } catch (TimeoutException | SocketTimeoutException e) {
+                } catch (SocketTimeoutException e) {
                     logger.error(e.getMessage());
                     isCRLFailed = true;
                     validationOutput.put("CRL Verification", new CertificateValidationDto(CertificateValidationStatus.WARNING, "Unable to connect to CRL. Connection timed out"));

@@ -103,7 +103,7 @@ public class CertificateUtil {
                     java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME);
                     return (X509Certificate) certificateFactory.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
                 } catch (NoSuchProviderException ex) {
-                    logger.error("Requested provider not available: ",  ex);
+                    logger.error("Requested provider not available: ", ex);
                 }
             }
             return certificate;
@@ -185,15 +185,24 @@ public class CertificateUtil {
                     GeneralName[] names = gns.getNames();
                     for (GeneralName name : names) {
                         switch (name.getTagNo()) {
-                            case GeneralName.dNSName -> ((ArrayList<String>) sans.get("dNSName")).add(name.getName().toString());
-                            case GeneralName.iPAddress -> ((ArrayList<String>) sans.get("iPAddress")).add(name.getName().toString());
-                            case GeneralName.otherName -> ((ArrayList<String>) sans.get("otherName")).add(name.getName().toString());
-                            case GeneralName.directoryName -> ((ArrayList<String>) sans.get("directoryName")).add(name.getName().toString());
-                            case GeneralName.registeredID -> ((ArrayList<String>) sans.get("registeredID")).add(name.getName().toString());
-                            case GeneralName.x400Address -> ((ArrayList<String>) sans.get("x400Address")).add(name.getName().toString());
-                            case GeneralName.uniformResourceIdentifier -> ((ArrayList<String>) sans.get("uniformResourceIdentifier")).add(name.getName().toString());
-                            case GeneralName.ediPartyName -> ((ArrayList<String>) sans.get("ediPartyName")).add(name.getName().toString());
-                            case GeneralName.rfc822Name -> ((ArrayList<String>) sans.get("rfc822Name")).add(name.getName().toString());
+                            case GeneralName.dNSName ->
+                                    ((ArrayList<String>) sans.get("dNSName")).add(name.getName().toString());
+                            case GeneralName.iPAddress ->
+                                    ((ArrayList<String>) sans.get("iPAddress")).add(name.getName().toString());
+                            case GeneralName.otherName ->
+                                    ((ArrayList<String>) sans.get("otherName")).add(name.getName().toString());
+                            case GeneralName.directoryName ->
+                                    ((ArrayList<String>) sans.get("directoryName")).add(name.getName().toString());
+                            case GeneralName.registeredID ->
+                                    ((ArrayList<String>) sans.get("registeredID")).add(name.getName().toString());
+                            case GeneralName.x400Address ->
+                                    ((ArrayList<String>) sans.get("x400Address")).add(name.getName().toString());
+                            case GeneralName.uniformResourceIdentifier ->
+                                    ((ArrayList<String>) sans.get("uniformResourceIdentifier")).add(name.getName().toString());
+                            case GeneralName.ediPartyName ->
+                                    ((ArrayList<String>) sans.get("ediPartyName")).add(name.getName().toString());
+                            case GeneralName.rfc822Name ->
+                                    ((ArrayList<String>) sans.get("rfc822Name")).add(name.getName().toString());
                         }
                     }
                 }
@@ -321,8 +330,6 @@ public class CertificateUtil {
         modal.setSubjectAlternativeNames(MetaDefinitions.serialize(getSAN(certificate)));
         return modal;
     }
-
-
 
 
     private static void setIssuerDNParams(Certificate modal, String issuerDN) {
