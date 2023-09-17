@@ -150,6 +150,12 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
+	public List<CertificateDto> getCertificateChain(String uuid) throws NotFoundException {
+		Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
+		return certificateService.getCertificateChain(certificate);
+	}
+
+	@Override
 	public ApprovalResponseDto listCertificateApprovals(final String uuid, final PaginationRequestDto paginationRequestDto) {
 		return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, UUID.fromString(uuid), paginationRequestDto);
 	}
