@@ -477,7 +477,7 @@ public class CertificateServiceImpl implements CertificateService {
                             certificateRepository.save(certificate);
                             issuerInInventory = true;
 //                           If the issuer of certificate doesn't have its issuer, try to update issuer for this certificate as well
-                            if (issuer.getIssuerSerialNumber() == null) {
+                            if (issuer.getIssuerCertificateUuid() == null) {
                                 updateCertificateChain(issuer);
                             }
                             break;
