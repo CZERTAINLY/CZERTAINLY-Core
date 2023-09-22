@@ -35,6 +35,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -150,9 +151,12 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public List<CertificateDto> getCertificateChain(String uuid) throws NotFoundException {
+	public List<CertificateDto> getCertificateChain(String uuid, boolean withEndCertificate) throws NotFoundException {
 		Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
-		return certificateService.getCertificateChain(certificate);
+		List<CertificateDto> certificateChain = new ArrayList<>();
+		if (withEndCertificate) certificateChain.add(certificate.mapToDto());
+		certificateChain.addAll(certificateService.getCertificateChain(certificate));
+		return certificateChain;
 	}
 
 	@Override
