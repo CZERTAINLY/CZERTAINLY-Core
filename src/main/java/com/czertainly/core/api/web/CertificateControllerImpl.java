@@ -15,13 +15,18 @@ import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.impl.CertificateServiceImpl;
 import com.czertainly.core.service.v2.ClientOperationService;
+import com.czertainly.core.util.CertificateUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,6 +44,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.security.cert.X509Certificate;
+import java.util.*;
+
 
 @RestController
 public class CertificateControllerImpl implements CertificateController {
@@ -151,12 +159,28 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public List<CertificateDto> getCertificateChain(String uuid, boolean withEndCertificate) throws NotFoundException {
+	public List<CertificateDto> getCertificateChain(String uuid, boolean withEndCertificate, boolean onlyCompleteChain) throws NotFoundException {
 		Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
 		List<CertificateDto> certificateChain = new ArrayList<>();
 		if (withEndCertificate) certificateChain.add(certificate.mapToDto());
 		certificateChain.addAll(certificateService.getCertificateChain(certificate));
 		return certificateChain;
+	}
+
+	@Override
+	public String downloadCertificateChain(String uuid, String certificateFormat, boolean withEndCertificate, boolean onlyCompleteChain) throws NotFoundException, CertificateException, IOException {
+		List<CertificateDto> certificateChain = getCertificateChain(uuid, withEndCertificate, onlyCompleteChain);
+		StringBuilder certificateChainEncoded = new StringBuilder();
+		for (CertificateDto certificateDto: certificateChain) {
+			Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
+			X509Certificate certificateX509 = CertificateUtil.getX509Certificate(certificate.getCertificateContent().getContent());
+			if (Objects.equals(certificateFormat, "pem")){
+				certificateChainEncoded.append(CertificateUtil.getBase64EncodedPEM(certificateX509));
+			} else if (Objects.equals(certificateFormat, "pkcs")) {
+				certificateChainEncoded.append(CertificateUtil.getBase64EncodedPKCS7(certificateX509));
+			}
+		}
+		return certificateChainEncoded.toString();
 	}
 
 	@Override

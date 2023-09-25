@@ -32,6 +32,7 @@ import javax.naming.InvalidNameException;
 import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -398,6 +399,32 @@ public class CertificateUtil {
         } catch (IOException | NullPointerException e) {
             throw new CertificateException("Failed to format CSR. " + e.getMessage());
         }
+    }
+
+    public static String getBase64EncodedPEM(X509Certificate certificate) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try (outputStream) {
+            byte[] certBytes = certificate.getEncoded();
+            outputStream.write("-----BEGIN CERTIFICATE-----\n".getBytes());
+            outputStream.write(Base64.getMimeEncoder(64, "\n".getBytes()).encode(certBytes));
+            outputStream.write("\n-----END CERTIFICATE-----\n".getBytes());
+        } catch (IOException | CertificateEncodingException e) {
+            throw new RuntimeException(e);
+        }
+        return Base64.getEncoder().encodeToString(outputStream.toByteArray());
+    }
+
+    public static String getBase64EncodedPKCS7(X509Certificate certificate) {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try (outputStream) {
+            byte[] certBytes = certificate.getEncoded();
+            outputStream.write("-----BEGIN CERTIFICATE-----\n".getBytes());
+            outputStream.write(Base64.getMimeEncoder(64, "\n".getBytes()).encode(certBytes));
+            outputStream.write("\n-----END CERTIFICATE-----\n".getBytes());
+        } catch (IOException | CertificateEncodingException e) {
+            throw new RuntimeException(e);
+        }
+        return Base64.getEncoder().encodeToString(outputStream.toByteArray());
     }
 
     public static String getAlgorithmFriendlyName(String algorithmName) {
