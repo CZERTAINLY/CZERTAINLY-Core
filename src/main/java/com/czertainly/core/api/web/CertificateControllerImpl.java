@@ -150,7 +150,7 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public List<CertificateDto> getCertificateChain(String uuid) throws NotFoundException, CertificateException {
+	public List<CertificateDto> getCertificateChain(String uuid) throws NotFoundException {
 		Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
 		return certificateService.getCertificateChain(certificate);
 	}
