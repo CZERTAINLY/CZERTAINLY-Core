@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.approval.ApprovalResponseDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -25,10 +26,15 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.impl.CertificateServiceImpl;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.converter.AttributeContentTypeConverter;
+import com.czertainly.core.util.converter.CertificateFormatConverter;
+import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -60,6 +66,11 @@ public class CertificateControllerImpl implements CertificateController {
 	private ClientOperationService clientOperationService;
 
 	private ApprovalService approvalService;
+
+	@InitBinder
+	public void initBinder(final WebDataBinder webdataBinder) {
+		webdataBinder.registerCustomEditor(CertificateFormat.class, new CertificateFormatConverter());
+	}
 
 	@Override
 	public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
@@ -168,15 +179,15 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public String downloadCertificateChain(String uuid, String certificateFormat, boolean withEndCertificate, boolean onlyCompleteChain) throws NotFoundException, CertificateException, IOException {
+	public String downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate, boolean onlyCompleteChain) throws NotFoundException, CertificateException, IOException {
 		List<CertificateDto> certificateChain = getCertificateChain(uuid, withEndCertificate, onlyCompleteChain);
 		StringBuilder certificateChainEncoded = new StringBuilder();
 		for (CertificateDto certificateDto: certificateChain) {
 			Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
 			X509Certificate certificateX509 = CertificateUtil.getX509Certificate(certificate.getCertificateContent().getContent());
-			if (Objects.equals(certificateFormat, "pem")){
+			if (Objects.equals(certificateFormat, CertificateFormat.PEM)){
 				certificateChainEncoded.append(CertificateUtil.getBase64EncodedPEM(certificateX509));
-			} else if (Objects.equals(certificateFormat, "pkcs")) {
+			} else if (Objects.equals(certificateFormat, CertificateFormat.PKCS7)) {
 				certificateChainEncoded.append(CertificateUtil.getBase64EncodedPKCS7(certificateX509));
 			}
 		}
