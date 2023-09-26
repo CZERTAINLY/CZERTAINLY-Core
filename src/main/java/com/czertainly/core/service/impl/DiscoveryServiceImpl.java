@@ -423,16 +423,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         return allCerts;
     }
 
-    private void updateCertificateIssuers(List<Certificate> certificates) {
-        for (Certificate certificate : certificates) {
-            try {
-                certificateService.updateCertificateChain(certificate);
-            } catch (NotFoundException e) {
-                logger.warn("Unable to update the issuer for certificate {}", certificate.getSerialNumber());
-            }
-        }
-    }
-
     private void createDiscoveryCertificate(Certificate entry, DiscoveryHistory modal, boolean newlyDiscovered) {
         DiscoveryCertificate discoveryCertificate = new DiscoveryCertificate();
         discoveryCertificate.setCommonName(entry.getCommonName());
