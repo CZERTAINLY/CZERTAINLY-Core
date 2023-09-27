@@ -15,6 +15,7 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
+import org.bouncycastle.cert.X509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.ocsp.*;
@@ -22,6 +23,7 @@ import org.bouncycastle.operator.DigestCalculator;
 import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.OperatorException;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.bouncycastle.x509.extension.X509ExtensionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,49 +40,23 @@ import java.util.List;
 public class OcspUtil {
     private static final Logger logger = LoggerFactory.getLogger(OcspUtil.class);
 
-    private OcspUtil() {
-    }
+	public static String getChainFromAia(X509Certificate certificate) throws IOException {
+		byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
 
-    public static String getChainFromAia(X509Certificate certificate) {
-        byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
+		AuthorityInformationAccess aia = AuthorityInformationAccess.getInstance(X509ExtensionUtil.fromExtensionValue(octetBytes));
 
-        DLSequence dlSequence = null;
-        ASN1Encodable asn1Encodable = null;
-
-        try {
-            ASN1Primitive fromExtensionValue = JcaX509ExtensionUtils.parseExtensionValue(octetBytes);
-            if (!(fromExtensionValue instanceof DLSequence))
-                return null;
-            dlSequence = (DLSequence) fromExtensionValue;
-            for (int i = 0; i < dlSequence.size(); i++) {
-                asn1Encodable = dlSequence.getObjectAt(i);
-                if (asn1Encodable instanceof DLSequence)
-                    break;
-            }
-            if (!(asn1Encodable instanceof DLSequence))
-                return null;
-            dlSequence = (DLSequence) asn1Encodable;
-            for (int i = 0; i < dlSequence.size(); i++) {
-                asn1Encodable = dlSequence.getObjectAt(i);
-                if (asn1Encodable instanceof ASN1TaggedObject)
-                    break;
-            }
-            if (!(asn1Encodable instanceof ASN1TaggedObject))
-                return null;
-            ASN1TaggedObject derTaggedObject = (ASN1TaggedObject) asn1Encodable;
-            byte[] encoded = derTaggedObject.getEncoded();
-            if (derTaggedObject.getTagNo() == 6) {
-                int len = encoded[1];
-                logger.info("Chain for the certificate is {}", new String(encoded, 2, len));
-                return new String(encoded, 2, len);
-            }
-        } catch (Exception e) {
-            logger.error("Error while getting Chain");
-            logger.error(e.getMessage());
-        }
-        logger.info("Chain for the certificate is not available in Authority Information Access");
-        return null;
-    }
+		AccessDescription[] descriptions = aia.getAccessDescriptions();
+		for (AccessDescription ad : descriptions) {
+			if (ad.getAccessMethod().equals(X509ObjectIdentifiers.id_ad_caIssuers)) {
+				GeneralName location = ad.getAccessLocation();
+				if (location.getTagNo() == GeneralName.uniformResourceIdentifier) {
+					logger.debug("Chain for the certificate is {}", location.getName().toString());
+					return location.getName().toString();
+				}
+			}
+		}
+		return null;
+	}
 
     public static List<String> getOcspUrlFromCertificate(X509Certificate certificate) {
         byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());

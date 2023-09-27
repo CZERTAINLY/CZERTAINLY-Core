@@ -48,7 +48,9 @@ public interface CertificateService extends ResourceExtensionService  {
 
     Certificate createCertificateEntity(X509Certificate certificate);
 
-    void updateCertificateIssuer(Certificate certificate) throws NotFoundException;
+    void updateCertificateChain(Certificate certificate) throws CertificateException;
+
+    List<CertificateDto> getCertificateChain(Certificate certificate);
 
     /**
      * Creates the Certificate entity

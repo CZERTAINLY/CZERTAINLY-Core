@@ -1,0 +1,1 @@
+ALTER TABLE certificate ADD COLUMN issuer_certificate_uuid UUID NULL;

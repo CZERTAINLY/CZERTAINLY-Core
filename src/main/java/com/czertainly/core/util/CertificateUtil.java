@@ -157,17 +157,17 @@ public class CertificateUtil {
     @SuppressWarnings("unchecked")
     public static Map<String, Object> getSAN(X509Certificate certificate) {
         Map<String, Object> sans = buildEmptySans();
-
         try {
-            for (List<?> san : certificate.getSubjectAlternativeNames()) {
-                ((ArrayList<String>) sans.get(SAN_TYPE_MAP.get(san.toArray()[0].toString())))
-                        .add(san.toArray()[1].toString());
+            if (certificate.getSubjectAlternativeNames() != null) {
+                for (List<?> san : certificate.getSubjectAlternativeNames()) {
+                    ((ArrayList<String>) sans.get(SAN_TYPE_MAP.get(san.toArray()[0].toString())))
+                            .add(san.toArray()[1].toString());
+                }
             }
-        } catch (CertificateParsingException | NullPointerException e) {
+        } catch (CertificateParsingException e) {
             logger.warn("Unable to get the SAN of the certificate");
             logger.warn(e.getMessage());
         }
-
         return sans;
     }
 
