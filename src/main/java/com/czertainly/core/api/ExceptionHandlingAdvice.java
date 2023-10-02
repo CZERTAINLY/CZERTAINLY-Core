@@ -21,6 +21,7 @@ import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
 import java.net.ConnectException;
+import java.security.cert.CertificateException;
 import java.util.List;
 
 @RestControllerAdvice
@@ -325,6 +326,22 @@ public class ExceptionHandlingAdvice {
         }
 
         LOG.info("HTTP 400: {}", messageBuilder);
+        return ErrorMessageDto.getInstance(messageBuilder.toString());
+    }
+
+    @ExceptionHandler(CertificateException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorMessageDto handleCertificateException(CertificateException ex) {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("Certificate error occurred: ")
+                .append(ex.getMessage());
+        if (ex.getCause() != null) {
+            messageBuilder
+                    .append(", ")
+                    .append("cause=").append(ex.getCause().getMessage())
+                    .append(". ");
+        }
+        LOG.error("HTTP 500: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(messageBuilder.toString());
     }
 

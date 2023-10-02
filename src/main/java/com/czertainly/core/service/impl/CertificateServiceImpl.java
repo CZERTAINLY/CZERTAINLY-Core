@@ -75,6 +75,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SignatureException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -446,104 +448,129 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-//    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    //Auth is not required for methods. It is only internally used by other services to update the issuers of the certificate
-    public void updateCertificateChain(Certificate certificate) {
-//        Check if the certificate is self-signed
-        if (!certificate.getSubjectDn().equals(certificate.getIssuerDn())) {
-            boolean issuerInInventory = false;
-//            Try to find issuer certificate in repository
-            for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
-                X509Certificate subCert;
-                X509Certificate issCert;
-                try {
-                    subCert = getX509(certificate.getCertificateContent().getContent());
-                    issCert = getX509(issuer.getCertificateContent().getContent());
-                } catch (Exception e) {
-                    continue;
-                }
-//                verify signature for a certificate with matching Subject DN, if it matches, the issuer is found
-                if (verifySignature(subCert, issCert)) {
-                    try {
-                        X509Certificate issuerCert = CertificateUtil
-                                .parseCertificate(issuer.getCertificateContent().getContent());
-                        X509Certificate subjectCert = CertificateUtil
-                                .parseCertificate(certificate.getCertificateContent().getContent());
-
-                        try {
-                            subjectCert.verify(issuerCert.getPublicKey());
-                            certificate.setIssuerSerialNumber(issuer.getSerialNumber());
-                            certificate.setIssuerCertificateUuid(issuer.getUuid());
-                            certificateRepository.save(certificate);
-                            issuerInInventory = true;
-//                           If the issuer of certificate doesn't have its issuer, try to update issuer for this certificate as well
-                            if (issuer.getIssuerCertificateUuid() == null) {
-                                updateCertificateChain(issuer);
-                            }
-                            break;
-                        } catch (Exception e) {
-                            logger.debug("Error when getting the issuer");
-                        }
-
-                    } catch (CertificateException e) {
-                        logger.warn("Unable to parse the issuer with subject {}", certificate.getIssuerDn());
-                    }
-                }
+    // @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    // Auth is not required for this method. It is used only internally by other services to update the certificate chain
+    public void updateCertificateChain(Certificate certificate) throws CertificateException {
+        // Check if the certificate is self-signed
+        if (isSelfSigned(certificate)) {
+            return;
+        }
+        boolean issuerInInventory = false;
+        X509Certificate subCert;
+        try {
+            subCert = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
+        } catch (Exception e) {
+            // We do not need to handle exceptions here because if subject certificate cannot be parsed, we cannot update its certificate chain
+            return;
+        }
+        // Try to find issuer certificate in repository
+        for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
+            X509Certificate issCert;
+            try {
+                issCert = CertificateUtil.parseCertificate(issuer.getCertificateContent().getContent());
+            } catch (Exception e) {
+                // We do not need to handle exceptions here because if certificate cannot be parsed, we ignore it as a
+                // candidate for issuer and continue with next candidate
+                continue;
             }
-//            If the issuer isn't in inventory, try to download it from AIA
-            if (!issuerInInventory) {
-                List<String> aiaChain = downloadChainFromAia(certificate);
-                Certificate previousCertificate = certificate;
-                for (String chainCertificate : aiaChain) {
+            // Verify signature for a certificate with matching Subject DN, if it matches, the issuer is found
+            if (verifySignature(subCert, issCert)) {
+                certificate.setIssuerSerialNumber(issuer.getSerialNumber());
+                certificate.setIssuerCertificateUuid(issuer.getUuid());
+                certificateRepository.save(certificate);
+                issuerInInventory = true;
+                // If the issuer of certificate doesn't have its issuer, try to update issuer for this certificate as well
+                if (issuer.getIssuerCertificateUuid() == null) {
+                    updateCertificateChain(issuer);
+                }
+                break;
+            }
+        }
+        // If the issuer isn't in inventory, try to download it from AIA extension of the certificate
+        if (!issuerInInventory) {
+            List<String> aiaChain = downloadChainFromAia(certificate);
+            Certificate previousCertificate = certificate;
+            for (String chainCertificate : aiaChain) {
+                try {
+                    Certificate nextInChain;
+                    // If the certificate from isn't in repository, create it, otherwise only update issuer uuid and serial number
                     try {
-                        Certificate nextInChain;
-//                      If the certificate from isn't in repository, create it, otherwise only update issuer uuid and serial number
-                        try {
-                            nextInChain = checkCreateCertificate(chainCertificate);
-                        } catch (AlreadyExistException e) {
-                            X509Certificate x509Cert = CertificateUtil.parseCertificate(chainCertificate);
-                            String fingerprint = CertificateUtil.getThumbprint(x509Cert);
-                            nextInChain = certificateRepository.findByFingerprint(fingerprint).get();
-                        }
-                        previousCertificate.setIssuerCertificateUuid(nextInChain.getUuid());
-                        previousCertificate.setIssuerSerialNumber(nextInChain.getSerialNumber());
-                        previousCertificate = nextInChain;
-                    } catch (NoSuchAlgorithmException | CertificateException e) {
-                        throw new RuntimeException(e);
+                        nextInChain = checkCreateCertificate(chainCertificate);
+                    } catch (AlreadyExistException e) {
+                        X509Certificate x509Cert = CertificateUtil.parseCertificate(chainCertificate);
+                        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
+                        nextInChain = certificateRepository.findByFingerprint(fingerprint).orElse(null);
                     }
+                    assert nextInChain != null;
+                    previousCertificate.setIssuerCertificateUuid(nextInChain.getUuid());
+                    previousCertificate.setIssuerSerialNumber(nextInChain.getSerialNumber());
+                    previousCertificate = nextInChain;
+                } catch (NoSuchAlgorithmException | CertificateException e) {
+                    // Certificate downloaded from AIA cannot be parsed and inserted into inventory, so ignore the rest of chain
+                    break;
                 }
             }
         }
     }
 
+
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public List<CertificateDto> getCertificateChain(Certificate certificate) {
+    public List<CertificateDto> getCertificateChain(Certificate certificate){
         List<CertificateDto> chainCertificates = new ArrayList<>();
         if (certificate.getStatus() == CertificateStatus.NEW || certificate.getStatus() == CertificateStatus.REJECTED) {
             return chainCertificates;
         }
         Certificate lastCertificate = certificate;
-//        Go up the certificate chain until certificate without issuer is found
+        // Go up the certificate chain until certificate without issuer is found
         while (lastCertificate.getIssuerCertificateUuid() != null) {
             try {
                 Certificate issuerCertificate = getCertificateEntity(SecuredUUID.fromUUID(lastCertificate.getIssuerCertificateUuid()));
                 chainCertificates.add(issuerCertificate.mapToDto());
                 lastCertificate = issuerCertificate;
             } catch (NotFoundException e) {
-                throw new RuntimeException(e);
+                // If issuer certificate does not exist in the inventory, set it and issuer serial number to null
+                // and return incomplete chain
+                lastCertificate.setIssuerCertificateUuid(null);
+                lastCertificate.setIssuerSerialNumber(null);
+                return chainCertificates;
             }
         }
-//        Check if last certificate is self-signed, if not try to create chain further
-        if (!lastCertificate.getSubjectDn().equals(lastCertificate.getIssuerDn())) {
-            updateCertificateChain(lastCertificate);
-//            Check if update was successful and issuer was updated
-            if (lastCertificate.getIssuerCertificateUuid() != null)
-                chainCertificates.addAll(getCertificateChain(lastCertificate));
+        // Check if last certificate is self-signed, if not try to create chain further
+        try {
+            if (!isSelfSigned(lastCertificate)) {
+                updateCertificateChain(lastCertificate);
+                // Check if update was successful and issuer was updated
+                if (lastCertificate.getIssuerCertificateUuid() != null)
+                    chainCertificates.addAll(getCertificateChain(lastCertificate));
+            }
+        } catch (CertificateException e) {
+            // If it cannot be verified whether certificate is self-signed or updateCertificateChain fails,
+            // return certificate chain as is without updating
         }
         return chainCertificates;
     }
 
+    /**
+     * Check if the X.509 certificate is self-signed
+     * @param certificate entity
+     * @return true if the certificate is self-signed, false otherwise
+     * @throws CertificateException if the certificate cannot be parsed
+     */
+    private boolean isSelfSigned(Certificate certificate) throws CertificateException {
+        // we check the signature with the certificate public key
+        X509Certificate x509Certificate = getX509(certificate.getCertificateContent().getContent());
+        try {
+            x509Certificate.verify(x509Certificate.getPublicKey());
+            return true;
+        } catch (NoSuchAlgorithmException | InvalidKeyException | NoSuchProviderException e) {
+            logger.debug("Unable to verify if the certificate {} is self-signed: {}", certificate.getUuid(), e.getMessage());
+            throw new CertificateException(e);
+        } catch (SignatureException e) {
+            // if the certificate is not self-signed, the verification will fail
+            return false;
+        }
+    }
 
     private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
         try {
