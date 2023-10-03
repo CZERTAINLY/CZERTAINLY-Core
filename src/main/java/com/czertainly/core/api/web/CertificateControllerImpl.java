@@ -28,6 +28,7 @@ import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
@@ -38,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.net.URI;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -49,7 +51,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.security.cert.X509Certificate;
 import java.util.*;
-import java.util.stream.Collectors;
 
 
 @RestController
@@ -185,20 +186,26 @@ public class CertificateControllerImpl implements CertificateController {
 		CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = new CertificateChainDownloadResponseDto();
 		certificateChainDownloadResponseDto.setCompleteChain(certificateChainResponseDto.isCompleteChain());
 		certificateChainDownloadResponseDto.setFormat(certificateFormat);
-		StringBuilder certificateChainEncoded = new StringBuilder();
-		if (certificateFormat == CertificateFormat.PEM) {
+		StringWriter certificateChainEncoded = new StringWriter();
+		JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(certificateChainEncoded);
+		List<X509Certificate> caCertificateChain = new ArrayList<>();
 			for (CertificateDto certificateDto : certificateChain) {
 				Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
-				String content = certificate.getCertificateContent().getContent();
-				certificateChainEncoded.append("-----BEGIN CERTIFICATE-----\n").append(content).append("\n-----END CERTIFICATE-----\n");
+				X509Certificate x509Certificate = CertificateUtil.getX509Certificate(certificate.getCertificateContent().getContent());
+				if (certificateFormat == CertificateFormat.PEM) {
+					try {
+						jcaPEMWriter.writeObject(x509Certificate);
+						jcaPEMWriter.flush();
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				} else {
+					caCertificateChain.add(x509Certificate);
+				}
 			}
-		} else {
+
 			if (certificateFormat == CertificateFormat.PKCS7) {
 				certificateChainEncoded.append("-----BEGIN PKCS7-----\n");
-				List<X509Certificate> caCertificateChain = new ArrayList<>();
-				for (CertificateDto certificateDto : certificateChain) {
-					caCertificateChain.add(CertificateUtil.getX509Certificate(certificateService.getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid())).getCertificateContent().getContent()));
-				}
 				CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
 				byte[] encoded;
 				try {
@@ -210,7 +217,6 @@ public class CertificateControllerImpl implements CertificateController {
 				certificateChainEncoded.append(Base64.getEncoder().encodeToString(encoded));
 				certificateChainEncoded.append("-----END PKCS7-----");
 			}
-		}
 		certificateChainDownloadResponseDto.setContent(certificateChainEncoded.toString());
 		return certificateChainDownloadResponseDto;
 	}
