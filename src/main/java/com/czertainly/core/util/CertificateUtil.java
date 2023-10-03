@@ -401,32 +401,6 @@ public class CertificateUtil {
         }
     }
 
-    public static String getBase64EncodedPEM(X509Certificate certificate) {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        try (outputStream) {
-            byte[] certBytes = certificate.getEncoded();
-            outputStream.write("-----BEGIN CERTIFICATE-----\n".getBytes());
-            outputStream.write(Base64.getMimeEncoder(64, "\n".getBytes()).encode(certBytes));
-            outputStream.write("\n-----END CERTIFICATE-----\n".getBytes());
-        } catch (IOException | CertificateEncodingException e) {
-            throw new RuntimeException(e);
-        }
-        return Base64.getEncoder().encodeToString(outputStream.toByteArray());
-    }
-
-    public static String getBase64EncodedPKCS7(X509Certificate certificate) {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        try (outputStream) {
-            byte[] certBytes = certificate.getEncoded();
-            outputStream.write("-----BEGIN CERTIFICATE-----\n".getBytes());
-            outputStream.write(Base64.getMimeEncoder(64, "\n".getBytes()).encode(certBytes));
-            outputStream.write("\n-----END CERTIFICATE-----\n".getBytes());
-        } catch (IOException | CertificateEncodingException e) {
-            throw new RuntimeException(e);
-        }
-        return Base64.getEncoder().encodeToString(outputStream.toByteArray());
-    }
-
     public static String getAlgorithmFriendlyName(String algorithmName) {
         String friendlyName = CERTIFICATE_ALGORITHM_FRIENDLY_NAME.get(algorithmName);
         if (friendlyName != null) return friendlyName;

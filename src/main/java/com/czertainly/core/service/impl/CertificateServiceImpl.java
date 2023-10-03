@@ -516,10 +516,14 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public List<CertificateDto> getCertificateChain(Certificate certificate){
-        List<CertificateDto> chainCertificates = new ArrayList<>();
+    public CertificateChainResponseDto getCertificateChain(Certificate certificate){
+        List<CertificateDetailDto> chainCertificates = new ArrayList<>();
+        CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
+        certificateChainResponseDto.setCertificates(chainCertificates);
+        certificateChainResponseDto.setCompleteChain(true);
         if (certificate.getStatus() == CertificateStatus.NEW || certificate.getStatus() == CertificateStatus.REJECTED) {
-            return chainCertificates;
+            certificateChainResponseDto.setCompleteChain(false);
+            return certificateChainResponseDto;
         }
         Certificate lastCertificate = certificate;
         // Go up the certificate chain until certificate without issuer is found
@@ -533,22 +537,26 @@ public class CertificateServiceImpl implements CertificateService {
                 // and return incomplete chain
                 lastCertificate.setIssuerCertificateUuid(null);
                 lastCertificate.setIssuerSerialNumber(null);
-                return chainCertificates;
+                certificateRepository.save(lastCertificate);
+                certificateChainResponseDto.setCompleteChain(false);
+                return certificateChainResponseDto;
             }
         }
         // Check if last certificate is self-signed, if not try to create chain further
         try {
             if (!isSelfSigned(lastCertificate)) {
+                certificateChainResponseDto.setCompleteChain(false);
                 updateCertificateChain(lastCertificate);
                 // Check if update was successful and issuer was updated
                 if (lastCertificate.getIssuerCertificateUuid() != null)
-                    chainCertificates.addAll(getCertificateChain(lastCertificate));
+                    chainCertificates.addAll(getCertificateChain(lastCertificate).getCertificates());
             }
         } catch (CertificateException e) {
             // If it cannot be verified whether certificate is self-signed or updateCertificateChain fails,
             // return certificate chain as is without updating
+            certificateChainResponseDto.setCompleteChain(false);
         }
-        return chainCertificates;
+        return certificateChainResponseDto;
     }
 
     /**
