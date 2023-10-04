@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -16,6 +17,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import org.bouncycastle.cms.CMSException;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -50,7 +52,9 @@ public interface CertificateService extends ResourceExtensionService  {
 
     void updateCertificateChain(Certificate certificate) throws CertificateException;
 
-    CertificateChainResponseDto getCertificateChain(Certificate certificate);
+    CertificateChainResponseDto getCertificateChain(Certificate certificate, boolean withEndCertificate);
+
+    CertificateChainDownloadResponseDto downloadCertificateChain(Certificate certificate, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException, IOException, CMSException, CertificateOperationException;
 
     /**
      * Creates the Certificate entity

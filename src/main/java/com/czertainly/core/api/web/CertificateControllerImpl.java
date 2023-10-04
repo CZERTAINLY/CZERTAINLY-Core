@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
@@ -22,17 +23,8 @@ import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
-import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.converter.CertificateFormatConverter;
-import org.bouncycastle.asn1.ASN1Object;
-import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.cms.ContentInfo;
-import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSException;
-import org.bouncycastle.cms.CMSProcessableByteArray;
-import org.bouncycastle.cms.CMSSignedData;
-import org.bouncycastle.cms.CMSSignedDataGenerator;
-import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
@@ -43,18 +35,14 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
-import java.io.StringWriter;
 import java.net.URI;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.security.cert.X509Certificate;
-import java.util.*;
 
 
 @RestController
@@ -174,59 +162,12 @@ public class CertificateControllerImpl implements CertificateController {
 
 	@Override
 	public CertificateChainResponseDto getCertificateChain(String uuid, boolean withEndCertificate) throws NotFoundException {
-		Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
-		CertificateChainResponseDto certificateChainResponseDto = certificateService.getCertificateChain(certificate);
-		if (withEndCertificate) {
-			List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
-			certificateChain.add(0, certificate.mapToDto());
-		}
-		return certificateChainResponseDto;
+		return certificateService.getCertificateChain(certificateService.getCertificateEntity(SecuredUUID.fromString(uuid)), withEndCertificate);
 	}
 
 	@Override
-	public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException, IOException {
-		CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(uuid, withEndCertificate);
-		List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
-		CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = new CertificateChainDownloadResponseDto();
-		certificateChainDownloadResponseDto.setCompleteChain(certificateChainResponseDto.isCompleteChain());
-		certificateChainDownloadResponseDto.setFormat(certificateFormat);
-		StringWriter certificateChainEncoded = new StringWriter();
-		JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(certificateChainEncoded);
-		List<X509Certificate> caCertificateChain = new ArrayList<>();
-			for (CertificateDto certificateDto : certificateChain) {
-				Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
-				X509Certificate x509Certificate = CertificateUtil.getX509Certificate(certificate.getCertificateContent().getContent());
-				if (certificateFormat == CertificateFormat.PEM) {
-					try {
-						jcaPEMWriter.writeObject(x509Certificate);
-						jcaPEMWriter.flush();
-					} catch (IOException e) {
-						throw new RuntimeException(e);
-					}
-				} else {
-					caCertificateChain.add(x509Certificate);
-				}
-			}
-
-			if (certificateFormat == CertificateFormat.PKCS7) {
-				CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
-				byte[] encoded;
-				try {
-					generator.addCertificates(new JcaCertStore(caCertificateChain));
-					encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
-				} catch (CMSException | IOException e) {
-					throw new RuntimeException(e);
-				}
-				ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
-				try {
-					jcaPEMWriter.writeObject(contentInfo);
-					jcaPEMWriter.flush();
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			}
-		certificateChainDownloadResponseDto.setContent(certificateChainEncoded.toString());
-		return certificateChainDownloadResponseDto;
+	public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException, IOException, CMSException, CertificateOperationException {
+		return certificateService.downloadCertificateChain(certificateService.getCertificateEntity(SecuredUUID.fromString(uuid)), certificateFormat, withEndCertificate);
 	}
 
 	@Override
