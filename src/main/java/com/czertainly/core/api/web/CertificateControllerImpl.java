@@ -24,9 +24,13 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.converter.CertificateFormatConverter;
+import org.bouncycastle.asn1.ASN1Object;
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.cms.ContentInfo;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSProcessableByteArray;
+import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -180,7 +184,7 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException {
+	public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException, IOException {
 		CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(uuid, withEndCertificate);
 		List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
 		CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = new CertificateChainDownloadResponseDto();
@@ -205,17 +209,21 @@ public class CertificateControllerImpl implements CertificateController {
 			}
 
 			if (certificateFormat == CertificateFormat.PKCS7) {
-				certificateChainEncoded.append("-----BEGIN PKCS7-----\n");
 				CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
 				byte[] encoded;
 				try {
 					generator.addCertificates(new JcaCertStore(caCertificateChain));
 					encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
-				} catch (IOException | CMSException e) {
+				} catch (CMSException | IOException e) {
 					throw new RuntimeException(e);
 				}
-				certificateChainEncoded.append(Base64.getEncoder().encodeToString(encoded));
-				certificateChainEncoded.append("-----END PKCS7-----");
+				ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
+				try {
+					jcaPEMWriter.writeObject(contentInfo);
+					jcaPEMWriter.flush();
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
 			}
 		certificateChainDownloadResponseDto.setContent(certificateChainEncoded.toString());
 		return certificateChainDownloadResponseDto;
