@@ -166,7 +166,7 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException, IOException, CMSException, CertificateOperationException {
+	public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateOperationException {
 		return certificateService.downloadCertificateChain(certificateService.getCertificateEntity(SecuredUUID.fromString(uuid)), certificateFormat, withEndCertificate);
 	}
 

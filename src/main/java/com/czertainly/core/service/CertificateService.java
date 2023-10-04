@@ -54,7 +54,7 @@ public interface CertificateService extends ResourceExtensionService  {
 
     CertificateChainResponseDto getCertificateChain(Certificate certificate, boolean withEndCertificate);
 
-    CertificateChainDownloadResponseDto downloadCertificateChain(Certificate certificate, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException, IOException, CMSException, CertificateOperationException;
+    CertificateChainDownloadResponseDto downloadCertificateChain(Certificate certificate, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateOperationException;
 
     /**
      * Creates the Certificate entity
