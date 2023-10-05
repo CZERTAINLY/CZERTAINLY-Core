@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
@@ -22,8 +23,12 @@ import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
+import com.czertainly.core.util.converter.CertificateFormatConverter;
+import org.bouncycastle.cms.CMSException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+
 @RestController
 public class CertificateControllerImpl implements CertificateController {
 
@@ -51,6 +57,11 @@ public class CertificateControllerImpl implements CertificateController {
 	private ClientOperationService clientOperationService;
 
 	private ApprovalService approvalService;
+
+	@InitBinder
+	public void initBinder(final WebDataBinder webdataBinder) {
+		webdataBinder.registerCustomEditor(CertificateFormat.class, new CertificateFormatConverter());
+	}
 
 	@Override
 	public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
@@ -150,9 +161,13 @@ public class CertificateControllerImpl implements CertificateController {
 	}
 
 	@Override
-	public List<CertificateDto> getCertificateChain(String uuid) throws NotFoundException {
-		Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
-		return certificateService.getCertificateChain(certificate);
+	public CertificateChainResponseDto getCertificateChain(String uuid, boolean withEndCertificate) throws NotFoundException {
+		return certificateService.getCertificateChain(certificateService.getCertificateEntity(SecuredUUID.fromString(uuid)), withEndCertificate);
+	}
+
+	@Override
+	public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateOperationException {
+		return certificateService.downloadCertificateChain(certificateService.getCertificateEntity(SecuredUUID.fromString(uuid)), certificateFormat, withEndCertificate);
 	}
 
 	@Override
