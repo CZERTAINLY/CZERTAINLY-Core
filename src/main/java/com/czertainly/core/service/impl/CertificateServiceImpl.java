@@ -50,6 +50,12 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.cms.ContentInfo;
+import org.bouncycastle.cert.jcajce.JcaCertStore;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSProcessableByteArray;
+import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
@@ -513,13 +519,14 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
-
-    @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public List<CertificateDto> getCertificateChain(Certificate certificate){
-        List<CertificateDto> chainCertificates = new ArrayList<>();
+    private CertificateChainResponseDto getCertificateChainWithoutEndCertificate(Certificate certificate) {
+        List<CertificateDetailDto> chainCertificates = new ArrayList<>();
+        CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
+        certificateChainResponseDto.setCertificates(chainCertificates);
+        certificateChainResponseDto.setCompleteChain(true);
         if (certificate.getStatus() == CertificateStatus.NEW || certificate.getStatus() == CertificateStatus.REJECTED) {
-            return chainCertificates;
+            certificateChainResponseDto.setCompleteChain(false);
+            return certificateChainResponseDto;
         }
         Certificate lastCertificate = certificate;
         // Go up the certificate chain until certificate without issuer is found
@@ -533,26 +540,89 @@ public class CertificateServiceImpl implements CertificateService {
                 // and return incomplete chain
                 lastCertificate.setIssuerCertificateUuid(null);
                 lastCertificate.setIssuerSerialNumber(null);
-                return chainCertificates;
+                certificateRepository.save(lastCertificate);
+                certificateChainResponseDto.setCompleteChain(false);
+                return certificateChainResponseDto;
             }
         }
         // Check if last certificate is self-signed, if not try to create chain further
         try {
             if (!isSelfSigned(lastCertificate)) {
+                certificateChainResponseDto.setCompleteChain(false);
                 updateCertificateChain(lastCertificate);
                 // Check if update was successful and issuer was updated
                 if (lastCertificate.getIssuerCertificateUuid() != null)
-                    chainCertificates.addAll(getCertificateChain(lastCertificate));
+                    chainCertificates.addAll(getCertificateChainWithoutEndCertificate(lastCertificate).getCertificates());
             }
         } catch (CertificateException e) {
             // If it cannot be verified whether certificate is self-signed or updateCertificateChain fails,
             // return certificate chain as is without updating
+            certificateChainResponseDto.setCompleteChain(false);
         }
-        return chainCertificates;
+        return certificateChainResponseDto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public CertificateChainResponseDto getCertificateChain(Certificate certificate, boolean withEndCertificate) {
+        CertificateChainResponseDto certificateChainResponseDto = getCertificateChainWithoutEndCertificate(certificate);
+        if (withEndCertificate) {
+            List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
+            certificateChain.add(0, certificate.mapToDto());
+        }
+        return certificateChainResponseDto;
+    }
+
+    @Override
+    public CertificateChainDownloadResponseDto downloadCertificateChain(Certificate certificate, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateOperationException {
+        CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(certificate, withEndCertificate);
+        List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
+        CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = new CertificateChainDownloadResponseDto();
+        certificateChainDownloadResponseDto.setCompleteChain(certificateChainResponseDto.isCompleteChain());
+        certificateChainDownloadResponseDto.setFormat(certificateFormat);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
+        List<X509Certificate> x509CertificateChain = new ArrayList<>();
+        for (CertificateDto certificateDto : certificateChain) {
+            Certificate certificateInstance;
+            certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
+            X509Certificate x509Certificate;
+            try {
+                x509Certificate = CertificateUtil.getX509Certificate(certificateInstance.getCertificateContent().getContent());
+            } catch (CertificateException e) {
+                certificateChainDownloadResponseDto.setCompleteChain(false);
+                break;
+            }
+            if (certificateFormat == CertificateFormat.PEM) {
+                try {
+                    jcaPEMWriter.writeObject(x509Certificate);
+                    jcaPEMWriter.flush();
+                } catch (IOException e) {
+                    throw new CertificateOperationException("Could not write certificate chain as PEM format: " + e.getMessage());
+                }
+            } else {
+                x509CertificateChain.add(x509Certificate);
+            }
+        }
+        if (certificateFormat == CertificateFormat.PKCS7) {
+            try {
+                CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
+                generator.addCertificates(new JcaCertStore(x509CertificateChain));
+                byte[] encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
+                ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
+                jcaPEMWriter.writeObject(contentInfo);
+                jcaPEMWriter.flush();
+            } catch (Exception e) {
+                throw new CertificateOperationException("Could not write certificate chain as PKCS#7 format: " + e.getMessage());
+            }
+        }
+        certificateChainDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
+        return certificateChainDownloadResponseDto;
     }
 
     /**
      * Check if the X.509 certificate is self-signed
+     *
      * @param certificate entity
      * @return true if the certificate is self-signed, false otherwise
      * @throws CertificateException if the certificate cannot be parsed
