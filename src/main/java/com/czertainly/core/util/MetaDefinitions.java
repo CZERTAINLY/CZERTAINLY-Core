@@ -1,13 +1,11 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.core.certificate.CertificateValidationCheck;
 import com.czertainly.api.model.core.certificate.CertificateValidationDto;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class MetaDefinitions {
 	private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -40,9 +38,9 @@ public class MetaDefinitions {
 		}
 	}
 
-	public static Map<String, CertificateValidationDto> deserializeValidation(String metaJson) {
+	public static Map<CertificateValidationCheck, CertificateValidationDto> deserializeValidation(String metaJson) {
 		if (metaJson == null || metaJson.isEmpty()) {
-			return new HashMap<>();
+			return new EnumMap<>(CertificateValidationCheck.class);
 		}
 		try {
 			return OBJECT_MAPPER.readValue(metaJson, new TypeReference<>() {

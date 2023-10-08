@@ -15,16 +15,13 @@ import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
-import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalService;
-import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.converter.CertificateFormatConverter;
-import org.bouncycastle.cms.CMSException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
@@ -48,157 +45,143 @@ import java.util.UUID;
 @RestController
 public class CertificateControllerImpl implements CertificateController {
 
-	private CertificateService certificateService;
+    private CertificateService certificateService;
 
-	private CertValidationService certValidationService;
+    private CertificateEventHistoryService certificateEventHistoryService;
 
-	private CertificateEventHistoryService certificateEventHistoryService;
+    private ClientOperationService clientOperationService;
 
-	private ClientOperationService clientOperationService;
+    private ApprovalService approvalService;
 
-	private ApprovalService approvalService;
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(CertificateFormat.class, new CertificateFormatConverter());
+    }
 
-	@InitBinder
-	public void initBinder(final WebDataBinder webdataBinder) {
-		webdataBinder.registerCustomEditor(CertificateFormat.class, new CertificateFormatConverter());
-	}
+    @Override
+    public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
+        return certificateService.listCertificates(SecurityFilter.create(), request);
+    }
 
-	@Override
-	public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
-		return certificateService.listCertificates(SecurityFilter.create(), request);
-	}
+    @Override
+    public CertificateDetailDto getCertificate(@PathVariable String uuid)
+            throws NotFoundException, CertificateException, IOException {
+        return certificateService.getCertificate(SecuredUUID.fromString(uuid));
+    }
 
-	@Override
-	public CertificateDetailDto getCertificate(@PathVariable String uuid)
-			throws NotFoundException, CertificateException, IOException {
-		return certificateService.getCertificate(SecuredUUID.fromString(uuid));
-	}
+    @Override
+    public void deleteCertificate(@PathVariable String uuid) throws NotFoundException {
+        certificateService.deleteCertificate(SecuredUUID.fromString(uuid));
+    }
 
-	@Override
-	public void deleteCertificate(@PathVariable String uuid) throws NotFoundException {
-		certificateService.deleteCertificate(SecuredUUID.fromString(uuid));
-	}
+    @Override
+    public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+        certificateService.updateCertificateObjects(SecuredUUID.fromString(uuid), request);
+    }
 
-	@Override
-	public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
-		certificateService.updateCertificateObjects(SecuredUUID.fromString(uuid), request);
-	}
+    @Override
+    public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+        certificateService.bulkUpdateCertificateObjects(SecurityFilter.create(), request);
+    }
 
-	@Override
-	public void check(@PathVariable String uuid)
-			throws CertificateException, IOException, NotFoundException {
-		Certificate crt = certificateService.getCertificateEntity(SecuredUUID.fromString(uuid));
-		certValidationService.validate(crt);
-	}
-
-	@Override
-	public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
-		certificateService.bulkUpdateCertificateObjects(SecurityFilter.create(), request);
-	}
-
-	@Override
-	public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
-			throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
-		CertificateDetailDto dto = certificateService.upload(request);
-		URI location = ServletUriComponentsBuilder
+    @Override
+    public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
+            throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+        CertificateDetailDto dto = certificateService.upload(request);
+        URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{uuid}")
                 .buildAndExpand(dto.getUuid())
                 .toUri();
-		UuidDto responseDto = new UuidDto();
-		responseDto.setUuid(dto.getUuid());
+        UuidDto responseDto = new UuidDto();
+        responseDto.setUuid(dto.getUuid());
         return ResponseEntity.created(location).body(responseDto);
-	}
+    }
 
-	@Override
-	public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
-		certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
-		BulkOperationResponse response = new BulkOperationResponse();
-		response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
-		response.setStatus(BulkOperationStatus.SUCCESS);
-		return response;
-	}
+    @Override
+    public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
+        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
+        BulkOperationResponse response = new BulkOperationResponse();
+        response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
+        response.setStatus(BulkOperationStatus.SUCCESS);
+        return response;
+    }
 
-	@Override
-	public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-		return certificateService.getSearchableFieldInformationByGroup();
-	}
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return certificateService.getSearchableFieldInformationByGroup();
+    }
 
 
-	@Override
-	public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException{
-		return certificateEventHistoryService.getCertificateEventHistory(UUID.fromString(uuid));
-	}
+    @Override
+    public List<CertificateEventHistoryDto> getCertificateEventHistory(String uuid) throws NotFoundException {
+        return certificateEventHistoryService.getCertificateEventHistory(UUID.fromString(uuid));
+    }
 
-	@Override
-	public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
-		return certificateService.listLocations(SecuredUUID.fromString(certificateUuid));
-	}
+    @Override
+    public List<LocationDto> listLocations(String certificateUuid) throws NotFoundException {
+        return certificateService.listLocations(SecuredUUID.fromString(certificateUuid));
+    }
 
-	@Override
-	public void checkCompliance(CertificateComplianceCheckDto request) throws NotFoundException {
-		certificateService.checkCompliance(request);
-	}
+    @Override
+    public void checkCompliance(CertificateComplianceCheckDto request) throws NotFoundException {
+        certificateService.checkCompliance(request);
+    }
 
-	@Override
-	public Map<String, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException, CertificateException, IOException {
-		return certificateService.getCertificateValidationResult(SecuredUUID.fromString(uuid));
-	}
+    @Override
+    public Map<CertificateValidationCheck, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException, CertificateException {
+        return certificateService.getCertificateValidationResult(SecuredUUID.fromString(uuid));
+    }
 
-	@Override
-	public List<BaseAttribute> getCsrGenerationAttributes() {
-		return certificateService.getCsrGenerationAttributes();
-	}
+    @Override
+    public List<BaseAttribute> getCsrGenerationAttributes() {
+        return certificateService.getCsrGenerationAttributes();
+    }
 
-	@Override
-	public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
-		return certificateService.getCertificateContent(uuids);
-	}
+    @Override
+    public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
+        return certificateService.getCertificateContent(uuids);
+    }
 
-	@Override
-	public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
-		return clientOperationService.submitCertificateRequest(request);
-	}
+    @Override
+    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
+        return clientOperationService.submitCertificateRequest(request);
+    }
 
-	@Override
-	public CertificateChainResponseDto getCertificateChain(String uuid, boolean withEndCertificate) throws NotFoundException {
-		return certificateService.getCertificateChain(certificateService.getCertificateEntity(SecuredUUID.fromString(uuid)), withEndCertificate);
-	}
+    @Override
+    public CertificateChainResponseDto getCertificateChain(String uuid, boolean withEndCertificate) throws NotFoundException {
+        return certificateService.getCertificateChain(SecuredUUID.fromString(uuid), withEndCertificate);
+    }
 
-	@Override
-	public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateOperationException {
-		return certificateService.downloadCertificateChain(certificateService.getCertificateEntity(SecuredUUID.fromString(uuid)), certificateFormat, withEndCertificate);
-	}
+    @Override
+    public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException {
+        return certificateService.downloadCertificateChain(SecuredUUID.fromString(uuid), certificateFormat, withEndCertificate);
+    }
 
-	@Override
-	public ApprovalResponseDto listCertificateApprovals(final String uuid, final PaginationRequestDto paginationRequestDto) {
-		return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, UUID.fromString(uuid), paginationRequestDto);
-	}
+    @Override
+    public ApprovalResponseDto listCertificateApprovals(final String uuid, final PaginationRequestDto paginationRequestDto) {
+        return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, UUID.fromString(uuid), paginationRequestDto);
+    }
 
-	// SETTERs
+    // SETTERs
 
-	@Autowired
-	public void setCertificateService(CertificateService certificateService) {
-		this.certificateService = certificateService;
-	}
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
 
-	@Autowired
-	public void setCertValidationService(CertValidationService certValidationService) {
-		this.certValidationService = certValidationService;
-	}
+    @Autowired
+    public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
+        this.certificateEventHistoryService = certificateEventHistoryService;
+    }
 
-	@Autowired
-	public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
-		this.certificateEventHistoryService = certificateEventHistoryService;
-	}
+    @Autowired
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
 
-	@Autowired
-	public void setClientOperationService(ClientOperationService clientOperationService) {
-		this.clientOperationService = clientOperationService;
-	}
-
-	@Autowired
-	public void setApprovalService(ApprovalService approvalService) {
-		this.approvalService = approvalService;
-	}
+    @Autowired
+    public void setApprovalService(ApprovalService approvalService) {
+        this.approvalService = approvalService;
+    }
 }

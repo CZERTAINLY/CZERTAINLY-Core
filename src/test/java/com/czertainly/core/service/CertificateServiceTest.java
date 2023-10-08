@@ -17,6 +17,8 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.MetaDefinitions;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -32,6 +34,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 public class CertificateServiceTest extends BaseSpringBootTest {
 
@@ -48,6 +51,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     private GroupRepository groupRepository;
 
     private Certificate certificate;
+    private Certificate adminCertificate;
     private CertificateContent certificateContent;
     private RaProfile raProfile;
     private Group group;
