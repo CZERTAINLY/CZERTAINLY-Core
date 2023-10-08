@@ -116,12 +116,12 @@ public class ComplianceServiceImpl implements ComplianceService {
         RaProfile raProfile = certificate.getRaProfile();
         CertificateComplianceStorageDto complianceResults = new CertificateComplianceStorageDto();
         if (raProfile == null) {
-            logger.warn("Certificate with uuid: {} does not have any RA Profile association", certificate.getUuid());
+            logger.debug("Certificate with uuid: {} does not have any RA Profile association", certificate.getUuid());
             return;
         }
         Set<ComplianceProfile> complianceProfiles = raProfile.getComplianceProfiles();
         if (complianceProfiles == null || complianceProfiles.isEmpty()) {
-            logger.warn("Certificate with uuid: {} does not have any Compliance Profile association", certificate.getUuid());
+            logger.debug("Certificate with uuid: {} does not have any Compliance Profile association", certificate.getUuid());
             return;
         }
         for (ComplianceProfile complianceProfile : complianceProfiles) {

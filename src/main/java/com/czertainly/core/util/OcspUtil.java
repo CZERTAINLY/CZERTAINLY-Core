@@ -40,23 +40,29 @@ import java.util.List;
 public class OcspUtil {
     private static final Logger logger = LoggerFactory.getLogger(OcspUtil.class);
 
-	public static String getChainFromAia(X509Certificate certificate) throws IOException {
-		byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
+    private OcspUtil() {
 
-		AuthorityInformationAccess aia = AuthorityInformationAccess.getInstance(X509ExtensionUtil.fromExtensionValue(octetBytes));
+    }
 
-		AccessDescription[] descriptions = aia.getAccessDescriptions();
-		for (AccessDescription ad : descriptions) {
-			if (ad.getAccessMethod().equals(X509ObjectIdentifiers.id_ad_caIssuers)) {
-				GeneralName location = ad.getAccessLocation();
-				if (location.getTagNo() == GeneralName.uniformResourceIdentifier) {
-					logger.debug("Chain for the certificate is {}", location.getName().toString());
-					return location.getName().toString();
-				}
-			}
-		}
-		return null;
-	}
+    public static String getChainFromAia(X509Certificate certificate) throws IOException {
+        byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
+        if (octetBytes == null) {
+            return null;
+        }
+
+        AuthorityInformationAccess aia = AuthorityInformationAccess.getInstance(JcaX509ExtensionUtils.parseExtensionValue(octetBytes));
+        AccessDescription[] descriptions = aia.getAccessDescriptions();
+        for (AccessDescription ad : descriptions) {
+            if (ad.getAccessMethod().equals(X509ObjectIdentifiers.id_ad_caIssuers)) {
+                GeneralName location = ad.getAccessLocation();
+                if (location.getTagNo() == GeneralName.uniformResourceIdentifier) {
+                    logger.debug("Chain for the certificate is {}", location.getName());
+                    return location.getName().toString();
+                }
+            }
+        }
+        return null;
+    }
 
     public static List<String> getOcspUrlFromCertificate(X509Certificate certificate) {
         byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
@@ -78,13 +84,13 @@ public class OcspUtil {
                 }
                 DERIA5String derStr = (DERIA5String) DERIA5String.getInstance((ASN1TaggedObject) name.toASN1Primitive(), false);
                 String ocspUrl = derStr.getString();
-                logger.info("OCSP URL Of the certificate is {}", ocspUrl);
+                logger.debug("OCSP URL Of the certificate is {}", ocspUrl);
                 ocspUrls.add(ocspUrl);
             }
         } catch (Exception e) {
-            logger.warn("Error while getting OCSP URL", e.getMessage());
+            logger.debug("Error while getting OCSP URL: {}", e.getMessage());
         }
-        logger.info("OCSP URL for the certificate is not available");
+        logger.debug("OCSP URL for the certificate is not available");
         return ocspUrls;
     }
 
@@ -156,7 +162,7 @@ public class OcspUtil {
                 throw new IllegalArgumentException("Only http is supported for OCSP requests");
             }
         } catch (IOException e) {
-            logger.warn("Failed to connect to OCSP URL");
+            logger.debug("Failed to connect to OCSP URL");
             throw new IOException("Cannot get OCSP response from URL: " + serviceUrl, e);
         }
     }

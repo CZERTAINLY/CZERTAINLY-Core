@@ -51,7 +51,9 @@ public class CertificateUtil {
     @SuppressWarnings("serial")
     private static final Map<String, String> SAN_TYPE_MAP = new HashMap<>();
     @SuppressWarnings("serial")
-    private static final List<String> KEY_USAGE_LIST = Arrays.asList("digitalSignature", "nonRepudiation", "keyEncipherment", "dataEncipherment", "keyAgreement", "keyCertSign", "cRLSign", "encipherOnly", "decipherOnly");
+
+    public static final String KEY_USAGE_KEY_CERT_SIGN = "keyCertSign";
+    private static final List<String> KEY_USAGE_LIST = Arrays.asList("digitalSignature", "nonRepudiation", "keyEncipherment", "dataEncipherment", "keyAgreement", KEY_USAGE_KEY_CERT_SIGN, "cRLSign", "encipherOnly", "decipherOnly");
 
     static {
         SAN_TYPE_MAP.put("0", "otherName");
@@ -133,18 +135,26 @@ public class CertificateUtil {
     }
 
     public static List<String> keyUsageExtractor(boolean[] keyUsage) {
-
-        List<String> keyUsg = new ArrayList<>();
-        try {
-            for (int i = 0; i < keyUsage.length; i++) {
-                if (keyUsage[i] == Boolean.TRUE) {
-                    keyUsg.add((String) KEY_USAGE_LIST.toArray()[i]);
-                }
-            }
-        } catch (NullPointerException e) {
-            logger.warn("No Key Usage found");
+        List<String> keyUsageNames = new ArrayList<>();
+        if (keyUsage == null) {
+            return keyUsageNames;
         }
-        return keyUsg;
+
+        for (int i = 0; i < keyUsage.length; i++) {
+            if (Boolean.TRUE.equals(keyUsage[i])) {
+                keyUsageNames.add(KEY_USAGE_LIST.get(i));
+            }
+        }
+        return keyUsageNames;
+    }
+
+    public static boolean isKeyUsagePresent(boolean[] keyUsage, String keyUsageName) {
+        if (keyUsage == null) {
+            return false;
+        }
+
+        int keyUsageIndex = KEY_USAGE_LIST.indexOf(keyUsageName);
+        return keyUsageIndex != -1 && keyUsage[keyUsageIndex];
     }
 
     public static String getBasicConstraint(int bcValue) {

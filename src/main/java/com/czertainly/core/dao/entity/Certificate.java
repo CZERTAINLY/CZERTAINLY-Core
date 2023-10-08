@@ -202,7 +202,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
-        /**
+        /*
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
          * When the details of the certificate is requested, the Service will transform the result into the user understandable
          * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories

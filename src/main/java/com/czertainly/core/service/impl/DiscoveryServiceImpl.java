@@ -87,8 +87,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
     @Autowired
-    private CertValidationService certValidationService;
-    @Autowired
     private MetadataService metadataService;
     @Autowired
     private AttributeService attributeService;
@@ -318,7 +316,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             updateDiscovery(modal, response);
             List<Certificate> certificates = updateCertificates(certificatesDiscovered, modal);
-            certValidationService.validateCertificates(certificates);
+
+            for (Certificate certificate: certificates) {
+                certificateService.validate(certificate);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             modal.setStatus(DiscoveryStatus.FAILED);

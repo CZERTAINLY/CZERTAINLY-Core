@@ -1,9 +1,12 @@
 package com.czertainly.core.validation.certificate;
 
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.core.dao.entity.Certificate;
 
-public interface ICertificateValidator {
+import java.security.cert.CertificateException;
 
-    CertificateStatus validateCertificate(Certificate certificate);
+public interface ICertificateValidator {
+    CertificateStatus validateCertificate(Certificate certificate, boolean isCompleteChain) throws CertificateException;
 }

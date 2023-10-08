@@ -8,6 +8,8 @@ import com.czertainly.api.model.common.JwsBody;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
+import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
@@ -29,7 +31,6 @@ import com.czertainly.core.dao.repository.acme.AcmeNonceRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.*;
@@ -127,8 +128,6 @@ public class ExtendedAcmeHelperService {
     private CertificateService certificateService;
     @Autowired
     private RaProfileRepository raProfileRepository;
-    @Autowired
-    private CertValidationService certValidationService;
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
@@ -451,10 +450,10 @@ public class ExtendedAcmeHelperService {
                 .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", ""));
     }
 
-    protected String frameCertChainString(List<Certificate> certificates) throws CertificateException {
+    protected String frameCertChainString(List<CertificateDetailDto> certificates) throws CertificateException {
         List<String> chain = new ArrayList<>();
-        for (Certificate certificate : certificates) {
-            chain.add(X509ObjectToString.toPem(getX509(certificate.getCertificateContent().getContent())));
+        for (CertificateDetailDto certificate : certificates) {
+            chain.add(X509ObjectToString.toPem(getX509(certificate.getCertificateContent())));
         }
         return String.join("\r\n", chain);
     }
@@ -462,8 +461,8 @@ public class ExtendedAcmeHelperService {
     protected ByteArrayResource getCertificateResource(String certificateId) throws NotFoundException, CertificateException {
         AcmeOrder order = acmeOrderRepository.findByCertificateId(certificateId).orElseThrow(() -> new NotFoundException(Order.class, certificateId));
         Certificate certificate = order.getCertificateReference();
-        List<Certificate> chain = certValidationService.getCertificateChain(certificate);
-        String chainString = frameCertChainString(chain);
+        CertificateChainResponseDto certificateChainResponse = certificateService.getCertificateChain(certificate.getSecuredUuid(), true);
+        String chainString = frameCertChainString(certificateChainResponse.getCertificates());
         return new ByteArrayResource(chainString.getBytes(StandardCharsets.UTF_8));
     }
 
