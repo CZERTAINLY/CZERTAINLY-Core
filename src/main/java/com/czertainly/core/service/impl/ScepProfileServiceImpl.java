@@ -48,7 +48,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     private ExtendedAttributeService extendedAttributeService;
     private AttributeService attributeService;
     private CertificateService certificateService;
-    private CertValidationService certValidationService;
 
     @Autowired
     public ScepProfileServiceImpl(ScepProfileRepository scepProfileRepository) {
@@ -73,11 +72,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     @Autowired
     public void setCertificateService(CertificateService certificateService) {
         this.certificateService = certificateService;
-    }
-
-    @Autowired
-    public void setCertValidationService(CertValidationService certValidationService) {
-        this.certValidationService = certValidationService;
     }
 
     @Override

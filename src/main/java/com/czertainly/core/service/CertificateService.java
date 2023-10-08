@@ -52,9 +52,20 @@ public interface CertificateService extends ResourceExtensionService  {
 
     void updateCertificateChain(Certificate certificate) throws CertificateException;
 
-    CertificateChainResponseDto getCertificateChain(Certificate certificate, boolean withEndCertificate);
+    CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException;
 
-    CertificateChainDownloadResponseDto downloadCertificateChain(Certificate certificate, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateOperationException;
+    CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException;
+
+    /**
+     * Function to get the validation result of the certificate
+     *
+     * @param uuid UUID of the certificate
+     * @return Certificate Validation result
+     * @throws NotFoundException
+     */
+    Map<CertificateValidationCheck, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException;
+
+    void validate(Certificate certificate) throws CertificateException;
 
     /**
      * Creates the Certificate entity
@@ -129,15 +140,6 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param request Request to update multiple objects
      */
     void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException;
-
-    /**
-     * Function to get the validation result of the certificate
-     *
-     * @param uuid UUID of the certificate
-     * @return Certificate Validation result
-     * @throws NotFoundException
-     */
-    Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
     /**
      * Function to update status of certificates by scheduled event

@@ -1,7 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
@@ -34,7 +34,7 @@ import java.util.Map;
 public class CertValidationServiceTest extends BaseSpringBootTest {
 
     @Autowired
-    private CertValidationService certValidationService;
+    private CertificateService certificateService;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -63,6 +63,7 @@ public class CertValidationServiceTest extends BaseSpringBootTest {
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
         certificate.setStatus(CertificateStatus.VALID);
+        certificate.setCertificateType(CertificateType.X509);
         certificate.setNotBefore(new Date());
         certificate.setNotAfter(new Date());
         certificate.setCertificateContent(certificateContent);
@@ -70,26 +71,19 @@ public class CertValidationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateCertificates() {
-        // TODO validateCertificates is async - currently not tested properly
-        certValidationService.validateCertificates(List.of());
-    }
-
-    @Test
-    public void testValidateCertificate() throws NotFoundException, CertificateException, IOException {
-        certValidationService.validate(certificate);
+    public void testValidateCertificate() throws CertificateException {
+        certificateService.validate(certificate);
 
         String result = certificate.getCertificateValidationResult();
         Assertions.assertNotNull(result);
         Assertions.assertTrue(StringUtils.isNotBlank(result));
 
-        Map<String, Object> resultMap = MetaDefinitions.deserialize(result);
+        Map<CertificateValidationCheck, CertificateValidationDto> resultMap = MetaDefinitions.deserializeValidation(result);
         Assertions.assertNotNull(resultMap);
         Assertions.assertFalse(resultMap.isEmpty());
 
-        Object signatureVerification = resultMap.get("Signature Verification");
+        CertificateValidationDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
         Assertions.assertNotNull(signatureVerification);
-        Assertions.assertTrue(signatureVerification instanceof Map);
-        Assertions.assertEquals("failed", ((Map) signatureVerification).get("status"));
+        Assertions.assertEquals(CertificateValidationStatus.FAILED, signatureVerification.getStatus());
     }
 }
