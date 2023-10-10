@@ -1,6 +1,5 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
@@ -25,13 +24,12 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 
 @SpringBootTest
 @Transactional
 @Rollback
-public class CertValidationServiceTest extends BaseSpringBootTest {
+class CertValidationServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private CertificateService certificateService;
@@ -71,18 +69,18 @@ public class CertValidationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateCertificate() throws CertificateException {
+    void testValidateCertificate() throws CertificateException {
         certificateService.validate(certificate);
 
         String result = certificate.getCertificateValidationResult();
         Assertions.assertNotNull(result);
         Assertions.assertTrue(StringUtils.isNotBlank(result));
 
-        Map<CertificateValidationCheck, CertificateValidationDto> resultMap = MetaDefinitions.deserializeValidation(result);
+        Map<CertificateValidationCheck, CertificateValidationCheckDto> resultMap = MetaDefinitions.deserializeValidation(result);
         Assertions.assertNotNull(resultMap);
         Assertions.assertFalse(resultMap.isEmpty());
 
-        CertificateValidationDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
+        CertificateValidationCheckDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
         Assertions.assertNotNull(signatureVerification);
         Assertions.assertEquals(CertificateValidationStatus.FAILED, signatureVerification.getStatus());
     }

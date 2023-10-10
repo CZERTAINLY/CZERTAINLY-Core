@@ -1,7 +1,6 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -17,7 +16,6 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import org.bouncycastle.cms.CMSException;
 
 import java.io.IOException;
 import java.security.InvalidKeyException;
@@ -50,8 +48,6 @@ public interface CertificateService extends ResourceExtensionService  {
 
     Certificate createCertificateEntity(X509Certificate certificate);
 
-    void updateCertificateChain(Certificate certificate) throws CertificateException;
-
     CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException;
 
     CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException;
@@ -63,7 +59,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return Certificate Validation result
      * @throws NotFoundException
      */
-    Map<CertificateValidationCheck, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException;
+    CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException;
 
     void validate(Certificate certificate) throws CertificateException;
 
