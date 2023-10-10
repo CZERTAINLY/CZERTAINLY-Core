@@ -1,7 +1,6 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
@@ -38,7 +37,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 
@@ -129,7 +127,7 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public Map<CertificateValidationCheck, CertificateValidationDto> getCertificateValidationResult(String uuid) throws NotFoundException, CertificateException {
+    public CertificateValidationResultDto getCertificateValidationResult(String uuid) throws NotFoundException, CertificateException {
         return certificateService.getCertificateValidationResult(SecuredUUID.fromString(uuid));
     }
 

@@ -41,7 +41,6 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
-import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
@@ -172,9 +171,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private UserManagementApiClient userManagementApiClient;
-
-
-    private ExtendedAttributeService extendedAttributeService;
 
     /**
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
@@ -459,11 +455,10 @@ public class CertificateServiceImpl implements CertificateService {
         return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.CUSTOM);
     }
 
-    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     // @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     // Auth is not required for this method. It is used only internally by other services to update the certificate chain
-    public void updateCertificateChain(Certificate certificate) throws CertificateException {
+    private void updateCertificateChain(Certificate certificate) throws CertificateException {
         if (certificate.getStatus() == CertificateStatus.NEW || certificate.getStatus() == CertificateStatus.REJECTED) {
             return;
         }
@@ -568,9 +563,7 @@ public class CertificateServiceImpl implements CertificateService {
                 if (lastCertificate.getIssuerCertificateUuid() != null) {
                     // construct newly found certificates from chain and do the self-signed check again
                     lastCertificate = constructCertificateChain(lastCertificate, certificateChain);
-                    if (isSelfSigned(lastCertificate)) {
-                        certificateChainResponseDto.setCompleteChain(true);
-                    }
+                    certificateChainResponseDto.setCompleteChain(isSelfSigned(lastCertificate));
                 }
             }
         } catch (CertificateException e) {
@@ -659,7 +652,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public Map<CertificateValidationCheck, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
+    public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
         Certificate certificate = getCertificateEntity(uuid);
         CertificateStatus oldStatus = certificate.getStatus();
         if (oldStatus != CertificateStatus.NEW && oldStatus != CertificateStatus.REJECTED && oldStatus != CertificateStatus.EXPIRED) {
@@ -680,12 +673,15 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         String validationResult = certificate.getCertificateValidationResult();
+        CertificateValidationResultDto resultDto = new CertificateValidationResultDto();
+        resultDto.setResultStatus(certificate.getStatus());
         try {
-            return MetaDefinitions.deserializeValidation(validationResult);
+            Map<CertificateValidationCheck, CertificateValidationCheckDto> validationChecks = MetaDefinitions.deserializeValidation(validationResult);
+            resultDto.setValidationChecks(validationChecks);
         } catch (IllegalStateException e) {
             logger.error(e.getMessage());
         }
-        return new EnumMap<>(CertificateValidationCheck.class);
+        return resultDto;
     }
 
     /**
