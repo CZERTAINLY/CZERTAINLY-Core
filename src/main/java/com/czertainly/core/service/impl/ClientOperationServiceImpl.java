@@ -88,7 +88,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         logger.debug("UUID of the certificate is {}", certificate.getUuid());
         logger.debug("UUID of the RA Profile is {}", raProfile.getUuid());
         certificateService.updateCertificateObjects(SecuredUUID.fromString(certificate.getUuid().toString()), dto);
-        certificateService.updateCertificateChain(certificate);
         try {
             certificateService.validate(certificate);
         } catch (Exception e) {
