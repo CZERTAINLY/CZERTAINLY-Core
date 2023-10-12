@@ -15,12 +15,15 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -29,12 +32,17 @@ import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
 import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.dao.repository.AttributeRelationRepository;
+import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -67,6 +75,9 @@ public class AttributeServiceImpl implements AttributeService {
             Resource.TOKEN_PROFILE,
             Resource.CRYPTOGRAPHIC_KEY
     );
+
+    @PersistenceContext
+    private EntityManager entityManager;
     private AttributeDefinitionRepository attributeDefinitionRepository;
     private AttributeRelationRepository attributeRelationRepository;
     private AttributeContentRepository attributeContentRepository;
@@ -97,7 +108,7 @@ public class AttributeServiceImpl implements AttributeService {
     public List<CustomAttributeDefinitionDto> listAttributes(AttributeContentType attributeContentType) {
         logger.info("Fetching custom attributes");
 
-        List<AttributeDefinition> customAttributes = attributeContentType == null ? attributeDefinitionRepository.findByType(AttributeType.CUSTOM):
+        List<AttributeDefinition> customAttributes = attributeContentType == null ? attributeDefinitionRepository.findByType(AttributeType.CUSTOM) :
                 attributeDefinitionRepository.findByTypeAndContentType(AttributeType.CUSTOM, attributeContentType);
 
         return customAttributes.stream().map(e -> {
@@ -487,6 +498,34 @@ public class AttributeServiceImpl implements AttributeService {
             return definition.getAttributeDefinition(DataAttribute.class);
         }
         return null;
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getResourceSearchableFieldInformation(Resource resource) {
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
+        final List<SearchFieldObject> metadataSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.META));
+        if (!metadataSearchFieldObject.isEmpty()) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
+        }
+
+        final List<SearchFieldObject> customAttrSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.CUSTOM));
+        if (!customAttrSearchFieldObject.isEmpty()) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
+        }
+
+        return searchFieldDataByGroupDtos;
+    }
+
+    @Override
+    public List<UUID> getResourceObjectUuidsByFilters(Resource resource, SecurityFilter securityFilter, List<SearchFilterRequestDto> searchFilters) {
+        List<SearchFilterRequestDto> attributesFilters;
+        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getSearchGroup() == SearchGroup.CUSTOM || f.getSearchGroup() == SearchGroup.META).toList()).isEmpty()) {
+            return null;
+        }
+
+        final List<SearchFieldObject> searchFieldObjects = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.CUSTOM, AttributeType.META));
+        final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, attributesFilters, entityManager.getCriteriaBuilder(), resource);
+        return attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(securityFilter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate());
     }
 
     private void createAttributeContent(final UUID objectUuid, final String attributeName, final List<BaseAttributeContent> baseAttributeContentList, final Resource resource) {
