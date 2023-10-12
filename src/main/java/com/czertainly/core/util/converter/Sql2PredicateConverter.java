@@ -294,7 +294,6 @@ public class Sql2PredicateConverter {
     }
 
     public static CriteriaQueryDataObject prepareQueryToSearchIntoAttributes(final List<SearchFieldObject> searchableFields, final List<SearchFilterRequestDto> dtos, final CriteriaBuilder criteriaBuilder, final Resource resource) {
-
         final CriteriaQuery<UUID> criteriaQuery = criteriaBuilder.createQuery(UUID.class);
         final Root<AttributeContent2Object> root = criteriaQuery.from(AttributeContent2Object.class);
 
@@ -357,6 +356,7 @@ public class Sql2PredicateConverter {
         }
 
         final CriteriaQueryDataObject cqdo = new CriteriaQueryDataObject();
+        cqdo.setRoot(root);
         cqdo.setCriteriaQuery(criteriaQuery);
         cqdo.setPredicate(criteriaBuilder.and(rootPredicates.toArray(new Predicate[]{})));
         return cqdo;

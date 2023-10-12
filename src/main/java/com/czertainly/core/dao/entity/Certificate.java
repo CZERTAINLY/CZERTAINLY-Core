@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 @Entity
 @Table(name = "certificate")
 public class Certificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateDetailDto> {
+    private static final String EMPTY_COMMON_NAME = "<empty>";
 
     private static final long serialVersionUID = -3048734620156664554L;
 
@@ -174,8 +175,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
-        dto.setCommonName(commonName);
-        dto.setIssuerCommonName(issuerCommonName);
+        dto.setCommonName(commonName != null ? commonName : EMPTY_COMMON_NAME);
+        dto.setIssuerCommonName(issuerCommonName != null ? issuerCommonName : EMPTY_COMMON_NAME);
         if (!status.equals(CertificateStatus.NEW) && !status.equals(CertificateStatus.REJECTED)) {
             dto.setCertificateContent(certificateContent.getContent());
             dto.setIssuerDn(issuerDn);
@@ -266,7 +267,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public CertificateDto mapToListDto() {
         CertificateDto dto = new CertificateDto();
-        dto.setCommonName(commonName);
+        dto.setCommonName(commonName != null ? commonName : EMPTY_COMMON_NAME);
+        dto.setIssuerCommonName(issuerCommonName != null ? issuerCommonName : EMPTY_COMMON_NAME);
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
         dto.setIssuerDn(issuerDn);

@@ -25,7 +25,7 @@ public interface AttributeContentRepository extends JpaRepository<AttributeConte
             "from AttributeContent2Object aco " +
             "         join AttributeContent ac on ac.uuid = aco.attributeContentUuid " +
             "         join AttributeDefinition ad on ac.attributeDefinitionUuid = ad.uuid\n" +
-            "where ad.type = ?2 and aco.objectType = ?1")
-    List<SearchFieldObject> findDistinctAttributeContentNamesByAttrTypeAndObjType(final Resource resourceType, final AttributeType attributeType);
+            "where ad.type IN ?2 and aco.objectType = ?1")
+    List<SearchFieldObject> findDistinctAttributeContentNamesByAttrTypeAndObjType(final Resource resourceType, final List<AttributeType> attributeTypes);
 
 }
