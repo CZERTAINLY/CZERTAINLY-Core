@@ -324,28 +324,6 @@ public class LocationServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
-//    @Test
-//    public void testRemoveLocation_withCertificates() throws ConnectorException {
-//        mockServer.stubFor(WireMock
-//                .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove"))
-//                .willReturn(WireMock.okJson("{\n" +
-//                        "  \"certificateMetadata\": {}\n" +
-//                        "}")));
-//
-//        RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
-//        removeCertificateRequestDto.setLocationAttributes(location.getRequestAttributes());
-//
-//        locationService.removeCertificateFromLocation(location.getUuid(), certificate.getUuid());
-//
-//        locationService.removeLocation(location.getUuid());
-//        Assertions.assertThrows(NotFoundException.class, () -> locationService.getLocation(location.getUuid()));
-//    }
-
-    @Test
-    public void testRemoveLocation_withCertificates() {
-        Assertions.assertThrows(ValidationException.class, () -> locationService.deleteLocation(location.getEntityInstanceReference().getSecuredParentUuid(), location.getSecuredUuid()));
-    }
-
     @Test
     public void testRemoveLocation_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> locationService.deleteLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
