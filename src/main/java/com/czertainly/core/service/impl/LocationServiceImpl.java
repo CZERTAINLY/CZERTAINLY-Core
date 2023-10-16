@@ -263,17 +263,6 @@ public class LocationServiceImpl implements LocationService {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
-        List<ValidationError> errors = new ArrayList<>();
-        if (!location.getCertificates().isEmpty()) {
-            errors.add(ValidationError.create("Location {} contains {} Certificate", location.getName(),
-                    location.getCertificates().size()));
-            location.getCertificates().forEach(c -> errors.add(ValidationError.create(c.getCertificate().getUuid().toString())));
-        }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete Location", errors);
-        }
-
         certificateLocationRepository.deleteAll(location.getCertificates());
         attributeService.deleteAttributeContent(location.getUuid(), Resource.LOCATION);
         locationRepository.delete(location);
