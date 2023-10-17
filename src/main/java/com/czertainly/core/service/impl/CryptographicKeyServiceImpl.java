@@ -80,8 +80,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         return result.stream().toList();
     }
 
-    @PersistenceContext
-    private EntityManager entityManager;
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
@@ -100,8 +98,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private TokenProfileRepository tokenProfileRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     private GroupRepository groupRepository;
-    @Autowired
-    private AttributeContentRepository attributeContentRepository;
 
     @Autowired
     public void setAttributeService(AttributeService attributeService) {
@@ -179,15 +175,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
         RequestValidatorHelper.revalidateSearchRequestDto(request);
 
-        final List<UUID> objectUUIDs = new ArrayList<>();
-        if (!request.getFilters().isEmpty()) {
-            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
-            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
-            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
-
-            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.CRYPTOGRAPHIC_KEY);
-            objectUUIDs.addAll(cryptographicKeyRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
-        }
+        // filter keys based on attribute filters
+        final List<UUID> objectUUIDs = attributeService.getResourceObjectUuidsByFilters(Resource.CRYPTOGRAPHIC_KEY, filter, request.getFilters());
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs), p, (root, cb) -> cb.desc(root.get("cryptographicKey").get("created")))
@@ -1290,46 +1279,27 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     private List<SearchFieldDataByGroupDto> getSearchableFieldsMap() {
-
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-
-        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
-        if (metadataSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
-        }
-
-        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
-        if (customAttrSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
-        }
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeService.getResourceSearchableFieldInformation(Resource.CRYPTOGRAPHIC_KEY);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_LENGTH),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((KeyAlgorithm.values())).map(KeyAlgorithm::getCode).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).collect(Collectors.toList())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).collect(Collectors.toList()))
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((KeyAlgorithm.values())).map(KeyAlgorithm::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).toList())
         );
-        fields = fields.stream().collect(Collectors.toList());
+        fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
         logger.debug("Searchable CryptographicKey Fields groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
-    }
-
-    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CRYPTOGRAPHIC_KEY, AttributeType.META);
-    }
-
-    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CRYPTOGRAPHIC_KEY, AttributeType.CUSTOM);
     }
 
 }

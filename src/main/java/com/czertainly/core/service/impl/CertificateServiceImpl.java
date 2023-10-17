@@ -41,7 +41,6 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
-import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
@@ -105,9 +104,6 @@ public class CertificateServiceImpl implements CertificateService {
     public static final Integer DELETE_BATCH_SIZE = 1000;
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
     @Autowired
     private PlatformTransactionManager transactionManager;
 
@@ -131,12 +127,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private DiscoveryCertificateRepository discoveryCertificateRepository;
-
-    @Autowired
-    private AttributeContentRepository attributeContentRepository;
-
-    @Autowired
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
 
     @Autowired
     private ComplianceService complianceService;
@@ -173,9 +163,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private UserManagementApiClient userManagementApiClient;
 
-
-    private ExtendedAttributeService extendedAttributeService;
-
     /**
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
      */
@@ -194,15 +181,8 @@ public class CertificateServiceImpl implements CertificateService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final List<UUID> objectUUIDs = new ArrayList<>();
-        if (!request.getFilters().isEmpty()) {
-            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
-            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
-            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
-
-            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.CERTIFICATE);
-            objectUUIDs.addAll(certificateRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
-        }
+        // filter certificates based on attribute filters
+        final List<UUID> objectUUIDs = attributeService.getResourceObjectUuidsByFilters(Resource.CERTIFICATE, filter, request.getFilters());
 
         final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
@@ -402,18 +382,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-
-        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
-        if (!metadataSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
-        }
-
-        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
-        if (!customAttrSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
-        }
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeService.getResourceSearchableFieldInformation(Resource.CERTIFICATE);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
@@ -441,29 +410,19 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY)
         );
 
-        fields = fields.stream().collect(Collectors.toList());
+        fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
 
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
-
     }
 
-    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.META);
-    }
-
-    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.CUSTOM);
-    }
-
-    @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     // @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     // Auth is not required for this method. It is used only internally by other services to update the certificate chain
-    public void updateCertificateChain(Certificate certificate) throws CertificateException {
+    private void updateCertificateChain(Certificate certificate) throws CertificateException {
         if (certificate.getStatus() == CertificateStatus.NEW || certificate.getStatus() == CertificateStatus.REJECTED) {
             return;
         }
@@ -514,6 +473,7 @@ public class CertificateServiceImpl implements CertificateService {
                     // If the certificate from isn't in repository, create it, otherwise only update issuer uuid and serial number
                     try {
                         nextInChain = checkCreateCertificate(chainCertificate);
+//                        eventProducer.produceCertificateEventMessage(nextInChain.getUuid(), CertificateEvent.UPLOAD.getCode(), CertificateEventStatus.SUCCESS.toString(), "Downloaded from AIA extension.", null);
                     } catch (AlreadyExistException e) {
                         X509Certificate x509Cert = CertificateUtil.parseCertificate(chainCertificate);
                         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
@@ -531,7 +491,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
 
             // if downloaded some certificate, try to update chain of last one, if it is really last self-signed
-            if(downloadedCertificates > 0) {
+            if (downloadedCertificates > 0) {
                 updateCertificateChain(previousCertificate);
             }
         }
@@ -568,9 +528,7 @@ public class CertificateServiceImpl implements CertificateService {
                 if (lastCertificate.getIssuerCertificateUuid() != null) {
                     // construct newly found certificates from chain and do the self-signed check again
                     lastCertificate = constructCertificateChain(lastCertificate, certificateChain);
-                    if (isSelfSigned(lastCertificate)) {
-                        certificateChainResponseDto.setCompleteChain(true);
-                    }
+                    certificateChainResponseDto.setCompleteChain(isSelfSigned(lastCertificate));
                 }
             }
         } catch (CertificateException e) {
@@ -659,7 +617,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public Map<CertificateValidationCheck, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
+    public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
         Certificate certificate = getCertificateEntity(uuid);
         CertificateStatus oldStatus = certificate.getStatus();
         if (oldStatus != CertificateStatus.NEW && oldStatus != CertificateStatus.REJECTED && oldStatus != CertificateStatus.EXPIRED) {
@@ -680,12 +638,15 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         String validationResult = certificate.getCertificateValidationResult();
+        CertificateValidationResultDto resultDto = new CertificateValidationResultDto();
+        resultDto.setResultStatus(certificate.getStatus());
         try {
-            return MetaDefinitions.deserializeValidation(validationResult);
+            Map<CertificateValidationCheck, CertificateValidationCheckDto> validationChecks = MetaDefinitions.deserializeValidation(validationResult);
+            resultDto.setValidationChecks(validationChecks);
         } catch (IllegalStateException e) {
             logger.error(e.getMessage());
         }
-        return new EnumMap<>(CertificateValidationCheck.class);
+        return resultDto;
     }
 
     /**
@@ -1022,9 +983,9 @@ public class CertificateServiceImpl implements CertificateService {
 
         //Compliance Mapping
         Map<String, String> complianceMap = new HashMap<>();
-        complianceMap.put("NA", "Not Checked");
-        complianceMap.put("OK", "Compliant");
-        complianceMap.put("NOK", "Non Compliant");
+        complianceMap.put("NA", ComplianceStatus.NA.getLabel());
+        complianceMap.put("OK", ComplianceStatus.OK.getLabel());
+        complianceMap.put("NOK", ComplianceStatus.NOK.getLabel());
         //
         Map<String, Long> groupStat = new HashMap<>();
         Map<String, Long> raProfileStat = new HashMap<>();
@@ -1415,6 +1376,7 @@ public class CertificateServiceImpl implements CertificateService {
                 }
                 chainCertificates.add(chainContent);
                 certX509 = getX509(chainContent);
+                logger.info("Certificate {} downloaded from Authority Information Access extension URL {}", certX509.getSubjectX500Principal().getName(), chainUrl);
             }
         } catch (Exception e) {
             logger.debug("Unable to get the chain of certificate {} from Authority Information Access", certificate.getUuid(), e);
