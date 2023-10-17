@@ -106,23 +106,24 @@ public class X509CertificateValidator implements ICertificateValidator {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.FAILED, "Incomplete certificate chain. Issuer certificate is not available in the inventory or in the AIA extension.");
             }
         } else {
+            String issuerStatusMessage = "";
             if (issuerCertificateStatus.equals(CertificateStatus.INVALID) || issuerCertificateStatus.equals(CertificateStatus.REVOKED)) {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.FAILED, "Issuer certificate is invalid or revoked");
+                issuerStatusMessage = String.format(" Issuer certificate is %s.", issuerCertificateStatus.getLabel());
             }
 
             String issuerNameEqualityMessage = "";
             if (!issuerCertificate.getSubjectX500Principal().getName().equals(certificate.getIssuerX500Principal().getName())) {
-                issuerNameEqualityMessage = "Certificate issuer DN does not equal to issuer certificate subject DN.";
+                issuerNameEqualityMessage = " Issuer DN does not equal to issuer certificate subject DN.";
             }
 
             if (isCompleteChain) {
-                if (issuerNameEqualityMessage.isEmpty()) {
+                if (issuerNameEqualityMessage.isEmpty() && issuerStatusMessage.isEmpty()) {
                     return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.SUCCESS, "Certificate chain is complete.");
                 } else {
-                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.FAILED, "Certificate chain is complete. " + issuerNameEqualityMessage);
+                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.FAILED, "Certificate chain is complete. " + issuerNameEqualityMessage + issuerStatusMessage);
                 }
             } else {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.FAILED, "Incomplete certificate chain. Missing certificate in validation path. " + issuerNameEqualityMessage);
+                return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.FAILED, "Incomplete certificate chain. Missing certificate in validation path." + issuerNameEqualityMessage + issuerStatusMessage);
             }
         }
     }
