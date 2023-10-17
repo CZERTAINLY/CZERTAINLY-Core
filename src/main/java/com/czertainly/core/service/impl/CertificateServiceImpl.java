@@ -983,9 +983,9 @@ public class CertificateServiceImpl implements CertificateService {
 
         //Compliance Mapping
         Map<String, String> complianceMap = new HashMap<>();
-        complianceMap.put("NA", "Not Checked");
-        complianceMap.put("OK", "Compliant");
-        complianceMap.put("NOK", "Non Compliant");
+        complianceMap.put("NA", ComplianceStatus.NA.getLabel());
+        complianceMap.put("OK", ComplianceStatus.OK.getLabel());
+        complianceMap.put("NOK", ComplianceStatus.NOK.getLabel());
         //
         Map<String, Long> groupStat = new HashMap<>();
         Map<String, Long> raProfileStat = new HashMap<>();
