@@ -56,11 +56,6 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() throws GeneralSecurityException, IOException, com.czertainly.api.exception.CertificateException {
-
-        mockServer = new WireMockServer(80);
-        mockServer.start();
-        WireMock.configureFor("http://x1.i.lencr.org/", mockServer.port());
-
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         keyStore.load(keyStoreStream, "123456".toCharArray());
@@ -125,12 +120,6 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     @Test
     void testGetCertificateChain() throws NotFoundException{
-        mockServer.stubFor(WireMock.get("").willReturn(WireMock.ok("-----BEGIN CERTIFICATE-----\n")));
-//        mockServer.stubFor(get(urlEqualTo("http://x1.i.lencr.org/"))
-//                .willReturn(aResponse()
-//                        .withStatus(200)
-//                        .withBody("Your Custom Content")));
-//        Mockito.when(OcspUtil.getChainFromAia(any())).thenReturn();
         CertificateChainResponseDto certificateChainResponseDto = certificateService.getCertificateChain(chainIncompleteCertificate.getSecuredUuid(), false);
         Assertions.assertFalse(certificateChainResponseDto.isCompleteChain());
         CertificateChainResponseDto certificateChainCompleteResponseDto = certificateService.getCertificateChain(chainCompleteCertificate.getSecuredUuid(), false);
