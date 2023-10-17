@@ -8,12 +8,10 @@ import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.OcspUtil;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.*;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
@@ -29,9 +27,6 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static org.mockito.ArgumentMatchers.any;
 
 @SpringBootTest
 @Transactional
@@ -99,29 +94,29 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
     @Test
-    public void testValidateCertificate() throws CertificateException {
+    void testValidateCertificate() throws CertificateException {
         certificateService.validate(certificate);
 
         String result = certificate.getCertificateValidationResult();
         Assertions.assertNotNull(result);
         Assertions.assertTrue(StringUtils.isNotBlank(result));
 
-        Map<CertificateValidationCheck, CertificateValidationDto> resultMap = MetaDefinitions.deserializeValidation(result);
+        Map<CertificateValidationCheck, CertificateValidationCheckDto> resultMap = MetaDefinitions.deserializeValidation(result);
         Assertions.assertNotNull(resultMap);
         Assertions.assertFalse(resultMap.isEmpty());
 
-        CertificateValidationDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
+        CertificateValidationCheckDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
         Assertions.assertNotNull(signatureVerification);
         Assertions.assertEquals(CertificateValidationStatus.FAILED, signatureVerification.getStatus());
     }
 
     @Test
-    public void testConstructingCertificateChainForSelfSignedCertificate() throws NotFoundException {
+    void testConstructingCertificateChainForSelfSignedCertificate() throws NotFoundException {
         CertificateChainResponseDto certificateChainResponseDto = certificateService.getCertificateChain(caCertificate.getSecuredUuid(), false);
         Assertions.assertEquals(0, certificateChainResponseDto.getCertificates().size());
         CertificateChainResponseDto certificateChainResponseDto2 = certificateService.getCertificateChain(caCertificate.getSecuredUuid(), true);
@@ -129,7 +124,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetCertificateChain() throws NotFoundException, IOException {
+    void testGetCertificateChain() throws NotFoundException{
         mockServer.stubFor(WireMock.get("").willReturn(WireMock.ok("-----BEGIN CERTIFICATE-----\n")));
 //        mockServer.stubFor(get(urlEqualTo("http://x1.i.lencr.org/"))
 //                .willReturn(aResponse()
@@ -141,7 +136,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         CertificateChainResponseDto certificateChainCompleteResponseDto = certificateService.getCertificateChain(chainCompleteCertificate.getSecuredUuid(), false);
         Assertions.assertTrue(certificateChainCompleteResponseDto.isCompleteChain());
         List<CertificateDetailDto> certificates = certificateChainCompleteResponseDto.getCertificates();
-        Assertions.assertEquals(chainCompleteCertificate.getIssuerDn(), certificates.get(certificates.size()-1).getSubjectDn());
+        Assertions.assertEquals(chainCompleteCertificate.getIssuerDn(), certificates.get(certificates.size() - 1).getSubjectDn());
         Assertions.assertEquals(1, certificates.size());
         CertificateChainResponseDto certificateChainCompleteResponseDto2 = certificateService.getCertificateChain(chainCompleteCertificate.getSecuredUuid(), true);
         Assertions.assertEquals(2, certificateChainCompleteResponseDto2.getCertificates().size());
@@ -149,7 +144,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDownloadCertificateChain() throws NotFoundException, CertificateException {
+    void testDownloadCertificateChain() throws NotFoundException, CertificateException {
         CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = certificateService.downloadCertificateChain(chainIncompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, true);
         Assertions.assertFalse(certificateChainDownloadResponseDto.isCompleteChain());
         CertificateChainDownloadResponseDto certificateChainResponseDto2 = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, false);
@@ -157,8 +152,4 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         CertificateChainDownloadResponseDto certificateChainResponseDto3 = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PKCS7, false);
         Assertions.assertTrue(certificateChainResponseDto3.isCompleteChain());
     }
-
-
-
-
 }
