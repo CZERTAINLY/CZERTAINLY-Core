@@ -32,7 +32,7 @@ public interface ClientOperationService {
             ClientCertificateRequestDto request
     ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException;
 
-    ClientCertificateDataResponseDto issueNewCertificate(
+    ClientCertificateDataResponseDto issueRequestedCertificate(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             String certificateUuid

@@ -43,7 +43,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             String certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
-        return clientOperationService.issueNewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid);
+        return clientOperationService.issueRequestedCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid);
     }
 
     @Override

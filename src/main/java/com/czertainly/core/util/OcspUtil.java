@@ -1,7 +1,6 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
-import org.bouncycastle.asn1.ASN1Encodable;
+import com.czertainly.api.model.core.certificate.CertificateValidationCheckStatus;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1TaggedObject;
 import org.bouncycastle.asn1.DERIA5String;
@@ -15,7 +14,6 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.X509ObjectIdentifiers;
-import org.bouncycastle.cert.X509ExtensionUtils;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.cert.ocsp.*;
@@ -23,7 +21,6 @@ import org.bouncycastle.operator.DigestCalculator;
 import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.OperatorException;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
-import org.bouncycastle.x509.extension.X509ExtensionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +28,6 @@ import java.io.*;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.security.Security;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -94,7 +90,7 @@ public class OcspUtil {
         return ocspUrls;
     }
 
-    public static CertificateValidationStatus checkOcsp(X509Certificate certificate, X509Certificate issuer, String serviceUrl) throws Exception {
+    public static CertificateValidationCheckStatus checkOcsp(X509Certificate certificate, X509Certificate issuer, String serviceUrl) throws Exception {
         logger.debug("OCSP Check URL is {}", serviceUrl);
         OCSPReq request = generateOCSPRequest(issuer, certificate.getSerialNumber());
         OCSPResp ocspResponse = getOCSPResponse(serviceUrl, request);
@@ -109,17 +105,17 @@ public class OcspUtil {
             Object status = resp.getCertStatus();
             if (status == org.bouncycastle.cert.ocsp.CertificateStatus.GOOD) {
                 logger.debug("OCSP Check Success. Certificate is valid");
-                return CertificateValidationStatus.SUCCESS;
+                return CertificateValidationCheckStatus.SUCCESS;
             } else if (status instanceof RevokedStatus) {
                 logger.debug("OCSP Check Failed. Certificate is revoked");
-                return CertificateValidationStatus.REVOKED;
+                return CertificateValidationCheckStatus.REVOKED;
             } else if (status instanceof UnknownStatus) {
                 logger.debug("OCSP Check Unknown");
-                return CertificateValidationStatus.WARNING;
+                return CertificateValidationCheckStatus.WARNING;
             }
         }
         logger.debug("OCSP Check Unknown.");
-        return CertificateValidationStatus.WARNING;
+        return CertificateValidationCheckStatus.WARNING;
     }
 
     private static OCSPReq generateOCSPRequest(X509Certificate issuerCert, BigInteger serialNumber)

@@ -23,7 +23,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public interface CertificateService extends ResourceExtensionService  {
@@ -242,7 +241,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param meta Metadata of the certificate
      * @return Certificate detail DTO
      */
-    CertificateDetailDto issueNewCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException;
+    CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException;
 
     /**
      * List certificates eligible for CA certificate of SCEP requests

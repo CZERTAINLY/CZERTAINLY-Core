@@ -5,8 +5,9 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
@@ -32,7 +33,6 @@ import javax.naming.InvalidNameException;
 import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -279,7 +279,9 @@ public class CertificateUtil {
                 .replace("\n", "");
     }
 
-    public static Certificate prepareCertificate(Certificate modal, X509Certificate certificate) {
+    public static Certificate prepareIssuedCertificate(Certificate modal, X509Certificate certificate) {
+        modal.setState(CertificateState.ISSUED);
+        modal.setValidationStatus(CertificateValidationStatus.UNKNOWN);
         modal.setSerialNumber(certificate.getSerialNumber().toString(16));
         setSubjectDNParams(modal, certificate.getSubjectX500Principal().toString());
         setIssuerDNParams(modal, certificate.getIssuerX500Principal().toString());
@@ -300,7 +302,6 @@ public class CertificateUtil {
 
         modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()));
         modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
-        modal.setStatus(CertificateStatus.UNKNOWN);
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
         modal.setSubjectAlternativeNames(MetaDefinitions.serialize(CertificateUtil.getSAN(certificate)));
@@ -336,12 +337,10 @@ public class CertificateUtil {
         modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()));
         DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
         modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificate.getSignatureAlgorithm()).replace("WITH", "with"));
-        modal.setStatus(CertificateStatus.NEW);
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setSubjectAlternativeNames(MetaDefinitions.serialize(getSAN(certificate)));
         return modal;
     }
-
 
     private static void setIssuerDNParams(Certificate modal, String issuerDN) {
         modal.setIssuerDn(issuerDN);
@@ -432,7 +431,7 @@ public class CertificateUtil {
     }
 
     public static boolean isCertificateScepCaCertAcceptable(Certificate certificate, boolean intuneEnabled) {
-        if (certificate.getKey() == null || (!certificate.getStatus().equals(CertificateStatus.VALID) && !certificate.getStatus().equals(CertificateStatus.EXPIRING))) {
+        if (certificate.getKey() == null || (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID) && !certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRING))) {
             return false;
         }
 

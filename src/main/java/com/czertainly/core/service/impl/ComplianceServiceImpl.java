@@ -13,7 +13,6 @@ import com.czertainly.api.model.connector.compliance.ComplianceResponseRulesDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -109,7 +108,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Override
     // Internal purpose only
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException {
-        if(certificate.getStatus().equals(CertificateStatus.NEW) || certificate.getStatus().equals(CertificateStatus.REJECTED)) {
+        if(certificate.getCertificateContent() == null) {
             return;
         }
         logger.debug("Checking the Compliance of the Certificate: {}", certificate);

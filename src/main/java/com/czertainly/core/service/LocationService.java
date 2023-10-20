@@ -20,7 +20,6 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface LocationService extends ResourceExtensionService {
 
@@ -153,14 +152,14 @@ public interface LocationService extends ResourceExtensionService {
     LocationDto pushCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid, PushToLocationRequestDto pushToLocationRequestDto) throws NotFoundException, LocationException;
 
     /**
-     * Push existing new Certificate to the given Location as result of async issue process.
+     * Push existing requested Certificate to the given Location as result of async issue process.
      *
      * @param certificateLocationId    ID of CertificateLocation entity
      * @param isRenewal       indication if certificate to be pushed was renewed
      * @throws NotFoundException when the CertificateLocation with the given Id is not found.
      * @throws LocationException when the Certificate failed to be pushed to the Location.
      */
-    void pushNewCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException;
+    void pushRequestedCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException;
 
     /**
      * Issue new Certificate to the given Location.
