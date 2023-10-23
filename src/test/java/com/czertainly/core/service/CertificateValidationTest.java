@@ -8,25 +8,32 @@ import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.client.WireMock;
 import org.apache.commons.lang3.StringUtils;
-import org.junit.jupiter.api.*;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.util.Store;
+import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.util.io.pem.PemReader;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.Base64;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SpringBootTest
 @Transactional
@@ -52,7 +59,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     private Certificate chainCompleteCertificate;
 
-    private WireMockServer mockServer;
+    private static final Logger logger = LoggerFactory.getLogger(CertificateValidationTest.class);
 
     @BeforeEach
     public void setUp() throws GeneralSecurityException, IOException, com.czertainly.api.exception.CertificateException {
@@ -88,10 +95,6 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         chainCompleteCertificate = certificateService.createCertificate(chainCompleteCertificateContent, CertificateType.X509);
     }
 
-    @AfterEach
-    void tearDown() {
-        mockServer.stop();
-    }
 
     @Test
     void testValidateCertificate() throws CertificateException {
@@ -133,12 +136,43 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDownloadCertificateChain() throws NotFoundException, CertificateException {
-        CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = certificateService.downloadCertificateChain(chainIncompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, true);
-        Assertions.assertFalse(certificateChainDownloadResponseDto.isCompleteChain());
-        CertificateChainDownloadResponseDto certificateChainResponseDto2 = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, false);
-        Assertions.assertTrue(certificateChainResponseDto2.isCompleteChain());
-        CertificateChainDownloadResponseDto certificateChainResponseDto3 = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PKCS7, false);
-        Assertions.assertTrue(certificateChainResponseDto3.isCompleteChain());
+    void testDownloadCertificateChain() throws NotFoundException, CertificateException, CMSException, IOException {
+        CertificateChainDownloadResponseDto certificateChainIncompletePEMDownloadResponseDto = certificateService.downloadCertificateChain(chainIncompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, true);
+        Assertions.assertEquals(1, getNumberOfCertificatesInPem(certificateChainIncompletePEMDownloadResponseDto.getContent()));
+        Assertions.assertFalse(certificateChainIncompletePEMDownloadResponseDto.isCompleteChain());
+        CertificateChainDownloadResponseDto certificateChainCompletePEMResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, true);
+        Assertions.assertTrue(certificateChainCompletePEMResponseDto.isCompleteChain());
+        Assertions.assertEquals(2, getNumberOfCertificatesInPem(certificateChainCompletePEMResponseDto.getContent()));
+        CertificateChainDownloadResponseDto certificateChainCompletePKCS7ResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PKCS7, true);
+        Assertions.assertTrue(certificateChainCompletePKCS7ResponseDto.isCompleteChain());
+        Assertions.assertEquals(2, getNumberOfCertificatesInPkcs7(certificateChainCompletePKCS7ResponseDto.getContent()));
+        CertificateChainDownloadResponseDto certificateChainResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PKCS7, false);
+        Assertions.assertTrue(certificateChainResponseDto.isCompleteChain());
+        Assertions.assertEquals(1, getNumberOfCertificatesInPkcs7(certificateChainResponseDto.getContent()));
+
     }
+
+    private int getNumberOfCertificatesInPkcs7(String content) throws CMSException {
+        String pkcs7Data = new String(Base64.getDecoder().decode(content));
+        pkcs7Data = pkcs7Data.replace("-----BEGIN PKCS7-----", "").replace("-----END PKCS7-----", "").replaceAll("\\s", "");
+        CMSSignedData signedData = new CMSSignedData(Base64.getDecoder().decode(pkcs7Data));
+        Store<X509CertificateHolder> certificates = signedData.getCertificates();
+        Collection<X509CertificateHolder> certCollection = certificates.getMatches(null);
+        return certCollection.size();
+    }
+
+    private int getNumberOfCertificatesInPem(String content) throws IOException {
+        byte[] pemCertificateChainBytes = Base64.getDecoder().decode(content);
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(pemCertificateChainBytes);
+        PemReader reader = new PemReader(new InputStreamReader(inputStream));
+        List<PemObject> pemObjects = new ArrayList<>();
+        PemObject pemObject;
+        while ((pemObject = reader.readPemObject()) != null) {
+            pemObjects.add(pemObject);
+        }
+        reader.close();
+        return pemObjects.size();
+    }
+
+
 }
