@@ -1,27 +1,18 @@
 package com.czertainly.core.messaging.listeners;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.MessageHandlingException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfileRelation;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
-import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.ApprovalProfileRelationRepository;
-import com.czertainly.core.dao.repository.ApprovalRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
-import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
@@ -49,7 +40,7 @@ public class ActionListener {
 
     private ClientOperationService clientOperationService;
 
-    private ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper();
 
     private NotificationProducer notificationProducer;
 
@@ -66,14 +57,14 @@ public class ActionListener {
                     final ApprovalProfileVersion approvalProfileVersion = approvalProfileRelation.getApprovalProfile().getTheLatestApprovalProfileVersion();
                     final Approval approval = approvalService.createApproval(approvalProfileVersion, actionMessage.getResource(), actionMessage.getResourceAction(), actionMessage.getResourceUuid(), actionMessage.getUserUuid(), actionMessage.getData());
                     logger.info("Created new Approval {} for object {}", approval.getUuid(), actionMessage.getResourceUuid());
+                    processApprovalCreated(actionMessage);
                 } catch (Exception e) {
                     String errorMessage = String.format("Cannot create new approval to approve %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
-                    logger.error(errorMessage + " {}", e.getMessage());
+                    logger.error("{}: {}", errorMessage, e.getMessage());
                     notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
                             NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
                     throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Handling of action approval creation failed: " + e.getMessage());
                 }
-                return;
             }
         }
 
@@ -89,11 +80,16 @@ public class ActionListener {
         }
     }
 
+    private void processApprovalCreated(final ActionMessage actionMessage) throws NotFoundException {
+        switch (actionMessage.getResource()) {
+            case CERTIFICATE -> clientOperationService.approvalCreatedAction(actionMessage.getResourceUuid());
+            default -> logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
+        }
+    }
+
     private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
         switch (actionMessage.getResource()) {
-            case CERTIFICATE -> {
-                processCertificateAction(actionMessage, hasApproval, isApproved);
-            }
+            case CERTIFICATE -> processCertificateAction(actionMessage, hasApproval, isApproved);
             default -> logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }
     }

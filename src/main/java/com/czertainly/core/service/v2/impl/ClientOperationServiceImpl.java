@@ -233,8 +233,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    public void approvalCreatedAction(UUID certificateUuid) throws NotFoundException {
+        final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        certificate.setState(CertificateState.PENDING_APPROVAL);
+        certificateRepository.save(certificate);
+    }
+
+    @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
-    public void issueCertificateAction(final UUID certificateUuid, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+    public void issueCertificateAction(final UUID certificateUuid, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException {
         if (!isApproved) {
             certificateService.checkIssuePermissions();
         }
@@ -254,14 +261,24 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPkcs10(certificate.getCertificateRequest().getContent());
         caRequest.setAttributes(AttributeDefinitionUtils.deserializeRequestAttributes(certificate.getIssueAttributes()));
         caRequest.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(certificate.getRaProfile().mapToDto().getAttributes()));
-        CertificateDataResponseDto issueCaResponse = certificateApiClient.issueCertificate(
-                certificate.getRaProfile().getAuthorityInstanceReference().getConnector().mapToDto(),
-                certificate.getRaProfile().getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                caRequest);
 
-        logger.info("Certificate {} was issued by authority", certificateUuid);
+        try {
+            CertificateDataResponseDto issueCaResponse = certificateApiClient.issueCertificate(
+                    certificate.getRaProfile().getAuthorityInstanceReference().getConnector().mapToDto(),
+                    certificate.getRaProfile().getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                    caRequest);
 
-        certificateService.issueRequestedCertificate(certificateUuid, issueCaResponse.getCertificateData(), issueCaResponse.getMeta());
+            logger.info("Certificate {} was issued by authority", certificateUuid);
+
+            certificateService.issueRequestedCertificate(certificateUuid, issueCaResponse.getCertificateData(), issueCaResponse.getMeta());
+        } catch (Exception e) {
+            certificate.setState(CertificateState.FAILED);
+            certificateRepository.save(certificate);
+
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), "");
+            logger.error("Failed to issue certificate: {}", e.getMessage());
+            throw new CertificateOperationException("Failed to issue certificate: " + e.getMessage());
+        }
 
         // notify
         try {
@@ -290,7 +307,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     public ClientCertificateDataResponseDto issueRequestedCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final String certificateUuid) throws ConnectorException {
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         if (certificate.getState() != CertificateState.REQUESTED) {
-            throw new ValidationException(ValidationError.create(String.format("Cannot issue New certificate with status %s. Certificate: %s", certificate.getState().getLabel(), certificate)));
+            throw new ValidationException(ValidationError.create(String.format("Cannot issue requested certificate with status %s. Certificate: %s", certificate.getState().getLabel(), certificate)));
         }
 
         final ActionMessage actionMessage = new ActionMessage();
@@ -328,7 +345,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateRepository.save(certificate);
 
         eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATE, CertificateEventStatus.SUCCESS, oldState, CertificateState.REJECTED);
-        notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificate.mapToListDto());
     }
 
     @Override
@@ -416,10 +432,22 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             additionalInformation.put("New Certificate Serial Number", certificateDetailDto.getSerialNumber());
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation));
         } catch (Exception e) {
+            certificate.setState(CertificateState.FAILED);
+            certificateRepository.save(certificate);
+
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             logger.error("Failed to renew Certificate: {}", e.getMessage());
             throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
+        }
+
+        // notify
+        try {
+            logger.debug("Sending notification of certificate renewal. Certificate: {}", certificate);
+            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
+            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.RENEW.getCode(), null);
+        } catch (Exception e) {
+            logger.error("Sending notification for certificate renewal failed. Certificate: {}. Error: {}", certificate, e.getMessage());
         }
 
         Location location = null;
@@ -446,16 +474,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateOperationException("Failed to replace certificate in all locations during renew operation: " + e.getMessage());
         }
 
-        // notify
-        try {
-            logger.debug("Sending notification of certificate renewal. Certificate: {}", certificate);
-            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
-            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.RENEW.getCode(), null);
-        } catch (Exception e) {
-            logger.error("Sending notification for certificate renewal failed. Certificate: {}. Error: {}", certificate, e.getMessage());
-        }
-
-        if (!request.replaceInLocations) {
+        if (!request.isReplaceInLocations()) {
             // push certificate to locations
             for (CertificateLocation cl : certificate.getLocations()) {
                 try {
@@ -562,13 +581,16 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
 
-            logger.info("Certificate {} was renewed by authority", certificateUuid);
+            logger.info("Certificate {} was rekeyed by authority", certificateUuid);
 
             CertificateDetailDto certificateDetailDto = certificateService.issueRequestedCertificate(certificateUuid, renewCaResponse.getCertificateData(), renewCaResponse.getMeta());
 
             additionalInformation.put("New Certificate Serial Number", certificateDetailDto.getSerialNumber());
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.SUCCESS, "Rekeyed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation));
         } catch (Exception e) {
+            certificate.setState(CertificateState.FAILED);
+            certificateRepository.save(certificate);
+
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             logger.error("Failed to rekey Certificate: {}", e.getMessage());
@@ -636,6 +658,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateService.checkRevokePermissions();
         }
         final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        if (certificate.getState() != CertificateState.ISSUED && certificate.getState() != CertificateState.PENDING_APPROVAL) {
+            throw new ValidationException(ValidationError.create(String.format("Cannot issue requested certificate in state %s. Certificate: %s", certificate.getState().getLabel(), certificate)));
+        }
+
         RaProfile raProfile = certificate.getRaProfile();
 
         logger.debug("Revoking Certificate: {}", certificate);
@@ -653,8 +679,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
+
+            certificate.setState(CertificateState.REVOKED);
+            certificateRepository.save(certificate);
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked. Reason: " + caRequest.getReason().getLabel(), "");
         } catch (Exception e) {
+            certificate.setState(CertificateState.ISSUED);
+            certificateRepository.save(certificate);
+
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.FAILED, e.getMessage(), "");
             logger.error("Failed to revoke Certificate: {}", e.getMessage());
             throw new CertificateOperationException("Failed to revoke certificate: " + e.getMessage());
@@ -707,7 +739,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private Certificate validateNewCertificateForOperation(UUID certificateUuid) throws NotFoundException {
         final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-        if (certificate.getState() != CertificateState.REQUESTED) {
+        if (certificate.getState() != CertificateState.REQUESTED && certificate.getState() != CertificateState.PENDING_APPROVAL) {
             throw new ValidationException(ValidationError.create(String.format("Cannot issue requested certificate in state %s. Certificate: %s", certificate.getState().getLabel(), certificate)));
         }
         if (certificate.getRaProfile() == null) {

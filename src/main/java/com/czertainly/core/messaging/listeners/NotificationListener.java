@@ -303,7 +303,7 @@ public class NotificationListener {
             }
             case CERTIFICATE_STATUS_CHANGED -> {
                 NotificationDataCertificateStatusChanged data = (NotificationDataCertificateStatusChanged) notificationData;
-                result[0] = String.format("Certificate status changed from %s to %s for certificate identified as '%s' with serial number '%s' issued by '%s'",
+                result[0] = String.format("Certificate validation status changed from %s to %s for certificate identified as '%s' with serial number '%s' issued by '%s'",
                         data.getOldStatus(), data.getNewStatus(), data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn());
             }
             case CERTIFICATE_ACTION_PERFORMED -> {

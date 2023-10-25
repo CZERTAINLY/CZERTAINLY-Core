@@ -49,7 +49,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
         X509Certificate x509Certificate;
         X509Certificate x509IssuerCertificate = null;
-        CertificateValidationStatus previousCertStatus = CertificateValidationStatus.UNKNOWN;
+        CertificateValidationStatus previousCertStatus = CertificateValidationStatus.NOT_CHECKED;
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput;
         for (int i = certificateChain.size() - 1; i >= 0; i--) {
             // initialization by preparing X509Certificate object
@@ -154,7 +154,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         Date notAfterDate = certificate.getNotAfter();
         Date notBeforeDate = certificate.getNotBefore();
         if (notBeforeDate.after(currentUtcDate)) {
-            return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_VALIDITY, CertificateValidationCheckStatus.INVALID, "Certificate is inactive (not valid yet).");
+            return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_VALIDITY, CertificateValidationCheckStatus.INACTIVE, "Certificate is inactive (not valid yet).");
         } else if (currentUtcDate.after(notAfterDate)) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_VALIDITY, CertificateValidationCheckStatus.EXPIRED, "Certificate is expired.");
         } else if ((millisToExpiry = notAfterDate.getTime() - currentUtcDate.getTime()) < TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
@@ -307,8 +307,8 @@ public class X509CertificateValidator implements ICertificateValidator {
         }
 
         CertificateValidationCheckDto validityCertificateValidationDto = validationOutput.get(CertificateValidationCheck.CERTIFICATE_VALIDITY);
-        if (validityCertificateValidationDto.getStatus().equals(CertificateValidationCheckStatus.INVALID)) {
-            return CertificateValidationStatus.INVALID;
+        if (validityCertificateValidationDto.getStatus().equals(CertificateValidationCheckStatus.INACTIVE)) {
+            return CertificateValidationStatus.INACTIVE;
         }
         if (validityCertificateValidationDto.getStatus().equals(CertificateValidationCheckStatus.EXPIRED)) {
             return CertificateValidationStatus.EXPIRED;

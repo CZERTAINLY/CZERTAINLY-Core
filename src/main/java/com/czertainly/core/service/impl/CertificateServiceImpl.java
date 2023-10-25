@@ -611,7 +611,7 @@ public class CertificateServiceImpl implements CertificateService {
         ICertificateValidator certificateValidator = getCertificateValidator(certificate.getCertificateType());
         CertificateValidationStatus newStatus = certificateValidator.validateCertificate(certificate, certificateChainResponse.isCompleteChain());
 
-        if (!oldStatus.equals(CertificateValidationStatus.UNKNOWN) && !oldStatus.equals(newStatus)) {
+        if (!oldStatus.equals(CertificateValidationStatus.NOT_CHECKED) && !oldStatus.equals(newStatus)) {
             eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, certificate.getValidationStatus());
             try {
                 notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getValidationStatus(), certificate.mapToListDto());
@@ -831,11 +831,11 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String serialNumber) {
         Certificate certificate = null;
-        CertificateValidationStatus oldStatus = CertificateValidationStatus.UNKNOWN;
+        CertificateValidationStatus oldStatus = CertificateValidationStatus.NOT_CHECKED;
         try {
             certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
             oldStatus = certificate.getValidationStatus();
-            certificate.setValidationStatus(CertificateValidationStatus.REVOKED);
+            certificate.setState(CertificateState.REVOKED);
             certificateRepository.save(certificate);
         } catch (NotFoundException e) {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
@@ -1106,7 +1106,7 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateUtil.prepareCsrObject(certificate, jcaObject);
         certificate.setKeyUuid(keyUuid);
         certificate.setState(CertificateState.REQUESTED);
-        certificate.setValidationStatus(CertificateValidationStatus.UNKNOWN);
+        certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
         certificate.setCertificateType(CertificateType.X509);
         certificate.setRaProfileUuid(raProfileUuid);
         certificate.setIssueAttributes(AttributeDefinitionUtils.serializeRequestAttributes(issueAttributes));
@@ -1147,7 +1147,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setCertificateRequestUuid(certificateRequest.getUuid());
         certificateRepository.save(certificate);
 
-        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.CREATE_CSR, CertificateEventStatus.SUCCESS, "Certificate request created with the provided parameters", "");
+        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS, "Certificate request created with the provided parameters", "");
 
         logger.info("Certificate request submitted and certificate created {}", certificate);
 

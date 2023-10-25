@@ -281,7 +281,7 @@ public class CertificateUtil {
 
     public static Certificate prepareIssuedCertificate(Certificate modal, X509Certificate certificate) {
         modal.setState(CertificateState.ISSUED);
-        modal.setValidationStatus(CertificateValidationStatus.UNKNOWN);
+        modal.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
         modal.setSerialNumber(certificate.getSerialNumber().toString(16));
         setSubjectDNParams(modal, certificate.getSubjectX500Principal().toString());
         setIssuerDNParams(modal, certificate.getIssuerX500Principal().toString());

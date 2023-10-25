@@ -60,12 +60,12 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByPublicKeyFingerprint(String fingerprint);
 
-    @Query("SELECT COUNT(*) FROM Certificate c WHERE c.certificateContentId IS NOT NULL AND c.status NOT IN :skipStatuses")
+    @Query("SELECT COUNT(*) FROM Certificate c WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses")
     long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses);
 
     @Query("SELECT c, cc.content FROM Certificate c " +
             "JOIN CertificateContent cc ON cc.id = c.certificateContentId " +
-            "WHERE c.certificateContentId IS NOT NULL AND c.status NOT IN :skipStatuses " +
+            "WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
             "AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp) " +
             "ORDER BY c.statusValidationTimestamp ASC NULLS FIRST")
     List<Certificate> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,

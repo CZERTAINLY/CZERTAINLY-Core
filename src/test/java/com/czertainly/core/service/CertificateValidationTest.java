@@ -77,7 +77,8 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
-        certificate.setStatus(CertificateStatus.VALID);
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
         certificate.setCertificateType(CertificateType.X509);
         certificate.setNotBefore(new Date());
         certificate.setNotAfter(new Date());
@@ -110,7 +111,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
         CertificateValidationCheckDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
         Assertions.assertNotNull(signatureVerification);
-        Assertions.assertEquals(CertificateValidationStatus.FAILED, signatureVerification.getStatus());
+        Assertions.assertEquals(CertificateValidationCheckStatus.FAILED, signatureVerification.getStatus());
     }
 
     @Test
