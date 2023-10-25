@@ -98,7 +98,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
 
     @Test
-    void testValidateCertificate() throws CertificateException {
+    void testValidateCertificate() {
         certificateService.validate(certificate);
 
         String result = certificate.getCertificateValidationResult();
@@ -111,7 +111,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
         CertificateValidationCheckDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
         Assertions.assertNotNull(signatureVerification);
-        Assertions.assertEquals(CertificateValidationCheckStatus.FAILED, signatureVerification.getStatus());
+        Assertions.assertEquals(CertificateValidationStatus.INVALID, signatureVerification.getStatus());
     }
 
     @Test
@@ -123,7 +123,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetCertificateChain() throws NotFoundException{
+    void testGetCertificateChain() throws NotFoundException {
         CertificateChainResponseDto certificateChainResponseDto = certificateService.getCertificateChain(chainIncompleteCertificate.getSecuredUuid(), false);
         Assertions.assertFalse(certificateChainResponseDto.isCompleteChain());
         CertificateChainResponseDto certificateChainCompleteResponseDto = certificateService.getCertificateChain(chainCompleteCertificate.getSecuredUuid(), false);

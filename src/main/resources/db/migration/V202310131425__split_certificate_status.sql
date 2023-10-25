@@ -20,12 +20,18 @@ UPDATE certificate SET state = 'FAILED'
 UPDATE certificate SET validation_status = status;
 UPDATE certificate SET validation_status = 'NOT_CHECKED' WHERE status = 'NEW' OR status = 'REJECTED';
 
--- drop original column
-ALTER TABLE certificate
-    ALTER COLUMN validation_status SET NOT NULL,
-    ALTER COLUMN state SET NOT NULL,
-    DROP COLUMN status;
+-- migrate certificate compliance status
+UPDATE certificate SET compliance_status = 'NOT_CHECKED' WHERE compliance_status IS NULL;
 
 -- migrate Certificate event
 UPDATE certificate_event_history SET event = 'REQUEST' WHERE event = 'CREATE_CSR';
 UPDATE certificate_event_history SET event = 'UPDATE_VALIDATION_STATUS' WHERE event = 'UPDATE_STATUS';
+
+-- drop original column and set correct constraints
+ALTER TABLE certificate
+    ALTER COLUMN state SET NOT NULL,
+    ALTER COLUMN validation_status SET NOT NULL,
+    ALTER COLUMN compliance_status SET NOT NULL,
+    DROP COLUMN status;
+
+

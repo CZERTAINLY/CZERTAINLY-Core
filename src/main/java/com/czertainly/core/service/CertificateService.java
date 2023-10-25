@@ -60,7 +60,7 @@ public interface CertificateService extends ResourceExtensionService  {
      */
     CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException;
 
-    void validate(Certificate certificate) throws CertificateException;
+    void validate(Certificate certificate);
 
     /**
      * Creates the Certificate entity

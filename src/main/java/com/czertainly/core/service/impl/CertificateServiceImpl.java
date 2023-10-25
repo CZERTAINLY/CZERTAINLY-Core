@@ -202,9 +202,8 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateDetailDto dto = entity.mapToDto();
         if (entity.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(entity.getComplianceResult()));
-        } else {
-            dto.setComplianceStatus(ComplianceStatus.NA);
         }
+
         dto.setMetadata(metadataService.getFullMetadataWithNullResource(entity.getUuid(), Resource.CERTIFICATE, List.of(Resource.DISCOVERY)));
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CERTIFICATE));
         dto.setRelatedCertificates(certificateRepository.findBySourceCertificateUuid(entity.getUuid()).stream().map(Certificate::mapToListDto).toList());
@@ -397,9 +396,9 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationCheckStatus.values())).map(CertificateValidationCheckStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationCheckStatus.values())).map(CertificateValidationCheckStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationCheckStatus.values())).map(CertificateValidationCheckStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
@@ -604,12 +603,20 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public void validate(Certificate certificate) throws CertificateException {
+    public void validate(Certificate certificate) {
         CertificateChainResponseDto certificateChainResponse = getCertificateChainInternal(certificate, true);
 
+        CertificateValidationStatus newStatus = null;
         CertificateValidationStatus oldStatus = certificate.getValidationStatus();
         ICertificateValidator certificateValidator = getCertificateValidator(certificate.getCertificateType());
-        CertificateValidationStatus newStatus = certificateValidator.validateCertificate(certificate, certificateChainResponse.isCompleteChain());
+
+        try {
+            newStatus = certificateValidator.validateCertificate(certificate, certificateChainResponse.isCompleteChain());
+        } catch (Exception e) {
+            logger.warn("Unable to validate the certificate {}: {}", certificate, e.getMessage());
+            certificate.setValidationStatus(CertificateValidationStatus.FAILED);
+            certificateRepository.save(certificate);
+        }
 
         if (!oldStatus.equals(CertificateValidationStatus.NOT_CHECKED) && !oldStatus.equals(newStatus)) {
             eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, certificate.getValidationStatus());
@@ -725,12 +732,8 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.save(entity);
             certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
 
-            try {
-                certificateComplianceCheck(entity);
-                validate(entity);
-            } catch (Exception e) {
-                logger.warn("Unable to validate certificate {}, {}", entity.getUuid(), e.getMessage());
-            }
+            certificateComplianceCheck(entity);
+            validate(entity);
 
             return entity;
         }
@@ -796,11 +799,7 @@ public class CertificateServiceImpl implements CertificateService {
         attributeService.createAttributeContent(entity.getUuid(), request.getCustomAttributes(), Resource.CERTIFICATE);
         certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
 
-        try {
-            validate(entity);
-        } catch (Exception e) {
-            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
-        }
+        validate(entity);
 
         return entity.mapToDto();
     }
@@ -1106,6 +1105,7 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateUtil.prepareCsrObject(certificate, jcaObject);
         certificate.setKeyUuid(keyUuid);
         certificate.setState(CertificateState.REQUESTED);
+        certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
         certificate.setCertificateType(CertificateType.X509);
         certificate.setRaProfileUuid(raProfileUuid);
@@ -1184,12 +1184,8 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + certificate.getRaProfile().getName(), "");
 
         // check compliance and validity of certificate
-        try {
-            certificateComplianceCheck(certificate);
-            validate(certificate);
-        } catch (Exception e) {
-            logger.warn("Unable to validate certificate {}, {}", certificate.getUuid(), e.getMessage());
-        }
+        certificateComplianceCheck(certificate);
+        validate(certificate);
 
         logger.info("Certificate was successfully issued. {}", certificate.getUuid());
 
@@ -1250,9 +1246,9 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationCheckStatus.values())).map(CertificateValidationCheckStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationCheckStatus.values())).map(CertificateValidationCheckStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationCheckStatus.values())).map(CertificateValidationCheckStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage()))
@@ -1352,7 +1348,7 @@ public class CertificateServiceImpl implements CertificateService {
             try {
                 complianceService.checkComplianceOfCertificate(certificate);
             } catch (ConnectorException e) {
-                logger.error("Error when checking compliance");
+                logger.debug("Error when checking compliance: {}", e.getMessage());
             }
         }
     }

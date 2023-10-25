@@ -8,6 +8,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
@@ -281,7 +282,9 @@ public class CertificateUtil {
 
     public static Certificate prepareIssuedCertificate(Certificate modal, X509Certificate certificate) {
         modal.setState(CertificateState.ISSUED);
+        modal.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         modal.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+
         modal.setSerialNumber(certificate.getSerialNumber().toString(16));
         setSubjectDNParams(modal, certificate.getSubjectX500Principal().toString());
         setIssuerDNParams(modal, certificate.getIssuerX500Principal().toString());

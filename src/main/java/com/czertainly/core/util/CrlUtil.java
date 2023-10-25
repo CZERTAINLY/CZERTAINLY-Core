@@ -15,14 +15,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.GeneralSecurityException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509CRL;
-import java.security.cert.X509CRLEntry;
-import java.security.cert.X509Certificate;
+import java.security.cert.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -77,15 +76,18 @@ public class CrlUtil {
         return crlUrls;
     }
 
-    public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, GeneralSecurityException {
+    public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, CertificateException, CRLException {
         logger.debug("Checking CRL URL {}", crlUrl);
         X509CRL crl;
         URL url = new URL(crlUrl);
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
         CertificateFactory cf = CertificateFactory.getInstance("X509");
+
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
             crl = (X509CRL) cf.generateCRL(inStream);
+        } catch (FileNotFoundException e) {
+            throw new CertificateException("File " + e.getMessage() + " not found");
         }
         logger.debug("Completed CRL check for {}", crlUrl);
         X509CRLEntry crlCertificate = crl.getRevokedCertificate(certificate.getSerialNumber());

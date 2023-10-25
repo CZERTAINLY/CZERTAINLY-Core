@@ -65,6 +65,7 @@ public class ActionListener {
                             NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
                     throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Handling of action approval creation failed: " + e.getMessage());
                 }
+                return;
             }
         }
 
@@ -83,14 +84,16 @@ public class ActionListener {
     private void processApprovalCreated(final ActionMessage actionMessage) throws NotFoundException {
         switch (actionMessage.getResource()) {
             case CERTIFICATE -> clientOperationService.approvalCreatedAction(actionMessage.getResourceUuid());
-            default -> logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
+            default ->
+                    logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }
     }
 
     private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
         switch (actionMessage.getResource()) {
             case CERTIFICATE -> processCertificateAction(actionMessage, hasApproval, isApproved);
-            default -> logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
+            default ->
+                    logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }
     }
 
@@ -98,8 +101,10 @@ public class ActionListener {
         // handle rejected actions
         if (hasApproval && !isApproved) {
             switch (actionMessage.getResourceAction()) {
-                case ISSUE, RENEW, REKEY -> clientOperationService.issueCertificateRejectedAction(actionMessage.getResourceUuid());
-                default -> logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
+                case ISSUE, RENEW, REKEY ->
+                        clientOperationService.issueCertificateRejectedAction(actionMessage.getResourceUuid());
+                default ->
+                        logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
             }
             return;
         }
@@ -119,7 +124,8 @@ public class ActionListener {
                 final ClientCertificateRevocationDto clientCertificateRevocationDto = mapper.convertValue(actionMessage.getData(), ClientCertificateRevocationDto.class);
                 clientOperationService.revokeCertificateAction(actionMessage.getResourceUuid(), clientCertificateRevocationDto, isApproved);
             }
-            default -> logger.error("Action listener does not support action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
+            default ->
+                    logger.error("Action listener does not support action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
         }
     }
 

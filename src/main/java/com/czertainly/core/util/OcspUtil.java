@@ -1,6 +1,6 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.core.certificate.CertificateValidationCheckStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.ASN1TaggedObject;
 import org.bouncycastle.asn1.DERIA5String;
@@ -60,37 +60,36 @@ public class OcspUtil {
         return null;
     }
 
-    public static List<String> getOcspUrlFromCertificate(X509Certificate certificate) {
+    public static List<String> getOcspUrlFromCertificate(X509Certificate certificate) throws IOException {
         byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
         List<String> ocspUrls = new ArrayList<>();
-        try {
-            ASN1Primitive fromExtensionValue = JcaX509ExtensionUtils.parseExtensionValue(octetBytes);
-            if (!(fromExtensionValue instanceof DLSequence))
-                return ocspUrls;
-            AuthorityInformationAccess authorityInformationAccess = AuthorityInformationAccess.getInstance(fromExtensionValue);
-            AccessDescription[] accessDescriptions = authorityInformationAccess.getAccessDescriptions();
-            for (AccessDescription accessDescription : accessDescriptions) {
-                boolean correctAccessMethod = accessDescription.getAccessMethod().equals(X509ObjectIdentifiers.ocspAccessMethod);
-                if (!correctAccessMethod) {
-                    continue;
-                }
-                GeneralName name = accessDescription.getAccessLocation();
-                if (name.getTagNo() != GeneralName.uniformResourceIdentifier) {
-                    continue;
-                }
-                DERIA5String derStr = (DERIA5String) DERIA5String.getInstance((ASN1TaggedObject) name.toASN1Primitive(), false);
-                String ocspUrl = derStr.getString();
-                logger.debug("OCSP URL Of the certificate is {}", ocspUrl);
-                ocspUrls.add(ocspUrl);
-            }
-        } catch (Exception e) {
-            logger.debug("Error while getting OCSP URL: {}", e.getMessage());
+        ASN1Primitive fromExtensionValue = JcaX509ExtensionUtils.parseExtensionValue(octetBytes);
+        if (!(fromExtensionValue instanceof DLSequence)) {
+            return ocspUrls;
         }
+
+        AuthorityInformationAccess authorityInformationAccess = AuthorityInformationAccess.getInstance(fromExtensionValue);
+        AccessDescription[] accessDescriptions = authorityInformationAccess.getAccessDescriptions();
+        for (AccessDescription accessDescription : accessDescriptions) {
+            boolean correctAccessMethod = accessDescription.getAccessMethod().equals(X509ObjectIdentifiers.ocspAccessMethod);
+            if (!correctAccessMethod) {
+                continue;
+            }
+            GeneralName name = accessDescription.getAccessLocation();
+            if (name.getTagNo() != GeneralName.uniformResourceIdentifier) {
+                continue;
+            }
+            DERIA5String derStr = (DERIA5String) DERIA5String.getInstance((ASN1TaggedObject) name.toASN1Primitive(), false);
+            String ocspUrl = derStr.getString();
+            logger.debug("OCSP URL Of the certificate is {}", ocspUrl);
+            ocspUrls.add(ocspUrl);
+        }
+
         logger.debug("OCSP URL for the certificate is not available");
         return ocspUrls;
     }
 
-    public static CertificateValidationCheckStatus checkOcsp(X509Certificate certificate, X509Certificate issuer, String serviceUrl) throws Exception {
+    public static CertificateValidationStatus checkOcsp(X509Certificate certificate, X509Certificate issuer, String serviceUrl) throws Exception {
         logger.debug("OCSP Check URL is {}", serviceUrl);
         OCSPReq request = generateOCSPRequest(issuer, certificate.getSerialNumber());
         OCSPResp ocspResponse = getOCSPResponse(serviceUrl, request);
@@ -105,17 +104,17 @@ public class OcspUtil {
             Object status = resp.getCertStatus();
             if (status == org.bouncycastle.cert.ocsp.CertificateStatus.GOOD) {
                 logger.debug("OCSP Check Success. Certificate is valid");
-                return CertificateValidationCheckStatus.SUCCESS;
+                return CertificateValidationStatus.VALID;
             } else if (status instanceof RevokedStatus) {
                 logger.debug("OCSP Check Failed. Certificate is revoked");
-                return CertificateValidationCheckStatus.REVOKED;
+                return CertificateValidationStatus.REVOKED;
             } else if (status instanceof UnknownStatus) {
                 logger.debug("OCSP Check Unknown");
-                return CertificateValidationCheckStatus.WARNING;
+                return CertificateValidationStatus.FAILED;
             }
         }
         logger.debug("OCSP Check Unknown.");
-        return CertificateValidationCheckStatus.WARNING;
+        return CertificateValidationStatus.FAILED;
     }
 
     private static OCSPReq generateOCSPRequest(X509Certificate issuerCert, BigInteger serialNumber)

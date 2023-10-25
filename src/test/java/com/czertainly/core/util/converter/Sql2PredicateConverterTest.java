@@ -4,7 +4,7 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateValidationCheckStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.api.model.core.search.SearchableFields;
@@ -148,17 +148,17 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
 
     @Test
     public void testOCSPValidation() {
-        testVerifications(SearchableFields.OCSP_VALIDATION, SearchCondition.EQUALS, CertificateValidationCheckStatus.SUCCESS);
+        testVerifications(SearchableFields.OCSP_VALIDATION, SearchCondition.EQUALS, CertificateValidationStatus.VALID);
     }
 
     @Test
     public void testSignatureValidation() {
-        testVerifications(SearchableFields.SIGNATURE_VALIDATION, SearchCondition.NOT_EQUALS, CertificateValidationCheckStatus.FAILED);
+        testVerifications(SearchableFields.SIGNATURE_VALIDATION, SearchCondition.NOT_EQUALS, CertificateValidationStatus.FAILED);
     }
 
     @Test
     public void testCRLValidation() {
-        testVerifications(SearchableFields.CRL_VALIDATION, SearchCondition.EQUALS, CertificateValidationCheckStatus.EXPIRED);
+        testVerifications(SearchableFields.CRL_VALIDATION, SearchCondition.EQUALS, CertificateValidationStatus.EXPIRED);
     }
 
     @Test
@@ -266,7 +266,7 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
         Assertions.assertEquals(value, ((SqmLikePredicate) predicate).getPattern().toHqlString());
     }
 
-    private void testVerifications(final SearchableFields fieldTest, final SearchCondition condition, final CertificateValidationCheckStatus certificateValidationCheckStatus) {
+    private void testVerifications(final SearchableFields fieldTest, final SearchCondition condition, final CertificateValidationStatus certificateValidationCheckStatus) {
         final SearchFilterRequestDTODummy searchFilterRequestDTODummy
                 = new SearchFilterRequestDTODummy(fieldTest, condition, certificateValidationCheckStatus.getCode());
         final Predicate predicateTest = Sql2PredicateConverter.mapSearchFilter2Predicate(searchFilterRequestDTODummy, criteriaBuilder, root);

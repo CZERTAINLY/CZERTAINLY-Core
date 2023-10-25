@@ -260,7 +260,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         } else if (nokResult.isEmpty() && complianceResult.getOk().isEmpty()) {
             certificate.setComplianceStatus(ComplianceStatus.NA);
         } else {
-            certificate.setComplianceStatus(null);
+            certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
             complianceResult = null;
         }
         certificate.setComplianceResult(complianceResult);
