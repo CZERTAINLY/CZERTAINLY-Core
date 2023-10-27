@@ -979,12 +979,6 @@ public class CertificateServiceImpl implements CertificateService {
         setupSecurityFilter(filter);
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter);
 
-        //Compliance Mapping
-        Map<String, String> complianceMap = new HashMap<>();
-        complianceMap.put("NA", ComplianceStatus.NA.getLabel());
-        complianceMap.put("OK", ComplianceStatus.OK.getLabel());
-        complianceMap.put("NOK", ComplianceStatus.NOK.getLabel());
-        //
         Map<String, Long> groupStat = new HashMap<>();
         Map<String, Long> raProfileStat = new HashMap<>();
         Map<String, Long> typeStat = new HashMap<>();
@@ -997,8 +991,8 @@ public class CertificateServiceImpl implements CertificateService {
         Date currentTime = new Date();
         for (Certificate certificate : certificates) {
             typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
-            groupStat.merge(certificate.getGroup() != null ? certificate.getGroup().getName() : "Unknown", 1L, Long::sum);
-            raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unknown", 1L, Long::sum);
+            groupStat.merge(certificate.getGroup() != null ? certificate.getGroup().getName() : "Unassigned", 1L, Long::sum);
+            raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unassigned", 1L, Long::sum);
             if (certificate.getCertificateContent() != null) {
                 expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
                 bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
@@ -1006,7 +1000,7 @@ public class CertificateServiceImpl implements CertificateService {
             keySizeStat.merge(certificate.getKeySize().toString(), 1L, Long::sum);
             stateStat.merge(certificate.getState().getCode(), 1L, Long::sum);
             validationStatusStat.merge(certificate.getValidationStatus().getCode(), 1L, Long::sum);
-            complianceStat.merge(certificate.getComplianceStatus() != null ? complianceMap.get(certificate.getComplianceStatus().getCode().toUpperCase()) : "Not Checked", 1L, Long::sum);
+            complianceStat.merge(certificate.getComplianceStatus().getCode(), 1L, Long::sum);
         }
         dto.setGroupStatByCertificateCount(groupStat);
         dto.setRaProfileStatByCertificateCount(raProfileStat);
