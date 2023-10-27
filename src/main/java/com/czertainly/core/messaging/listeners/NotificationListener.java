@@ -333,7 +333,7 @@ public class NotificationListener {
     }
 
     private String getApprovalNotificationDetail(NotificationDataApproval approvalData) {
-        return String.format("Approval profile name: %s,%nResource: %s,%nResource action: %s,%nObject UUID: %s",
+        return String.format("Approval profile name: %s, Resource: %s, Resource action: %s, Object UUID: %s",
                 approvalData.getApprovalProfileName(), approvalData.getResource().getLabel(), approvalData.getResourceAction(), approvalData.getObjectUuid());
     }
 
