@@ -31,10 +31,21 @@ import java.net.URL;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class OcspUtil {
     private static final Logger logger = LoggerFactory.getLogger(OcspUtil.class);
+
+    private static final Map<Integer, String> ocspResponseStatuses = Map.of(
+            OCSPResponseStatus.SUCCESSFUL, "Successful",
+            OCSPResponseStatus.MALFORMED_REQUEST, "Malformed request",
+            OCSPResponseStatus.INTERNAL_ERROR, "Internal error",
+            OCSPResponseStatus.TRY_LATER, "Try later",
+            OCSPResponseStatus.SIG_REQUIRED, "Signature required",
+            OCSPResponseStatus.UNAUTHORIZED, "Unauthorized"
+    );
 
     private OcspUtil() {
 
@@ -81,44 +92,36 @@ public class OcspUtil {
             }
             DERIA5String derStr = (DERIA5String) DERIA5String.getInstance((ASN1TaggedObject) name.toASN1Primitive(), false);
             String ocspUrl = derStr.getString();
-            logger.debug("OCSP URL Of the certificate is {}", ocspUrl);
             ocspUrls.add(ocspUrl);
         }
 
-        logger.debug("OCSP URL for the certificate is not available");
         return ocspUrls;
     }
 
     public static CertificateValidationStatus checkOcsp(X509Certificate certificate, X509Certificate issuer, String serviceUrl) throws Exception {
-        logger.debug("OCSP Check URL is {}", serviceUrl);
         OCSPReq request = generateOCSPRequest(issuer, certificate.getSerialNumber());
         OCSPResp ocspResponse = getOCSPResponse(serviceUrl, request);
-        if (OCSPResponseStatus.SUCCESSFUL == ocspResponse.getStatus())
-            logger.debug("OCSP Server responded with status");
 
         BasicOCSPResp basicResponse = (BasicOCSPResp) ocspResponse.getResponseObject();
         SingleResp[] responses = (basicResponse == null) ? null : basicResponse.getResponses();
-
         if (responses != null && responses.length == 1) {
             SingleResp resp = responses[0];
             Object status = resp.getCertStatus();
             if (status == org.bouncycastle.cert.ocsp.CertificateStatus.GOOD) {
-                logger.debug("OCSP Check Success. Certificate is valid");
                 return CertificateValidationStatus.VALID;
             } else if (status instanceof RevokedStatus) {
-                logger.debug("OCSP Check Failed. Certificate is revoked");
                 return CertificateValidationStatus.REVOKED;
             } else if (status instanceof UnknownStatus) {
-                logger.debug("OCSP Check Unknown");
                 return CertificateValidationStatus.FAILED;
             }
+        } else if (OCSPResponseStatus.SUCCESSFUL != ocspResponse.getStatus()) {
+            throw new IOException("OCSP Request failed with status " + ocspResponseStatuses.get(ocspResponse.getStatus()));
         }
-        logger.debug("OCSP Check Unknown.");
         return CertificateValidationStatus.FAILED;
     }
 
     private static OCSPReq generateOCSPRequest(X509Certificate issuerCert, BigInteger serialNumber)
-            throws OCSPException, IOException, OperatorException, CertificateEncodingException {
+            throws OCSPException, OperatorException, CertificateEncodingException {
         JcaDigestCalculatorProviderBuilder digestCalculatorProviderBuilder = new JcaDigestCalculatorProviderBuilder();
         DigestCalculatorProvider digestCalculatorProvider = digestCalculatorProviderBuilder.build();
         DigestCalculator digestCalculator = digestCalculatorProvider.get(CertificateID.HASH_SHA1);
@@ -157,7 +160,6 @@ public class OcspUtil {
                 throw new IllegalArgumentException("Only http is supported for OCSP requests");
             }
         } catch (IOException e) {
-            logger.debug("Failed to connect to OCSP URL");
             throw new IOException("Cannot get OCSP response from URL: " + serviceUrl, e);
         }
     }

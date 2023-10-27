@@ -237,7 +237,6 @@ public class X509CertificateValidator implements ICertificateValidator {
         String crlOutput = "";
         StringBuilder crlMessage = new StringBuilder();
         CertificateValidationStatus crlOutputStatus = CertificateValidationStatus.NOT_CHECKED;
-        logger.debug("Checking for the CRL of the certificate {}", certificate.getSubjectX500Principal().getName());
         for (String crlUrl : crlUrls) {
             try {
                 crlOutput = CrlUtil.checkCertificateRevocationList(certificate, crlUrl);

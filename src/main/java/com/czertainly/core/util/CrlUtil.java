@@ -36,8 +36,6 @@ public class CrlUtil {
     }
 
     public static List<String> getCDPFromCertificate(X509Certificate certificate) throws IOException {
-        logger.debug("Obtaining the CRL Urls from the certificate");
-
         byte[] crlDistributionPointDerEncodedArray = certificate
                 .getExtensionValue(Extension.cRLDistributionPoints.getId());
         if (crlDistributionPointDerEncodedArray == null) {
@@ -72,12 +70,10 @@ public class CrlUtil {
                 }
             }
         }
-        logger.debug("Obtained CRL Urls for the certificate");
         return crlUrls;
     }
 
     public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, CertificateException, CRLException {
-        logger.debug("Checking CRL URL {}", crlUrl);
         X509CRL crl;
         URL url = new URL(crlUrl);
         URLConnection connection = url.openConnection();
@@ -89,7 +85,6 @@ public class CrlUtil {
         } catch (FileNotFoundException e) {
             throw new CertificateException("File " + e.getMessage() + " not found");
         }
-        logger.debug("Completed CRL check for {}", crlUrl);
         X509CRLEntry crlCertificate = crl.getRevokedCertificate(certificate.getSerialNumber());
         if (crlCertificate == null) {
             return null;
