@@ -14,6 +14,7 @@ import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
@@ -31,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import javax.naming.InvalidNameException;
 import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
+import javax.security.auth.x500.X500Principal;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -281,8 +283,8 @@ public class CertificateUtil {
 
     public static Certificate prepareCertificate(Certificate modal, X509Certificate certificate) {
         modal.setSerialNumber(certificate.getSerialNumber().toString(16));
-        setSubjectDNParams(modal, certificate.getSubjectX500Principal().toString());
-        setIssuerDNParams(modal, certificate.getIssuerX500Principal().toString());
+        setSubjectDNParams(modal, X500Name.getInstance(X500NameStyleCustom.INSTANCE, certificate.getSubjectX500Principal().getEncoded()).toString());
+        setIssuerDNParams(modal, X500Name.getInstance(X500NameStyleCustom.INSTANCE, certificate.getIssuerX500Principal().getEncoded()).toString());
         modal.setNotAfter(certificate.getNotAfter());
         modal.setNotBefore(certificate.getNotBefore());
         if (certificate.getPublicKey() == null) {
