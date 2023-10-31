@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
@@ -29,11 +28,13 @@ import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
+import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
-import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -41,8 +42,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -58,7 +57,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -151,7 +149,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
 
         final DiscoveryCertificateResponseDto responseDto = new DiscoveryCertificateResponseDto();
-        responseDto.setCertificates(certificates.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
+        responseDto.setCertificates(certificates.stream().map(DiscoveryCertificate::mapToDto).toList());
         responseDto.setItemsPerPage(itemsPerPage);
         responseDto.setPageNumber(pageNumber);
         responseDto.setTotalItems(maxItems);
@@ -240,7 +238,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             dtoRequest.setKind(modal.getKind());
 
             // Load complete credential data
-            final List<DataAttribute> dataAttributeList = AttributeDefinitionUtils.deserialize(modal.getAttributes().toString(), DataAttribute.class);
+            final List<DataAttribute> dataAttributeList = AttributeDefinitionUtils.deserialize(modal.getAttributes(), DataAttribute.class);
             credentialService.loadFullCredentialData(dataAttributeList);
             dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributeList));
 
@@ -290,7 +288,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
                     updateDiscovery(modal, response);
-                    logger.error("Too many content in response. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
+                    logger.error("Too many content in response. Maximum processable is {}.", MAXIMUM_CERTIFICATES_PER_PAGE);
                     throw new InterruptedException(
                             "Too many content in response to process. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
                 }
@@ -404,7 +402,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 );
             } catch (Exception e) {
                 logger.error(e.getMessage());
-                logger.error("Unable to create certificate for " + modal.toString());
+                logger.error("Unable to create certificate for {}", modal);
             }
         }
         return allCerts;
@@ -430,7 +428,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override

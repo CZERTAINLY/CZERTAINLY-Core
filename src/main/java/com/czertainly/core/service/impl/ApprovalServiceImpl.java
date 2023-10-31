@@ -162,7 +162,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     public Approval createApproval(final ApprovalProfileVersion approvalProfileVersion, final Resource resource, final ResourceAction resourceAction, final UUID objectUuid, final UUID userUuid, final Object objectData) throws NotFoundException {
         final Approval approvalCheck = approvalRepository.findByResourceAndObjectUuidAndStatus(resource, objectUuid, ApprovalStatusEnum.PENDING);
         if (approvalCheck != null) {
-            throw new ValidationException(ValidationError.create("There is already existing approval for resouce " + resource + " and object " + objectUuid));
+            throw new ValidationException(ValidationError.create("There is already pending approval for resource " + resource.getLabel() + " and object " + objectUuid));
         }
 
         Date now = new Date();

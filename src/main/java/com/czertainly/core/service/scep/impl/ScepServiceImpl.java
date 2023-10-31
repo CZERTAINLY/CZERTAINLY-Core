@@ -6,7 +6,8 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.api.model.core.scep.PkiStatus;
@@ -514,12 +515,15 @@ public class ScepServiceImpl implements ScepService {
         assert scepTransaction != null;
         Certificate certificate = scepTransaction.getCertificate();
 
-        if (certificate.getStatus() == CertificateStatus.REJECTED) {
+        if (certificate.getState() == CertificateState.REJECTED) {
             return buildFailedResponse(new ScepException("Certificate issuance was rejected", FailInfo.BAD_REQUEST), transactionId);
+        }
+        if (certificate.getState() == CertificateState.FAILED) {
+            return buildFailedResponse(new ScepException("Certificate issuance failed", FailInfo.BAD_REQUEST), transactionId);
         }
 
         ScepResponse scepResponse = new ScepResponse();
-        if (certificate.getStatus() != CertificateStatus.NEW) {
+        if (certificate.getState() == CertificateState.ISSUED) {
             scepResponse.setPkiStatus(PkiStatus.SUCCESS);
             scepResponse.setCertificateChain(getIssuedCertificateChain(certificate));
         } else {
@@ -542,11 +546,14 @@ public class ScepServiceImpl implements ScepService {
             ScepTransaction transaction = getTransaction(scepRequest.getTransactionId());
             if (transaction != null) {
                 Certificate certificate = transaction.getCertificate();
-                if (certificate.getStatus() == CertificateStatus.REJECTED) {
+                if (certificate.getState() == CertificateState.REJECTED) {
                     return buildFailedResponse(new ScepException("Certificate issuance was rejected", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
                 }
+                if (certificate.getState() == CertificateState.FAILED) {
+                    return buildFailedResponse(new ScepException("Certificate issuance failed", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());
+                }
 
-                if (!certificate.getStatus().equals(CertificateStatus.NEW)) {
+                if (certificate.getState().equals(CertificateState.ISSUED)) {
                     X509Certificate x509Certificate = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
                     scepResponse.setCertificateChain(getIssuedCertificateChain(certificate));
                     scepResponse.setPkiStatus(PkiStatus.SUCCESS);
@@ -571,11 +578,11 @@ public class ScepServiceImpl implements ScepService {
         ArrayList<X509Certificate> certificateChain = new ArrayList<>();
         for (CertificateDetailDto certificate : certificateService.getCertificateChain(leafCertificate.getSecuredUuid(), true).getCertificates()) {
             // only certificate with valid status should be used
-            if (!certificate.getStatus().equals(CertificateStatus.VALID)) {
+            if (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)) {
                 throw new ScepException(String.format("Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
                         certificate.getUuid(),
                         certificate.getFingerprint(),
-                        certificate.getStatus().getLabel()),
+                        certificate.getValidationStatus().getLabel()),
                         FailInfo.BAD_REQUEST);
             }
             try {
@@ -691,7 +698,7 @@ public class ScepServiceImpl implements ScepService {
             if (certificate.getValidity() / 2 < certificate.getExpiryInDays()) {
                 throw new ScepException("Cannot renew certificate. Validity exceeds the half life time of certificate", FailInfo.BAD_REQUEST);
             }
-        } else if (certificate.getStatus().equals(CertificateStatus.EXPIRED) || certificate.getStatus().equals(CertificateStatus.REVOKED)) {
+        } else if (certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRED) || certificate.getState().equals(CertificateState.REVOKED)) {
             throw new ScepException("Cannot renew certificate. Certificate is already in expired or revoked state", FailInfo.BAD_REQUEST);
         } else {
             if (certificate.getExpiryInDays() > scepProfile.getRenewalThreshold()) {
