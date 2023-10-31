@@ -1,7 +1,10 @@
 package com.czertainly.core.messaging.producers;
 
+import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateEvent;
+import com.czertainly.api.model.core.certificate.CertificateEventStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
 import org.slf4j.Logger;
@@ -33,10 +36,10 @@ public class EventProducer {
         produceMessage(eventMessage);
     }
 
-    public void produceCertificateStatusChangeEventMessage(final UUID certificateUUID, final String eventName, final String eventStatus, CertificateStatus oldStatus, CertificateStatus newStatus) {
-        String message = String.format("Certificate status changed from %s to %s.", oldStatus.getLabel(), newStatus.getLabel());
+    public void produceCertificateStatusChangeEventMessage(final UUID certificateUUID, final CertificateEvent certificateEvent, final CertificateEventStatus eventStatus, IPlatformEnum oldStatus, IPlatformEnum newStatus) {
+        String message = String.format("Certificate %s changed from %s to %s.", certificateEvent == CertificateEvent.UPDATE_STATE ? "state" : "validation status", oldStatus.getLabel(), newStatus.getLabel());
         logger.debug("Sending Certificate {} event message: {}", certificateUUID, message);
-        final EventMessage eventMessage = new EventMessage(Resource.CERTIFICATE, certificateUUID, eventName, eventStatus, message, null);
+        final EventMessage eventMessage = new EventMessage(Resource.CERTIFICATE, certificateUUID, certificateEvent.getCode(), eventStatus.toString(), message, null);
         produceMessage(eventMessage);
     }
 

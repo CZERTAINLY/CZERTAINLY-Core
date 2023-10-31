@@ -4,7 +4,8 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
@@ -17,8 +18,6 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
-import com.czertainly.core.util.MetaDefinitions;
-import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -34,7 +33,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 
 public class CertificateServiceTest extends BaseSpringBootTest {
 
@@ -68,7 +66,8 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCercertificatetificate");
         certificate.setSerialNumber("123456789");
-        certificate.setStatus(CertificateStatus.VALID);
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
         certificate.setCertificateContent(certificateContent);
         certificate.setCertificateContentId(certificateContent.getId());
         certificate = certificateRepository.save(certificate);
@@ -145,7 +144,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(certificate.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(certificate.getSerialNumber(), dto.getSerialNumber());
-        Assertions.assertEquals(CertificateStatus.REVOKED, dto.getStatus());
+        Assertions.assertEquals(CertificateState.REVOKED, dto.getState());
     }
 
     @Test

@@ -8,7 +8,7 @@ import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.client.auth.UserIdentificationRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -189,7 +189,6 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     private Certificate addUserCertificate(String certificateUuid, String certificateData) throws CertificateException, NotFoundException {
-
         Certificate certificate;
         if (StringUtils.isNotBlank(certificateUuid)) {
             certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
@@ -202,8 +201,8 @@ public class UserManagementServiceImpl implements UserManagementService {
             }
             try {
                 certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
-                if (certificate.getStatus().equals(CertificateStatus.NEW) || certificate.getStatus().equals(CertificateStatus.REJECTED)) {
-                    throw new ValidationException(ValidationError.create("Cannot create user for certificate with status " + certificate.getStatus().getLabel()));
+                if (!certificate.getState().equals(CertificateState.ISSUED)) {
+                    throw new ValidationException(ValidationError.create("Cannot create user for certificate with state " + certificate.getState().getLabel()));
                 }
             } catch (NotFoundException | NoSuchAlgorithmException e) {
                 logger.debug("New Certificate uploaded for the user");

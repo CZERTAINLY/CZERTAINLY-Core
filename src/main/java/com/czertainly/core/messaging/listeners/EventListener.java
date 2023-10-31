@@ -29,9 +29,7 @@ public class EventListener {
     @RabbitListener(queues = RabbitMQConstants.QUEUE_EVENTS_NAME, messageConverter = "jsonMessageConverter")
     public void processMessage(EventMessage eventMessage) {
         switch (eventMessage.getResource()) {
-            case CERTIFICATE -> {
-                certificateEventHistoryService.addEventHistory(eventMessage.getResourceUUID(), CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail());
-            }
+            case CERTIFICATE -> certificateEventHistoryService.addEventHistory(eventMessage.getResourceUUID(), CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail());
             default -> logger.warn("Event handling is supported only for certificates for now");
         }
     }

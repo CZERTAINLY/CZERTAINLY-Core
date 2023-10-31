@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -410,7 +411,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 List<Certificate> certificates = certificateService.listCertificatesForRaProfile(raProfile);
                 for (Certificate certificate : certificates) {
                     certificate.setComplianceResult(null);
-                    certificate.setComplianceStatus(null);
+                    certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
                     certificateService.updateCertificateEntity(certificate);
                 }
             } else {
@@ -643,8 +644,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     private void resetComplianceStatus(ComplianceProfile complianceProfile) {
         for (RaProfile raProfile : complianceProfile.getRaProfiles()) {
             for (Certificate certificate : certificateService.listCertificatesForRaProfileAndNonNullComplianceStatus(raProfile)) {
-                certificate.setComplianceStatus(null);
                 certificate.setComplianceResult(null);
+                certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
                 certificateService.updateCertificateEntity(certificate);
             }
         }

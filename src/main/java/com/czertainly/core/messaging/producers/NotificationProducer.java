@@ -8,7 +8,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -54,7 +54,7 @@ public class NotificationProducer {
         produceMessage(new NotificationMessage(type, resource, resourceUUID, recipients, data));
     }
 
-    public void produceNotificationCertificateStatusChanged(CertificateStatus oldStatus, CertificateStatus newStatus, CertificateDto certificateDto) {
+    public void produceNotificationCertificateStatusChanged(CertificateValidationStatus oldStatus, CertificateValidationStatus newStatus, CertificateDto certificateDto) {
         if (certificateDto.getOwnerUuid() == null && certificateDto.getGroup() == null) {
             return;
         }
