@@ -19,7 +19,7 @@ import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
@@ -32,9 +32,11 @@ import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.CertificateLocationRepository;
+import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -46,8 +48,6 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -65,7 +65,6 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -468,7 +467,7 @@ public class LocationServiceImpl implements LocationService {
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
-        if (certificate.getStatus().equals(CertificateStatus.REJECTED)) {
+        if (certificate.getState().equals(CertificateState.REJECTED)) {
             throw new ValidationException(ValidationError.create(String.format("Cannot push rejected certificate %s to location %s", certificate, location.getName())));
         }
 
@@ -489,7 +488,8 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + location.getName() + " does not support multiple entries");
         }
 
-        if (certificate.getStatus().equals(CertificateStatus.NEW)) {
+        // not yet issued certificate
+        if (certificate.getCertificateContent() == null) {
             addCertificateToLocation(location, certificate, request.getAttributes(), List.of(), List.of());
             logger.info("Certificate {} is added to location {} and prepared to be pushed after issue", certificate, location.getName());
         } else {
@@ -505,7 +505,7 @@ public class LocationServiceImpl implements LocationService {
         return dto;
     }
 
-    public void pushNewCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException {
+    public void pushRequestedCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException {
         CertificateLocation certificateLocation = certificateLocationRepository.findById(certificateLocationId).orElseThrow(() -> new NotFoundException(CertificateLocation.class, certificateLocationId));
         Certificate certificate = certificateLocation.getCertificate();
         Location location = certificateLocation.getLocation();

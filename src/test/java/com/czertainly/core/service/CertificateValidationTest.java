@@ -77,7 +77,8 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
-        certificate.setStatus(CertificateStatus.VALID);
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
         certificate.setCertificateType(CertificateType.X509);
         certificate.setNotBefore(new Date());
         certificate.setNotAfter(new Date());
@@ -97,7 +98,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
 
     @Test
-    void testValidateCertificate() throws CertificateException {
+    void testValidateCertificate() {
         certificateService.validate(certificate);
 
         String result = certificate.getCertificateValidationResult();
@@ -110,7 +111,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
         CertificateValidationCheckDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
         Assertions.assertNotNull(signatureVerification);
-        Assertions.assertEquals(CertificateValidationStatus.FAILED, signatureVerification.getStatus());
+        Assertions.assertEquals(CertificateValidationStatus.INVALID, signatureVerification.getStatus());
     }
 
     @Test
@@ -122,7 +123,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetCertificateChain() throws NotFoundException{
+    void testGetCertificateChain() throws NotFoundException {
         CertificateChainResponseDto certificateChainResponseDto = certificateService.getCertificateChain(chainIncompleteCertificate.getSecuredUuid(), false);
         Assertions.assertFalse(certificateChainResponseDto.isCompleteChain());
         CertificateChainResponseDto certificateChainCompleteResponseDto = certificateService.getCertificateChain(chainCompleteCertificate.getSecuredUuid(), false);

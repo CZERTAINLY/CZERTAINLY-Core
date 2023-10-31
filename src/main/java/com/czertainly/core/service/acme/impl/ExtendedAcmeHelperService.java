@@ -10,7 +10,7 @@ import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
@@ -661,7 +661,7 @@ public class ExtendedAcmeHelperService {
                 .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", "");
         ClientCertificateRevocationDto revokeRequest = new ClientCertificateRevocationDto();
         Certificate cert = certificateService.getCertificateEntityByContent(decodedCertificate);
-        if (cert.getStatus().equals(CertificateStatus.REVOKED)) {
+        if (cert.getState().equals(CertificateState.REVOKED)) {
             logger.error("Certificate is already revoked. Serial number: {}, Fingerprint: {}", cert.getSerialNumber(), cert.getFingerprint());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ALREADY_REVOKED);
         }
