@@ -72,8 +72,12 @@ public class OcspUtil {
     }
 
     public static List<String> getOcspUrlFromCertificate(X509Certificate certificate) throws IOException {
-        byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
         List<String> ocspUrls = new ArrayList<>();
+        byte[] octetBytes = certificate.getExtensionValue(Extension.authorityInfoAccess.getId());
+        if (octetBytes == null) {
+            return ocspUrls;
+        }
+
         ASN1Primitive fromExtensionValue = JcaX509ExtensionUtils.parseExtensionValue(octetBytes);
         if (!(fromExtensionValue instanceof DLSequence)) {
             return ocspUrls;
