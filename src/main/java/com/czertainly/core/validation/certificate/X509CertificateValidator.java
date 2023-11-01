@@ -177,7 +177,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         }
 
         if (ocspUrls.isEmpty()) {
-            return new CertificateValidationCheckDto(CertificateValidationCheck.OCSP_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "No OCSP URL in certificate");
+            return new CertificateValidationCheckDto(CertificateValidationCheck.OCSP_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "Certificate does not contain AIA extension or OCSP URL is not present");
         }
 
         StringBuilder ocspMessage = new StringBuilder();

@@ -606,7 +606,7 @@ public class CertificateServiceImpl implements CertificateService {
     public void validate(Certificate certificate) {
         CertificateChainResponseDto certificateChainResponse = getCertificateChainInternal(certificate, true);
 
-        CertificateValidationStatus newStatus = null;
+        CertificateValidationStatus newStatus;
         CertificateValidationStatus oldStatus = certificate.getValidationStatus();
         ICertificateValidator certificateValidator = getCertificateValidator(certificate.getCertificateType());
 
@@ -614,16 +614,17 @@ public class CertificateServiceImpl implements CertificateService {
             newStatus = certificateValidator.validateCertificate(certificate, certificateChainResponse.isCompleteChain());
         } catch (Exception e) {
             logger.warn("Unable to validate the certificate {}: {}", certificate, e.getMessage());
-            certificate.setValidationStatus(CertificateValidationStatus.FAILED);
+            newStatus = CertificateValidationStatus.FAILED;
+            certificate.setValidationStatus(newStatus);
             certificateRepository.save(certificate);
         }
 
         if (!oldStatus.equals(CertificateValidationStatus.NOT_CHECKED) && !oldStatus.equals(newStatus)) {
-            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, certificate.getValidationStatus());
+            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, newStatus);
             try {
-                notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getValidationStatus(), certificate.mapToListDto());
+                notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, newStatus, certificate.mapToListDto());
             } catch (Exception e) {
-                logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getValidationStatus().getCode(), e.getMessage());
+                logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), newStatus.getCode(), e.getMessage());
             }
         }
     }
