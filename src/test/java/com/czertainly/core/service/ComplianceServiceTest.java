@@ -1,8 +1,9 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -67,7 +68,8 @@ public class ComplianceServiceTest extends BaseSpringBootTest {
         certificate = new Certificate();
         certificate.setCertificateContent(certificateContent);
         certificate.setSerialNumber("123456789");
-        certificate.setStatus(CertificateStatus.VALID);
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
         certificate = certificateRepository.save(certificate);
 
         connector = new Connector();

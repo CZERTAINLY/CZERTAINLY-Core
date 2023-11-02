@@ -15,14 +15,13 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.GeneralSecurityException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509CRL;
-import java.security.cert.X509CRLEntry;
-import java.security.cert.X509Certificate;
+import java.security.cert.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -37,8 +36,6 @@ public class CrlUtil {
     }
 
     public static List<String> getCDPFromCertificate(X509Certificate certificate) throws IOException {
-        logger.debug("Obtaining the CRL Urls from the certificate");
-
         byte[] crlDistributionPointDerEncodedArray = certificate
                 .getExtensionValue(Extension.cRLDistributionPoints.getId());
         if (crlDistributionPointDerEncodedArray == null) {
@@ -73,21 +70,21 @@ public class CrlUtil {
                 }
             }
         }
-        logger.debug("Obtained CRL Urls for the certificate");
         return crlUrls;
     }
 
-    public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, GeneralSecurityException {
-        logger.debug("Checking CRL URL {}", crlUrl);
+    public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, CertificateException, CRLException {
         X509CRL crl;
         URL url = new URL(crlUrl);
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
         CertificateFactory cf = CertificateFactory.getInstance("X509");
+
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
             crl = (X509CRL) cf.generateCRL(inStream);
+        } catch (FileNotFoundException e) {
+            throw new CertificateException("File " + e.getMessage() + " not found");
         }
-        logger.debug("Completed CRL check for {}", crlUrl);
         X509CRLEntry crlCertificate = crl.getRevokedCertificate(certificate.getSerialNumber());
         if (crlCertificate == null) {
             return null;

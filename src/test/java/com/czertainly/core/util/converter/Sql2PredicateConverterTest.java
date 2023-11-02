@@ -148,7 +148,7 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
 
     @Test
     public void testOCSPValidation() {
-        testVerifications(SearchableFields.OCSP_VALIDATION, SearchCondition.EQUALS, CertificateValidationStatus.SUCCESS);
+        testVerifications(SearchableFields.OCSP_VALIDATION, SearchCondition.EQUALS, CertificateValidationStatus.VALID);
     }
 
     @Test
@@ -266,14 +266,14 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
         Assertions.assertEquals(value, ((SqmLikePredicate) predicate).getPattern().toHqlString());
     }
 
-    private void testVerifications(final SearchableFields fieldTest, final SearchCondition condition, final CertificateValidationStatus certificateValidationStatus) {
+    private void testVerifications(final SearchableFields fieldTest, final SearchCondition condition, final CertificateValidationStatus certificateValidationCheckStatus) {
         final SearchFilterRequestDTODummy searchFilterRequestDTODummy
-                = new SearchFilterRequestDTODummy(fieldTest, condition, certificateValidationStatus.getCode());
+                = new SearchFilterRequestDTODummy(fieldTest, condition, certificateValidationCheckStatus.getCode());
         final Predicate predicateTest = Sql2PredicateConverter.mapSearchFilter2Predicate(searchFilterRequestDTODummy, criteriaBuilder, root);
         Assertions.assertInstanceOf(SqmLikePredicate.class, predicateTest);
 
         final String hqlString = ((SqmLikePredicate) predicateTest).getPattern().toHqlString();
-        Assertions.assertTrue(hqlString.contains(TEST_VERIFICATION_TEXT.replace("%STATUS%", certificateValidationStatus.getCode())));
+        Assertions.assertTrue(hqlString.contains(TEST_VERIFICATION_TEXT.replace("%STATUS%", certificateValidationCheckStatus.getCode())));
         Assertions.assertTrue(hqlString.startsWith("%"));
         Assertions.assertTrue(hqlString.endsWith("%"));
     }

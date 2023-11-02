@@ -32,7 +32,7 @@ public interface ClientOperationService {
             ClientCertificateRequestDto request
     ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException;
 
-    ClientCertificateDataResponseDto issueNewCertificate(
+    ClientCertificateDataResponseDto issueRequestedCertificate(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             String certificateUuid
@@ -44,10 +44,12 @@ public interface ClientOperationService {
             ClientCertificateSignRequestDto request
     ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException;
 
+    void approvalCreatedAction(final UUID certificateUuid) throws NotFoundException;
+
     void issueCertificateAction(
             final UUID certificateUuid,
             boolean isApproved
-    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException;
+    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException;
 
     void issueCertificateRejectedAction(final UUID certificateUuid) throws NotFoundException;
 

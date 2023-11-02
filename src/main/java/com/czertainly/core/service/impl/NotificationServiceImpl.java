@@ -99,7 +99,7 @@ public class NotificationServiceImpl implements NotificationService {
                 : notificationRepository.countByNotificationRecipients_UserUuid(loggedUserUuid);
 
         final NotificationResponseDto responseDto = new NotificationResponseDto();
-        responseDto.setItems(notifications.stream().map(Notification::mapToDto).collect(Collectors.toList()));
+        responseDto.setItems(notifications.stream().map(Notification::mapToDto).toList());
         responseDto.setItemsPerPage(request.getItemsPerPage());
         responseDto.setPageNumber(request.getPageNumber());
         responseDto.setTotalItems(totalItems);
