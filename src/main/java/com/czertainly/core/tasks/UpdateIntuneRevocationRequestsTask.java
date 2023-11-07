@@ -19,7 +19,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
-import com.czertainly.core.util.X500NameStyleCustom;
+import com.czertainly.core.util.CzertainlyX500NameStyle;
 import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -150,8 +150,8 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
         for (CARevocationRequest revocationRequest : revocationRequests) {
             try {
                 // TODO: Workaround to map to issuer DN in DB - redone correctly storing DN in correct sanitized format.
-                String issuerName = X500Name.getInstance(X500NameStyleCustom.INSTANCE, new X500Principal(revocationRequest.issuerName).getEncoded()).toString();
-                Certificate certificate = certificateService.getCertificateEntityByIssuerDnAndSerialNumber(
+                String issuerName = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, new X500Principal(revocationRequest.issuerName).getEncoded()).toString();
+                Certificate certificate = certificateService.getCertificateEntityByIssuerDnNormalizedAndSerialNumber(
                         issuerName,
                         revocationRequest.serialNumber
                 );

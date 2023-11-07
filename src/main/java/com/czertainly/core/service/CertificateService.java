@@ -41,6 +41,8 @@ public interface CertificateService extends ResourceExtensionService  {
 
     Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
 
+    Certificate getCertificateEntityByIssuerDnNormalizedAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
+
     Boolean checkCertificateExistsByFingerprint(String fingerprint);
 
     void deleteCertificate(SecuredUUID uuid) throws NotFoundException;

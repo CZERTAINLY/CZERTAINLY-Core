@@ -288,8 +288,12 @@ public class CertificateUtil {
         modal.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
 
         modal.setSerialNumber(certificate.getSerialNumber().toString(16));
-        setSubjectDNParams(modal, X500Name.getInstance(X500NameStyleCustom.INSTANCE, certificate.getSubjectX500Principal().getEncoded()).toString());
-        setIssuerDNParams(modal, X500Name.getInstance(X500NameStyleCustom.INSTANCE, certificate.getIssuerX500Principal().getEncoded()).toString());
+        byte[] subjectDnPrincipalEncoded = certificate.getSubjectX500Principal().getEncoded();
+        byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT_INSTANCE, subjectDnPrincipalEncoded).toString());
+        setIssuerDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT_INSTANCE, issuerDnPrincipalEncoded).toString());
+        modal.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, issuerDnPrincipalEncoded).toString());
+        modal.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, subjectDnPrincipalEncoded).toString());
         modal.setNotAfter(certificate.getNotAfter());
         modal.setNotBefore(certificate.getNotBefore());
         if (certificate.getPublicKey() == null) {

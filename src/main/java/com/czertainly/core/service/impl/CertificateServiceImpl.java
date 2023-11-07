@@ -252,6 +252,12 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public Certificate getCertificateEntityByIssuerDnNormalizedAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
+        return certificateRepository.findByIssuerDnNormalizedAndSerialNumber(issuerDn, serialNumber)
+                .orElseThrow(() -> new NotFoundException(Certificate.class, issuerDn + " " + serialNumber));
+    }
+
+    @Override
     public Boolean checkCertificateExistsByFingerprint(String fingerprint) {
         try {
             return certificateRepository.findByFingerprint(fingerprint).isPresent();
