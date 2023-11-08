@@ -6,7 +6,6 @@ import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x500.style.BCStrictStyle;
-import org.bouncycastle.asn1.x500.style.IETFUtils;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,7 +35,8 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
             if (isFirstRdn) {
                 isFirstRdn = false;
             } else {
-                stringBuffer.append(", ");
+                stringBuffer.append(",");
+                if (!normalized) stringBuffer.append(" ");
             }
 
             appendRDN(stringBuffer, rdn);
@@ -47,6 +47,7 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
 
     private String getRdnCode(AttributeTypeAndValue attributeTypeAndValue) {
         ASN1ObjectIdentifier type = attributeTypeAndValue.getType();
+        if (this.normalized) return type.getId();
         try {
             return X500RdnType.fromOID(type.toString()).getCode();
         } catch (IllegalArgumentException e) {
@@ -78,7 +79,7 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
     private void appendTypeAndValue(StringBuffer stringBuffer, AttributeTypeAndValue attributeTypeAndValue) {
         stringBuffer.append(getRdnCode(attributeTypeAndValue));
         stringBuffer.append('=');
-        stringBuffer.append(IETFUtils.valueToString(attributeTypeAndValue.getValue()));
+        stringBuffer.append(attributeTypeAndValue.getValue().toString());
     }
 
 }
