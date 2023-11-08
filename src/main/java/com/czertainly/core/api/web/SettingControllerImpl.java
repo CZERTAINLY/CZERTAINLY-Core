@@ -27,7 +27,7 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
-    public PlatformSettingsDto getPlatformSettings(){
+    public PlatformSettingsDto getPlatformSettings() {
         return settingService.getPlatformSettings();
     }
 
