@@ -1,19 +1,17 @@
 package com.czertainly.core.util;
 
-import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
 import javax.security.auth.x500.X500Principal;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
 public class CzertainlyX500NameStyleTest {
-     private static final Logger logger = LoggerFactory.getLogger(CzertainlyX500NameStyleTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(CzertainlyX500NameStyleTest.class);
 
     @Test
     public void testCustomNameStyle() throws CertificateException {
@@ -65,14 +63,15 @@ public class CzertainlyX500NameStyleTest {
         Assertions.assertEquals("0.9.2342.19200300.100.1.25=3key,0.9.2342.19200300.100.1.25=local,2.5.4.3=Michal Tutko,2.5.4.3=Users", X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, certificateAVA.getSubjectX500Principal().getEncoded()).toString());
         Assertions.assertEquals("CN=finax.eu, O=Finax, o.c.p., a. s., L=Bratislava, C=SK, SERIALNUMBER=51 306 727, BusinessCategory=Private Organization, 1.3.6.1.4.1.311.60.2.1.3=SK", X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT_INSTANCE, certificateO.getSubjectX500Principal().getEncoded()).toString());
         Assertions.assertEquals("1.3.6.1.4.1.311.60.2.1.3=SK,2.5.4.10=Finax, o.c.p., a. s.,2.5.4.15=Private Organization,2.5.4.3=finax.eu,2.5.4.5=51 306 727,2.5.4.6=SK,2.5.4.7=Bratislava", X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, certificateO.getSubjectX500Principal().getEncoded()).toString());
-        }
-    private String getDnWithCustomStyle(String dn){
+    }
+
+    private String getDnWithCustomStyle(String dn) {
         return X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT_INSTANCE, new X500Principal(dn).getEncoded()).toString();
     }
 
-    private String getDnWithCustomStyleNormalized(String dn){
+    private String getDnWithCustomStyleNormalized(String dn) {
         return X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, new X500Principal(dn).getEncoded()).toString();
     }
-    }
+}
 
 
