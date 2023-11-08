@@ -1,6 +1,6 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.core.certificate.RdnType;
+import com.czertainly.api.model.core.certificate.X500RdnType;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
 import org.bouncycastle.asn1.x500.RDN;
@@ -48,7 +48,7 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
     private String getRdnCode(AttributeTypeAndValue attributeTypeAndValue) {
         ASN1ObjectIdentifier type = attributeTypeAndValue.getType();
         try {
-            return RdnType.fromOID(type.toString()).getCode();
+            return X500RdnType.fromOID(type.toString()).getCode();
         } catch (IllegalArgumentException e) {
             if (this.defaultSymbols.get(type) != null)
                 return (String) this.defaultSymbols.get(type);
