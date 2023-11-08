@@ -329,7 +329,7 @@ public class CertificateUtil {
 
 
     public static Certificate prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
-        setSubjectDNParams(modal, certificate.getSubject().toString());
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT_INSTANCE, certificate.getSubject()).toString());
         if (certificate.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
