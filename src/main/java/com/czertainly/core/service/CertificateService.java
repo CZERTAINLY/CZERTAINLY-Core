@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -127,7 +128,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param uuid    UUID of the certificate
      * @param request Request for the certificate objects update
      */
-    void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException;
+    void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException;
 
     /**
      * Method to update the Objects of multiple certificates

@@ -82,12 +82,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         logger.info("Certificate Created. Adding the certificate to Inventory");
-
-        CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
-        dto.setRaProfileUuid(raProfile.getUuid().toString());
         logger.debug("UUID of the certificate is {}", certificate.getUuid());
         logger.debug("UUID of the RA Profile is {}", raProfile.getUuid());
-        certificateService.updateCertificateObjects(SecuredUUID.fromString(certificate.getUuid().toString()), dto);
+
+        certificate.setRaProfile(raProfile);
         certificateService.validate(certificate);
 
         ClientCertificateSignResponseDto response = new ClientCertificateSignResponseDto();

@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
@@ -9,6 +10,8 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
+import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -97,6 +100,8 @@ public class CertificateServiceImpl implements CertificateService {
     public static final Integer MAX_PAGE_SIZE = 1000;
     // Default batch size to perform bulk delete operation on Certificates
     public static final Integer DELETE_BATCH_SIZE = 1000;
+
+    private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
     @Autowired
@@ -157,6 +162,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private UserManagementApiClient userManagementApiClient;
+
+    @Autowired
+    private CertificateApiClient certificateApiClient;
 
     /**
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
@@ -297,10 +305,10 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+    public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException {
         logger.info("Updating certificate objects: RA {} group {} owner {}", request.getRaProfileUuid(), request.getGroupUuid(), request.getOwnerUuid());
         if (request.getRaProfileUuid() != null) {
-            updateRaProfile(uuid, SecuredUUID.fromString(request.getRaProfileUuid()));
+            switchRaProfile(uuid, SecuredUUID.fromString(request.getRaProfileUuid()));
         }
         if (request.getGroupUuid() != null) {
             updateCertificateGroup(uuid, SecuredUUID.fromString(request.getGroupUuid()));
@@ -1406,22 +1414,52 @@ public class CertificateServiceImpl implements CertificateService {
         return "";
     }
 
-    private void updateRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException {
+    private void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException {
         Certificate certificate = getCertificateEntity(uuid);
-        RaProfile raProfile = raProfileRepository.findByUuid(raProfileUuid)
+        RaProfile newRaProfile = raProfileRepository.findByUuid(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
-        String originalProfile = "undefined";
-        if (certificate.getRaProfile() != null) {
-            originalProfile = certificate.getRaProfile().getName();
+
+        RaProfile currentRaProfile = certificate.getRaProfile();
+        String currentRaProfileName = UNDEFINED_CERTIFICATE_OBJECT_NAME;
+        if (currentRaProfile != null) {
+            if (currentRaProfile.getUuid().toString().equals(raProfileUuid.toString())) {
+                return;
+            }
+            currentRaProfileName = certificate.getRaProfile().getName();
         }
-        certificate.setRaProfile(raProfile);
+
+        // identify certificate by new authority
+        CertificateIdentificationResponseDto response;
+        CertificateIdentificationRequestDto requestDto = new CertificateIdentificationRequestDto();
+        requestDto.setCertificate(certificate.getCertificateContent().getContent());
+        try {
+            response = certificateApiClient.identifyCertificate(
+                    newRaProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                    newRaProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                    requestDto);
+        } catch (ConnectorException e) {
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), "");
+            throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s", newRaProfile.getName(), certificate));
+        }
+
+        // delete old metadata
+        if (currentRaProfile != null) {
+            metadataService.deleteConnectorMetadata(currentRaProfile.getAuthorityInstanceReference().getConnectorUuid(), certificate.getUuid(), Resource.CERTIFICATE, null, null);
+        }
+
+        // save metadata for identified certificate
+        UUID connectorUuid = newRaProfile.getAuthorityInstanceReference().getConnectorUuid();
+        metadataService.createMetadataDefinitions(connectorUuid, response.getMeta());
+        metadataService.createMetadata(connectorUuid, certificate.getUuid(), null, null, response.getMeta(), Resource.CERTIFICATE, null);
+
+        certificate.setRaProfile(newRaProfile);
         certificateRepository.save(certificate);
         try {
             complianceService.checkComplianceOfCertificate(certificate);
         } catch (ConnectorException e) {
             logger.error("Error when checking compliance:", e);
         }
-        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "");
+        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, currentRaProfileName + " -> " + newRaProfile.getName(), "");
     }
 
     private void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
@@ -1429,7 +1467,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         Group group = groupRepository.findByUuid(groupUuid)
                 .orElseThrow(() -> new NotFoundException(Group.class, groupUuid));
-        String originalGroup = "undefined";
+        String originalGroup = UNDEFINED_CERTIFICATE_OBJECT_NAME;
         if (certificate.getGroup() != null) {
             originalGroup = certificate.getGroup().getName();
         }
@@ -1446,7 +1484,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         String originalOwner = certificate.getOwner();
         if (originalOwner == null || originalOwner.isEmpty()) {
-            originalOwner = "undefined";
+            originalOwner = UNDEFINED_CERTIFICATE_OBJECT_NAME;
         }
         UserDetailDto userDetail = userManagementApiClient.getUserDetail(ownerUuid);
         certificate.setOwner(userDetail.getUsername());
@@ -1460,16 +1498,14 @@ public class CertificateServiceImpl implements CertificateService {
         RaProfile raProfile = raProfileRepository.findByUuid(SecuredUUID.fromString(request.getRaProfileUuid()))
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
-                permissionEvaluator.certificate(certificate.getSecuredUuid());
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
-                certificate.setRaProfile(raProfile);
-                batchOperationList.add(certificate);
+                try {
+                    permissionEvaluator.certificate(SecuredUUID.fromString(certificateUuid));
+                    switchRaProfile(SecuredUUID.fromString(certificateUuid), SecuredUUID.fromString(request.getRaProfileUuid()));
+                } catch (CertificateOperationException e) {
+                    logger.warn(e.getMessage());
+                }
             }
-            certificateRepository.saveAll(batchOperationList);
-            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
             String data = searchService.createCriteriaBuilderString(filter, false);
             if (!data.equals("")) {
@@ -1492,7 +1528,7 @@ public class CertificateServiceImpl implements CertificateService {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
                 permissionEvaluator.certificate(certificate.getSecuredUuid());
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + group.getName(), "", certificate));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : UNDEFINED_CERTIFICATE_OBJECT_NAME + " -> " + group.getName(), "", certificate));
                 certificate.setGroup(group);
                 batchOperationList.add(certificate);
             }
