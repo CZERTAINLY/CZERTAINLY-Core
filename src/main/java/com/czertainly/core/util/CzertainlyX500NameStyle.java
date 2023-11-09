@@ -91,7 +91,7 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
                 if (isFirst) {
                     isFirst = false;
                 } else {
-                    stringBuffer.append(this.delimiter);
+                    stringBuffer.append('+');
                 }
                 appendTypeAndValue(stringBuffer, attributeTypeAndValues[i]);
             }
