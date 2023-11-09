@@ -59,18 +59,18 @@ public class CzertainlyX500NameStyleTest {
                 "FdV2/EK53ljThNnlwogBUPXBzGyeZsC1QStqQWysLhrnqryRy0v0yvuCTdOkiFBX" +
                 "3rsdp4QpxNYY5M9zYka+17ebSuXOW9gFxPJYwlr1AZ9F/u33unXJ6hWaweO/CNMW" +
                 "0m4uktyxBoDjR3pj");
-        Assertions.assertEquals("CN=Michal Tutko, CN=Users, DC=3key, DC=local", X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT_INSTANCE, certificateAVA.getSubjectX500Principal().getEncoded()).toString());
-        Assertions.assertEquals("0.9.2342.19200300.100.1.25=3key,0.9.2342.19200300.100.1.25=local,2.5.4.3=Michal Tutko,2.5.4.3=Users", X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, certificateAVA.getSubjectX500Principal().getEncoded()).toString());
-        Assertions.assertEquals("CN=finax.eu, O=Finax, o.c.p., a. s., L=Bratislava, C=SK, SERIALNUMBER=51 306 727, BusinessCategory=Private Organization, 1.3.6.1.4.1.311.60.2.1.3=SK", X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT_INSTANCE, certificateO.getSubjectX500Principal().getEncoded()).toString());
-        Assertions.assertEquals("1.3.6.1.4.1.311.60.2.1.3=SK,2.5.4.10=Finax, o.c.p., a. s.,2.5.4.15=Private Organization,2.5.4.3=finax.eu,2.5.4.5=51 306 727,2.5.4.6=SK,2.5.4.7=Bratislava", X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, certificateO.getSubjectX500Principal().getEncoded()).toString());
+        Assertions.assertEquals("CN=Michal Tutko, CN=Users, DC=3key, DC=local", X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificateAVA.getSubjectX500Principal().getEncoded()).toString());
+        Assertions.assertEquals("0.9.2342.19200300.100.1.25=3key,0.9.2342.19200300.100.1.25=local,2.5.4.3=Michal Tutko,2.5.4.3=Users", X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, certificateAVA.getSubjectX500Principal().getEncoded()).toString());
+        Assertions.assertEquals("CN=finax.eu, O=Finax, o.c.p., a. s., L=Bratislava, C=SK, SERIALNUMBER=51 306 727, BusinessCategory=Private Organization, 1.3.6.1.4.1.311.60.2.1.3=SK", X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificateO.getSubjectX500Principal().getEncoded()).toString());
+        Assertions.assertEquals("1.3.6.1.4.1.311.60.2.1.3=SK,2.5.4.10=Finax, o.c.p., a. s.,2.5.4.15=Private Organization,2.5.4.3=finax.eu,2.5.4.5=51 306 727,2.5.4.6=SK,2.5.4.7=Bratislava", X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, certificateO.getSubjectX500Principal().getEncoded()).toString());
     }
 
     private String getDnWithCustomStyle(String dn) {
-        return X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT_INSTANCE, new X500Principal(dn).getEncoded()).toString();
+        return X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, new X500Principal(dn).getEncoded()).toString();
     }
 
     private String getDnWithCustomStyleNormalized(String dn) {
-        return X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED_INSTANCE, new X500Principal(dn).getEncoded()).toString();
+        return X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, new X500Principal(dn).getEncoded()).toString();
     }
 }
 

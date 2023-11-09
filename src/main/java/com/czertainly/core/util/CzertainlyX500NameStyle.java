@@ -12,8 +12,8 @@ import java.util.Collections;
 
 public class CzertainlyX500NameStyle extends BCStrictStyle {
 
-    public static final CzertainlyX500NameStyle DEFAULT_INSTANCE = new CzertainlyX500NameStyle(false);
-    public static final CzertainlyX500NameStyle NORMALIZED_INSTANCE = new CzertainlyX500NameStyle(true);
+    public static final CzertainlyX500NameStyle DEFAULT = new CzertainlyX500NameStyle(false);
+    public static final CzertainlyX500NameStyle NORMALIZED = new CzertainlyX500NameStyle(true);
     private final boolean normalized;
 
 
@@ -27,10 +27,12 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
         boolean isFirstRdn = true;
 
         RDN[] rdNs = x500Name.getRDNs();
-        // Make the ordering last-to-first
-        Collections.reverse(Arrays.asList(rdNs));
         if (this.normalized) Arrays.sort(rdNs, (rdn1, rdn2) -> getRdnCode(rdn1.getFirst())
                 .compareTo(getRdnCode(rdn2.getFirst())));
+        else {
+            // Make the ordering last-to-first
+            Collections.reverse(Arrays.asList(rdNs));
+        }
         for (RDN rdn : rdNs) {
             if (isFirstRdn) {
                 isFirstRdn = false;
