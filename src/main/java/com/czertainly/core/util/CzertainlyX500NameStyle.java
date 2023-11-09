@@ -9,36 +9,61 @@ import org.bouncycastle.asn1.x500.style.BCStrictStyle;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 
 public class CzertainlyX500NameStyle extends BCStrictStyle {
 
     public static final CzertainlyX500NameStyle DEFAULT = new CzertainlyX500NameStyle(false);
     public static final CzertainlyX500NameStyle NORMALIZED = new CzertainlyX500NameStyle(true);
     private final boolean normalized;
+    private final String delimiter;
 
 
     public CzertainlyX500NameStyle(boolean normalized) {
         this.normalized = normalized;
+        if (normalized) this.delimiter = ","; else this.delimiter = ", ";
     }
 
     @Override
     public String toString(X500Name x500Name) {
+        if (this.normalized) return toStringNormalized(x500Name);
+        else  {
+            return toStringDefault(x500Name);
+        }
+    }
+
+    private String toStringNormalized(X500Name x500Name) {
         StringBuffer stringBuffer = new StringBuffer();
         boolean isFirstRdn = true;
-
         RDN[] rdNs = x500Name.getRDNs();
-        if (this.normalized) Arrays.sort(rdNs, (rdn1, rdn2) -> getRdnCode(rdn1.getFirst())
-                .compareTo(getRdnCode(rdn2.getFirst())));
-        else {
-            // Make the ordering last-to-first
-            Collections.reverse(Arrays.asList(rdNs));
-        }
+        // Compare based on P1
+        // If P1 is the same, compare based on P2
+        Arrays.sort(rdNs, Comparator.comparing((RDN obj) -> obj.getFirst().getType().getId()).thenComparing(obj -> obj.getFirst().getValue().toString()));
         for (RDN rdn : rdNs) {
             if (isFirstRdn) {
                 isFirstRdn = false;
             } else {
-                stringBuffer.append(",");
-                if (!normalized) stringBuffer.append(" ");
+                stringBuffer.append(this.delimiter);
+            }
+
+            appendRDN(stringBuffer, rdn);
+        }
+
+        return stringBuffer.toString();
+    }
+
+    private String toStringDefault(X500Name x500Name) {
+        StringBuffer stringBuffer = new StringBuffer();
+        boolean isFirstRdn = true;
+
+        RDN[] rdNs = x500Name.getRDNs();
+        // Make the ordering last-to-first
+        Collections.reverse(Arrays.asList(rdNs));
+        for (RDN rdn : rdNs) {
+            if (isFirstRdn) {
+                isFirstRdn = false;
+            } else {
+                stringBuffer.append(this.delimiter);
             }
 
             appendRDN(stringBuffer, rdn);
@@ -68,9 +93,8 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
                 if (isFirst) {
                     isFirst = false;
                 } else {
-                    stringBuffer.append(", ");
+                    stringBuffer.append(this.delimiter);
                 }
-
                 appendTypeAndValue(stringBuffer, attributeTypeAndValues[i]);
             }
         } else if (rdn.getFirst() != null) {
