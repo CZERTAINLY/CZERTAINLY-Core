@@ -36,8 +36,6 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
         StringBuffer stringBuffer = new StringBuffer();
         boolean isFirstRdn = true;
         RDN[] rdNs = x500Name.getRDNs();
-        // Compare based on P1
-        // If P1 is the same, compare based on P2
         Arrays.sort(rdNs, Comparator.comparing((RDN obj) -> obj.getFirst().getType().getId()).thenComparing(obj -> obj.getFirst().getValue().toString()));
         for (RDN rdn : rdNs) {
             if (isFirstRdn) {
