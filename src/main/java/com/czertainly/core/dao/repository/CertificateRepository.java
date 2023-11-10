@@ -79,4 +79,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     Optional<Certificate> findByIssuerDnAndSerialNumber(String issuerDn, String serialNumber);
 
     Optional<Certificate> findByIssuerDnNormalizedAndSerialNumber(String issuerDnNormalized, String serialNumber);
+
+    List<Certificate> findBySubjectDnNormalized(String issuerDnNormalized);
 }
