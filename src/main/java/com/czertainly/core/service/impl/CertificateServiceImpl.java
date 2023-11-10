@@ -246,8 +246,8 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
-        return certificateRepository.findByIssuerDnAndSerialNumber(issuerDn, serialNumber)
+    public Certificate getCertificateEntityByIssuerDnNormalizedAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
+        return certificateRepository.findByIssuerDnNormalizedAndSerialNumber(issuerDn, serialNumber)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, issuerDn + " " + serialNumber));
     }
 
@@ -435,7 +435,7 @@ public class CertificateServiceImpl implements CertificateService {
             return;
         }
         // Try to find issuer certificate in repository
-        for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
+        for (Certificate issuer : certificateRepository.findBySubjectDnNormalized(certificate.getIssuerDnNormalized())) {
             X509Certificate issCert;
             try {
                 issCert = CertificateUtil.parseCertificate(issuer.getCertificateContent().getContent());

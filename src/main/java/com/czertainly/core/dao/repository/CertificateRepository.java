@@ -77,4 +77,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Certificate> findByRaProfileAndComplianceStatusIsNotNull(RaProfile raProfile);
 
     Optional<Certificate> findByIssuerDnAndSerialNumber(String issuerDn, String serialNumber);
+
+    Optional<Certificate> findByIssuerDnNormalizedAndSerialNumber(String issuerDnNormalized, String serialNumber);
+
+    List<Certificate> findBySubjectDnNormalized(String issuerDnNormalized);
 }

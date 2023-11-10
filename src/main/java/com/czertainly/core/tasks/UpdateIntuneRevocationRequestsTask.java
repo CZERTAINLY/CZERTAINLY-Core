@@ -19,8 +19,10 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
+import com.czertainly.core.util.CzertainlyX500NameStyle;
 import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
@@ -28,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.security.auth.x500.X500Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -146,9 +149,8 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
 
         for (CARevocationRequest revocationRequest : revocationRequests) {
             try {
-                // TODO: Workaround to map to issuer DN in DB - redone correctly storing DN in correct sanitized format.
-                String issuerName = revocationRequest.issuerName.replace(",", ", ");
-                Certificate certificate = certificateService.getCertificateEntityByIssuerDnAndSerialNumber(
+                String issuerName = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, new X500Principal(revocationRequest.issuerName).getEncoded()).toString();
+                Certificate certificate = certificateService.getCertificateEntityByIssuerDnNormalizedAndSerialNumber(
                         issuerName,
                         revocationRequest.serialNumber
                 );
