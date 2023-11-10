@@ -26,37 +26,14 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
 
     @Override
     public String toString(X500Name x500Name) {
-        if (this.normalized) return toStringNormalized(x500Name);
-        else  {
-            return toStringDefault(x500Name);
-        }
-    }
-
-    private String toStringNormalized(X500Name x500Name) {
         StringBuffer stringBuffer = new StringBuffer();
         boolean isFirstRdn = true;
         RDN[] rdNs = x500Name.getRDNs();
-        Arrays.sort(rdNs, Comparator.comparing((RDN obj) -> obj.getFirst().getType().getId()).thenComparing(obj -> obj.getFirst().getValue().toString()));
-        for (RDN rdn : rdNs) {
-            if (isFirstRdn) {
-                isFirstRdn = false;
-            } else {
-                stringBuffer.append(this.delimiter);
-            }
-
-            appendRDN(stringBuffer, rdn);
+        if (this.normalized) {
+            Arrays.sort(rdNs, Comparator.comparing((RDN obj) -> obj.getFirst().getType().getId()).thenComparing(obj -> obj.getFirst().getValue().toString()));
+        } else {
+            Collections.reverse(Arrays.asList(rdNs));
         }
-
-        return stringBuffer.toString();
-    }
-
-    private String toStringDefault(X500Name x500Name) {
-        StringBuffer stringBuffer = new StringBuffer();
-        boolean isFirstRdn = true;
-
-        RDN[] rdNs = x500Name.getRDNs();
-        // Make the ordering last-to-first
-        Collections.reverse(Arrays.asList(rdNs));
         for (RDN rdn : rdNs) {
             if (isFirstRdn) {
                 isFirstRdn = false;
