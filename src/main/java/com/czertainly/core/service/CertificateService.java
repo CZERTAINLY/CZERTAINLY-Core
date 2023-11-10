@@ -39,7 +39,8 @@ public interface CertificateService extends ResourceExtensionService  {
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException;
 
-    Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
+
+    Certificate getCertificateEntityByIssuerDnNormalizedAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
 
     Boolean checkCertificateExistsByFingerprint(String fingerprint);
 
