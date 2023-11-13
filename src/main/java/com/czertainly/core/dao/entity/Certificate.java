@@ -14,6 +14,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.lang.Nullable;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -182,6 +183,10 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "revoke_attributes")
     private String revokeAttributes;
 
+    @Column(name = "trusted_ca")
+    @Nullable
+    private boolean trustedCa;
+
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
@@ -210,6 +215,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setValidationStatus(validationStatus);
         dto.setCertificateType(certificateType);
         dto.setOwner(owner);
+        dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
@@ -293,6 +299,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setValidationStatus(validationStatus);
         dto.setFingerprint(fingerprint);
         dto.setOwner(owner);
+        dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setCertificateType(certificateType);
@@ -743,5 +750,13 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             return EMPTY_COMMON_NAME;
         }
         return null;
+    }
+
+    public boolean isTrustedCa() {
+        return trustedCa;
+    }
+
+    public void setTrustedCa(boolean trustedCa) {
+        this.trustedCa = trustedCa;
     }
 }
