@@ -1362,9 +1362,15 @@ public class CertificateServiceImpl implements CertificateService {
                 if (chainContent.isEmpty()) {
                     break;
                 }
+                logger.info("Certificate {} downloaded from Authority Information Access extension URL {}", certX509.getSubjectX500Principal().getName(), chainUrl);
+
                 chainCertificates.add(chainContent);
                 certX509 = getX509(chainContent);
-                logger.info("Certificate {} downloaded from Authority Information Access extension URL {}", certX509.getSubjectX500Principal().getName(), chainUrl);
+
+                // if self-signed, do not attempt to download itself
+                if (verifySignature(certX509, certX509)) {
+                    break;
+                }
             }
         } catch (Exception e) {
             logger.debug("Unable to get the chain of certificate {} from Authority Information Access", certificate.getUuid(), e);
