@@ -86,6 +86,16 @@ public class MetadataServiceImpl implements MetadataService {
         }
     }
 
+    public void deleteConnectorMetadata(UUID connectorUuid, UUID objectUuid, Resource resource, UUID sourceObjectUuid, Resource sourceObjectResource) {
+        var metadata = metadata2ObjectRepository.findByConnectorUuidAndObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(connectorUuid, objectUuid, resource, sourceObjectUuid, sourceObjectResource);
+        for (AttributeContent2Object attributeContent2Object : metadata) {
+            AttributeDefinition definition = attributeContent2Object.getAttributeContent().getAttributeDefinition();
+            if (definition.getType().equals(AttributeType.META)) {
+                metadata2ObjectRepository.delete(attributeContent2Object);
+            }
+        }
+    }
+
     @Override
     public List<MetadataAttribute> getMetadata(UUID connectorUuid, UUID uuid, Resource resource) {
         List<MetadataAttribute> metadata = new ArrayList<>();

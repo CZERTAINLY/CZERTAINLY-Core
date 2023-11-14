@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.CertificateController;
@@ -73,7 +74,7 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+    public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException {
         certificateService.updateCertificateObjects(SecuredUUID.fromString(uuid), request);
     }
 
