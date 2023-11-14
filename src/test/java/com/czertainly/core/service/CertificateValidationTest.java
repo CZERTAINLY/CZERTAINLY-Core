@@ -125,7 +125,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     @Test
     void testGetCertificateChain() throws NotFoundException {
         CertificateChainResponseDto certificateChainResponseDto = certificateService.getCertificateChain(chainIncompleteCertificate.getSecuredUuid(), false);
-        Assertions.assertFalse(certificateChainResponseDto.isCompleteChain());
+        Assertions.assertTrue(certificateChainResponseDto.isCompleteChain());
         CertificateChainResponseDto certificateChainCompleteResponseDto = certificateService.getCertificateChain(chainCompleteCertificate.getSecuredUuid(), false);
         Assertions.assertTrue(certificateChainCompleteResponseDto.isCompleteChain());
         List<CertificateDetailDto> certificates = certificateChainCompleteResponseDto.getCertificates();
@@ -139,8 +139,8 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     @Test
     void testDownloadCertificateChain() throws NotFoundException, CertificateException, CMSException, IOException {
         CertificateChainDownloadResponseDto certificateChainIncompletePEMDownloadResponseDto = certificateService.downloadCertificateChain(chainIncompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, true);
-        Assertions.assertEquals(1, getNumberOfCertificatesInPem(certificateChainIncompletePEMDownloadResponseDto.getContent()));
-        Assertions.assertFalse(certificateChainIncompletePEMDownloadResponseDto.isCompleteChain());
+        Assertions.assertEquals(2, getNumberOfCertificatesInPem(certificateChainIncompletePEMDownloadResponseDto.getContent()));
+        Assertions.assertTrue(certificateChainIncompletePEMDownloadResponseDto.isCompleteChain());
         CertificateChainDownloadResponseDto certificateChainCompletePEMResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, true);
         Assertions.assertTrue(certificateChainCompletePEMResponseDto.isCompleteChain());
         Assertions.assertEquals(2, getNumberOfCertificatesInPem(certificateChainCompletePEMResponseDto.getContent()));

@@ -254,8 +254,8 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
-        return certificateRepository.findByIssuerDnAndSerialNumber(issuerDn, serialNumber)
+    public Certificate getCertificateEntityByIssuerDnNormalizedAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
+        return certificateRepository.findByIssuerDnNormalizedAndSerialNumber(issuerDn, serialNumber)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, issuerDn + " " + serialNumber));
     }
 
@@ -443,7 +443,7 @@ public class CertificateServiceImpl implements CertificateService {
             return;
         }
         // Try to find issuer certificate in repository
-        for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
+        for (Certificate issuer : certificateRepository.findBySubjectDnNormalized(certificate.getIssuerDnNormalized())) {
             X509Certificate issCert;
             try {
                 issCert = CertificateUtil.parseCertificate(issuer.getCertificateContent().getContent());
@@ -1370,9 +1370,15 @@ public class CertificateServiceImpl implements CertificateService {
                 if (chainContent.isEmpty()) {
                     break;
                 }
+                logger.info("Certificate {} downloaded from Authority Information Access extension URL {}", certX509.getSubjectX500Principal().getName(), chainUrl);
+
                 chainCertificates.add(chainContent);
                 certX509 = getX509(chainContent);
-                logger.info("Certificate {} downloaded from Authority Information Access extension URL {}", certX509.getSubjectX500Principal().getName(), chainUrl);
+
+                // if self-signed, do not attempt to download itself
+                if (verifySignature(certX509, certX509)) {
+                    break;
+                }
             }
         } catch (Exception e) {
             logger.debug("Unable to get the chain of certificate {} from Authority Information Access", certificate.getUuid(), e);

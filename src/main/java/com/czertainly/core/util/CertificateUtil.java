@@ -16,6 +16,7 @@ import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
@@ -286,8 +287,12 @@ public class CertificateUtil {
         modal.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
 
         modal.setSerialNumber(certificate.getSerialNumber().toString(16));
-        setSubjectDNParams(modal, certificate.getSubjectX500Principal().toString());
-        setIssuerDNParams(modal, certificate.getIssuerX500Principal().toString());
+        byte[] subjectDnPrincipalEncoded = certificate.getSubjectX500Principal().getEncoded();
+        byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, subjectDnPrincipalEncoded).toString());
+        setIssuerDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, issuerDnPrincipalEncoded).toString());
+        modal.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
+        modal.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
         modal.setNotAfter(certificate.getNotAfter());
         modal.setNotBefore(certificate.getNotBefore());
         if (certificate.getPublicKey() == null) {
@@ -323,7 +328,7 @@ public class CertificateUtil {
 
 
     public static Certificate prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
-        setSubjectDNParams(modal, certificate.getSubject().toString());
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubject()).toString());
         if (certificate.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(

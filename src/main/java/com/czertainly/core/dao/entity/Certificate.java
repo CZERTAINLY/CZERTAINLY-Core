@@ -51,8 +51,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "issuer_dn")
     private String issuerDn;
 
+    @Column(name = "issuer_dn_normalized")
+    private String issuerDnNormalized;
+
     @Column(name = "subject_dn")
     private String subjectDn;
+
+    @Column(name = "subject_dn_normalized")
+    private String subjectDnNormalized;
 
     @Column(name = "not_before")
     private Date notBefore;
@@ -428,6 +434,22 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setSubjectDn(String subjectDn) {
         this.subjectDn = subjectDn;
+    }
+
+    public String getIssuerDnNormalized() {
+        return issuerDnNormalized;
+    }
+
+    public void setIssuerDnNormalized(String issuerDnNormalized) {
+        this.issuerDnNormalized = issuerDnNormalized;
+    }
+
+    public String getSubjectDnNormalized() {
+        return subjectDnNormalized;
+    }
+
+    public void setSubjectDnNormalized(String subjectDnNormalized) {
+        this.subjectDnNormalized = subjectDnNormalized;
     }
 
     public CertificateContent getCertificateContent() {
