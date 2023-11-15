@@ -393,7 +393,7 @@ public class CertificateUtil {
             if (i.getFirst() == null) continue;
 
             if (X500RdnType.COMMON_NAME.getOID().equals(i.getFirst().getType().getId())) {
-                modal.setCommonName(i.getFirst().getValue().toString());
+                modal.setIssuerCommonName(i.getFirst().getValue().toString());
             }
         }
     }
