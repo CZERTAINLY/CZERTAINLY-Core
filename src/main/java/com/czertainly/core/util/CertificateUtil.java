@@ -8,6 +8,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.certificate.X500RdnType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
@@ -16,6 +17,7 @@ import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
+import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
@@ -24,6 +26,7 @@ import org.bouncycastle.asn1.x509.GeneralNames;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
@@ -31,11 +34,9 @@ import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.naming.InvalidNameException;
-import javax.naming.ldap.LdapName;
-import javax.naming.ldap.Rdn;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
@@ -96,22 +97,7 @@ public class CertificateUtil {
             }
             return certificate;
         } catch (Exception e) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Failed to generate certificate, trying to generate certificate from iterator: {}, {}", e.getMessage(), Base64.getEncoder().encodeToString(decoded));
-            }
-            X509Certificate certificate = (X509Certificate) new CertificateFactory().engineGenerateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
-            if (certificate.getPublicKey() == null) {
-                try {
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Certificate has no public key, trying to generate certificate with BouncyCastleProvider: {}", Base64.getEncoder().encodeToString(decoded));
-                    }
-                    java.security.cert.CertificateFactory certificateFactory = java.security.cert.CertificateFactory.getInstance("X.509", BouncyCastleProvider.PROVIDER_NAME);
-                    return (X509Certificate) certificateFactory.generateCertificates(new ByteArrayInputStream(decoded)).iterator().next();
-                } catch (NoSuchProviderException ex) {
-                    logger.error("Requested provider not available: ", ex);
-                }
-            }
-            return certificate;
+            throw new CertificateException("Failed to parse and create X509Certificate object from provided certificate content");
         }
     }
 
@@ -239,6 +225,56 @@ public class CertificateUtil {
         return sans;
     }
 
+    public static X509Certificate parseUploadedCertificateContent(String certificateContent) {
+        var decodedContent = Base64.getDecoder().decode(certificateContent);
+
+        // check if certificate content is PEM encoded X.509 certificate
+        boolean isPem = false;
+        try (StringReader contentReader = new StringReader(new String(decodedContent));
+             PEMParser pemParser = new PEMParser(contentReader)) {
+
+            // alternative is to read straight with pemParser.readObject() and let to create object encoded in PEM by BouncyCastle
+            // ideally creating own subclass of PEMParser to have the process under control
+            PemObject pemObject = pemParser.readPemObject();
+
+            // content contains PEM object
+            if (pemObject != null) {
+                logger.debug("PEM encoded certificate content uploaded. Type: {}", pemObject.getType());
+                if (pemObject.getType().equals(PEMParser.TYPE_CERTIFICATE)
+                        || pemObject.getType().equals(PEMParser.TYPE_X509_CERTIFICATE)
+                        || pemObject.getType().equals(PEMParser.TYPE_PKCS7)) {
+                    isPem = true;
+                    decodedContent = pemObject.getContent();
+                } else {
+                    throw new ValidationException("Uploaded PEM encoded content is not certificate. Uploaded PEM type: " + pemObject.getType());
+                }
+            }
+        } catch (IOException e) {
+            logger.debug("Failed to parse uploaded certificate content as PEM encoded.");
+        }
+
+        // if not PEM is uploaded, check if it is not supported PKCS#12 format
+        logger.debug("Binary certificate content uploaded");
+        if (!isPem) {
+            try (ByteArrayInputStream contentStream = new ByteArrayInputStream(decodedContent)) {
+                KeyStore ks = KeyStore.getInstance("pkcs12", BouncyCastleProvider.PROVIDER_NAME);
+                ks.load(contentStream, null);
+            } catch (Exception e) {
+                if (e.getMessage().equals("no password supplied when one expected")) {
+                    throw new ValidationException("Unsupported certificate format PKCS#12");
+                }
+                logger.debug("Uploaded certificate is not PKCS12. Try parse content as binary X509Certificate");
+            }
+        }
+
+        try {
+            return getX509Certificate(decodedContent);
+        } catch (CertificateException e) {
+            logger.debug("Failed to parse content as binary X509Certificate: {}", e.getMessage());
+            throw new ValidationException("Uploaded certificate content has invalid or unsupported format.");
+        }
+    }
+
     public static X509Certificate parseCertificate(String cert) throws CertificateException {
         cert = cert.replace("-----BEGIN CERTIFICATE-----", "").replace("-----END CERTIFICATE-----", "")
                 .replace("\r", "").replace("\n", "");
@@ -289,8 +325,8 @@ public class CertificateUtil {
         modal.setSerialNumber(certificate.getSerialNumber().toString(16));
         byte[] subjectDnPrincipalEncoded = certificate.getSubjectX500Principal().getEncoded();
         byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
-        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, subjectDnPrincipalEncoded).toString());
-        setIssuerDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, issuerDnPrincipalEncoded).toString());
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, subjectDnPrincipalEncoded));
+        setIssuerDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, issuerDnPrincipalEncoded));
         modal.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
         modal.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
         modal.setNotAfter(certificate.getNotAfter());
@@ -328,7 +364,7 @@ public class CertificateUtil {
 
 
     public static Certificate prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
-        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubject()).toString());
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubject()));
         if (certificate.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
@@ -350,33 +386,26 @@ public class CertificateUtil {
         return modal;
     }
 
-    private static void setIssuerDNParams(Certificate modal, String issuerDN) {
-        modal.setIssuerDn(issuerDN);
-        LdapName ldapName = null;
-        try {
-            ldapName = new LdapName(issuerDN);
-        } catch (InvalidNameException e) {
-            return;
-        }
-        for (Rdn i : ldapName.getRdns()) {
-            if (i.getType().equals("CN")) {
-                modal.setIssuerCommonName(i.getValue().toString());
+    private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
+        modal.setIssuerDn(issuerDN.toString());
+
+        for (RDN i : issuerDN.getRDNs()) {
+            if (i.getFirst() == null) continue;
+
+            if (X500RdnType.COMMON_NAME.getOID().equals(i.getFirst().getType().getId())) {
+                modal.setIssuerCommonName(i.getFirst().getValue().toString());
             }
         }
     }
 
-    private static void setSubjectDNParams(Certificate modal, String subjectDN) {
-        modal.setSubjectDn(subjectDN);
-        LdapName ldapName = null;
+    private static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {
+        modal.setSubjectDn(subjectDN.toString());
 
-        try {
-            ldapName = new LdapName(subjectDN);
-        } catch (InvalidNameException e) {
-            return;
-        }
-        for (Rdn i : ldapName.getRdns()) {
-            if (i.getType().equals("CN")) {
-                modal.setCommonName(i.getValue().toString());
+        for (RDN i : subjectDN.getRDNs()) {
+            if (i.getFirst() == null) continue;
+
+            if (X500RdnType.COMMON_NAME.getOID().equals(i.getFirst().getType().getId())) {
+                modal.setCommonName(i.getFirst().getValue().toString());
             }
         }
     }
