@@ -359,7 +359,6 @@ public class CertificateUtil {
         String basicConstraints = CertificateUtil.getBasicConstraint(certificate.getBasicConstraints());
         modal.setBasicConstraints(basicConstraints);
         if (basicConstraints.equals("Subject Type=CA")) modal.setTrustedCa(false);
-        return modal;
     }
 
 

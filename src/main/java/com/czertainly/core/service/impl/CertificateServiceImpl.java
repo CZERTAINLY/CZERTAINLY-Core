@@ -325,9 +325,8 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntity(uuid);
         if (certificate.getTrustedCa() == null) {
             throw new ValidationException("Trying to mark certificate as trusted CA when certificate is not CA.");
-        } else {
-            certificate.setTrustedCa(trustedCa);
         }
+        certificate.setTrustedCa(trustedCa);
     }
 
     @Async
