@@ -1,6 +1,5 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
@@ -15,6 +14,8 @@ import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import jakarta.xml.bind.DatatypeConverter;
+import org.bouncycastle.asn1.DLSequence;
+import org.bouncycastle.asn1.DLTaggedObject;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
@@ -27,7 +28,6 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMParser;
-import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
@@ -37,14 +37,17 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
-import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
+import java.security.InvalidKeyException;
+import java.security.KeyStore;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class CertificateUtil {
 
@@ -52,22 +55,22 @@ public class CertificateUtil {
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
     @SuppressWarnings("serial")
-    private static final Map<String, String> SAN_TYPE_MAP = new HashMap<>();
+    private static final Map<Integer, String> SAN_TYPE_MAP = new HashMap<>();
     @SuppressWarnings("serial")
 
     public static final String KEY_USAGE_KEY_CERT_SIGN = "keyCertSign";
     private static final List<String> KEY_USAGE_LIST = Arrays.asList("digitalSignature", "nonRepudiation", "keyEncipherment", "dataEncipherment", "keyAgreement", KEY_USAGE_KEY_CERT_SIGN, "cRLSign", "encipherOnly", "decipherOnly");
 
     static {
-        SAN_TYPE_MAP.put("0", "otherName");
-        SAN_TYPE_MAP.put("1", "rfc822Name");
-        SAN_TYPE_MAP.put("2", "dNSName");
-        SAN_TYPE_MAP.put("3", "x400Address");
-        SAN_TYPE_MAP.put("4", "directoryName");
-        SAN_TYPE_MAP.put("5", "ediPartyName");
-        SAN_TYPE_MAP.put("6", "uniformResourceIdentifier");
-        SAN_TYPE_MAP.put("7", "iPAddress");
-        SAN_TYPE_MAP.put("8", "registeredID");
+        SAN_TYPE_MAP.put(GeneralName.otherName, "otherName");
+        SAN_TYPE_MAP.put(GeneralName.rfc822Name, "rfc822Name");
+        SAN_TYPE_MAP.put(GeneralName.dNSName, "dNSName");
+        SAN_TYPE_MAP.put(GeneralName.x400Address, "x400Address");
+        SAN_TYPE_MAP.put(GeneralName.directoryName, "directoryName");
+        SAN_TYPE_MAP.put(GeneralName.ediPartyName, "ediPartyName");
+        SAN_TYPE_MAP.put(GeneralName.uniformResourceIdentifier, "uniformResourceIdentifier");
+        SAN_TYPE_MAP.put(GeneralName.iPAddress, "iPAddress");
+        SAN_TYPE_MAP.put(GeneralName.registeredID, "registeredID");
     }
 
     static {
@@ -99,23 +102,6 @@ public class CertificateUtil {
         } catch (Exception e) {
             throw new CertificateException("Failed to parse and create X509Certificate object from provided certificate content");
         }
-    }
-
-    public static String getDnFromX509Certificate(String certInBase64) throws CertificateException, NotFoundException {
-        return getDnFromX509Certificate(getX509Certificate(certInBase64));
-    }
-
-    public static String getDnFromX509Certificate(X509Certificate cert) throws NotFoundException {
-        Principal subjectDN = cert.getSubjectX500Principal();
-        if (subjectDN != null) {
-            return subjectDN.getName();
-        } else {
-            throw new NotFoundException("Subject DN not found in certificate.");
-        }
-    }
-
-    public static String getSerialNumberFromX509Certificate(X509Certificate certificate) {
-        return certificate.getSerialNumber().toString(16);
     }
 
     public static X509Certificate getX509Certificate(String certInBase64) throws CertificateException {
@@ -156,73 +142,91 @@ public class CertificateUtil {
     @SuppressWarnings("unchecked")
     public static Map<String, Object> getSAN(X509Certificate certificate) {
         Map<String, Object> sans = buildEmptySans();
+
+        Collection<List<?>> encodedSans = null;
         try {
-            if (certificate.getSubjectAlternativeNames() != null) {
-                for (List<?> san : certificate.getSubjectAlternativeNames()) {
-                    ((ArrayList<String>) sans.get(SAN_TYPE_MAP.get(san.toArray()[0].toString())))
-                            .add(san.toArray()[1].toString());
-                }
-            }
+            encodedSans = certificate.getSubjectAlternativeNames();
         } catch (CertificateParsingException e) {
-            logger.warn("Unable to get the SAN of the certificate");
+            logger.warn("Unable to get the SANs of the certificate");
             logger.warn(e.getMessage());
         }
+
+        if (encodedSans == null) {
+            return sans;
+        }
+
+        for (List<?> san : encodedSans) {
+            String sanTypeName = null;
+            try {
+                Integer sanType = (Integer) san.get(0);
+                sanTypeName = SAN_TYPE_MAP.get(sanType);
+                String value = getSanValueString(sanType, san.get(1));
+                ((ArrayList<String>) sans.get(sanTypeName)).add(value);
+            } catch (Exception e) {
+                logger.warn("Unable to get the SAN {} of the certificate", sanTypeName);
+                logger.warn(e.getMessage());
+            }
+        }
+
         return sans;
     }
-
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> getSAN(JcaPKCS10CertificationRequest csr) {
         Map<String, Object> sans = buildEmptySans();
 
+        GeneralNames gns = null;
         Attribute[] certAttributes = csr.getAttributes();
         for (Attribute attribute : certAttributes) {
             if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
                 Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
-                GeneralNames gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
-                if (gns != null) {
-                    GeneralName[] names = gns.getNames();
-                    for (GeneralName name : names) {
-                        switch (name.getTagNo()) {
-                            case GeneralName.dNSName ->
-                                    ((ArrayList<String>) sans.get("dNSName")).add(name.getName().toString());
-                            case GeneralName.iPAddress ->
-                                    ((ArrayList<String>) sans.get("iPAddress")).add(name.getName().toString());
-                            case GeneralName.otherName ->
-                                    ((ArrayList<String>) sans.get("otherName")).add(name.getName().toString());
-                            case GeneralName.directoryName ->
-                                    ((ArrayList<String>) sans.get("directoryName")).add(name.getName().toString());
-                            case GeneralName.registeredID ->
-                                    ((ArrayList<String>) sans.get("registeredID")).add(name.getName().toString());
-                            case GeneralName.x400Address ->
-                                    ((ArrayList<String>) sans.get("x400Address")).add(name.getName().toString());
-                            case GeneralName.uniformResourceIdentifier ->
-                                    ((ArrayList<String>) sans.get("uniformResourceIdentifier")).add(name.getName().toString());
-                            case GeneralName.ediPartyName ->
-                                    ((ArrayList<String>) sans.get("ediPartyName")).add(name.getName().toString());
-                            case GeneralName.rfc822Name ->
-                                    ((ArrayList<String>) sans.get("rfc822Name")).add(name.getName().toString());
-                        }
-                    }
-                }
+                gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+                break;
             }
         }
+
+        if (gns == null) {
+            return sans;
+        }
+
+        GeneralName[] names = gns.getNames();
+        for (GeneralName name : names) {
+            String sanTypeName = null;
+            try {
+                int sanType = name.getTagNo();
+                sanTypeName = SAN_TYPE_MAP.get(sanType);
+                String value = getSanValueString(sanType, sanType == GeneralName.otherName || sanType == GeneralName.ediPartyName ? name : name.getName());
+                ((ArrayList<String>) sans.get(sanTypeName)).add(value);
+            } catch (Exception e) {
+                logger.warn("Unable to get the SAN {} of the certificate request", sanTypeName);
+                logger.warn(e.getMessage());
+            }
+        }
+
         return sans;
     }
 
-    private static Map<String, Object> buildEmptySans() {
-        Map<String, Object> sans = new HashMap<>();
-        sans.put("otherName", new ArrayList<>());
-        sans.put("rfc822Name", new ArrayList<>());
-        sans.put("dNSName", new ArrayList<>());
-        sans.put("x400Address", new ArrayList<>());
-        sans.put("directoryName", new ArrayList<>());
-        sans.put("ediPartyName", new ArrayList<>());
-        sans.put("uniformResourceIdentifier", new ArrayList<>());
-        sans.put("iPAddress", new ArrayList<>());
-        sans.put("registeredID", new ArrayList<>());
+    private static String getSanValueString(Integer sanType, Object value) {
+        if (sanType == GeneralName.otherName) {
+            DLSequence otherNameSeq = (DLSequence) GeneralName.getInstance(value).getName();
+            var oidSeq = otherNameSeq.getObjectAt(0).toString();
+            var valueSeq = ((DLTaggedObject) otherNameSeq.getObjectAt(1)).getBaseObject().toString();
+            return String.format("%s=%s", oidSeq, valueSeq);
+        }
+        if (sanType == GeneralName.ediPartyName) {
+            DLSequence ediPartySeq = (DLSequence) GeneralName.getInstance(value).getName();
+            if (ediPartySeq.size() < 1 || ediPartySeq.size() > 2) {
+                return value.toString();
+            }
+            return ediPartySeq.size() == 1 ? "Party=" + ediPartySeq.getObjectAt(0).toString()
+                    : String.format("Assigner=%s, Party=%s", ediPartySeq.getObjectAt(0).toString(), ediPartySeq.getObjectAt(1).toString());
+        }
 
-        return sans;
+        return value.toString();
+    }
+
+    private static Map<String, Object> buildEmptySans() {
+        return SAN_TYPE_MAP.values().stream().collect(Collectors.toMap(sanTypeName -> sanTypeName, sanTypeName -> new ArrayList<>(), (a, b) -> b));
     }
 
     public static X509Certificate parseUploadedCertificateContent(String certificateContent) {
@@ -303,12 +307,6 @@ public class CertificateUtil {
         return getThumbprint(certificate.getEncoded());
     }
 
-    public static String getThumbprint(String certificate)
-            throws NoSuchAlgorithmException, CertificateException {
-        X509Certificate x509Certificate = getX509Certificate(normalizeCertificateContent(certificate));
-        return getThumbprint(x509Certificate.getEncoded());
-    }
-
     public static String normalizeCertificateContent(String content) {
         return content
                 .replace("-----BEGIN CERTIFICATE-----", "")
@@ -317,7 +315,7 @@ public class CertificateUtil {
                 .replace("\n", "");
     }
 
-    public static Certificate prepareIssuedCertificate(Certificate modal, X509Certificate certificate) {
+    public static void prepareIssuedCertificate(Certificate modal, X509Certificate certificate) {
         modal.setState(CertificateState.ISSUED);
         modal.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         modal.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
@@ -359,11 +357,10 @@ public class CertificateUtil {
                 MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
         modal.setBasicConstraints(CertificateUtil.getBasicConstraint(certificate.getBasicConstraints()));
 
-        return modal;
     }
 
 
-    public static Certificate prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
+    public static void prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
         setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubject()));
         if (certificate.getPublicKey() == null) {
             throw new ValidationException(
@@ -383,7 +380,6 @@ public class CertificateUtil {
         modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificate.getSignatureAlgorithm()).replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setSubjectAlternativeNames(MetaDefinitions.serialize(getSAN(certificate)));
-        return modal;
     }
 
     private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
@@ -410,43 +406,6 @@ public class CertificateUtil {
         }
     }
 
-    public static String formatCsr(String unformattedCsr) {
-        try {
-            JcaPKCS10CertificationRequest jcaPKCS10CertificationRequest = csrStringToJcaObject(unformattedCsr);
-            return jcaObjectToString(jcaPKCS10CertificationRequest);
-        } catch (CertificateException e) {
-            logger.debug("Failed to parse and format CSR: {}", unformattedCsr);
-            logger.error(e.getMessage());
-            return unformattedCsr;
-        }
-    }
-
-    private static JcaPKCS10CertificationRequest csrStringToJcaObject(String csr) throws CertificateException {
-        csr = csr.replace("-----BEGIN CERTIFICATE REQUEST-----", "")
-                .replaceAll(System.lineSeparator(), "")
-                .replace("-----END CERTIFICATE REQUEST-----", "");
-        byte[] decoded = Base64.getDecoder().decode(csr);
-        try {
-            return new JcaPKCS10CertificationRequest(decoded);
-        } catch (IOException e) {
-            throw new CertificateException("Failed to parse CSR. " + e.getMessage());
-        }
-    }
-
-    private static String jcaObjectToString(JcaPKCS10CertificationRequest pkcs10CertificationRequest) throws CertificateException {
-        try {
-            PemObject pemCSR = new PemObject("CERTIFICATE REQUEST", pkcs10CertificationRequest.getEncoded());
-            StringWriter decodedCsr = new StringWriter();
-            JcaPEMWriter pemWriter = new JcaPEMWriter(decodedCsr);
-            pemWriter.writeObject(pemCSR);
-            pemWriter.close();
-            decodedCsr.close();
-            return decodedCsr.toString();
-        } catch (IOException | NullPointerException e) {
-            throw new CertificateException("Failed to format CSR. " + e.getMessage());
-        }
-    }
-
     public static String getAlgorithmFriendlyName(String algorithmName) {
         String friendlyName = CERTIFICATE_ALGORITHM_FRIENDLY_NAME.get(algorithmName);
         if (friendlyName != null) return friendlyName;
@@ -468,7 +427,7 @@ public class CertificateUtil {
     }
 
     public static boolean isCertificateScepCaCertAcceptable(Certificate certificate, boolean intuneEnabled) {
-        if (certificate.getKey() == null || (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID) && !certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRING))) {
+        if (certificate.getKey() == null || !certificate.getState().equals(CertificateState.ISSUED) || (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID) && !certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRING))) {
             return false;
         }
 
