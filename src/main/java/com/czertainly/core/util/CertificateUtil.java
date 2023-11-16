@@ -321,8 +321,10 @@ public class CertificateUtil {
         }
         modal.setKeyUsage(
                 MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
-        modal.setBasicConstraints(CertificateUtil.getBasicConstraint(certificate.getBasicConstraints()));
 
+        String basicConstraints = CertificateUtil.getBasicConstraint(certificate.getBasicConstraints());
+        modal.setBasicConstraints(basicConstraints);
+        if (basicConstraints.equals("Subject Type=CA")) modal.setTrustedCa(false);
         return modal;
     }
 
