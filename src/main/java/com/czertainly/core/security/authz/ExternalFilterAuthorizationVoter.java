@@ -106,7 +106,7 @@ public class ExternalFilterAuthorizationVoter extends AbstractExternalAuthorizat
             // First to verify that the request was not explicitly excluded from the voting
             boolean doNotAuthorize = doNotAuthorizeAnonymousRequestsMatcher != null && this.doNotAuthorizeAnonymousRequestsMatcher.matches(fi.getRequest());
             if (doNotAuthorize) {
-                logger.debug("Voter is set not to decide for the " + fi);
+                logger.trace("Voter is set not to decide for the " + fi);
                 return false;
             }
 
@@ -118,7 +118,7 @@ public class ExternalFilterAuthorizationVoter extends AbstractExternalAuthorizat
         // Finally, check if non-anonymous request should be authorized
         boolean shouldAuthorize = toAuthorizeRequestsMatcher == null || this.toAuthorizeRequestsMatcher.matches(fi.getRequest());
         if (!shouldAuthorize) {
-            logger.debug("Voter can't decide for the " + fi);
+            logger.trace("Voter can't decide for the " + fi);
         }
 
         return shouldAuthorize;
