@@ -1,11 +1,14 @@
 package com.czertainly.core.validation.certificate;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationCheck;
 import com.czertainly.api.model.core.certificate.CertificateValidationCheckDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CrlUtil;
 import com.czertainly.core.util.OcspUtil;
@@ -31,13 +34,20 @@ public class X509CertificateValidator implements ICertificateValidator {
 
     private CertificateRepository certificateRepository;
 
+    private CertificateService certificateService;
+
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
     }
 
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+
     @Override
-    public CertificateValidationStatus validateCertificate(Certificate certificate, boolean isCompleteChain) throws CertificateException {
+    public CertificateValidationStatus validateCertificate(Certificate certificate, boolean isCompleteChain) throws CertificateException, NotFoundException {
         logger.debug("Initiating the certificate validation: {}", certificate);
 
         ArrayList<Certificate> certificateChain = new ArrayList<>();
@@ -56,7 +66,7 @@ public class X509CertificateValidator implements ICertificateValidator {
             x509Certificate = CertificateUtil.getX509Certificate(certificateChain.get(i).getCertificateContent().getContent());
 
             boolean isEndCertificate = i == 0;
-            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, previousCertStatus, isCompleteChain, isEndCertificate);
+            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).isTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate);
             CertificateValidationStatus resultStatus = calculateResultStatus(validationOutput);
             finalizeValidation(certificateChain.get(i), resultStatus, validationOutput);
 
@@ -68,7 +78,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         return previousCertStatus;
     }
 
-    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate) {
+    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate) throws NotFoundException {
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput = initializeValidationOutput();
 
         // check certificate signature
@@ -86,7 +96,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
         // check certificate issuer DN and if certificate chain is valid
         // section (a)(4) in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.3
-        validationOutput.put(CertificateValidationCheck.CERTIFICATE_CHAIN, checkCertificateChain(certificate, issuerCertificate, issuerCertificateStatus, isCompleteChain));
+        validationOutput.put(CertificateValidationCheck.CERTIFICATE_CHAIN, checkCertificateChain(certificate, issuerCertificate, trustedCa, issuerCertificateStatus, isCompleteChain));
 
         // (k) and (l) section in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.4
         validationOutput.put(CertificateValidationCheck.BASIC_CONSTRAINTS, checkBasicConstraints(certificate, issuerCertificate, isEndCertificate));
@@ -97,14 +107,18 @@ public class X509CertificateValidator implements ICertificateValidator {
         return validationOutput;
     }
 
-    private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain) {
+    private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain) throws NotFoundException {
         if (issuerCertificate == null) {
             // should be trust anchor (Root CA certificate)
-            if (isCompleteChain) {
+            if (isCompleteChain && trustedCa) {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete. Certificate is Root CA certificate (trusted anchor).");
-            } else {
+            } else if (isCompleteChain) {
+                return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete, but the issuer certificate is not marked as trusted CA.");
+            }
+            {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Incomplete certificate chain. Issuer certificate is not available in the inventory or in the AIA extension.");
             }
+
         } else {
             String issuerStatusMessage = "";
             if (issuerCertificateStatus.equals(CertificateValidationStatus.INVALID) || issuerCertificateStatus.equals(CertificateValidationStatus.REVOKED)) {
@@ -383,4 +397,5 @@ public class X509CertificateValidator implements ICertificateValidator {
         validationOutput.put(CertificateValidationCheck.KEY_USAGE, new CertificateValidationCheckDto(CertificateValidationCheck.KEY_USAGE, CertificateValidationStatus.NOT_CHECKED, null));
         return validationOutput;
     }
+
 }

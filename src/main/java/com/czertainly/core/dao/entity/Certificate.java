@@ -184,8 +184,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private String revokeAttributes;
 
     @Column(name = "trusted_ca")
-    @Nullable
-    private boolean trustedCa;
+    private Boolean trustedCa;
 
     @Override
     public CertificateDetailDto mapToDto() {
@@ -215,7 +214,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setValidationStatus(validationStatus);
         dto.setCertificateType(certificateType);
         dto.setOwner(owner);
-        dto.setTrustedCa(trustedCa);
+        if (trustedCa != null) dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
@@ -299,7 +298,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setValidationStatus(validationStatus);
         dto.setFingerprint(fingerprint);
         dto.setOwner(owner);
-        dto.setTrustedCa(trustedCa);
+        if (trustedCa != null) dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setCertificateType(certificateType);

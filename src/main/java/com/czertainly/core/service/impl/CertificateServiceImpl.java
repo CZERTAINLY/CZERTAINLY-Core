@@ -316,6 +316,15 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getOwnerUuid() != null) {
             updateOwner(uuid, request.getOwnerUuid());
         }
+
+        if (request.getTrustedCa() != null) {
+            updateTrustedCaMark(uuid, request.getTrustedCa());
+        }
+    }
+
+    private void updateTrustedCaMark(SecuredUUID uuid, Boolean trustedCa) throws NotFoundException {
+        Certificate certificate = getCertificateEntity(uuid);
+        if (certificate.getBasicConstraints().contains("Subject Type=CA")) certificate.setTrustedCa(trustedCa);
     }
 
     @Async
@@ -410,7 +419,8 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY)
+                SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.TRUSTED_CA)
         );
 
         fields = new ArrayList<>(fields);

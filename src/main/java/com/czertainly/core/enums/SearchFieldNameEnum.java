@@ -55,7 +55,9 @@ public enum SearchFieldNameEnum {
     LOCATION_INSTANCE_NAME(SearchableFields.ENTITY_INSTANCE_NAME, "Entity instance", SearchFieldTypeEnum.LIST),
     LOCATION_ENABLED(SearchableFields.ENABLED, "Enabled", SearchFieldTypeEnum.BOOLEAN),
     LOCATION_SUPPORT_MULTIPLE_ENTRIES(SearchableFields.SUPPORT_MULTIPLE_ENTRIES, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN),
-    LOCATION_SUPPORT_KEY_MANAGEMENT(SearchableFields.SUPPORT_KEY_MANAGEMENT, "Support key management", SearchFieldTypeEnum.BOOLEAN);
+    LOCATION_SUPPORT_KEY_MANAGEMENT(SearchableFields.SUPPORT_KEY_MANAGEMENT, "Support key management", SearchFieldTypeEnum.BOOLEAN),
+
+    TRUSTED_CA(SearchableFields.TRUSTED_CA, "Trusted CA", SearchFieldTypeEnum.BOOLEAN);
 
 
     private SearchableFields fieldProperty;
