@@ -316,7 +316,6 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getOwnerUuid() != null) {
             updateOwner(uuid, request.getOwnerUuid());
         }
-
         if (request.getTrustedCa() != null) {
             updateTrustedCaMark(uuid, request.getTrustedCa());
         }
@@ -324,7 +323,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void updateTrustedCaMark(SecuredUUID uuid, Boolean trustedCa) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
-        if (certificate.getTrustedCa() != null) certificate.setTrustedCa(trustedCa);
+        if (certificate.getTrustedCa() == null) {
+            throw new ValidationException("Trying to mark certificate as trusted CA when certificate is not CA.");
+        } else {
+            certificate.setTrustedCa(trustedCa);
+        }
     }
 
     @Async

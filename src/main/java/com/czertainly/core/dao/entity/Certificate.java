@@ -213,7 +213,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setValidationStatus(validationStatus);
         dto.setCertificateType(certificateType);
         dto.setOwner(owner);
-        if (trustedCa != null) dto.setTrustedCa(trustedCa);
+        dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
@@ -297,7 +297,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setValidationStatus(validationStatus);
         dto.setFingerprint(fingerprint);
         dto.setOwner(owner);
-        if (trustedCa != null) dto.setTrustedCa(trustedCa);
+        dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setCertificateType(certificateType);
@@ -748,10 +748,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             return EMPTY_COMMON_NAME;
         }
         return null;
-    }
-
-    public boolean isTrustedCa() {
-        return trustedCa;
     }
 
     public void setTrustedCa(boolean trustedCa) {
