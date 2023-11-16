@@ -1,13 +1,11 @@
 package com.czertainly.core.validation.certificate;
 
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationCheck;
 import com.czertainly.api.model.core.certificate.CertificateValidationCheckDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CrlUtil;
@@ -47,7 +45,7 @@ public class X509CertificateValidator implements ICertificateValidator {
     }
 
     @Override
-    public CertificateValidationStatus validateCertificate(Certificate certificate, boolean isCompleteChain) throws CertificateException, NotFoundException {
+    public CertificateValidationStatus validateCertificate(Certificate certificate, boolean isCompleteChain) throws CertificateException {
         logger.debug("Initiating the certificate validation: {}", certificate);
 
         ArrayList<Certificate> certificateChain = new ArrayList<>();
@@ -78,7 +76,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         return previousCertStatus;
     }
 
-    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate) throws NotFoundException {
+    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate){
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput = initializeValidationOutput();
 
         // check certificate signature
@@ -107,7 +105,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         return validationOutput;
     }
 
-    private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain) throws NotFoundException {
+    private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain) {
         if (issuerCertificate == null) {
             // should be trust anchor (Root CA certificate)
             if (isCompleteChain && trustedCa) {
