@@ -757,4 +757,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public void setTrustedCa(boolean trustedCa) {
         this.trustedCa = trustedCa;
     }
+
+    public Boolean getTrustedCa() {
+        return trustedCa;
+    }
 }

@@ -324,7 +324,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void updateTrustedCaMark(SecuredUUID uuid, Boolean trustedCa) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
-        if (certificate.getBasicConstraints().contains("Subject Type=CA")) certificate.setTrustedCa(trustedCa);
+        if (certificate.getTrustedCa() != null) certificate.setTrustedCa(trustedCa);
     }
 
     @Async
