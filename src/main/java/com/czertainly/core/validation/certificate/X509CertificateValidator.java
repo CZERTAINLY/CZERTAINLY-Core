@@ -102,9 +102,9 @@ public class X509CertificateValidator implements ICertificateValidator {
             // should be trust anchor (Root CA certificate)
             if (isCompleteChain) {
                 if (Boolean.TRUE.equals(isTrustedCa)) {
-                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete. Certificate is Root CA certificate (trusted anchor).");
+                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete. Certificate is trusted root CA certificate.");
                 } else {
-                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete, but the issuer certificate is not marked as trusted CA.");
+                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete. Certificate is root CA certificate but not marked as trusted.");
                 }
             } else {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Incomplete certificate chain. Issuer certificate is not available in the inventory or in the AIA extension.");
@@ -121,17 +121,15 @@ public class X509CertificateValidator implements ICertificateValidator {
             }
 
             if (isCompleteChain) {
-                if (issuerNameEqualityMessage.isEmpty() && issuerStatusMessage.isEmpty()) {
-                    if (Boolean.TRUE.equals(isTrustedCa)) {
-                        return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete.");
-                    } else {
-                        return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete, but the issuer certificate is not marked as trusted CA.");
-                    }
-                } else {
-                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete. " + issuerNameEqualityMessage + issuerStatusMessage);
+                String trustedCaMessage = "";
+                if (isTrustedCa != null) {
+                    trustedCaMessage = Boolean.TRUE.equals(isTrustedCa) ? " Certificate is trusted intermediate CA." : " Certificate is intermediate CA certificate but not marked as trusted.";
                 }
+
+                CertificateValidationStatus chainValidationStatus = issuerNameEqualityMessage.isEmpty() && issuerStatusMessage.isEmpty() && (trustedCaMessage.isEmpty() || Boolean.TRUE.equals(isTrustedCa)) ? CertificateValidationStatus.VALID : CertificateValidationStatus.INVALID;
+                return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, chainValidationStatus, String.format("Certificate chain is complete.%s%s%s", trustedCaMessage, issuerNameEqualityMessage, issuerStatusMessage));
             } else {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Incomplete certificate chain. Missing certificate in validation path." + issuerNameEqualityMessage + issuerStatusMessage);
+                return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, String.format("Incomplete certificate chain. Missing certificate in validation path.%s%s", issuerNameEqualityMessage, issuerStatusMessage));
             }
         }
     }
