@@ -50,14 +50,14 @@ public class LoggingAdvice {
         String className = joinPoint.getSignature().getDeclaringTypeName();
         String methodName = joinPoint.getSignature().getName();
         String path = className + "." + methodName + "()";
-        if (!log.isDebugEnabled()) {
+        if (!log.isTraceEnabled()) {
             return joinPoint.proceed();
         }
-        log.debug("Entering in method {} with arguments {}", path, Arrays.toString(joinPoint.getArgs()));
+        log.trace("Entering in method {} with arguments {}", path, Arrays.toString(joinPoint.getArgs()));
         long start = System.currentTimeMillis();
         try {
             Object result = joinPoint.proceed();
-            log.debug("Method {} result: {}", path, getValue(result));
+            log.trace("Method {} result: {}", path, getValue(result));
             return result;
         } catch (AcmeProblemDocumentException | ValidationException | AlreadyExistException e) {
             log.error(e.getClass().getSimpleName() + " when calling " + path + " Exception: " + e.getLocalizedMessage());
@@ -67,7 +67,7 @@ public class LoggingAdvice {
             throw e;
         } finally {
             long elapsedTime = System.currentTimeMillis() - start;
-            log.debug("Method {} execution time: {} ms", path, elapsedTime);
+            log.trace("Method {} execution time: {} ms", path, elapsedTime);
         }
     }
 

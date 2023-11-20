@@ -30,9 +30,9 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
-        if (logger.isDebugEnabled()) {
+        if (logger.isTraceEnabled()) {
             String body = servletInputStreamToString(request.getInputStream());
-            ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
+            ToStringBuilder traceMessage = new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
                     .append("METHOD", request.getMethod())
                     .append("PATH", request.getRequestURI())
                     .append("FROM", request.getRemoteAddr())
@@ -40,9 +40,9 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
                     .append("REQUEST HEADERS", Collections.list(request.getHeaderNames()).stream()
                             .map(r -> r + " : " + request.getHeader(r)).collect(Collectors.toList()));
             if (!request.getMethod().equals(HttpMethod.GET.name())) {
-                debugMessage.append("REQUEST BODY", body);
+                traceMessage.append("REQUEST BODY", body);
             }
-            logger.debug("REQUEST DATA: {}", debugMessage);
+            logger.trace("REQUEST DATA: {}", traceMessage);
         }
         return true;
     }
@@ -50,7 +50,7 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
                            @Nullable ModelAndView modelAndView) throws Exception {
-        if (logger.isDebugEnabled()) {
+        if (logger.isTraceEnabled()) {
             String responseBody;
             try {
                 responseBody = getResponseAsString((CustomHttpServletResponseWrapper) response);
@@ -59,14 +59,14 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
             }
             List<String> responseHeaders = response.getHeaderNames().stream()
                     .map(r -> r + " : " + response.getHeaders(r)).collect(Collectors.toList());
-            ToStringBuilder debugMessage = new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
+            ToStringBuilder traceMessage = new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
                     .append("METHOD", request.getMethod())
                     .append("RESPONSE FOR", request.getRequestURI())
                     .append("RESPONSE STATUS", response.getStatus())
                     .append("RESPONSE TYPE", response.getContentType())
                     .append("RESPONSE HEADERS", responseHeaders)
                     .append("RESPONSE BODY", responseBody);
-            logger.debug("RESPONSE DATA: {}", debugMessage);
+            logger.trace("RESPONSE DATA: {}", traceMessage);
         }
     }
 

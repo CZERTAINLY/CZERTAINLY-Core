@@ -325,9 +325,8 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntity(uuid);
         if (certificate.getTrustedCa() == null) {
             throw new ValidationException("Trying to mark certificate as trusted CA when certificate is not CA.");
-        } else {
-            certificate.setTrustedCa(trustedCa);
         }
+        certificate.setTrustedCa(trustedCa);
     }
 
     @Async
@@ -807,9 +806,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
-    public CertificateDetailDto upload(UploadCertificateRequestDto request)
-            throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
-        X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
+    public CertificateDetailDto upload(UploadCertificateRequestDto request) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+        X509Certificate certificate = CertificateUtil.parseUploadedCertificateContent(request.getCertificate());
         String fingerprint = CertificateUtil.getThumbprint(certificate);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
