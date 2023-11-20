@@ -122,7 +122,11 @@ public class X509CertificateValidator implements ICertificateValidator {
 
             if (isCompleteChain) {
                 if (issuerNameEqualityMessage.isEmpty() && issuerStatusMessage.isEmpty()) {
-                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete.");
+                    if (Boolean.TRUE.equals(isTrustedCa)) {
+                        return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete.");
+                    } else {
+                        return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete, but the issuer certificate is not marked as trusted CA.");
+                    }
                 } else {
                     return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete. " + issuerNameEqualityMessage + issuerStatusMessage);
                 }
