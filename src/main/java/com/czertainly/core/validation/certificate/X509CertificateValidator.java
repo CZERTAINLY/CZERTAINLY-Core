@@ -68,7 +68,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         return previousCertStatus;
     }
 
-    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate) {
+    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate) {
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput = initializeValidationOutput();
 
         // check certificate signature
@@ -97,11 +97,11 @@ public class X509CertificateValidator implements ICertificateValidator {
         return validationOutput;
     }
 
-    private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, boolean isTrustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain) {
+    private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, Boolean isTrustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain) {
         if (issuerCertificate == null) {
             // should be trust anchor (Root CA certificate)
             if (isCompleteChain) {
-                if (isTrustedCa) {
+                if (Boolean.TRUE.equals(isTrustedCa)) {
                     return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete. Certificate is Root CA certificate (trusted anchor).");
                 } else {
                     return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete, but the issuer certificate is not marked as trusted CA.");
