@@ -200,6 +200,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         if(group != null ) dto.setGroup(group.mapToDto());
         dto.setOwner(owner);
+        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setItems(getKeyItemsSummary());
         dto.setAssociations((items.size() -1 ) + certificates.size());
         return dto;
@@ -219,7 +220,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setItems(getKeyItems());
         dto.setOwner(owner);
-        dto.setOwnerUuid(String.valueOf(ownerUuid));
+        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(
                 AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class)
@@ -234,7 +235,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
                 keyAssociationDto.setUuid(e.getUuid().toString());
                 keyAssociationDto.setResource(Resource.CERTIFICATE);
                 return keyAssociationDto;
-            }).collect(Collectors.toList()));
+            }).toList());
         }
         return dto;
     }
