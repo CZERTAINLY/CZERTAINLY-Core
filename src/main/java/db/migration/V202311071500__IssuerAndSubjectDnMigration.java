@@ -9,11 +9,13 @@ import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 
+import java.io.IOException;
 import java.security.cert.X509Certificate;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 /**
@@ -56,10 +58,21 @@ public class V202311071500__IssuerAndSubjectDnMigration extends BaseJavaMigratio
                 }
                 executeCommands(select, commands);
             }
+
             try (ResultSet rows = select.executeQuery("SELECT c.uuid, c.content FROM certificate_request c")) {
                 List<String> commands = new ArrayList<>();
                 while (rows.next()) {
-                    final JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(rows.getString("content"));
+                    JcaPKCS10CertificationRequest jcaObject;
+                    String content = rows.getString("content");
+                    try {
+                        jcaObject = CsrUtil.csrStringToJcaObject(content);
+                    }
+                    catch (IOException e) {
+                        // BASE64 decode to also migrate certificate request content that was erroneously serialized as BASE64 encoded PEM
+                        content = new String(Base64.getDecoder().decode(content));
+                        jcaObject = CsrUtil.csrStringToJcaObject(content);
+                    }
+
                     byte[] subjectDnPrincipalEncoded = jcaObject.getSubject().getEncoded();
 
                     commands.add(
