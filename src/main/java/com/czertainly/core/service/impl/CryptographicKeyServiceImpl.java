@@ -20,6 +20,9 @@ import com.czertainly.api.model.connector.cryptography.key.KeyPairDataResponseDt
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.api.model.core.certificate.CertificateEvent;
+import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -32,15 +35,13 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.RequestValidatorHelper;
-import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -90,6 +91,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private CryptographicKeyEventHistoryService keyEventHistoryService;
     private PermissionEvaluator permissionEvaluator;
     private CertificateService certificateService;
+    @Autowired
+    private UserManagementApiClient userManagementApiClient;
     // --------------------------------------------------------------------------------
     // Repositories
     // --------------------------------------------------------------------------------
@@ -375,7 +378,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         CryptographicKey key = getCryptographicKeyEntity(uuid);
         if (request.getName() != null && !request.getName().isEmpty()) key.setName(request.getName());
         if (request.getDescription() != null) key.setDescription(request.getDescription());
-        if (request.getOwner() != null) key.setOwner(request.getOwner());
+        if (request.getOwnerUuid() != null) updateOwner(key, request.getOwnerUuid());
         if (request.getGroupUuid() != null) key.setGroupUuid(UUID.fromString(request.getGroupUuid()));
         if (request.getTokenProfileUuid() != null) {
             TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
@@ -398,6 +401,15 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         cryptographicKeyRepository.save(key);
         logger.debug("Key details updated. Key: {}", key);
         return getKey(tokenInstanceUuid, uuid.toString());
+    }
+
+    private void updateOwner(CryptographicKey key, String ownerUuid) {
+        // if there is no change, do not update and save request to Auth service
+        if (key.getOwnerUuid() != null && key.getOwnerUuid().toString().equals(ownerUuid)) return;
+        UserDetailDto userDetail = userManagementApiClient.getUserDetail(ownerUuid);
+        key.setOwner(userDetail.getUsername());
+        key.setOwnerUuid(UUID.fromString(userDetail.getUuid()));
+        cryptographicKeyRepository.save(key);
     }
 
     @Override
@@ -863,7 +875,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         key.setTokenProfile(tokenProfile);
         key.setTokenInstanceReference(tokenInstanceReference);
         key.setAttributes(AttributeDefinitionUtils.serialize(attributes));
-        key.setOwner(request.getOwner());
         if (request.getGroupUuid() != null) key.setGroupUuid(UUID.fromString(request.getGroupUuid()));
         logger.debug("Cryptographic Key: {}", key);
         cryptographicKeyRepository.save(key);
@@ -1039,6 +1050,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 false
         ));
         key.setItems(children);
+        try {
+            NameAndUuidDto userIdentification = AuthHelper.getUserIdentification();
+            key.setOwner(userIdentification.getName());
+            key.setOwnerUuid(UUID.fromString(userIdentification.getUuid()));
+        } catch (Exception e) {
+            logger.warn("Unable to set owner of new key to logged user: {}", e.getMessage());
+        }
         cryptographicKeyRepository.save(key);
         return key;
     }
@@ -1068,6 +1086,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                         )
                 )
         );
+        try {
+            NameAndUuidDto userIdentification = AuthHelper.getUserIdentification();
+            key.setOwner(userIdentification.getName());
+            key.setOwnerUuid(UUID.fromString(userIdentification.getUuid()));
+        } catch (Exception e) {
+            logger.warn("Unable to set owner of new key to logged user: {}", e.getMessage());
+        }
         cryptographicKeyRepository.save(key);
         return key;
     }
