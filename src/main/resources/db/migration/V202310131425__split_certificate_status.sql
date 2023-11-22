@@ -18,7 +18,7 @@ UPDATE certificate SET state = 'FAILED'
 
 -- migrate certificate validation status
 UPDATE certificate SET validation_status = status;
-UPDATE certificate SET validation_status = 'NOT_CHECKED' WHERE status = 'NEW' OR status = 'REJECTED';
+UPDATE certificate SET validation_status = 'NOT_CHECKED' WHERE status = 'NEW' OR status = 'REJECTED' OR status = 'UNKNOWN';
 
 -- migrate certificate compliance status
 UPDATE certificate SET compliance_status = 'NOT_CHECKED' WHERE compliance_status IS NULL;
