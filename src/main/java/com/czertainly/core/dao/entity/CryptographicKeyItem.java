@@ -259,6 +259,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setDescription(cryptographicKey.getDescription());
         if (cryptographicKey.getGroup() != null) dto.setGroup(cryptographicKey.getGroup().mapToDto());
         dto.setOwner(cryptographicKey.getOwner());
+        if (cryptographicKey.getOwnerUuid() != null) dto.setOwnerUuid(cryptographicKey.getOwnerUuid().toString());
         dto.setCreationTime(cryptographicKey.getCreated());
         dto.setTokenInstanceName(cryptographicKey.getTokenInstanceReference().getName());
         dto.setTokenInstanceUuid(cryptographicKey.getTokenInstanceReferenceUuid().toString());
