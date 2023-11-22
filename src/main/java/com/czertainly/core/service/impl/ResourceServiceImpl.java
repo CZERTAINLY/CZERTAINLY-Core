@@ -33,6 +33,7 @@ public class ResourceServiceImpl implements ResourceService {
     private EntityInstanceService entityInstanceService;
     private GroupService groupService;
     private RaProfileService raProfileService;
+    private ScepProfileService scepProfileService;
     private CryptographicKeyService keyService;
     private TokenProfileService tokenProfileService;
     private TokenInstanceService tokenInstanceService;
@@ -92,6 +93,11 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Autowired
+    public void setScepProfileService(ScepProfileService scepProfileService) {
+        this.scepProfileService = scepProfileService;
+    }
+
+    @Autowired
     public void setKeyService(CryptographicKeyService keyService) {
         this.keyService = keyService;
     }
@@ -128,32 +134,22 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Override
     public List<NameAndUuidDto> getObjectsForResource(Resource resourceName) throws NotFoundException {
-        switch (resourceName) {
-            case ACME_PROFILE:
-                return acmeProfileService.listResourceObjects(SecurityFilter.create());
-            case AUTHORITY:
-                return authorityInstanceService.listResourceObjects(SecurityFilter.create());
-            case COMPLIANCE_PROFILE:
-                return complianceProfileService.listResourceObjects(SecurityFilter.create());
-            case CONNECTOR:
-                return connectorService.listResourceObjects(SecurityFilter.create());
-            case CREDENTIAL:
-                return credentialService.listResourceObjects(SecurityFilter.create());
-            case ENTITY:
-                return entityInstanceService.listResourceObjects(SecurityFilter.create());
-            case GROUP:
-                return groupService.listResourceObjects(SecurityFilter.create());
-            case LOCATION:
-                return locationService.listResourceObjects(SecurityFilter.create());
-            case RA_PROFILE:
-                return raProfileService.listResourceObjects(SecurityFilter.create());
-            case TOKEN_PROFILE:
-                return tokenProfileService.listResourceObjects(SecurityFilter.create());
-            case TOKEN:
-                return tokenInstanceService.listResourceObjects(SecurityFilter.create());
-            default:
-                throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
-        }
+        return switch (resourceName) {
+            case ACME_PROFILE -> acmeProfileService.listResourceObjects(SecurityFilter.create());
+            case AUTHORITY -> authorityInstanceService.listResourceObjects(SecurityFilter.create());
+            case COMPLIANCE_PROFILE -> complianceProfileService.listResourceObjects(SecurityFilter.create());
+            case CONNECTOR -> connectorService.listResourceObjects(SecurityFilter.create());
+            case CREDENTIAL -> credentialService.listResourceObjects(SecurityFilter.create());
+            case ENTITY -> entityInstanceService.listResourceObjects(SecurityFilter.create());
+            case GROUP -> groupService.listResourceObjects(SecurityFilter.create());
+            case LOCATION -> locationService.listResourceObjects(SecurityFilter.create());
+            case RA_PROFILE -> raProfileService.listResourceObjects(SecurityFilter.create());
+            case SCEP_PROFILE -> scepProfileService.listResourceObjects(SecurityFilter.create());
+            case TOKEN_PROFILE -> tokenProfileService.listResourceObjects(SecurityFilter.create());
+            case TOKEN -> tokenInstanceService.listResourceObjects(SecurityFilter.create());
+            default ->
+                    throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
+        };
     }
 
     @Override
