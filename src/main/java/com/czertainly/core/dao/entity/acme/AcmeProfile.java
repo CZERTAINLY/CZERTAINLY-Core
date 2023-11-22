@@ -80,7 +80,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     public AcmeProfileDto mapToDto() {
         AcmeProfileDto acmeProfileDto = new AcmeProfileDto();
         if(raProfile != null) {
-            acmeProfileDto.setRaProfile(raProfile.mapToDto());
+            acmeProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
         }
         acmeProfileDto.setDescription(description);
         acmeProfileDto.setEnabled(isEnabled);
@@ -107,8 +107,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     public AcmeProfileListDto mapToDtoSimple() {
         AcmeProfileListDto acmeProfileDto = new AcmeProfileListDto();
         if(raProfile != null) {
-            acmeProfileDto.setRaProfileName(raProfile.getName());
-            acmeProfileDto.setRaProfileUuid(raProfile.getUuid().toString());
+            acmeProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
         }
         acmeProfileDto.setDescription(description);
         acmeProfileDto.setEnabled(isEnabled);
