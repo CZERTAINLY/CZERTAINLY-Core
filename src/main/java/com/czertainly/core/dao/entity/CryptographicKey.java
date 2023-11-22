@@ -44,6 +44,9 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "owner")
     private String owner;
 
+    @Column(name = "owner_uuid")
+    private UUID ownerUuid;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     private Group group;
@@ -133,6 +136,14 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.owner = owner;
     }
 
+    public UUID getOwnerUuid() {
+        return ownerUuid;
+    }
+
+    public void setOwnerUuid(UUID ownerUuid) {
+        this.ownerUuid = ownerUuid;
+    }
+
     public Group getGroup() {
         return group;
     }
@@ -208,6 +219,8 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setItems(getKeyItems());
         dto.setOwner(owner);
+        dto.setOwnerUuid(String.valueOf(ownerUuid));
+
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(
                 AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class)
         ));
