@@ -119,9 +119,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
     public ResponseEntity<Order> finalizeOrder(String raProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException, ConnectorException {
         extendedAcmeHelperService.initialize(jwsBody);
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
-        logger.debug("Finalizing the Order with ID: {}", orderId);
         extendedAcmeHelperService.finalizeOrder(order);
-        order.setStatus(OrderStatus.PROCESSING);
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
@@ -132,9 +130,7 @@ public class AcmeRaProfileServiceImpl implements AcmeRaProfileService {
 
     @Override
     public ResponseEntity<Order> getOrder(String raProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
-        logger.info("Get Order details with ID: {}", orderId);
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
-        logger.debug("Order: {}", order);
         extendedAcmeHelperService.updateOrderStatusByExpiry(order);
         if (order.getStatus().equals(OrderStatus.INVALID)) {
             logger.error("Order status is invalid: {}", order);
