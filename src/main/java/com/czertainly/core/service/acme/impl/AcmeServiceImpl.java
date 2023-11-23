@@ -115,13 +115,10 @@ public class AcmeServiceImpl implements AcmeService {
     public ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String jwsBody) throws AcmeProblemDocumentException {
         extendedAcmeHelperService.initialize(jwsBody);
         AcmeOrder order = extendedAcmeHelperService.checkOrderForFinalize(orderId);
-        logger.debug("Finalizing Order with ID: {}", orderId);
         extendedAcmeHelperService.finalizeOrder(order);
-        order.setStatus(OrderStatus.PROCESSING);
         return ResponseEntity
                 .ok()
                 .location(URI.create(order.getUrl()))
-                .header("Retry-After")
                 .header(NONCE_HEADER_NAME, extendedAcmeHelperService.generateNonce())
                 .header(RETRY_HEADER_NAME, order.getAcmeAccount().getAcmeProfile().getRetryInterval().toString())
                 .body(order.mapToDto());
@@ -129,9 +126,7 @@ public class AcmeServiceImpl implements AcmeService {
 
     @Override
     public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
-        logger.info("Get Order details with ID: {}.", orderId);
         AcmeOrder order = extendedAcmeHelperService.getAcmeOrderEntity(orderId);
-        logger.debug("Order details: {}", order.toString());
         extendedAcmeHelperService.updateOrderStatusByExpiry(order);
         if (order.getStatus().equals(OrderStatus.INVALID)) {
             logger.error("Order status is invalid: {}", order);

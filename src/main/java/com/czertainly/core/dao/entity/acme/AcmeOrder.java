@@ -71,7 +71,7 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
         order.setAuthorizations(authorizations.stream().map(AcmeAuthorization::getUrl).collect(Collectors.toList()));
         order.setFinalize(getFinalizeUrl());
         if(certificateId != null){
-            order.setCertificate(getCertificateUrl());
+            order.setCertificate(getCertificateUrl()); // should we include URL of certificate if order is still in PROCESSING state?
         }
         order.setStatus(status);
         order.setExpires(AcmeCommonHelper.getStringFromDate(expires));
