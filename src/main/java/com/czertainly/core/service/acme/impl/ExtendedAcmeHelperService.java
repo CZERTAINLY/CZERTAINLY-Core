@@ -547,8 +547,8 @@ public class ExtendedAcmeHelperService {
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound", "Order Not Found", "The given Order is not found"));
         }
-        if (order.getStatus().equals(OrderStatus.INVALID) || order.getStatus().equals(OrderStatus.PENDING)) {
-            logger.error("Order status: {}", order.getStatus());
+        if (!order.getStatus().equals(OrderStatus.READY)) { // A request to finalize an order will result in error if the order is not in the "ready" state
+            logger.error("Cannot finalize Order that is not ready.");
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.ORDER_NOT_READY);
         }
         return order;
