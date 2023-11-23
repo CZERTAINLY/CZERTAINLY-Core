@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 @Entity
 @Table(name = "certificate")
 public class Certificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateDetailDto> {
+    private static final String EMPTY_COMMON_NAME = "<empty>";
 
     private static final long serialVersionUID = -3048734620156664554L;
 
@@ -50,8 +51,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "issuer_dn")
     private String issuerDn;
 
+    @Column(name = "issuer_dn_normalized")
+    private String issuerDnNormalized;
+
     @Column(name = "subject_dn")
     private String subjectDn;
+
+    @Column(name = "subject_dn_normalized")
+    private String subjectDnNormalized;
 
     @Column(name = "not_before")
     private Date notBefore;
@@ -74,9 +81,13 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "basic_constraints")
     private String basicConstraints;
 
-    @Column(name = "status")
+    @Column(name = "state")
     @Enumerated(EnumType.STRING)
-    private CertificateStatus status;
+    private CertificateState state;
+
+    @Column(name = "validation_status")
+    @Enumerated(EnumType.STRING)
+    private CertificateValidationStatus validationStatus;
 
     @Column(name = "fingerprint")
     private String fingerprint;
@@ -128,6 +139,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "issuer_serial_number")
     private String issuerSerialNumber;
 
+    @Column(name = "issuer_certificate_uuid")
+    private UUID issuerCertificateUuid;
+
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
 
@@ -171,9 +185,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
-        dto.setCommonName(commonName);
-        dto.setIssuerCommonName(issuerCommonName);
-        if (!status.equals(CertificateStatus.NEW) && !status.equals(CertificateStatus.REJECTED)) {
+        dto.setCommonName(commonName != null ? commonName : EMPTY_COMMON_NAME);
+        dto.setIssuerCommonName(getIssuerCommonNameToDto());
+        if (certificateContent != null) {
             dto.setCertificateContent(certificateContent.getContent());
             dto.setIssuerDn(issuerDn);
             dto.setNotBefore(notBefore);
@@ -192,12 +206,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
         dto.setKeySize(keySize);
         dto.setUuid(uuid.toString());
-        dto.setStatus(status);
+        dto.setState(state);
+        dto.setValidationStatus(validationStatus);
         dto.setCertificateType(certificateType);
         dto.setOwner(owner);
+        if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
-        /**
+        /*
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
          * When the details of the certificate is requested, the Service will transform the result into the user understandable
          * format and send it. It is not moved into the mapToDto function, as the computation involves other repositories
@@ -261,7 +277,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public CertificateDto mapToListDto() {
         CertificateDto dto = new CertificateDto();
-        dto.setCommonName(commonName);
+        dto.setCommonName(commonName != null ? commonName : EMPTY_COMMON_NAME);
+        dto.setIssuerCommonName(getIssuerCommonNameToDto());
         dto.setSerialNumber(serialNumber);
         dto.setIssuerCommonName(issuerCommonName);
         dto.setIssuerDn(issuerDn);
@@ -272,9 +289,11 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
         dto.setKeySize(keySize);
         dto.setUuid(uuid.toString());
-        dto.setStatus(status);
+        dto.setState(state);
+        dto.setValidationStatus(validationStatus);
         dto.setFingerprint(fingerprint);
         dto.setOwner(owner);
+        if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
@@ -417,6 +436,22 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.subjectDn = subjectDn;
     }
 
+    public String getIssuerDnNormalized() {
+        return issuerDnNormalized;
+    }
+
+    public void setIssuerDnNormalized(String issuerDnNormalized) {
+        this.issuerDnNormalized = issuerDnNormalized;
+    }
+
+    public String getSubjectDnNormalized() {
+        return subjectDnNormalized;
+    }
+
+    public void setSubjectDnNormalized(String subjectDnNormalized) {
+        this.subjectDnNormalized = subjectDnNormalized;
+    }
+
     public CertificateContent getCertificateContent() {
         return certificateContent;
     }
@@ -435,12 +470,20 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.fingerprint = fingerprint;
     }
 
-    public CertificateStatus getStatus() {
-        return status;
+    public CertificateState getState() {
+        return state;
     }
 
-    public void setStatus(CertificateStatus status) {
-        this.status = status;
+    public void setState(CertificateState state) {
+        this.state = state;
+    }
+
+    public CertificateValidationStatus getValidationStatus() {
+        return validationStatus;
+    }
+
+    public void setValidationStatus(CertificateValidationStatus validationStatus) {
+        this.validationStatus = validationStatus;
     }
 
     public String getExtendedKeyUsage() {
@@ -676,11 +719,29 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.issueAttributes = issueAttributes;
     }
 
+    public UUID getIssuerCertificateUuid() {
+        return issuerCertificateUuid;
+    }
+
+    public void setIssuerCertificateUuid(UUID issuerCertificateUuid) {
+        this.issuerCertificateUuid = issuerCertificateUuid;
+    }
+
+
     public String getRevokeAttributes() {
         return revokeAttributes;
     }
 
     public void setRevokeAttributes(String revokeAttributes) {
         this.revokeAttributes = revokeAttributes;
+    }
+
+    private String getIssuerCommonNameToDto() {
+        if (issuerCommonName != null) {
+            return issuerCommonName;
+        } else if (issuerCertificateUuid != null) {
+            return EMPTY_COMMON_NAME;
+        }
+        return null;
     }
 }

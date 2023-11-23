@@ -13,7 +13,6 @@ import com.czertainly.api.model.connector.compliance.ComplianceResponseRulesDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateComplianceStorageDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
 import com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -109,19 +108,19 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Override
     // Internal purpose only
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException {
-        if(certificate.getStatus().equals(CertificateStatus.NEW) || certificate.getStatus().equals(CertificateStatus.REJECTED)) {
+        if(certificate.getCertificateContent() == null) {
             return;
         }
         logger.debug("Checking the Compliance of the Certificate: {}", certificate);
         RaProfile raProfile = certificate.getRaProfile();
         CertificateComplianceStorageDto complianceResults = new CertificateComplianceStorageDto();
         if (raProfile == null) {
-            logger.warn("Certificate with uuid: {} does not have any RA Profile association", certificate.getUuid());
+            logger.debug("Certificate with uuid: {} does not have any RA Profile association", certificate.getUuid());
             return;
         }
         Set<ComplianceProfile> complianceProfiles = raProfile.getComplianceProfiles();
         if (complianceProfiles == null || complianceProfiles.isEmpty()) {
-            logger.warn("Certificate with uuid: {} does not have any Compliance Profile association", certificate.getUuid());
+            logger.debug("Certificate with uuid: {} does not have any Compliance Profile association", certificate.getUuid());
             return;
         }
         for (ComplianceProfile complianceProfile : complianceProfiles) {
@@ -261,7 +260,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         } else if (nokResult.isEmpty() && complianceResult.getOk().isEmpty()) {
             certificate.setComplianceStatus(ComplianceStatus.NA);
         } else {
-            certificate.setComplianceStatus(null);
+            certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
             complianceResult = null;
         }
         certificate.setComplianceResult(complianceResult);

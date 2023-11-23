@@ -17,20 +17,12 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.CertificateLocation;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.EntityInstanceReference;
-import com.czertainly.core.dao.entity.Location;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -43,7 +35,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class LocationServiceTest extends BaseSpringBootTest {
 
@@ -88,7 +83,8 @@ public class LocationServiceTest extends BaseSpringBootTest {
         certificate = certificateRepository.save(certificate);
 
         certificateWithoutLocation = new Certificate();
-        certificateWithoutLocation.setStatus(CertificateStatus.VALID);
+        certificateWithoutLocation.setState(CertificateState.ISSUED);
+        certificateWithoutLocation.setValidationStatus(CertificateValidationStatus.VALID);
         certificateWithoutLocation.setCertificateContentId(certificateContent.getId());
         certificateWithoutLocation.setSerialNumber("aa4ab59d436a88dae957");
         certificateWithoutLocation = certificateRepository.save(certificateWithoutLocation);
@@ -322,28 +318,6 @@ public class LocationServiceTest extends BaseSpringBootTest {
         EditLocationRequestDto request = new EditLocationRequestDto();
 
         Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
-    }
-
-//    @Test
-//    public void testRemoveLocation_withCertificates() throws ConnectorException {
-//        mockServer.stubFor(WireMock
-//                .post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/remove"))
-//                .willReturn(WireMock.okJson("{\n" +
-//                        "  \"certificateMetadata\": {}\n" +
-//                        "}")));
-//
-//        RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
-//        removeCertificateRequestDto.setLocationAttributes(location.getRequestAttributes());
-//
-//        locationService.removeCertificateFromLocation(location.getUuid(), certificate.getUuid());
-//
-//        locationService.removeLocation(location.getUuid());
-//        Assertions.assertThrows(NotFoundException.class, () -> locationService.getLocation(location.getUuid()));
-//    }
-
-    @Test
-    public void testRemoveLocation_withCertificates() {
-        Assertions.assertThrows(ValidationException.class, () -> locationService.deleteLocation(location.getEntityInstanceReference().getSecuredParentUuid(), location.getSecuredUuid()));
     }
 
     @Test

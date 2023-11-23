@@ -65,15 +65,6 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     private CredentialService credentialService;
     private EntityInstanceApiClient entityInstanceApiClient;
     private AttributeService attributeService;
-    private AttributeContentRepository attributeContentRepository;
-
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    @Autowired
-    public void setAttributeContentRepository(AttributeContentRepository attributeContentRepository) {
-        this.attributeContentRepository = attributeContentRepository;
-    }
 
     @Autowired
     public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
@@ -104,25 +95,16 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.CA_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
     public EntityInstanceResponseDto listEntityInstances(final SecurityFilter filter, final SearchRequestDto request) {
-
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final List<UUID> objectUUIDs = new ArrayList<>();
-        if (!request.getFilters().isEmpty()) {
-            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
-            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
-            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
-
-            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.ENTITY);
-            objectUUIDs.addAll(entityInstanceReferenceRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
-        }
+        // filter entities based on attribute filters
+        final List<UUID> objectUUIDs = attributeService.getResourceObjectUuidsByFilters(Resource.ENTITY, filter, request.getFilters());
 
         final BiFunction<Root<EntityInstanceReference>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<EntityInstanceDto> listedKeyDTOs = entityInstanceReferenceRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
-                .map(EntityInstanceReference::mapToDto)
-                .collect(Collectors.toList());
+                .map(EntityInstanceReference::mapToDto).toList();
         final Long maxItems = entityInstanceReferenceRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final EntityInstanceResponseDto responseDto = new EntityInstanceResponseDto();
@@ -288,8 +270,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return entityInstanceReferenceRepository.findUsingSecurityFilter(filter)
                 .stream()
-                .map(EntityInstanceReference::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+                .map(EntityInstanceReference::mapToAccessControlObjects).toList();
     }
 
     @Override
@@ -304,28 +285,9 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
                 .orElseThrow(() -> new NotFoundException(EntityInstanceReference.class, uuid));
     }
 
-    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.ENTITY, AttributeType.META);
-    }
-
-    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.ENTITY, AttributeType.CUSTOM);
-    }
-
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-
-        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
-        if (metadataSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
-        }
-
-        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
-        if (customAttrSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
-        }
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeService.getResourceSearchableFieldInformation(Resource.ENTITY);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ENTITY_NAME),
@@ -333,7 +295,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ENTITY_KIND, entityInstanceReferenceRepository.findDistinctKind())
         );
 
-        fields = fields.stream().collect(Collectors.toList());
+        fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
 
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));

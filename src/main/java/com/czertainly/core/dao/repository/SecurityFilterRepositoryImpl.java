@@ -71,16 +71,19 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public List<T> findUsingSecurityFilterByCustomCriteriaQuery(SecurityFilter filter, Root<T> root, CriteriaQuery<T> criteriaQuery, Predicate customPredicates) {
-        if(root == null) {
-            final Class<T> entity = this.entityInformation.getJavaType();
-            root = criteriaQuery.from(entity);
+        List<Predicate> predicates = new ArrayList<>();
+        if (filter.getResourceFilter() != null) {
+            if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
+                predicates.add(root.get("objectUuid").in(filter.getResourceFilter().getAllowedObjects()));
+            } else {
+                if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
+                    predicates.add(root.get("objectUuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
+                }
+            }
         }
-        final List<Predicate> predicates = getPredicates(filter, null, root, null);
         predicates.add(customPredicates);
+        criteriaQuery.where(predicates.toArray(new Predicate[]{}));
 
-        if (predicates != null && !predicates.isEmpty()) {
-            criteriaQuery.where(predicates.toArray(new Predicate[]{}));
-        }
         return entityManager.createQuery(criteriaQuery).getResultList();
     }
 

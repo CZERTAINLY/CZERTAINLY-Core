@@ -70,10 +70,10 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
         Order order = new Order();
         order.setAuthorizations(authorizations.stream().map(AcmeAuthorization::getUrl).collect(Collectors.toList()));
         order.setFinalize(getFinalizeUrl());
-        if(certificateId != null){
+        order.setStatus(status);
+        if (status.equals(OrderStatus.VALID)) {
             order.setCertificate(getCertificateUrl());
         }
-        order.setStatus(status);
         order.setExpires(AcmeCommonHelper.getStringFromDate(expires));
         order.setNotAfter(AcmeCommonHelper.getStringFromDate(notAfter));
         order.setNotBefore(AcmeCommonHelper.getStringFromDate(notBefore));

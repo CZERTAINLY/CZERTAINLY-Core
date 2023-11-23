@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.repository;
 
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.Group;
@@ -32,12 +32,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findBySubjectDn(String subjectDn);
 
-    List<Certificate> findByCommonName(String commonName);
-
-    List<Certificate> findAllByIssuerSerialNumber(String issuerSerialNumber);
-
-    List<Certificate> findByStatus(CertificateStatus status);
-
     List<Certificate> findByRaProfile(RaProfile raProfile);
 
     List<Certificate> findByGroup(Group group);
@@ -49,7 +43,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
     List<String> findDistinctSignatureAlgorithm();
 
-
     @Query("SELECT DISTINCT keySize FROM Certificate")
     List<Integer> findDistinctKeySize();
 
@@ -59,7 +52,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT DISTINCT publicKeyAlgorithm FROM Certificate")
     List<String> findDistinctPublicKeyAlgorithm();
 
-
     @Modifying
     @Query("delete from Certificate u where u.uuid in ?1")
     void deleteCertificateWithIds(List<String> uuids);
@@ -68,18 +60,16 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByPublicKeyFingerprint(String fingerprint);
 
-    List<Certificate> findAllByStatusValidationTimestampNullOrStatusValidationTimestampBefore(LocalDateTime statusValidationTimestamp, Pageable pageable);
-
-    @Query("SELECT COUNT(*) FROM Certificate c WHERE c.status NOT IN :skipStatuses")
-    long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateStatus> skipStatuses);
+    @Query("SELECT COUNT(*) FROM Certificate c WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses")
+    long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses);
 
     @Query("SELECT c, cc.content FROM Certificate c " +
             "JOIN CertificateContent cc ON cc.id = c.certificateContentId " +
-            "WHERE c.status NOT IN :skipStatuses " +
+            "WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
             "AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp) " +
             "ORDER BY c.statusValidationTimestamp ASC NULLS FIRST")
     List<Certificate> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
-                                                    @Param("skipStatuses") List<CertificateStatus> skipStatuses,
+                                                    @Param("skipStatuses") List<CertificateValidationStatus> skipStatuses,
                                                     Pageable pageable);
 
     List<Certificate> findByComplianceResultContaining(String ruleUuid);
@@ -87,4 +77,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Certificate> findByRaProfileAndComplianceStatusIsNotNull(RaProfile raProfile);
 
     Optional<Certificate> findByIssuerDnAndSerialNumber(String issuerDn, String serialNumber);
+
+    Optional<Certificate> findByIssuerDnNormalizedAndSerialNumber(String issuerDnNormalized, String serialNumber);
+
+    List<Certificate> findBySubjectDnNormalized(String issuerDnNormalized);
 }

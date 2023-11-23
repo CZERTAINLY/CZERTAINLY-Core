@@ -8,7 +8,9 @@ import com.czertainly.api.model.common.JwsBody;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
@@ -29,7 +31,6 @@ import com.czertainly.core.dao.repository.acme.AcmeNonceRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.*;
@@ -127,8 +128,6 @@ public class ExtendedAcmeHelperService {
     private CertificateService certificateService;
     @Autowired
     private RaProfileRepository raProfileRepository;
-    @Autowired
-    private CertValidationService certValidationService;
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
@@ -442,7 +441,18 @@ public class ExtendedAcmeHelperService {
     protected AcmeOrder getAcmeOrderEntity(String orderId) throws AcmeProblemDocumentException {
         logger.info("Gathering ACME Order details with ID: {}", orderId);
         AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound", "Order Not Found", "Specified ACME Order not found")));
-        logger.debug("Order: {}", acmeOrder.toString());
+        logger.debug("Order: {}", acmeOrder);
+
+        // check for status if certificate reference is set
+        if(acmeOrder.getCertificateReference() != null) {
+            OrderStatus newStatus = checkOrderStatusByCertificate(acmeOrder.getCertificateReference());
+            if (!newStatus.equals(acmeOrder.getStatus())) {
+                logger.info("ACME Order status changed from {} to {}.", acmeOrder.getStatus(), newStatus);
+                acmeOrder.setStatus(newStatus);
+                acmeOrderRepository.save(acmeOrder);
+            }
+        }
+
         return acmeOrder;
     }
 
@@ -451,19 +461,18 @@ public class ExtendedAcmeHelperService {
                 .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", ""));
     }
 
-    protected String frameCertChainString(List<Certificate> certificates) throws CertificateException {
+    protected String frameCertChainString(List<CertificateDetailDto> certificates) throws CertificateException {
         List<String> chain = new ArrayList<>();
-        for (Certificate certificate : certificates) {
-            chain.add(X509ObjectToString.toPem(getX509(certificate.getCertificateContent().getContent())));
+        for (CertificateDetailDto certificate : certificates) {
+            chain.add(X509ObjectToString.toPem(getX509(certificate.getCertificateContent())));
         }
         return String.join("\r\n", chain);
     }
 
     protected ByteArrayResource getCertificateResource(String certificateId) throws NotFoundException, CertificateException {
         AcmeOrder order = acmeOrderRepository.findByCertificateId(certificateId).orElseThrow(() -> new NotFoundException(Order.class, certificateId));
-        Certificate certificate = order.getCertificateReference();
-        List<Certificate> chain = certValidationService.getCertificateChain(certificate);
-        String chainString = frameCertChainString(chain);
+        CertificateChainResponseDto certificateChainResponse = certificateService.getCertificateChain(SecuredUUID.fromUUID(order.getCertificateReferenceUuid()), true);
+        String chainString = frameCertChainString(certificateChainResponse.getCertificates());
         return new ByteArrayResource(chainString.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -538,8 +547,8 @@ public class ExtendedAcmeHelperService {
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound", "Order Not Found", "The given Order is not found"));
         }
-        if (order.getStatus().equals(OrderStatus.INVALID) || order.getStatus().equals(OrderStatus.PENDING)) {
-            logger.error("Order status: {}", order.getStatus());
+        if (!order.getStatus().equals(OrderStatus.READY)) { // A request to finalize an order will result in error if the order is not in the "ready" state
+            logger.error("Cannot finalize Order that is not ready.");
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.ORDER_NOT_READY);
         }
         return order;
@@ -547,8 +556,9 @@ public class ExtendedAcmeHelperService {
 
     @Async("threadPoolTaskExecutor")
     public void finalizeOrder(AcmeOrder order) throws AcmeProblemDocumentException {
+        logger.info("Finalizing Order with ID: {}", order.getOrderId());
         CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(getJwsObject(), CertificateFinalizeRequest.class);
-        logger.debug("Finalize Order: {}", request.toString());
+        logger.debug("Finalize Order request: {}", request);
         JcaPKCS10CertificationRequest p10Object;
         String decodedCsr = "";
         try {
@@ -561,7 +571,7 @@ public class ExtendedAcmeHelperService {
         }
         decodedCsr = decodedCsr.replace("-----BEGIN CERTIFICATE REQUEST-----", "").replace("-----BEGIN NEW CERTIFICATE REQUEST-----", "")
                 .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE REQUEST-----", "").replace("-----END NEW CERTIFICATE REQUEST-----", "");
-        logger.info("Initiating issue Certificate for Order: {}", order);
+        logger.info("Initiating issue Certificate for Order with ID: {}", order.getOrderId());
         ClientCertificateSignRequestDto certificateSignRequestDto = new ClientCertificateSignRequestDto();
         certificateSignRequestDto.setAttributes(getClientOperationAttributes(false, order.getAcmeAccount()));
         certificateSignRequestDto.setPkcs10(decodedCsr);
@@ -581,20 +591,30 @@ public class ExtendedAcmeHelperService {
     }
 
     private void createCert(AcmeOrder order, ClientCertificateSignRequestDto certificateSignRequestDto) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("Initiating issue Certificate for the Order: {} and certificate signing request: {}", order.toString(), certificateSignRequestDto.toString());
+        // check if certificate is not already requested (prevent calling finalize multiple times issuing more certificates)
+        // not sure if it is necessary
+        if (order.getCertificateReference() == null) {
+            try {
+                // keep state as PROCESSING since issuing is async process
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Requesting Certificate for the Order: {} and certificate signing request: {}", order, certificateSignRequestDto);
+                }
+                ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(order.getAcmeAccount().getRaProfile().getAuthorityInstanceReferenceUuid()), order.getAcmeAccount().getRaProfile().getSecuredUuid(), certificateSignRequestDto);
+                order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
+                order.setCertificateReference(certificateService.getCertificateEntity(SecuredUUID.fromString(certificateOutput.getUuid())));
+            } catch (Exception e) {
+                logger.error("Issue Certificate failed. Exception: {}", e.getMessage());
+                order.setStatus(OrderStatus.INVALID);
+            }
+            acmeOrderRepository.save(order);
+        } else {
+            OrderStatus newStatus = checkOrderStatusByCertificate(order.getCertificateReference());
+            logger.debug("Calling finalize of Order but certificate is already requested. Current status: {}", newStatus);
+            if(!newStatus.equals(order.getStatus())) {
+                order.setStatus(newStatus);
+                acmeOrderRepository.save(order);
+            }
         }
-        try {
-            // TODO should be by approvals ?
-            ClientCertificateDataResponseDto certificateOutput = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(order.getAcmeAccount().getRaProfile().getAuthorityInstanceReferenceUuid()), order.getAcmeAccount().getRaProfile().getSecuredUuid(), certificateSignRequestDto);
-            order.setCertificateId(AcmeRandomGeneratorAndValidator.generateRandomId());
-            order.setCertificateReference(certificateService.getCertificateEntity(SecuredUUID.fromString(certificateOutput.getUuid())));
-            order.setStatus(OrderStatus.VALID);
-        } catch (Exception e) {
-            logger.error("Issue Certificate failed. Exception: {}", e.getMessage());
-            order.setStatus(OrderStatus.INVALID);
-        }
-        acmeOrderRepository.save(order);
     }
 
     public ResponseEntity<List<Order>> listOrders(String accountId) throws AcmeProblemDocumentException {
@@ -662,7 +682,7 @@ public class ExtendedAcmeHelperService {
                 .replace("\r", "").replace("\n", "").replace("-----END CERTIFICATE-----", "");
         ClientCertificateRevocationDto revokeRequest = new ClientCertificateRevocationDto();
         Certificate cert = certificateService.getCertificateEntityByContent(decodedCertificate);
-        if (cert.getStatus().equals(CertificateStatus.REVOKED)) {
+        if (cert.getState().equals(CertificateState.REVOKED)) {
             logger.error("Certificate is already revoked. Serial number: {}, Fingerprint: {}", cert.getSerialNumber(), cert.getFingerprint());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ALREADY_REVOKED);
         }
@@ -1079,23 +1099,32 @@ public class ExtendedAcmeHelperService {
     }
 
     private List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke, AcmeAccount acmeAccount) {
-        if(acmeAccount == null) {
+        if (acmeAccount == null) {
             return List.of();
         }
         String attributes;
         if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
-            if(isRevoke) {
+            if (isRevoke) {
                 attributes = acmeAccount.getRaProfile().getProtocolAttribute().getAcmeRevokeCertificateAttributes();
             } else {
                 attributes = acmeAccount.getRaProfile().getProtocolAttribute().getAcmeIssueCertificateAttributes();
             }
         } else {
-            if(isRevoke) {
+            if (isRevoke) {
                 attributes = acmeAccount.getAcmeProfile().getRevokeCertificateAttributes();
             } else {
                 attributes = acmeAccount.getAcmeProfile().getIssueCertificateAttributes();
             }
         }
         return AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
+    }
+
+    private OrderStatus checkOrderStatusByCertificate(Certificate certificate) {
+        if (certificate.getState().equals(CertificateState.ISSUED)) return OrderStatus.VALID;
+        if (certificate.getState().equals(CertificateState.REQUESTED)
+                || certificate.getState().equals(CertificateState.PENDING_APPROVAL)
+                || certificate.getState().equals(CertificateState.PENDING_ISSUE)) return OrderStatus.PROCESSING;
+
+        return OrderStatus.INVALID;
     }
 }

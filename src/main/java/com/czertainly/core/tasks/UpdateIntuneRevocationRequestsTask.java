@@ -1,9 +1,9 @@
 package com.czertainly.core.tasks;
 
-import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.Certificate;
@@ -19,8 +19,10 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
+import com.czertainly.core.util.CzertainlyX500NameStyle;
 import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
@@ -28,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.security.auth.x500.X500Principal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -146,16 +149,15 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
 
         for (CARevocationRequest revocationRequest : revocationRequests) {
             try {
-                // TODO: Workaround to map to issuer DN in DB - redone correctly storing DN in correct sanitized format.
-                String issuerName = revocationRequest.issuerName.replace(",", ", ");
-                Certificate certificate = certificateService.getCertificateEntityByIssuerDnAndSerialNumber(
+                String issuerName = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, new X500Principal(revocationRequest.issuerName).getEncoded()).toString();
+                Certificate certificate = certificateService.getCertificateEntityByIssuerDnNormalizedAndSerialNumber(
                         issuerName,
                         revocationRequest.serialNumber
                 );
                 // TODO: Improve handling of certificate status and revocation reason
                 // there may be different certificate status we need to handle
                 // when the certificate is already revoked, we just need to send the message to Intune
-                if (certificate.getStatus().equals(CertificateStatus.REVOKED)) {
+                if (certificate.getState().equals(CertificateState.REVOKED)) {
                     revocationResults.add(new CARevocationResult(
                                     revocationRequest.requestContext,
                                     true,
@@ -166,7 +168,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
                     continue;
                 }
                 // this should not happen, but if the certificate is expired, Intune should not try to revoke it
-                if (certificate.getStatus().equals(CertificateStatus.EXPIRED)) {
+                if (certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRED)) {
                     revocationResults.add(new CARevocationResult(
                                     revocationRequest.requestContext,
                                     false,
@@ -182,7 +184,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
                 revocationDto.setAttributes(new ArrayList<>());
 
                 // if certificate is already revoked, do not try to revoke by CA
-                if (certificate.getStatus() != CertificateStatus.REVOKED) {
+                if (certificate.getState() != CertificateState.REVOKED) {
                     clientOperationService.revokeCertificate(
                             SecuredParentUUID.fromUUID(certificate.getRaProfile().getAuthorityInstanceReferenceUuid()),
                             SecuredUUID.fromUUID(certificate.getRaProfileUuid()),
@@ -210,7 +212,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
                                 "Certificate not found in inventory"
                         )
                 );
-            } catch (ConnectorException e) {
+            } catch (Exception e) {
                 logger.debug(MarkerFactory.getMarker("scheduleInfo"), "Failed to revoke certificate for Intune request: issuerDN={}, serialNumber={}",
                         revocationRequest.issuerName, revocationRequest.serialNumber, e);
                 revocationResults.add(new CARevocationResult(

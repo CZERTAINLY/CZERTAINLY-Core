@@ -1,15 +1,17 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
+import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -33,7 +35,6 @@ import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
-import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -41,15 +42,18 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
-import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import com.czertainly.core.validation.certificate.ICertificateValidator;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
+import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.cms.ContentInfo;
+import org.bouncycastle.cert.jcajce.JcaCertStore;
+import org.bouncycastle.cms.CMSProcessableByteArray;
+import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
@@ -75,6 +79,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.SignatureException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -83,7 +89,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -95,10 +100,9 @@ public class CertificateServiceImpl implements CertificateService {
     public static final Integer MAX_PAGE_SIZE = 1000;
     // Default batch size to perform bulk delete operation on Certificates
     public static final Integer DELETE_BATCH_SIZE = 1000;
-    private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
+    private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -125,16 +129,7 @@ public class CertificateServiceImpl implements CertificateService {
     private DiscoveryCertificateRepository discoveryCertificateRepository;
 
     @Autowired
-    private AttributeContentRepository attributeContentRepository;
-
-    @Autowired
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
-
-    @Autowired
     private ComplianceService complianceService;
-
-    @Autowired
-    private CertValidationService certValidationService;
 
     @Autowired
     private CertificateEventHistoryService certificateEventHistoryService;
@@ -169,7 +164,17 @@ public class CertificateServiceImpl implements CertificateService {
     private UserManagementApiClient userManagementApiClient;
 
     @Autowired
-    private ExtendedAttributeService extendedAttributeService;
+    private CertificateApiClient certificateApiClient;
+
+    /**
+     * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
+     */
+    private Map<String, ICertificateValidator> certificateValidatorMap;
+
+    @Autowired
+    public void setCertificateValidatorMap(Map<String, ICertificateValidator> certificateValidatorMap) {
+        this.certificateValidatorMap = certificateValidatorMap;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
@@ -179,15 +184,8 @@ public class CertificateServiceImpl implements CertificateService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final List<UUID> objectUUIDs = new ArrayList<>();
-        if (!request.getFilters().isEmpty()) {
-            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
-            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
-            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
-
-            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.CERTIFICATE);
-            objectUUIDs.addAll(certificateRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
-        }
+        // filter certificates based on attribute filters
+        final List<UUID> objectUUIDs = attributeService.getResourceObjectUuidsByFilters(Resource.CERTIFICATE, filter, request.getFilters());
 
         final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
@@ -212,9 +210,8 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateDetailDto dto = entity.mapToDto();
         if (entity.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(entity.getComplianceResult()));
-        } else {
-            dto.setComplianceStatus(ComplianceStatus.NA);
         }
+
         dto.setMetadata(metadataService.getFullMetadataWithNullResource(entity.getUuid(), Resource.CERTIFICATE, List.of(Resource.DISCOVERY)));
         dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CERTIFICATE));
         dto.setRelatedCertificates(certificateRepository.findBySourceCertificateUuid(entity.getUuid()).stream().map(Certificate::mapToListDto).toList());
@@ -257,8 +254,8 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
-        return certificateRepository.findByIssuerDnAndSerialNumber(issuerDn, serialNumber)
+    public Certificate getCertificateEntityByIssuerDnNormalizedAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException {
+        return certificateRepository.findByIssuerDnNormalizedAndSerialNumber(issuerDn, serialNumber)
                 .orElseThrow(() -> new NotFoundException(Certificate.class, issuerDn + " " + serialNumber));
     }
 
@@ -308,10 +305,10 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException {
+    public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException {
         logger.info("Updating certificate objects: RA {} group {} owner {}", request.getRaProfileUuid(), request.getGroupUuid(), request.getOwnerUuid());
         if (request.getRaProfileUuid() != null) {
-            updateRaProfile(uuid, SecuredUUID.fromString(request.getRaProfileUuid()));
+            switchRaProfile(uuid, SecuredUUID.fromString(request.getRaProfileUuid()));
         }
         if (request.getGroupUuid() != null) {
             updateCertificateGroup(uuid, SecuredUUID.fromString(request.getGroupUuid()));
@@ -354,7 +351,8 @@ public class CertificateServiceImpl implements CertificateService {
                     deleteCertificate(SecuredUUID.fromString(uuid));
                 } catch (Exception e) {
                     logger.error("Unable to delete the certificate {}: {}", uuid, e.getMessage());
-                    if (loggedUserUuid == null) loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+                    if (loggedUserUuid == null)
+                        loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
                     notificationProducer.produceNotificationText(Resource.CERTIFICATE, UUID.fromString(uuid), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to delete the certificate " + uuid, e.getMessage());
                 }
             }
@@ -386,18 +384,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-
-        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
-        if (!metadataSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
-        }
-
-        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
-        if (!customAttrSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
-        }
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeService.getResourceSearchableFieldInformation(Resource.CERTIFICATE);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
@@ -406,7 +393,8 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
@@ -425,63 +413,273 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY)
         );
 
-        fields = fields.stream().collect(Collectors.toList());
+        fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
 
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
-
     }
 
-    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.META);
-    }
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
+    // @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    // Auth is not required for this method. It is used only internally by other services to update the certificate chain
+    private void updateCertificateChain(Certificate certificate) throws CertificateException {
+        if (certificate.getCertificateContent() == null) {
+            return;
+        }
 
-    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.CERTIFICATE, AttributeType.CUSTOM);
+        // Check if the certificate is self-signed
+        if (isSelfSigned(certificate)) {
+            return;
+        }
+        boolean issuerInInventory = false;
+        X509Certificate subCert;
+        try {
+            subCert = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
+        } catch (Exception e) {
+            // We do not need to handle exceptions here because if subject certificate cannot be parsed, we cannot update its certificate chain
+            return;
+        }
+        // Try to find issuer certificate in repository
+        for (Certificate issuer : certificateRepository.findBySubjectDnNormalized(certificate.getIssuerDnNormalized())) {
+            X509Certificate issCert;
+            try {
+                issCert = CertificateUtil.parseCertificate(issuer.getCertificateContent().getContent());
+            } catch (Exception e) {
+                // We do not need to handle exceptions here because if certificate cannot be parsed, we ignore it as a
+                // candidate for issuer and continue with next candidate
+                continue;
+            }
+            // Verify signature for a certificate with matching Subject DN, if it matches, the issuer is found
+            if (verifySignature(subCert, issCert)) {
+                certificate.setIssuerSerialNumber(issuer.getSerialNumber());
+                certificate.setIssuerCertificateUuid(issuer.getUuid());
+                certificateRepository.save(certificate);
+                issuerInInventory = true;
+                // If the issuer of certificate doesn't have its issuer, try to update issuer for this certificate as well
+                if (issuer.getIssuerCertificateUuid() == null) {
+                    updateCertificateChain(issuer);
+                }
+                break;
+            }
+        }
+        // If the issuer isn't in inventory, try to download it from AIA extension of the certificate
+        if (!issuerInInventory) {
+            int downloadedCertificates = 0;
+            List<String> aiaChain = downloadChainFromAia(certificate);
+            Certificate previousCertificate = certificate;
+            for (String chainCertificate : aiaChain) {
+                try {
+                    Certificate nextInChain;
+                    // If the certificate from isn't in repository, create it, otherwise only update issuer uuid and serial number
+                    try {
+                        nextInChain = checkCreateCertificate(chainCertificate);
+//                        eventProducer.produceCertificateEventMessage(nextInChain.getUuid(), CertificateEvent.UPLOAD.getCode(), CertificateEventStatus.SUCCESS.toString(), "Downloaded from AIA extension.", null);
+                    } catch (AlreadyExistException e) {
+                        X509Certificate x509Cert = CertificateUtil.parseCertificate(chainCertificate);
+                        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
+                        nextInChain = certificateRepository.findByFingerprint(fingerprint).orElse(null);
+                    }
+                    assert nextInChain != null;
+                    previousCertificate.setIssuerCertificateUuid(nextInChain.getUuid());
+                    previousCertificate.setIssuerSerialNumber(nextInChain.getSerialNumber());
+                    previousCertificate = nextInChain;
+                    ++downloadedCertificates;
+                } catch (NoSuchAlgorithmException | CertificateException e) {
+                    // Certificate downloaded from AIA cannot be parsed and inserted into inventory, so ignore the rest of chain
+                    break;
+                }
+            }
+
+            // if downloaded some certificate, try to update chain of last one, if it is really last self-signed
+            if (downloadedCertificates > 0) {
+                updateCertificateChain(previousCertificate);
+            }
+        }
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
-    //Auth is not required for methods. It is only internally used by other services to update the issuers of the certificate
-    public void updateCertificateIssuer(Certificate certificate) throws NotFoundException {
-        if (!certificate.getIssuerDn().equals(certificate.getSubjectDn())) {
-            for (Certificate issuer : certificateRepository.findBySubjectDn(certificate.getIssuerDn())) {
-                X509Certificate subCert;
-                X509Certificate issCert;
-                try {
-                    subCert = getX509(certificate.getCertificateContent().getContent());
-                    issCert = getX509(issuer.getCertificateContent().getContent());
-                } catch (Exception e) {
-                    continue;
-                }
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException {
+        Certificate certificate = getCertificateEntity(uuid);
+        return getCertificateChainInternal(certificate, withEndCertificate);
+    }
 
-                if (issuer.getIssuerSerialNumber() == null) {
-                    updateCertificateIssuer(issuer);
-                }
+    private CertificateChainResponseDto getCertificateChainInternal(Certificate certificate, boolean withEndCertificate) {
+        List<CertificateDetailDto> certificateChain = new ArrayList<>();
+        CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
+        certificateChainResponseDto.setCertificates(certificateChain);
 
-                if (verifySignature(subCert, issCert)) {
-                    try {
-                        X509Certificate issuerCert = CertificateUtil
-                                .parseCertificate(issuer.getCertificateContent().getContent());
-                        X509Certificate subjectCert = CertificateUtil
-                                .parseCertificate(certificate.getCertificateContent().getContent());
+        if (certificate.getCertificateContent() == null) {
+            return certificateChainResponseDto;
+        }
 
-                        try {
-                            subjectCert.verify(issuerCert.getPublicKey());
-                            certificate.setIssuerSerialNumber(issuer.getSerialNumber());
-                            certificateRepository.save(certificate);
-                        } catch (Exception e) {
-                            logger.debug("Error when getting the issuer");
-                        }
+        if (withEndCertificate) {
+            certificateChain.add(certificate.mapToDto());
+        }
 
-                    } catch (CertificateException e) {
-                        logger.warn("Unable to parse the issuer with subject {}", certificate.getIssuerDn());
-                    }
+        Certificate lastCertificate = constructCertificateChain(certificate, certificateChain);
+        try {
+            // if last certificate is self-signed, we presume it is root certificate and we are finished
+            if (isSelfSigned(lastCertificate)) {
+                certificateChainResponseDto.setCompleteChain(true);
+            } else {
+                // update chain and determine if its issuer was found
+                updateCertificateChain(lastCertificate);
+                if (lastCertificate.getIssuerCertificateUuid() != null) {
+                    // construct newly found certificates from chain and do the self-signed check again
+                    lastCertificate = constructCertificateChain(lastCertificate, certificateChain);
+                    certificateChainResponseDto.setCompleteChain(isSelfSigned(lastCertificate));
                 }
             }
+        } catch (CertificateException e) {
+            // If it cannot be verified whether certificate is self-signed or updateCertificateChain fails,
+            // we end certificate chain building and return partial result
+        }
+
+        return certificateChainResponseDto;
+    }
+
+    private Certificate constructCertificateChain(Certificate certificate, List<CertificateDetailDto> certificateChain) {
+        Certificate lastCertificate = certificate;
+        // Go up the certificate chain until certificate without issuer is found
+        while (lastCertificate.getIssuerCertificateUuid() != null) {
+            Certificate issuerCertificate = certificateRepository.findByUuid(lastCertificate.getIssuerCertificateUuid()).orElse(null);
+            if (issuerCertificate != null) {
+                certificateChain.add(issuerCertificate.mapToDto());
+                lastCertificate = issuerCertificate;
+            } else {
+                // If issuer certificate does not exist in the inventory, set it and issuer serial number to null
+                // and return incomplete chain
+                lastCertificate.setIssuerCertificateUuid(null);
+                lastCertificate.setIssuerSerialNumber(null);
+                certificateRepository.save(lastCertificate);
+            }
+        }
+
+        return lastCertificate;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException {
+        CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(uuid, withEndCertificate);
+        List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
+        CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = new CertificateChainDownloadResponseDto();
+        certificateChainDownloadResponseDto.setCompleteChain(certificateChainResponseDto.isCompleteChain());
+        certificateChainDownloadResponseDto.setFormat(certificateFormat);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
+        List<X509Certificate> x509CertificateChain = new ArrayList<>();
+        for (CertificateDto certificateDto : certificateChain) {
+            Certificate certificateInstance;
+            certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
+            X509Certificate x509Certificate;
+            try {
+                x509Certificate = CertificateUtil.getX509Certificate(certificateInstance.getCertificateContent().getContent());
+            } catch (CertificateException e) {
+                certificateChainDownloadResponseDto.setCompleteChain(false);
+                break;
+            }
+            if (certificateFormat == CertificateFormat.PEM) {
+                try {
+                    jcaPEMWriter.writeObject(x509Certificate);
+                    jcaPEMWriter.flush();
+                } catch (IOException e) {
+                    throw new CertificateException("Could not write certificate chain as PEM format: " + e.getMessage());
+                }
+            } else {
+                x509CertificateChain.add(x509Certificate);
+            }
+        }
+        if (certificateFormat == CertificateFormat.PKCS7) {
+            try {
+                CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
+                generator.addCertificates(new JcaCertStore(x509CertificateChain));
+                byte[] encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
+                ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
+                jcaPEMWriter.writeObject(contentInfo);
+                jcaPEMWriter.flush();
+            } catch (Exception e) {
+                throw new CertificateException("Could not write certificate chain as PKCS#7 format: " + e.getMessage());
+            }
+        }
+        certificateChainDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
+        return certificateChainDownloadResponseDto;
+    }
+
+    @Override
+    public void validate(Certificate certificate) {
+        CertificateChainResponseDto certificateChainResponse = getCertificateChainInternal(certificate, true);
+
+        CertificateValidationStatus newStatus;
+        CertificateValidationStatus oldStatus = certificate.getValidationStatus();
+        ICertificateValidator certificateValidator = getCertificateValidator(certificate.getCertificateType());
+
+        try {
+            newStatus = certificateValidator.validateCertificate(certificate, certificateChainResponse.isCompleteChain());
+        } catch (Exception e) {
+            logger.warn("Unable to validate the certificate {}: {}", certificate, e.getMessage());
+            newStatus = CertificateValidationStatus.FAILED;
+            certificate.setValidationStatus(newStatus);
+            certificateRepository.save(certificate);
+        }
+
+        if (!oldStatus.equals(CertificateValidationStatus.NOT_CHECKED) && !oldStatus.equals(newStatus)) {
+            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, newStatus);
+            try {
+                notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, newStatus, certificate.mapToListDto());
+            } catch (Exception e) {
+                logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), newStatus.getCode(), e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
+        Certificate certificate = getCertificateEntity(uuid);
+        if (certificate.getCertificateContent() != null) {
+            if (certificate.getValidationStatus() == CertificateValidationStatus.EXPIRED) {
+                updateCertificateChain(certificate);
+            } else {
+                validate(certificate);
+            }
+        }
+
+        String validationResult = certificate.getCertificateValidationResult();
+        CertificateValidationResultDto resultDto = new CertificateValidationResultDto();
+        resultDto.setResultStatus(certificate.getValidationStatus());
+        try {
+            Map<CertificateValidationCheck, CertificateValidationCheckDto> validationChecks = MetaDefinitions.deserializeValidation(validationResult);
+            resultDto.setValidationChecks(validationChecks);
+        } catch (IllegalStateException e) {
+            logger.error(e.getMessage());
+        }
+        return resultDto;
+    }
+
+    /**
+     * Check if the X.509 certificate is self-signed
+     *
+     * @param certificate entity
+     * @return true if the certificate is self-signed, false otherwise
+     * @throws CertificateException if the certificate cannot be parsed
+     */
+    private boolean isSelfSigned(Certificate certificate) throws CertificateException {
+        // we check the signature with the certificate public key
+        X509Certificate x509Certificate = getX509(certificate.getCertificateContent().getContent());
+        try {
+            x509Certificate.verify(x509Certificate.getPublicKey());
+            return true;
+        } catch (NoSuchAlgorithmException | NoSuchProviderException e) {
+            logger.debug("Unable to verify if the certificate {} is self-signed: {}", certificate.getUuid(), e.getMessage());
+            throw new CertificateException(e);
+        } catch (SignatureException | InvalidKeyException e) {
+            // if the certificate is not self-signed, the verification will fail
+            return false;
         }
     }
 
@@ -536,20 +734,15 @@ public class CertificateServiceImpl implements CertificateService {
                 throw new com.czertainly.api.exception.CertificateException(message);
             }
 
-            CertificateUtil.prepareCertificate(entity, certificate);
+            CertificateUtil.prepareIssuedCertificate(entity, certificate);
             entity.setFingerprint(fingerprint);
             entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
 
-            try {
-                downloadUploadChain(entity);
-                certValidationService.validate(entity);
-            } catch (Exception e) {
-                logger.warn("Unable to validate certificate {}, {}", entity.getUuid(), e.getMessage());
-            }
-
             certificateRepository.save(entity);
-            certificateComplianceCheck(entity);
             certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
+
+            certificateComplianceCheck(entity);
+            validate(entity);
 
             return entity;
         }
@@ -572,7 +765,7 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error("Unable to calculate sha 256 thumbprint");
         }
 
-        CertificateUtil.prepareCertificate(modal, certificate);
+        CertificateUtil.prepareIssuedCertificate(modal, certificate);
         if (modal.getKey() == null) {
             UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(modal.getPublicKeyFingerprint());
             if (keyUuid != null) modal.setKeyUuid(keyUuid);
@@ -601,24 +794,21 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
-    public CertificateDetailDto upload(UploadCertificateRequestDto request)
-            throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
-        X509Certificate certificate = CertificateUtil.parseCertificate(request.getCertificate());
+    public CertificateDetailDto upload(UploadCertificateRequestDto request) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+        X509Certificate certificate = CertificateUtil.parseUploadedCertificateContent(request.getCertificate());
         String fingerprint = CertificateUtil.getThumbprint(certificate);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
-        try {
-            downloadUploadChain(entity);
-            certValidationService.validate(entity);
-        } catch (Exception e) {
-            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
-        }
+
         attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CERTIFICATE);
         attributeService.createAttributeContent(entity.getUuid(), request.getCustomAttributes(), Resource.CERTIFICATE);
         certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
+
+        validate(entity);
+
         return entity.mapToDto();
     }
 
@@ -648,17 +838,17 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String serialNumber) {
         Certificate certificate = null;
-        CertificateStatus oldStatus = CertificateStatus.UNKNOWN;
+        CertificateValidationStatus oldStatus = CertificateValidationStatus.NOT_CHECKED;
         try {
             certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber).orElseThrow(() -> new NotFoundException(Certificate.class, serialNumber));
-            oldStatus = certificate.getStatus();
-            certificate.setStatus(CertificateStatus.REVOKED);
+            oldStatus = certificate.getValidationStatus();
+            certificate.setState(CertificateState.REVOKED);
             certificateRepository.save(certificate);
         } catch (NotFoundException e) {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
         }
         if (certificate != null) {
-            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, CertificateStatus.REVOKED);
+            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, CertificateValidationStatus.REVOKED);
         }
     }
 
@@ -713,39 +903,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
-        Certificate certificate = getCertificateEntity(uuid);
-        CertificateStatus oldStatus = certificate.getStatus();
-        if (certificate.getStatus() != CertificateStatus.NEW && certificate.getStatus() != CertificateStatus.REJECTED) {
-            updateCertificateIssuer(certificate);
-            if (certificate.getStatus() != CertificateStatus.EXPIRED) {
-                certValidationService.validate(certificate);
-            }
-        }
-
-        if (!oldStatus.equals(certificate.getStatus())) {
-            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, certificate.getStatus());
-            try {
-                notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificate.mapToListDto());
-            } catch (Exception e) {
-                logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
-            }
-        }
-
-        String validationResult = getCertificateEntity(uuid).getCertificateValidationResult();
-        try {
-            return MetaDefinitions.deserializeValidation(validationResult);
-        } catch (IllegalStateException e) {
-            logger.error(e.getMessage());
-        }
-        return new HashMap<>();
-    }
-
-    @Override
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public int updateCertificatesStatusScheduled() {
-        List<CertificateStatus> skipStatuses = List.of(CertificateStatus.NEW, CertificateStatus.REJECTED, CertificateStatus.REVOKED, CertificateStatus.EXPIRED);
+        List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
@@ -760,10 +920,14 @@ public class CertificateServiceImpl implements CertificateService {
         int certificatesUpdated = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
         for (final Certificate certificate : certificates) {
-            CertificateStatus oldStatus = certificate.getStatus();
+            CertificateValidationStatus oldStatus = certificate.getValidationStatus();
             TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
             try {
-                updateCertificateStatusScheduled(certificate);
+                validate(certificate);
+                if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) {
+                    complianceService.checkComplianceOfCertificate(certificate);
+                }
+
                 transactionManager.commit(status);
             } catch (Exception e) {
                 logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate, e.getMessage(), e);
@@ -771,12 +935,12 @@ public class CertificateServiceImpl implements CertificateService {
                 continue;
             }
 
-            if (!oldStatus.equals(certificate.getStatus())) {
-                eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, certificate.getStatus());
+            if (!oldStatus.equals(certificate.getValidationStatus())) {
+                eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, certificate.getValidationStatus());
                 try {
-                    notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificate.mapToListDto());
+                    notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getValidationStatus(), certificate.mapToListDto());
                 } catch (Exception e) {
-                    logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getStatus().getCode(), e.getMessage());
+                    logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getValidationStatus().getCode(), e.getMessage(), e);
                 }
             }
 
@@ -784,14 +948,6 @@ public class CertificateServiceImpl implements CertificateService {
         }
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificates.size());
         return certificatesUpdated;
-    }
-
-    private void updateCertificateStatusScheduled(Certificate certificate) throws ConnectorException, CertificateException, IOException {
-        updateCertificateIssuer(certificate);
-        certValidationService.validate(certificate);
-        if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) {
-            complianceService.checkComplianceOfCertificate(certificate);
-        }
     }
 
     @Override
@@ -831,32 +987,28 @@ public class CertificateServiceImpl implements CertificateService {
         setupSecurityFilter(filter);
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter);
 
-        //Compliance Mapping
-        Map<String, String> complianceMap = new HashMap<>();
-        complianceMap.put("NA", "Not Checked");
-        complianceMap.put("OK", "Compliant");
-        complianceMap.put("NOK", "Non Compliant");
-        //
         Map<String, Long> groupStat = new HashMap<>();
         Map<String, Long> raProfileStat = new HashMap<>();
         Map<String, Long> typeStat = new HashMap<>();
         Map<String, Long> keySizeStat = new HashMap<>();
         Map<String, Long> bcStat = new HashMap<>();
         Map<String, Long> expiryStat = new HashMap<>();
-        Map<String, Long> statusStat = new HashMap<>();
+        Map<String, Long> stateStat = new HashMap<>();
+        Map<String, Long> validationStatusStat = new HashMap<>();
         Map<String, Long> complianceStat = new HashMap<>();
         Date currentTime = new Date();
         for (Certificate certificate : certificates) {
-            groupStat.merge(certificate.getGroup() != null ? certificate.getGroup().getName() : "Unknown", 1L, Long::sum);
-            raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unknown", 1L, Long::sum);
-            if (!certificate.getStatus().equals(CertificateStatus.NEW) && !certificate.getStatus().equals(CertificateStatus.REJECTED)) {
-                typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+            typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+            groupStat.merge(certificate.getGroup() != null ? certificate.getGroup().getName() : "Unassigned", 1L, Long::sum);
+            raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unassigned", 1L, Long::sum);
+            if (certificate.getCertificateContent() != null) {
                 expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
                 bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
             }
             keySizeStat.merge(certificate.getKeySize().toString(), 1L, Long::sum);
-            statusStat.merge(certificate.getStatus().getCode(), 1L, Long::sum);
-            complianceStat.merge(certificate.getComplianceStatus() != null ? complianceMap.get(certificate.getComplianceStatus().getCode().toUpperCase()) : "Not Checked", 1L, Long::sum);
+            stateStat.merge(certificate.getState().getCode(), 1L, Long::sum);
+            validationStatusStat.merge(certificate.getValidationStatus().getCode(), 1L, Long::sum);
+            complianceStat.merge(certificate.getComplianceStatus().getCode(), 1L, Long::sum);
         }
         dto.setGroupStatByCertificateCount(groupStat);
         dto.setRaProfileStatByCertificateCount(raProfileStat);
@@ -864,7 +1016,8 @@ public class CertificateServiceImpl implements CertificateService {
         dto.setCertificateStatByKeySize(keySizeStat);
         dto.setCertificateStatByBasicConstraints(bcStat);
         dto.setCertificateStatByExpiry(expiryStat);
-        dto.setCertificateStatByStatus(statusStat);
+        dto.setCertificateStatByState(stateStat);
+        dto.setCertificateStatByValidationStatus(validationStatusStat);
         dto.setCertificateStatByComplianceStatus(complianceStat);
         return dto;
     }
@@ -953,8 +1106,10 @@ public class CertificateServiceImpl implements CertificateService {
         final Certificate certificate = new Certificate();
         CertificateUtil.prepareCsrObject(certificate, jcaObject);
         certificate.setKeyUuid(keyUuid);
-        certificate.setStatus(CertificateStatus.NEW);
-        certificate.setCertificateType(CertificateType.X509); // TODO: for now it is always X509
+        certificate.setState(CertificateState.REQUESTED);
+        certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
+        certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+        certificate.setCertificateType(CertificateType.X509);
         certificate.setRaProfileUuid(raProfileUuid);
         certificate.setIssueAttributes(AttributeDefinitionUtils.serializeRequestAttributes(issueAttributes));
         certificate.setSourceCertificateUuid(sourceCertificateUuid);
@@ -994,7 +1149,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setCertificateRequestUuid(certificateRequest.getUuid());
         certificateRepository.save(certificate);
 
-        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.CREATE_CSR, CertificateEventStatus.SUCCESS, "Certificate request created with the provided parameters", "");
+        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS, "Certificate request created with the provided parameters", "");
 
         logger.info("Certificate request submitted and certificate created {}", certificate);
 
@@ -1002,14 +1157,14 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public CertificateDetailDto issueNewCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException {
+    public CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        CertificateUtil.prepareCertificate(certificate, x509Cert);
+        CertificateUtil.prepareIssuedCertificate(certificate, x509Cert);
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert));
         certificate.setFingerprint(fingerprint);
         certificate.setCertificateContent(certificateContent);
@@ -1030,25 +1185,13 @@ public class CertificateServiceImpl implements CertificateService {
 
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + certificate.getRaProfile().getName(), "");
 
-        CertificateStatus oldStatus = CertificateStatus.NEW;
         // check compliance and validity of certificate
-        try {
-            certificateComplianceCheck(certificate);
-            updateCertificateIssuer(certificate);
-            certValidationService.validate(certificate);
-        } catch (Exception e) {
-            logger.warn("Unable to validate certificate {}, {}", certificate.getUuid(), e.getMessage());
-        }
-
-        CertificateDetailDto certificateDto = certificate.mapToDto();
-        if (!oldStatus.equals(certificate.getStatus())) {
-            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATUS.getCode(), CertificateEventStatus.SUCCESS.toString(), oldStatus, certificate.getStatus());
-            notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getStatus(), certificateDto);
-        }
+        certificateComplianceCheck(certificate);
+        validate(certificate);
 
         logger.info("Certificate was successfully issued. {}", certificate.getUuid());
 
-        return certificateDto;
+        return certificate.mapToDto();
     }
 
     @Override
@@ -1057,7 +1200,7 @@ public class CertificateServiceImpl implements CertificateService {
         setupSecurityFilter(filter);
 
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
-                (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.or(cb.equal(root.get("status"), CertificateStatus.VALID), cb.equal(root.get("status"), CertificateStatus.EXPIRING))));
+                (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.equal(root.get("state"), CertificateState.ISSUED), cb.or(cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID), cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING))));
         return certificates
                 .stream()
                 .filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled))
@@ -1094,7 +1237,8 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.STATUS, Arrays.stream(CertificateStatus.values()).map(CertificateStatus::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
@@ -1206,63 +1350,37 @@ public class CertificateServiceImpl implements CertificateService {
             try {
                 complianceService.checkComplianceOfCertificate(certificate);
             } catch (ConnectorException e) {
-                logger.error("Error when checking compliance");
+                logger.debug("Error when checking compliance: {}", e.getMessage());
             }
-        }
-    }
-
-    private boolean downloadUploadChain(Certificate certificate) {
-        List<String> chainCertificates = downloadChainFromAia(certificate);
-        List<Certificate> uploadedCertificate = new ArrayList<>();
-        if (chainCertificates.isEmpty()) {
-            return false;
-        }
-
-        for (String cert : chainCertificates) {
-            try {
-                uploadedCertificate.add(checkCreateCertificate(cert));
-            } catch (Exception e) {
-                logger.error("Chain already exists");
-            }
-        }
-
-        if (!uploadedCertificate.isEmpty()) {
-            try {
-                updateCertificateIssuer(certificate);
-            } catch (Exception e) {
-                logger.warn("Unable to update the issuer of the certificate {}", certificate.getSerialNumber());
-            }
-            return true;
-        } else {
-            return false;
         }
     }
 
     private List<String> downloadChainFromAia(Certificate certificate) {
         List<String> chainCertificates = new ArrayList<>();
-        String oldChainUrl = "";
         String chainUrl;
         try {
             X509Certificate certX509 = getX509(certificate.getCertificateContent().getContent());
             while (true) {
                 chainUrl = OcspUtil.getChainFromAia(certX509);
-                if (oldChainUrl.equals(chainUrl)) {
-                    break;
-                }
-                oldChainUrl = chainUrl;
                 if (chainUrl == null || chainUrl.isEmpty()) {
                     break;
                 }
                 String chainContent = downloadChain(chainUrl);
-                if (chainContent.equals("")) {
+                if (chainContent.isEmpty()) {
                     break;
                 }
+                logger.info("Certificate {} downloaded from Authority Information Access extension URL {}", certX509.getSubjectX500Principal().getName(), chainUrl);
+
                 chainCertificates.add(chainContent);
                 certX509 = getX509(chainContent);
-            }
 
+                // if self-signed, do not attempt to download itself
+                if (verifySignature(certX509, certX509)) {
+                    break;
+                }
+            }
         } catch (Exception e) {
-            logger.warn("Unable to get the chain of certificate from Authority Information Access");
+            logger.debug("Unable to get the chain of certificate {} from Authority Information Access", certificate.getUuid(), e);
         }
         return chainCertificates;
     }
@@ -1301,22 +1419,56 @@ public class CertificateServiceImpl implements CertificateService {
         return "";
     }
 
-    private void updateRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException {
+    private void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException {
         Certificate certificate = getCertificateEntity(uuid);
-        RaProfile raProfile = raProfileRepository.findByUuid(raProfileUuid)
+        RaProfile newRaProfile = raProfileRepository.findByUuid(raProfileUuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
-        String originalProfile = "undefined";
-        if (certificate.getRaProfile() != null) {
-            originalProfile = certificate.getRaProfile().getName();
+
+        RaProfile currentRaProfile = certificate.getRaProfile();
+        String currentRaProfileName = UNDEFINED_CERTIFICATE_OBJECT_NAME;
+        if (currentRaProfile != null) {
+            if (currentRaProfile.getUuid().toString().equals(raProfileUuid.toString())) {
+                return;
+            }
+            currentRaProfileName = certificate.getRaProfile().getName();
         }
-        certificate.setRaProfile(raProfile);
+
+        // identify certificate by new authority
+        CertificateIdentificationResponseDto response;
+        CertificateIdentificationRequestDto requestDto = new CertificateIdentificationRequestDto();
+        requestDto.setCertificate(certificate.getCertificateContent().getContent());
+        requestDto.setRaProfileAttributes(AttributeDefinitionUtils.getClientAttributes(newRaProfile.mapToDto().getAttributes()));
+        try {
+            response = certificateApiClient.identifyCertificate(
+                    newRaProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
+                    newRaProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
+                    requestDto);
+        } catch (ConnectorException e) {
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), "");
+            throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s", newRaProfile.getName(), certificate));
+        } catch (ValidationException e) {
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate needs to be reissued.", newRaProfile.getName()), "");
+            throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate: %s", newRaProfile.getName(), certificate));
+        }
+
+        // delete old metadata
+        if (currentRaProfile != null) {
+            metadataService.deleteConnectorMetadata(currentRaProfile.getAuthorityInstanceReference().getConnectorUuid(), certificate.getUuid(), Resource.CERTIFICATE, null, null);
+        }
+
+        // save metadata for identified certificate
+        UUID connectorUuid = newRaProfile.getAuthorityInstanceReference().getConnectorUuid();
+        metadataService.createMetadataDefinitions(connectorUuid, response.getMeta());
+        metadataService.createMetadata(connectorUuid, certificate.getUuid(), null, null, response.getMeta(), Resource.CERTIFICATE, null);
+
+        certificate.setRaProfile(newRaProfile);
         certificateRepository.save(certificate);
         try {
             complianceService.checkComplianceOfCertificate(certificate);
         } catch (ConnectorException e) {
             logger.error("Error when checking compliance:", e);
         }
-        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, originalProfile + " -> " + raProfile.getName(), "");
+        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, currentRaProfileName + " -> " + newRaProfile.getName(), "");
     }
 
     private void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
@@ -1324,7 +1476,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         Group group = groupRepository.findByUuid(groupUuid)
                 .orElseThrow(() -> new NotFoundException(Group.class, groupUuid));
-        String originalGroup = "undefined";
+        String originalGroup = UNDEFINED_CERTIFICATE_OBJECT_NAME;
         if (certificate.getGroup() != null) {
             originalGroup = certificate.getGroup().getName();
         }
@@ -1341,7 +1493,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         String originalOwner = certificate.getOwner();
         if (originalOwner == null || originalOwner.isEmpty()) {
-            originalOwner = "undefined";
+            originalOwner = UNDEFINED_CERTIFICATE_OBJECT_NAME;
         }
         UserDetailDto userDetail = userManagementApiClient.getUserDetail(ownerUuid);
         certificate.setOwner(userDetail.getUsername());
@@ -1355,16 +1507,14 @@ public class CertificateServiceImpl implements CertificateService {
         RaProfile raProfile = raProfileRepository.findByUuid(SecuredUUID.fromString(request.getRaProfileUuid()))
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            List<Certificate> batchOperationList = new ArrayList<>();
             for (String certificateUuid : request.getCertificateUuids()) {
-                Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
-                permissionEvaluator.certificate(certificate.getSecuredUuid());
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "undefined" + " -> " + raProfile.getName(), "", certificate));
-                certificate.setRaProfile(raProfile);
-                batchOperationList.add(certificate);
+                try {
+                    permissionEvaluator.certificate(SecuredUUID.fromString(certificateUuid));
+                    switchRaProfile(SecuredUUID.fromString(certificateUuid), SecuredUUID.fromString(request.getRaProfileUuid()));
+                } catch (CertificateOperationException e) {
+                    logger.warn(e.getMessage());
+                }
             }
-            certificateRepository.saveAll(batchOperationList);
-            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
         } else {
             String data = searchService.createCriteriaBuilderString(filter, false);
             if (!data.equals("")) {
@@ -1387,7 +1537,7 @@ public class CertificateServiceImpl implements CertificateService {
             for (String certificateUuid : request.getCertificateUuids()) {
                 Certificate certificate = getCertificateEntity(SecuredUUID.fromString(certificateUuid));
                 permissionEvaluator.certificate(certificate.getSecuredUuid());
-                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : "undefined" + " -> " + group.getName(), "", certificate));
+                batchHistoryOperationList.add(certificateEventHistoryService.getEventHistory(CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, certificate.getGroup() != null ? certificate.getGroup().getName() : UNDEFINED_CERTIFICATE_OBJECT_NAME + " -> " + group.getName(), "", certificate));
                 certificate.setGroup(group);
                 batchOperationList.add(certificate);
             }
@@ -1450,5 +1600,13 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void setupSecurityFilter(SecurityFilter filter) {
         filter.setParentRefProperty("raProfileUuid");
+    }
+
+    private ICertificateValidator getCertificateValidator(CertificateType certificateType) {
+        ICertificateValidator certificateValidator = certificateValidatorMap.get(certificateType.getCode());
+        if (certificateValidator == null) {
+            throw new ValidationException("Unsupported certificate type validator for certificate type " + certificateType.getLabel());
+        }
+        return certificateValidator;
     }
 }

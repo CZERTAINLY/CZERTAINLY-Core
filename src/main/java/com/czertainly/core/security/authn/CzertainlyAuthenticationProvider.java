@@ -28,15 +28,15 @@ public class CzertainlyAuthenticationProvider implements AuthenticationProvider 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         CzertainlyAuthenticationRequest authRequest = (CzertainlyAuthenticationRequest) authentication;
-        logger.debug("Going to authenticate users against the Czertainly Authentication Service.");
+        logger.trace("Going to authenticate users against the Czertainly Authentication Service.");
         AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders());
 
         if(authInfo.isAnonymous()) {
-            logger.debug(String.format("User not identified, using anonymous."));
+            logger.trace(String.format("User not identified, using anonymous."));
             return new AnonymousAuthenticationToken(UUID.randomUUID().toString(), new CzertainlyUserDetails(authInfo), authInfo.getAuthorities());
         }
 
-        logger.debug(String.format("User has been successfully authenticated as '%s'.", authInfo.getUsername()));
+        logger.trace(String.format("User has been successfully authenticated as '%s'.", authInfo.getUsername()));
         return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
     }
 

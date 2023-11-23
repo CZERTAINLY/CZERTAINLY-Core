@@ -19,7 +19,7 @@ import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
@@ -32,9 +32,11 @@ import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.CertificateLocationRepository;
+import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -46,8 +48,6 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -65,7 +65,6 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -76,7 +75,6 @@ public class LocationServiceImpl implements LocationService {
     private LocationRepository locationRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private CertificateLocationRepository certificateLocationRepository;
-    private AttributeContentRepository attributeContentRepository;
     private RaProfileRepository raProfileRepository;
     private EntityInstanceApiClient entityInstanceApiClient;
     private LocationApiClient locationApiClient;
@@ -86,14 +84,6 @@ public class LocationServiceImpl implements LocationService {
     private MetadataService metadataService;
     private AttributeService attributeService;
     private PermissionEvaluator permissionEvaluator;
-
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    @Autowired
-    public void setAttributeContentRepository(AttributeContentRepository attributeContentRepository) {
-        this.attributeContentRepository = attributeContentRepository;
-    }
 
     @Autowired
     public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
@@ -163,15 +153,8 @@ public class LocationServiceImpl implements LocationService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final List<UUID> objectUUIDs = new ArrayList<>();
-        if (!request.getFilters().isEmpty()) {
-            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
-            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
-            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
-
-            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.LOCATION);
-            objectUUIDs.addAll(locationRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
-        }
+        // filter locations based on attribute filters
+        final List<UUID> objectUUIDs = attributeService.getResourceObjectUuidsByFilters(Resource.LOCATION, filter, request.getFilters());
 
         final BiFunction<Root<Location>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
@@ -278,17 +261,6 @@ public class LocationServiceImpl implements LocationService {
     public void deleteLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
-
-        List<ValidationError> errors = new ArrayList<>();
-        if (!location.getCertificates().isEmpty()) {
-            errors.add(ValidationError.create("Location {} contains {} Certificate", location.getName(),
-                    location.getCertificates().size()));
-            location.getCertificates().forEach(c -> errors.add(ValidationError.create(c.getCertificate().getUuid().toString())));
-        }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete Location", errors);
-        }
 
         certificateLocationRepository.deleteAll(location.getCertificates());
         attributeService.deleteAttributeContent(location.getUuid(), Resource.LOCATION);
@@ -495,7 +467,7 @@ public class LocationServiceImpl implements LocationService {
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
-        if (certificate.getStatus().equals(CertificateStatus.REJECTED)) {
+        if (certificate.getState().equals(CertificateState.REJECTED)) {
             throw new ValidationException(ValidationError.create(String.format("Cannot push rejected certificate %s to location %s", certificate, location.getName())));
         }
 
@@ -516,7 +488,8 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Location " + location.getName() + " does not support multiple entries");
         }
 
-        if (certificate.getStatus().equals(CertificateStatus.NEW)) {
+        // not yet issued certificate
+        if (certificate.getCertificateContent() == null) {
             addCertificateToLocation(location, certificate, request.getAttributes(), List.of(), List.of());
             logger.info("Certificate {} is added to location {} and prepared to be pushed after issue", certificate, location.getName());
         } else {
@@ -532,7 +505,7 @@ public class LocationServiceImpl implements LocationService {
         return dto;
     }
 
-    public void pushNewCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException {
+    public void pushRequestedCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException {
         CertificateLocation certificateLocation = certificateLocationRepository.findById(certificateLocationId).orElseThrow(() -> new NotFoundException(CertificateLocation.class, certificateLocationId));
         Certificate certificate = certificateLocation.getCertificate();
         Location location = certificateLocation.getLocation();
@@ -1213,18 +1186,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-
-        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
-        if (!metadataSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
-        }
-
-        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
-        if (!customAttrSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
-        }
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeService.getResourceSearchableFieldInformation(Resource.LOCATION);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_NAME),
@@ -1234,20 +1196,12 @@ public class LocationServiceImpl implements LocationService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_KEY_MANAGEMENT)
         );
 
-        fields = fields.stream().collect(Collectors.toList());
+        fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
 
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
-    }
-
-    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.LOCATION, AttributeType.META);
-    }
-
-    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.LOCATION, AttributeType.CUSTOM);
     }
 }

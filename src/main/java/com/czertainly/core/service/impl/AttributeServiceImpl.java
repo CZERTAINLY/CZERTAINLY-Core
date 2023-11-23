@@ -15,12 +15,15 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -29,12 +32,17 @@ import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
 import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.dao.repository.AttributeRelationRepository;
+import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -67,6 +75,9 @@ public class AttributeServiceImpl implements AttributeService {
             Resource.TOKEN_PROFILE,
             Resource.CRYPTOGRAPHIC_KEY
     );
+
+    @PersistenceContext
+    private EntityManager entityManager;
     private AttributeDefinitionRepository attributeDefinitionRepository;
     private AttributeRelationRepository attributeRelationRepository;
     private AttributeContentRepository attributeContentRepository;
@@ -95,9 +106,9 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
     public List<CustomAttributeDefinitionDto> listAttributes(AttributeContentType attributeContentType) {
-        logger.info("Fetching custom attributes");
+        logger.debug("Fetching custom attributes");
 
-        List<AttributeDefinition> customAttributes = attributeContentType == null ? attributeDefinitionRepository.findByType(AttributeType.CUSTOM):
+        List<AttributeDefinition> customAttributes = attributeContentType == null ? attributeDefinitionRepository.findByType(AttributeType.CUSTOM) :
                 attributeDefinitionRepository.findByTypeAndContentType(AttributeType.CUSTOM, attributeContentType);
 
         return customAttributes.stream().map(e -> {
@@ -110,7 +121,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
     public List<AttributeDefinitionDto> listGlobalMetadata(SecurityFilter filter) {
-        logger.info("Fetching global metadata");
+        logger.debug("Fetching global metadata");
         return attributeDefinitionRepository.findUsingSecurityFilter(filter,
                 (root, cb) -> cb.and(
                         cb.equal(root.get("type"), AttributeType.META),
@@ -121,7 +132,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
     public CustomAttributeDefinitionDetailDto getAttribute(SecuredUUID uuid) throws NotFoundException {
-        logger.info("Fetching attributes for attribute with UUID: {}", uuid.toString());
+        logger.debug("Fetching attributes for attribute with UUID: {}", uuid.toString());
         CustomAttributeDefinitionDetailDto dto = getAttributeDefinition(uuid, AttributeType.CUSTOM).mapToCustomAttributeDefinitionDetailDto();
         dto.setResources(attributeRelationRepository.findByAttributeDefinitionUuid(uuid.getValue()).stream().map(AttributeRelation::getResource).collect(Collectors.toList()));
         logger.debug("Attribute Definition Detail: {}", dto);
@@ -131,7 +142,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
     public GlobalMetadataDefinitionDetailDto getGlobalMetadata(SecuredUUID uuid) throws NotFoundException {
-        logger.info("Fetching global metadata for UUID: {}", uuid.toString());
+        logger.debug("Fetching global metadata for UUID: {}", uuid.toString());
         GlobalMetadataDefinitionDetailDto dto = getAttributeDefinition(uuid, AttributeType.META).mapToGlobalMetadataDefinitionDetailDto();
         logger.debug("Attribute Definition Detail: {}", dto);
         return dto;
@@ -154,7 +165,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
     public CustomAttributeDefinitionDetailDto editAttribute(SecuredUUID uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException {
-        logger.info("Update attribute with uuid: {}, request: {}", uuid.toString(), request);
+        logger.debug("Update attribute with uuid: {}, request: {}", uuid.toString(), request);
         CustomAttributeDefinitionDetailDto dto = editAttributeEntity(uuid, request).mapToCustomAttributeDefinitionDetailDto();
         dto.setResources(attributeRelationRepository.findByAttributeDefinitionUuid(uuid.getValue()).stream().map(AttributeRelation::getResource).collect(Collectors.toList()));
         logger.debug("Attribute Definition Updated: {}", dto);
@@ -164,7 +175,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
     public GlobalMetadataDefinitionDetailDto editGlobalMetadata(SecuredUUID uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException {
-        logger.info("Update global metadata with uuid: {}, request: {}", uuid.toString(), request);
+        logger.debug("Update global metadata with uuid: {}, request: {}", uuid.toString(), request);
         GlobalMetadataDefinitionDetailDto dto = editGlobalMetadataEntity(uuid, request).mapToGlobalMetadataDefinitionDetailDto();
         return dto;
     }
@@ -173,21 +184,21 @@ public class AttributeServiceImpl implements AttributeService {
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DELETE)
     public void deleteAttribute(SecuredUUID uuid, AttributeType type) throws NotFoundException {
         deleteAttributeDefinition(uuid, type);
-        logger.info("Attribute with uuid {} deleted", uuid);
+        logger.debug("Attribute with uuid {} deleted", uuid);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.ENABLE)
     public void enableAttribute(SecuredUUID uuid, AttributeType type) throws NotFoundException {
         enableAttributeDefinition(uuid, type);
-        logger.info("Attribute with uuid {} enabled", uuid);
+        logger.debug("Attribute with uuid {} enabled", uuid);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.ENABLE)
     public void disableAttribute(SecuredUUID uuid, AttributeType type) throws NotFoundException {
         disableAttributeDefinition(uuid, type);
-        logger.info("Attribute with uuid {} disabled", uuid);
+        logger.debug("Attribute with uuid {} disabled", uuid);
     }
 
     @Override
@@ -257,7 +268,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public void validateCustomAttributes(List<RequestAttributeDto> attributes, Resource resource) throws ValidationException {
-        logger.info("Validating custom attributes: {}", attributes);
+        logger.debug("Validating custom attributes: {}", attributes);
         List<BaseAttribute> definitions = getResourceAttributes(resource);
         if (definitions.size() == 0 && attributes == null) {
             return;
@@ -284,7 +295,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public void updateAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) {
-        logger.info("Updating the content of {} with UUID: {}", resource, objectUuid);
+        logger.debug("Updating the content of {} with UUID: {}", resource, objectUuid);
         deleteAttributeContent(objectUuid, attributes, resource);
         createAttributeContent(objectUuid, attributes, resource);
     }
@@ -322,7 +333,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public void deleteAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) {
-        logger.info("Deleting the content of the custom attribute for {} with UUID: {}", resource, objectUuid);
+        logger.debug("Deleting the content of the custom attribute for {} with UUID: {}", resource, objectUuid);
         if (attributes == null) {
             return;
         }
@@ -340,7 +351,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public void deleteAttributeContent(UUID objectUuid, Resource resource) {
-        logger.info("Deleting the attribute content for: {} with UUID: {}", resource, objectUuid);
+        logger.debug("Deleting the attribute content for: {} with UUID: {}", resource, objectUuid);
         for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectType(objectUuid, resource)) {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
             if (definition.getType().equals(AttributeType.CUSTOM)) {
@@ -354,7 +365,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public void deleteAttributeContent(UUID objectUuid, Resource resource, UUID parentObjectUuid, Resource parentResource, AttributeType type) {
-        logger.info("Deleting the attribute content for: {} with UUID: {}, Parent UUID: {}, Parent Resource: {}", resource, objectUuid, parentObjectUuid, parentResource);
+        logger.debug("Deleting the attribute content for: {} with UUID: {}, Parent UUID: {}, Parent Resource: {}", resource, objectUuid, parentObjectUuid, parentResource);
         for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectTypeAndSourceObjectUuidAndSourceObjectType(objectUuid, resource, parentObjectUuid, parentResource)) {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
             if (definition.getType().equals(type)) {
@@ -368,7 +379,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public List<ResponseAttributeDto> getCustomAttributesWithValues(UUID uuid, Resource resource) {
-        logger.info("Getting the custom attributes for {} with UUID: {}", resource.getCode(), uuid);
+        logger.debug("Getting the custom attributes for {} with UUID: {}", resource.getCode(), uuid);
         List<CustomAttribute> attributes = new ArrayList<>();
         for (AttributeContent2Object object : attributeContent2ObjectRepository.findByObjectUuidAndObjectTypeOrderByAttributeContentAttributeDefinitionAttributeName(uuid, resource)) {
             AttributeDefinition definition = object.getAttributeContent().getAttributeDefinition();
@@ -384,7 +395,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public List<Resource> getResources() {
-        logger.info("Getting the list of available resources available for the custom attribute association");
+        logger.debug("Getting the list of available resources available for the custom attribute association");
         return CUSTOM_ATTRIBUTE_COMPLIANT_RESOURCES;
     }
 
@@ -489,8 +500,36 @@ public class AttributeServiceImpl implements AttributeService {
         return null;
     }
 
+    @Override
+    public List<SearchFieldDataByGroupDto> getResourceSearchableFieldInformation(Resource resource) {
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
+        final List<SearchFieldObject> metadataSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.META));
+        if (!metadataSearchFieldObject.isEmpty()) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
+        }
+
+        final List<SearchFieldObject> customAttrSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.CUSTOM));
+        if (!customAttrSearchFieldObject.isEmpty()) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
+        }
+
+        return searchFieldDataByGroupDtos;
+    }
+
+    @Override
+    public List<UUID> getResourceObjectUuidsByFilters(Resource resource, SecurityFilter securityFilter, List<SearchFilterRequestDto> searchFilters) {
+        List<SearchFilterRequestDto> attributesFilters;
+        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getSearchGroup() == SearchGroup.CUSTOM || f.getSearchGroup() == SearchGroup.META).toList()).isEmpty()) {
+            return null;
+        }
+
+        final List<SearchFieldObject> searchFieldObjects = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.CUSTOM, AttributeType.META));
+        final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, attributesFilters, entityManager.getCriteriaBuilder(), resource);
+        return attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(securityFilter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate());
+    }
+
     private void createAttributeContent(final UUID objectUuid, final String attributeName, final List<BaseAttributeContent> baseAttributeContentList, final Resource resource) {
-        logger.info("Creating the attribute content for: {} with UUID: {}", resource, objectUuid);
+        logger.debug("Creating the attribute content for: {} with UUID: {}", resource, objectUuid);
         final AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndAttributeName(AttributeType.CUSTOM, attributeName).orElse(null);
         if (definition == null) {
             logger.warn("Custom attribute with name '" + attributeName + "' does not exist");
@@ -673,7 +712,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     private void validateAttributeCreation(CustomAttributeCreateRequestDto request, AttributeType type) throws AlreadyExistException {
         //Check if the attribute name already exists
-        logger.info("Validating {} Attributes: {}", type, request);
+        logger.debug("Validating {} Attributes: {}", type, request);
         if (attributeDefinitionRepository.existsByTypeAndAttributeName(type, request.getName())) {
             throw new AlreadyExistException("Custom Attribute with same name already exists");
         }
@@ -693,7 +732,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     private void validateGlobalMetadataCreation(GlobalMetadataCreateRequestDto request, AttributeType type) throws AlreadyExistException {
         //Check if the Global Metadata name already exists
-        logger.info("Validating {} Attributes: {}", type, request);
+        logger.debug("Validating {} Attributes: {}", type, request);
         if (attributeDefinitionRepository.existsByTypeAndAttributeName(type, request.getName())) {
             throw new AlreadyExistException("Global Metadata with same name already exists");
         }
@@ -712,19 +751,19 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     private void deleteAttributeDefinition(SecuredUUID attributeUuid, AttributeType type) throws NotFoundException {
-        logger.info("Deleting the attribute for: {} with UUID: {}", type, attributeUuid);
+        logger.debug("Deleting the attribute for: {} with UUID: {}", type, attributeUuid);
         attributeDefinitionRepository.delete(getAttributeDefinition(attributeUuid, type));
     }
 
     private void disableAttributeDefinition(SecuredUUID attributeUuid, AttributeType type) throws NotFoundException {
-        logger.info("Disabled the attribute for: {} with UUID: {}", type, attributeUuid);
+        logger.debug("Disabled the attribute for: {} with UUID: {}", type, attributeUuid);
         AttributeDefinition attributeDefinition = getAttributeDefinition(attributeUuid, type);
         attributeDefinition.setEnabled(false);
         attributeDefinitionRepository.save(attributeDefinition);
     }
 
     private void enableAttributeDefinition(SecuredUUID attributeUuid, AttributeType type) throws NotFoundException {
-        logger.info("Enable the attribute for: {} with UUID: {}", type, attributeUuid);
+        logger.debug("Enable the attribute for: {} with UUID: {}", type, attributeUuid);
         AttributeDefinition attributeDefinition = getAttributeDefinition(attributeUuid, type);
         attributeDefinition.setEnabled(true);
         attributeDefinitionRepository.save(attributeDefinition);

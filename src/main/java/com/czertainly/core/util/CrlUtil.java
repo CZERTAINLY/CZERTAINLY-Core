@@ -15,19 +15,17 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.GeneralSecurityException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509CRL;
-import java.security.cert.X509CRLEntry;
-import java.security.cert.X509Certificate;
+import java.security.cert.*;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 
 public class CrlUtil {
     private static final Logger logger = LoggerFactory.getLogger(CrlUtil.class);
@@ -38,8 +36,6 @@ public class CrlUtil {
     }
 
     public static List<String> getCDPFromCertificate(X509Certificate certificate) throws IOException {
-        logger.info("Obtaining the OCSP Url from the certificate");
-
         byte[] crlDistributionPointDerEncodedArray = certificate
                 .getExtensionValue(Extension.cRLDistributionPoints.getId());
         if (crlDistributionPointDerEncodedArray == null) {
@@ -59,7 +55,7 @@ public class CrlUtil {
 
         oAsnInStream2.close();
 
-        List<String> crlUrls = new ArrayList<String>();
+        List<String> crlUrls = new ArrayList<>();
         for (DistributionPoint dp : distPoint.getDistributionPoints()) {
             DistributionPointName dpn = dp.getDistributionPoint();
             // Look for URIs in fullName
@@ -74,33 +70,30 @@ public class CrlUtil {
                 }
             }
         }
-        logger.debug("Obtained CRL Urls for the certificate");
         return crlUrls;
     }
 
-    public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, GeneralSecurityException, TimeoutException {
-        logger.debug("Initiating CRL check for {}", certificate.getSubjectDN());
-        logger.debug("CRL URL is {}", crlUrl);
+    public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, CertificateException, CRLException {
         X509CRL crl;
         URL url = new URL(crlUrl);
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
         CertificateFactory cf = CertificateFactory.getInstance("X509");
+
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
             crl = (X509CRL) cf.generateCRL(inStream);
+        } catch (FileNotFoundException e) {
+            throw new CertificateException("File " + e.getMessage() + " not found");
         }
-        logger.debug("Completed CRL check for {}", certificate.getSubjectDN());
         X509CRLEntry crlCertificate = crl.getRevokedCertificate(certificate.getSerialNumber());
         if (crlCertificate == null) {
-            return "";
+            return null;
         } else {
-            DateFormat dateFormat = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");
+            DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
             String strDate = dateFormat.format(crlCertificate.getRevocationDate());
-            if (crlCertificate.getRevocationReason() != null) {
-                return crlCertificate.getRevocationReason().toString() + "=" + strDate;
-            } else {
-                return "Unspecified=" + strDate;
-            }
+            String reason = crlCertificate.getRevocationReason() != null ? crlCertificate.getRevocationReason().toString() : "Unspecified";
+
+            return String.format("Reason: %s. Date: %s", reason, strDate);
         }
     }
 }

@@ -9,7 +9,6 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
@@ -29,11 +28,13 @@ import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
+import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
-import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -41,8 +42,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -58,7 +57,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -87,19 +85,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
     @Autowired
-    private CertValidationService certValidationService;
-    @Autowired
     private MetadataService metadataService;
     @Autowired
     private AttributeService attributeService;
     @Autowired
-    private AttributeContentRepository attributeContentRepository;
-
-    @Autowired
     private NotificationProducer notificationProducer;
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
@@ -109,21 +99,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final List<UUID> objectUUIDs = new ArrayList<>();
-        if (!request.getFilters().isEmpty()) {
-            final List<SearchFieldObject> searchFieldObjects = new ArrayList<>();
-            searchFieldObjects.addAll(getSearchFieldObjectForMetadata());
-            searchFieldObjects.addAll(getSearchFieldObjectForCustomAttributes());
-
-            final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, request.getFilters(), entityManager.getCriteriaBuilder(), Resource.DISCOVERY);
-            objectUUIDs.addAll(discoveryRepository.findUsingSecurityFilterByCustomCriteriaQuery(filter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate()));
-        }
+        // filter discoveries based on attribute filters
+        final List<UUID> objectUUIDs = attributeService.getResourceObjectUuidsByFilters(Resource.DISCOVERY, filter, request.getFilters());
 
         final BiFunction<Root<DiscoveryHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
-                .map(DiscoveryHistory::mapToListDto)
-                .collect(Collectors.toList());
+                .map(DiscoveryHistory::mapToListDto).toList();
         final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final DiscoveryResponseDto responseDto = new DiscoveryResponseDto();
@@ -167,7 +149,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
 
         final DiscoveryCertificateResponseDto responseDto = new DiscoveryCertificateResponseDto();
-        responseDto.setCertificates(certificates.stream().map(DiscoveryCertificate::mapToDto).collect(Collectors.toList()));
+        responseDto.setCertificates(certificates.stream().map(DiscoveryCertificate::mapToDto).toList());
         responseDto.setItemsPerPage(itemsPerPage);
         responseDto.setPageNumber(pageNumber);
         responseDto.setTotalItems(maxItems);
@@ -256,7 +238,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             dtoRequest.setKind(modal.getKind());
 
             // Load complete credential data
-            final List<DataAttribute> dataAttributeList = AttributeDefinitionUtils.deserialize(modal.getAttributes().toString(), DataAttribute.class);
+            final List<DataAttribute> dataAttributeList = AttributeDefinitionUtils.deserialize(modal.getAttributes(), DataAttribute.class);
             credentialService.loadFullCredentialData(dataAttributeList);
             dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributeList));
 
@@ -306,7 +288,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
                     updateDiscovery(modal, response);
-                    logger.error("Too many content in response. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
+                    logger.error("Too many content in response. Maximum processable is {}.", MAXIMUM_CERTIFICATES_PER_PAGE);
                     throw new InterruptedException(
                             "Too many content in response to process. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
                 }
@@ -318,7 +300,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             updateDiscovery(modal, response);
             List<Certificate> certificates = updateCertificates(certificatesDiscovered, modal);
-            certValidationService.validateCertificates(certificates);
+
+            for (Certificate certificate: certificates) {
+                certificateService.validate(certificate);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             modal.setStatus(DiscoveryStatus.FAILED);
@@ -417,20 +402,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 );
             } catch (Exception e) {
                 logger.error(e.getMessage());
-                logger.error("Unable to create certificate for " + modal.toString());
+                logger.error("Unable to create certificate for {}", modal);
             }
         }
         return allCerts;
-    }
-
-    private void updateCertificateIssuers(List<Certificate> certificates) {
-        for (Certificate certificate : certificates) {
-            try {
-                certificateService.updateCertificateIssuer(certificate);
-            } catch (NotFoundException e) {
-                logger.warn("Unable to update the issuer for certificate {}", certificate.getSerialNumber());
-            }
-        }
     }
 
     private void createDiscoveryCertificate(Certificate entry, DiscoveryHistory modal, boolean newlyDiscovered) {
@@ -453,7 +428,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return null;
+        return Collections.emptyList();
     }
 
     @Override
@@ -464,22 +439,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-
-        final List<SearchFieldObject> metadataSearchFieldObject = getSearchFieldObjectForMetadata();
-        if (metadataSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
-        }
-
-        final List<SearchFieldObject> customAttrSearchFieldObject = getSearchFieldObjectForCustomAttributes();
-        if (customAttrSearchFieldObject.size() > 0) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
-        }
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeService.getResourceSearchableFieldInformation(Resource.DISCOVERY);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_STATUS, Arrays.stream(DiscoveryStatus.values()).map(DiscoveryStatus::getCode).collect(Collectors.toList())),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_STATUS, Arrays.stream(DiscoveryStatus.values()).map(DiscoveryStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.START_TIME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.END_TIME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.TOTAL_CERT_DISCOVERED),
@@ -487,7 +451,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KIND)
         );
 
-        fields = fields.stream().collect(Collectors.toList());
+        fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
 
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
@@ -495,13 +459,4 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
     }
-
-    private List<SearchFieldObject> getSearchFieldObjectForMetadata() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.DISCOVERY, AttributeType.META);
-    }
-
-    private List<SearchFieldObject> getSearchFieldObjectForCustomAttributes() {
-        return attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(Resource.DISCOVERY, AttributeType.CUSTOM);
-    }
-
 }

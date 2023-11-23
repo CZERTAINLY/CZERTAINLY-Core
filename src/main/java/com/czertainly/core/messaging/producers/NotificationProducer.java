@@ -8,7 +8,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -54,14 +54,18 @@ public class NotificationProducer {
         produceMessage(new NotificationMessage(type, resource, resourceUUID, recipients, data));
     }
 
-    public void produceNotificationCertificateStatusChanged(CertificateStatus oldStatus, CertificateStatus newStatus, CertificateDto certificateDto) {
+    public void produceNotificationCertificateStatusChanged(CertificateValidationStatus oldStatus, CertificateValidationStatus newStatus, CertificateDto certificateDto) {
+        if (certificateDto.getOwnerUuid() == null && certificateDto.getGroup() == null) {
+            return;
+        }
+
         logger.debug("Sending notification of status change. Certificate: {}", certificateDto.getUuid());
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_STATUS_CHANGED,
                 Resource.CERTIFICATE,
                 UUID.fromString(certificateDto.getUuid()),
                 NotificationRecipient.buildUserOrGroupNotificationRecipient(UUID.fromString(certificateDto.getOwnerUuid()), certificateDto.getGroup() != null ? UUID.fromString(certificateDto.getGroup().getUuid()) : null),
                 certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn())
-                : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
+                        : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
     }
 
     public void produceNotificationCertificateActionPerformed(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, CertificateDto certificateDto, String action, String errorMessage) {
@@ -111,16 +115,14 @@ public class NotificationProducer {
         try {
             UserProfileDto userProfileDto = AuthHelper.getUserProfile();
             if (userProfileDto.getUser().getUuid().equals(creatorUuid)) return userProfileDto.getUser().getUsername();
-        }
-        catch (ValidationException e) {
+        } catch (ValidationException e) {
             // anonymous user, retrieve user details
         }
 
         try {
             UserDetailDto userDetailDto = userManagementApiClient.getUserDetail(creatorUuid);
             return userDetailDto.getUsername();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             // in case Auth service call fails, return just creator UUID
             // TODO: mostly problem in tests, need mock of Auth service in tests scope
             return creatorUuid;

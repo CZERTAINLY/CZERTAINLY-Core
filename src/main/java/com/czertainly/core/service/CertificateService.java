@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -23,7 +24,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 public interface CertificateService extends ResourceExtensionService  {
@@ -40,7 +40,8 @@ public interface CertificateService extends ResourceExtensionService  {
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException;
 
-    Certificate getCertificateEntityByIssuerDnAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
+
+    Certificate getCertificateEntityByIssuerDnNormalizedAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
 
     Boolean checkCertificateExistsByFingerprint(String fingerprint);
 
@@ -48,7 +49,20 @@ public interface CertificateService extends ResourceExtensionService  {
 
     Certificate createCertificateEntity(X509Certificate certificate);
 
-    void updateCertificateIssuer(Certificate certificate) throws NotFoundException;
+    CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException;
+
+    CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException;
+
+    /**
+     * Function to get the validation result of the certificate
+     *
+     * @param uuid UUID of the certificate
+     * @return Certificate Validation result
+     * @throws NotFoundException
+     */
+    CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException;
+
+    void validate(Certificate certificate);
 
     /**
      * Creates the Certificate entity
@@ -115,7 +129,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param uuid    UUID of the certificate
      * @param request Request for the certificate objects update
      */
-    void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException;
+    void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException;
 
     /**
      * Method to update the Objects of multiple certificates
@@ -123,15 +137,6 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param request Request to update multiple objects
      */
     void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException;
-
-    /**
-     * Function to get the validation result of the certificate
-     *
-     * @param uuid UUID of the certificate
-     * @return Certificate Validation result
-     * @throws NotFoundException
-     */
-    Map<String, CertificateValidationDto> getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
     /**
      * Function to update status of certificates by scheduled event
@@ -238,7 +243,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param meta Metadata of the certificate
      * @return Certificate detail DTO
      */
-    CertificateDetailDto issueNewCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException;
+    CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException;
 
     /**
      * List certificates eligible for CA certificate of SCEP requests

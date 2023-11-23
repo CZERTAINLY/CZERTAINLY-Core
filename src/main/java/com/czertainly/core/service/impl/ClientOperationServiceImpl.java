@@ -33,7 +33,6 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.CertValidationService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -63,8 +62,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CertificateApiClient certificateApiClient;
     @Autowired
     private CertificateService certificateService;
-    @Autowired
-    private CertValidationService certValidationService;
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
@@ -85,18 +82,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         Certificate certificate = certificateService.checkCreateCertificate(caResponse.getCertificateData());
         logger.info("Certificate Created. Adding the certificate to Inventory");
-
-        CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
-        dto.setRaProfileUuid(raProfile.getUuid().toString());
         logger.debug("UUID of the certificate is {}", certificate.getUuid());
         logger.debug("UUID of the RA Profile is {}", raProfile.getUuid());
-        certificateService.updateCertificateObjects(SecuredUUID.fromString(certificate.getUuid().toString()), dto);
-        certificateService.updateCertificateIssuer(certificate);
-        try {
-            certValidationService.validate(certificate);
-        } catch (Exception e) {
-            logger.warn("Unable to validate the uploaded certificate, {}", e.getMessage());
-        }
+
+        certificate.setRaProfile(raProfile);
+        certificateService.validate(certificate);
 
         ClientCertificateSignResponseDto response = new ClientCertificateSignResponseDto();
         response.setCertificateData(caResponse.getCertificateData());
