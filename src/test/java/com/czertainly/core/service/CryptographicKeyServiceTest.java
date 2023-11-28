@@ -167,7 +167,6 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         KeyRequestDto request = new KeyRequestDto();
         request.setName("testRaProfile2");
         request.setDescription("sampleDescription");
-        request.setOwner("owner");
         request.setAttributes(List.of());
 
         KeyDetailDto dto = cryptographicKeyService.createKey(
@@ -178,7 +177,6 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
-        Assertions.assertEquals(dto.getOwner(), request.getOwner());
         Assertions.assertEquals(2, dto.getItems().size());
     }
 
@@ -368,7 +366,6 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateKey() throws NotFoundException {
         EditKeyRequestDto request = new EditKeyRequestDto();
-        request.setOwner("updated");
         request.setName("updatedName");
         request.setDescription("updatedDescription");
 
@@ -379,7 +376,6 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         Assertions.assertEquals(request.getName(), key.getName());
         Assertions.assertEquals(request.getDescription(), key.getDescription());
-        Assertions.assertEquals(request.getOwner(), key.getOwner());
     }
 
     @Test

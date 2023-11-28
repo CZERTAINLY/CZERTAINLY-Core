@@ -85,8 +85,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     public ScepProfileDto mapToDto() {
         ScepProfileDto scepProfileDto = new ScepProfileDto();
         if(raProfile != null) {
-            scepProfileDto.setRaProfileName(raProfile.getName());
-            scepProfileDto.setRaProfileUuid(raProfile.getUuid().toString());
+            scepProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
             scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
@@ -104,7 +103,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     public ScepProfileDetailDto mapToDetailDto() {
         ScepProfileDetailDto scepProfileDto = new ScepProfileDetailDto();
         if(raProfile != null) {
-            scepProfileDto.setRaProfile(raProfile.mapToDto());
+            scepProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
         }
         scepProfileDto.setDescription(description);
         scepProfileDto.setEnabled(isEnabled);

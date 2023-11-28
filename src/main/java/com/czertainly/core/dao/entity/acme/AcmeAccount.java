@@ -84,8 +84,7 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
             account.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         }
         if(raProfile != null) {
-            account.setRaProfileName(raProfile.getName());
-            account.setRaProfileUuid(raProfile.getUuid().toString());
+            account.setRaProfile(raProfile.mapToDtoSimplified());
         }
         account.setSuccessfulOrders(orders.stream()
                 .filter(acmeOrder -> acmeOrder.getStatus()
@@ -124,7 +123,7 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
             account.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         }
         if(raProfile != null) {
-            account.setRaProfileName(raProfile.getName());
+            account.setRaProfile(raProfile.mapToDtoSimplified());
         }
         account.setStatus(status);
         account.setTotalOrders(orders.size());
