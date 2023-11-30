@@ -932,11 +932,10 @@ public class CertificateServiceImpl implements CertificateService {
         int certificatesUpdated = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
         for (final Certificate certificate : certificates) {
-            CertificateValidationStatus oldStatus = certificate.getValidationStatus();
             TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
             try {
                 validate(certificate);
-                if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == null) {
+                if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == ComplianceStatus.NOT_CHECKED) {
                     complianceService.checkComplianceOfCertificate(certificate);
                 }
 
