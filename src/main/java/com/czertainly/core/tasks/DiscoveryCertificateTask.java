@@ -36,7 +36,7 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
 
     private ObjectMapper mapper = new ObjectMapper();
 
-    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmm");
+    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss.FFF");
 
     @Autowired
     public void setDiscoveryService(DiscoveryService discoveryService) {
