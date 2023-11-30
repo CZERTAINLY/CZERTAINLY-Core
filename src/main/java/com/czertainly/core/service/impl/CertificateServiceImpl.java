@@ -316,6 +316,17 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getOwnerUuid() != null) {
             updateOwner(uuid, request.getOwnerUuid());
         }
+        if (request.getTrustedCa() != null) {
+            updateTrustedCaMark(uuid, request.getTrustedCa());
+        }
+    }
+
+    private void updateTrustedCaMark(SecuredUUID uuid, Boolean trustedCa) throws NotFoundException {
+        Certificate certificate = getCertificateEntity(uuid);
+        if (certificate.getTrustedCa() == null) {
+            throw new ValidationException("Trying to mark certificate as trusted CA when certificate is not CA.");
+        }
+        certificate.setTrustedCa(trustedCa);
     }
 
     @Async
@@ -410,7 +421,8 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY)
+                SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.TRUSTED_CA)
         );
 
         fields = new ArrayList<>(fields);
@@ -933,15 +945,6 @@ public class CertificateServiceImpl implements CertificateService {
                 logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate, e.getMessage(), e);
                 transactionManager.rollback(status);
                 continue;
-            }
-
-            if (!oldStatus.equals(certificate.getValidationStatus())) {
-                eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, certificate.getValidationStatus());
-                try {
-                    notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, certificate.getValidationStatus(), certificate.mapToListDto());
-                } catch (Exception e) {
-                    logger.error("Sending certificate {} notification for change of status {} failed. Error: {}", certificate.getUuid(), certificate.getValidationStatus().getCode(), e.getMessage(), e);
-                }
             }
 
             ++certificatesUpdated;
