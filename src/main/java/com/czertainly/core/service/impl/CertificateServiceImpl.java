@@ -51,6 +51,7 @@ import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
@@ -576,7 +577,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException {
+    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
         CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(uuid, withEndCertificate);
         List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
         CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = new CertificateChainDownloadResponseDto();
@@ -586,8 +587,7 @@ public class CertificateServiceImpl implements CertificateService {
         JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
         List<X509Certificate> x509CertificateChain = new ArrayList<>();
         for (CertificateDto certificateDto : certificateChain) {
-            Certificate certificateInstance;
-            certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
+            Certificate certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
             X509Certificate x509Certificate;
             try {
                 x509Certificate = CertificateUtil.getX509Certificate(certificateInstance.getCertificateContent().getContent());
@@ -595,7 +595,7 @@ public class CertificateServiceImpl implements CertificateService {
                 certificateChainDownloadResponseDto.setCompleteChain(false);
                 break;
             }
-            if (certificateFormat == CertificateFormat.PEM) {
+            if (encoding == CertificateFormatEncoding.PEM) {
                 try {
                     jcaPEMWriter.writeObject(x509Certificate);
                     jcaPEMWriter.flush();
@@ -612,15 +612,80 @@ public class CertificateServiceImpl implements CertificateService {
                 generator.addCertificates(new JcaCertStore(x509CertificateChain));
                 byte[] encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
                 ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
-                jcaPEMWriter.writeObject(contentInfo);
-                jcaPEMWriter.flush();
+                if (encoding == CertificateFormatEncoding.PEM) {
+                    jcaPEMWriter.writeObject(contentInfo);
+                    jcaPEMWriter.flush();
+                    certificateChainDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
+                }
+                if (encoding == CertificateFormatEncoding.DER) {
+                    certificateChainDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(encoded));
+                }
             } catch (Exception e) {
                 throw new CertificateException("Could not write certificate chain as PKCS#7 format: " + e.getMessage());
             }
         }
-        certificateChainDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
         return certificateChainDownloadResponseDto;
     }
+
+    @Override
+    public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException {
+        CertificateDownloadResponseDto certificateDownloadResponseDto = new CertificateDownloadResponseDto();
+        certificateDownloadResponseDto.setFormat(certificateFormat);
+        certificateDownloadResponseDto.setEncoding(encoding);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
+        String content;
+        try {
+            content = getCertificateEntity(SecuredUUID.fromString(uuid)).getCertificateContent().getContent();
+        } catch (NotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
+        X509Certificate x509Certificate = null;
+        try {
+            x509Certificate = CertificateUtil.getX509Certificate(content);
+        } catch (CertificateException ignored) {
+        }
+
+        if (certificateFormat == CertificateFormat.RAW) {
+            if (encoding == CertificateFormatEncoding.DER) {
+                certificateDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(content.getBytes()));
+            }
+
+            if (encoding == CertificateFormatEncoding.PEM) {
+                try {
+                    jcaPEMWriter.writeObject(x509Certificate);
+                    jcaPEMWriter.flush();
+                } catch (IOException e) {
+                    throw new CertificateException("Could not write certificate as PEM format: " + e.getMessage());
+                }
+                certificateDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
+            }
+        }
+
+        if (certificateFormat == CertificateFormat.PKCS7) {
+            try {
+                CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
+                assert x509Certificate != null;
+                generator.addCertificate(new X509CertificateHolder(x509Certificate.getEncoded()));
+                byte[] encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
+                if (encoding == CertificateFormatEncoding.DER) {
+                    certificateDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(encoded));
+                }
+                if (encoding == CertificateFormatEncoding.PEM) {
+                    ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
+                    jcaPEMWriter.writeObject(contentInfo);
+                    jcaPEMWriter.flush();
+                    certificateDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
+                }
+            } catch (Exception e) {
+                throw new CertificateException("Could not write certificate as PKCS#7 format: " + e.getMessage());
+            }
+        }
+
+        return certificateDownloadResponseDto;
+    }
+
 
     @Override
     public void validate(Certificate certificate) {
@@ -648,7 +713,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
     }
-
+    
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {

@@ -34,6 +34,8 @@ public interface CertificateService extends ResourceExtensionService  {
 
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
 
+
+
     // TODO AUTH - unable to check access based on certificate content. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByContent(String content);
 
@@ -51,7 +53,9 @@ public interface CertificateService extends ResourceExtensionService  {
 
     CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException;
 
-    CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException;
+    CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException;
+
+    CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException;
 
     /**
      * Function to get the validation result of the certificate
