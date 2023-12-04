@@ -22,6 +22,7 @@ import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.converter.CertificateFormatConverter;
+import com.czertainly.core.util.converter.CertificateFormatEncodingConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
@@ -55,6 +56,7 @@ public class CertificateControllerImpl implements CertificateController {
     @InitBinder
     public void initBinder(final WebDataBinder webdataBinder) {
         webdataBinder.registerCustomEditor(CertificateFormat.class, new CertificateFormatConverter());
+        webdataBinder.registerCustomEditor(CertificateFormatEncoding.class, new CertificateFormatEncodingConverter());
     }
 
     @Override
@@ -66,6 +68,11 @@ public class CertificateControllerImpl implements CertificateController {
     public CertificateDetailDto getCertificate(@PathVariable String uuid)
             throws NotFoundException, CertificateException, IOException {
         return certificateService.getCertificate(SecuredUUID.fromString(uuid));
+    }
+
+    @Override
+    public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException {
+        return certificateService.downloadCertificate(uuid, certificateFormat, encoding);
     }
 
     @Override
@@ -153,8 +160,8 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException {
-        return certificateService.downloadCertificateChain(SecuredUUID.fromString(uuid), certificateFormat, withEndCertificate);
+    public CertificateChainDownloadResponseDto downloadCertificateChain(String uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
+        return certificateService.downloadCertificateChain(SecuredUUID.fromString(uuid), certificateFormat, withEndCertificate, encoding);
     }
 
     @Override
