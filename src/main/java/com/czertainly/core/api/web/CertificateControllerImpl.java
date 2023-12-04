@@ -71,7 +71,7 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException {
+    public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
         return certificateService.downloadCertificate(uuid, certificateFormat, encoding);
     }
 
