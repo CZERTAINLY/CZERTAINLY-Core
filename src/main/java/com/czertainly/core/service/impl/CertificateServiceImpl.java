@@ -623,7 +623,6 @@ public class CertificateServiceImpl implements CertificateService {
                     }
                 }
             }
-            return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
         }
         if (certificateFormat == CertificateFormat.PKCS7) {
             List<X509Certificate> x509CertificateChain = new ArrayList<>();
@@ -641,7 +640,6 @@ public class CertificateServiceImpl implements CertificateService {
                 if (encoding == CertificateFormatEncoding.PEM) {
                     jcaPEMWriter.writeObject(contentInfo);
                     jcaPEMWriter.flush();
-                    return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                 }
                 if (encoding == CertificateFormatEncoding.DER) {
                     return Base64.getEncoder().encodeToString(encoded);
@@ -650,7 +648,7 @@ public class CertificateServiceImpl implements CertificateService {
                 throw new CertificateException("Could not write downloaded content as PKCS#7 format: " + e.getMessage());
             }
         }
-        return "";
+        return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
     }
 
 

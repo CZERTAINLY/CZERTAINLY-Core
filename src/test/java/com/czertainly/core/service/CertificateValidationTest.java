@@ -136,23 +136,22 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         Assertions.assertTrue(certificateChainCompleteResponseDto.isCompleteChain());
     }
 
-//    @Test
-//
-//    void testDownloadCertificateChain() throws NotFoundException, CertificateException, CMSException, IOException {
-//        CertificateChainDownloadResponseDto certificateChainIncompletePEMDownloadResponseDto = certificateService.downloadCertificateChain(chainIncompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, true);
-//        Assertions.assertEquals(2, getNumberOfCertificatesInPem(certificateChainIncompletePEMDownloadResponseDto.getContent()));
-//        Assertions.assertTrue(certificateChainIncompletePEMDownloadResponseDto.isCompleteChain());
-//        CertificateChainDownloadResponseDto certificateChainCompletePEMResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PEM, true);
-//        Assertions.assertTrue(certificateChainCompletePEMResponseDto.isCompleteChain());
-//        Assertions.assertEquals(2, getNumberOfCertificatesInPem(certificateChainCompletePEMResponseDto.getContent()));
-//        CertificateChainDownloadResponseDto certificateChainCompletePKCS7ResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PKCS7, true);
-//        Assertions.assertTrue(certificateChainCompletePKCS7ResponseDto.isCompleteChain());
-//        Assertions.assertEquals(2, getNumberOfCertificatesInPkcs7(certificateChainCompletePKCS7ResponseDto.getContent()));
-//        CertificateChainDownloadResponseDto certificateChainResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PKCS7, false);
-//        Assertions.assertTrue(certificateChainResponseDto.isCompleteChain());
-//        Assertions.assertEquals(1, getNumberOfCertificatesInPkcs7(certificateChainResponseDto.getContent()));
-//
-//    }
+    @Test
+    void testDownloadCertificateChain() throws NotFoundException, CertificateException, CMSException, IOException {
+        CertificateChainDownloadResponseDto certificateChainIncompletePEMDownloadResponseDto = certificateService.downloadCertificateChain(chainIncompleteCertificate.getSecuredUuid(), CertificateFormat.RAW, true, CertificateFormatEncoding.PEM);
+        Assertions.assertEquals(2, getNumberOfCertificatesInPem(certificateChainIncompletePEMDownloadResponseDto.getContent()));
+        Assertions.assertTrue(certificateChainIncompletePEMDownloadResponseDto.isCompleteChain());
+        CertificateChainDownloadResponseDto certificateChainCompletePEMResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.RAW, true, CertificateFormatEncoding.PEM);
+        Assertions.assertTrue(certificateChainCompletePEMResponseDto.isCompleteChain());
+        Assertions.assertEquals(2, getNumberOfCertificatesInPem(certificateChainCompletePEMResponseDto.getContent()));
+        CertificateChainDownloadResponseDto certificateChainCompletePKCS7ResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PKCS7, true, CertificateFormatEncoding.PEM);
+        Assertions.assertTrue(certificateChainCompletePKCS7ResponseDto.isCompleteChain());
+        Assertions.assertEquals(2, getNumberOfCertificatesInPkcs7(certificateChainCompletePKCS7ResponseDto.getContent()));
+        CertificateChainDownloadResponseDto certificateChainResponseDto = certificateService.downloadCertificateChain(chainCompleteCertificate.getSecuredUuid(), CertificateFormat.PKCS7, false, CertificateFormatEncoding.PEM);
+        Assertions.assertTrue(certificateChainResponseDto.isCompleteChain());
+        Assertions.assertEquals(1, getNumberOfCertificatesInPkcs7(certificateChainResponseDto.getContent()));
+
+    }
 
     private int getNumberOfCertificatesInPkcs7(String content) throws CMSException {
         String pkcs7Data = new String(Base64.getDecoder().decode(content));
