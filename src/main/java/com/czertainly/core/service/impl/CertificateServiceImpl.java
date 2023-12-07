@@ -51,7 +51,6 @@ import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
-import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
@@ -606,7 +605,7 @@ public class CertificateServiceImpl implements CertificateService {
                 String content = certificateInstance.getCertificateContent().getContent();
                 if (encoding == CertificateFormatEncoding.DER) {
                     if (!downloadingChain) {
-                        return Base64.getEncoder().encodeToString(content.getBytes());
+                        return content;
                     }
                     else {
                         throw new ValidationException("DER encoding of raw format is unsupported for certificate chain.");
@@ -618,6 +617,7 @@ public class CertificateServiceImpl implements CertificateService {
                     try {
                         jcaPEMWriter.writeObject(x509Certificate);
                         jcaPEMWriter.flush();
+                        return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                     } catch (IOException e) {
                         throw new CertificateException("Could not write downloaded content as PEM format: " + e.getMessage());
                     }
@@ -640,6 +640,7 @@ public class CertificateServiceImpl implements CertificateService {
                 if (encoding == CertificateFormatEncoding.PEM) {
                     jcaPEMWriter.writeObject(contentInfo);
                     jcaPEMWriter.flush();
+                    return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                 }
                 if (encoding == CertificateFormatEncoding.DER) {
                     return Base64.getEncoder().encodeToString(encoded);
@@ -648,7 +649,6 @@ public class CertificateServiceImpl implements CertificateService {
                 throw new CertificateException("Could not write downloaded content as PKCS#7 format: " + e.getMessage());
             }
         }
-        return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
     }
 
 
