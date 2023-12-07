@@ -597,34 +597,34 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private String getDownloadedContent(List<CertificateDetailDto> certificateDetailDtos, CertificateFormat certificateFormat, CertificateFormatEncoding encoding, boolean downloadingChain) throws NotFoundException, CertificateException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
         if (certificateFormat == CertificateFormat.RAW) {
+            if (encoding == CertificateFormatEncoding.DER) {
+                if (!downloadingChain) {
+                    return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.get(0).getUuid())).getCertificateContent().getContent();
+                }
+                else {
+                    throw new ValidationException("DER encoding of raw format is unsupported for certificate chain.");
+                }
+            }
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
+            // Encoding is PEM otherwise
             for (CertificateDto certificateDto : certificateDetailDtos) {
                 Certificate certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
                 String content = certificateInstance.getCertificateContent().getContent();
-                if (encoding == CertificateFormatEncoding.DER) {
-                    if (!downloadingChain) {
-                        return content;
-                    }
-                    else {
-                        throw new ValidationException("DER encoding of raw format is unsupported for certificate chain.");
-                    }
-                }
-                if (encoding == CertificateFormatEncoding.PEM) {
                     X509Certificate x509Certificate;
                     x509Certificate = CertificateUtil.getX509Certificate(content);
                     try {
                         jcaPEMWriter.writeObject(x509Certificate);
                         jcaPEMWriter.flush();
-                        return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                     } catch (IOException e) {
                         throw new CertificateException("Could not write downloaded content as PEM format: " + e.getMessage());
                     }
-                }
             }
+            return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
         }
-        if (certificateFormat == CertificateFormat.PKCS7) {
+        // Formatting is PKCS7 otherwise
+        else {
             List<X509Certificate> x509CertificateChain = new ArrayList<>();
             for (CertificateDto certificateDto : certificateDetailDtos) {
                 Certificate certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
@@ -636,13 +636,16 @@ public class CertificateServiceImpl implements CertificateService {
                 CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
                 generator.addCertificates(new JcaCertStore(x509CertificateChain));
                 byte[] encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
-                ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
                 if (encoding == CertificateFormatEncoding.PEM) {
+                    ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
+                    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                    JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
                     jcaPEMWriter.writeObject(contentInfo);
                     jcaPEMWriter.flush();
                     return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
                 }
-                if (encoding == CertificateFormatEncoding.DER) {
+                // Encoding is DER otherwise
+                else {
                     return Base64.getEncoder().encodeToString(encoded);
                 }
             } catch (Exception e) {
