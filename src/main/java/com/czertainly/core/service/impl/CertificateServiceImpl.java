@@ -599,12 +599,10 @@ public class CertificateServiceImpl implements CertificateService {
     private String getDownloadedContent(List<CertificateDetailDto> certificateDetailDtos, CertificateFormat certificateFormat, CertificateFormatEncoding encoding, boolean downloadingChain) throws NotFoundException, CertificateException {
         if (certificateFormat == CertificateFormat.RAW) {
             if (encoding == CertificateFormatEncoding.DER) {
-                if (!downloadingChain) {
-                    return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.get(0).getUuid())).getCertificateContent().getContent();
-                }
-                else {
+                if (downloadingChain) {
                     throw new ValidationException("DER encoding of raw format is unsupported for certificate chain.");
                 }
+                return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.get(0).getUuid())).getCertificateContent().getContent();
             }
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
@@ -612,14 +610,14 @@ public class CertificateServiceImpl implements CertificateService {
             for (CertificateDto certificateDto : certificateDetailDtos) {
                 Certificate certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
                 String content = certificateInstance.getCertificateContent().getContent();
-                    X509Certificate x509Certificate;
-                    x509Certificate = CertificateUtil.getX509Certificate(content);
-                    try {
-                        jcaPEMWriter.writeObject(x509Certificate);
-                        jcaPEMWriter.flush();
-                    } catch (IOException e) {
-                        throw new CertificateException("Could not write downloaded content as PEM format: " + e.getMessage());
-                    }
+                X509Certificate x509Certificate;
+                x509Certificate = CertificateUtil.getX509Certificate(content);
+                try {
+                    jcaPEMWriter.writeObject(x509Certificate);
+                    jcaPEMWriter.flush();
+                } catch (IOException e) {
+                    throw new CertificateException("Could not write downloaded content as PEM format: " + e.getMessage());
+                }
             }
             return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
         }
