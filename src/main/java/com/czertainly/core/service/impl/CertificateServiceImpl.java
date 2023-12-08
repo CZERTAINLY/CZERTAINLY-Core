@@ -592,6 +592,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
         CertificateDetailDto certificate = getCertificate(SecuredUUID.fromString(uuid));
         if (certificate.getCertificateContent() == null) {
