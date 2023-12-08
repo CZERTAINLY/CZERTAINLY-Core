@@ -576,7 +576,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
+    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
+        CertificateDetailDto certificate = getCertificate(uuid);
+        if (certificate.getCertificateContent() == null) {
+            throw new ValidationException("Cannot download certificate chain, the end certificate is not issued yet.");
+        }
         CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(uuid, withEndCertificate);
         List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
         CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = new CertificateChainDownloadResponseDto();
@@ -589,10 +593,14 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
+        CertificateDetailDto certificate = getCertificate(SecuredUUID.fromString(uuid));
+        if (certificate.getCertificateContent() == null) {
+            throw new ValidationException("Cannot download the certificate, certificate is not issued yet.");
+        }
         CertificateDownloadResponseDto certificateDownloadResponseDto = new CertificateDownloadResponseDto();
         certificateDownloadResponseDto.setFormat(certificateFormat);
         certificateDownloadResponseDto.setEncoding(encoding);
-        certificateDownloadResponseDto.setContent(getDownloadedContent(List.of(getCertificate(SecuredUUID.fromString(uuid))), certificateFormat, encoding, false));
+        certificateDownloadResponseDto.setContent(getDownloadedContent(List.of(certificate), certificateFormat, encoding, false));
         return certificateDownloadResponseDto;
     }
 
@@ -604,9 +612,9 @@ public class CertificateServiceImpl implements CertificateService {
                 }
                 return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.get(0).getUuid())).getCertificateContent().getContent();
             }
+            // Encoding is PEM otherwise
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
-            // Encoding is PEM otherwise
             for (CertificateDto certificateDto : certificateDetailDtos) {
                 Certificate certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
                 String content = certificateInstance.getCertificateContent().getContent();
