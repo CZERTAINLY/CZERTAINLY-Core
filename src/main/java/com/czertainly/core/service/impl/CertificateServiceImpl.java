@@ -576,9 +576,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
-        CertificateDetailDto certificate = getCertificate(uuid);
-        if (certificate.getCertificateContent() == null) {
+    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
+        List<CertificateContentDto> certificateContent = getCertificateContent(List.of(uuid.toString()));
+        if (certificateContent.get(0).getCertificateContent() == null) {
             throw new ValidationException("Cannot download certificate chain, the end certificate is not issued yet.");
         }
         CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(uuid, withEndCertificate);
