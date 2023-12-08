@@ -578,8 +578,8 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
         List<CertificateContentDto> certificateContent = getCertificateContent(List.of(uuid.toString()));
-        if (certificateContent.get(0).getCertificateContent() == null) {
-            throw new ValidationException("Cannot download certificate chain, the end certificate is not issued yet.");
+        if (certificateContent.size() == 0) {
+            throw new ValidationException("Cannot download certificate chain, the end certificate is not issued.");
         }
         CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(uuid, withEndCertificate);
         List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
@@ -596,7 +596,7 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
         CertificateDetailDto certificate = getCertificate(SecuredUUID.fromString(uuid));
         if (certificate.getCertificateContent() == null) {
-            throw new ValidationException("Cannot download the certificate, certificate is not issued yet.");
+            throw new ValidationException("Cannot download the certificate, certificate is not issued.");
         }
         CertificateDownloadResponseDto certificateDownloadResponseDto = new CertificateDownloadResponseDto();
         certificateDownloadResponseDto.setFormat(certificateFormat);
