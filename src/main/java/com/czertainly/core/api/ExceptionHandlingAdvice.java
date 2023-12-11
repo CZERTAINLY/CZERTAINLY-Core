@@ -14,11 +14,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingRequestValueException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.net.ConnectException;
 import java.security.cert.CertificateException;
@@ -74,6 +76,42 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorMessageDto handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link IllegalArgumentException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleIllegalArgumentException(IllegalArgumentException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link MethodArgumentTypeMismatchException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link MissingRequestValueException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(MissingRequestValueException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleMissingRequestValueException(MissingRequestValueException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
