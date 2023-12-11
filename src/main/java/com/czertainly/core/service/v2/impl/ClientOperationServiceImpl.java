@@ -681,7 +681,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     caRequest);
 
             certificate.setState(CertificateState.REVOKED);
-            certificate.setRevokeAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getAttributes())));
+            certificate.setRevokeAttributes(AttributeDefinitionUtils.serializeRequestAttributes(request.getAttributes()));
             certificateRepository.save(certificate);
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked. Reason: " + caRequest.getReason().getLabel(), "");
         } catch (Exception e) {
