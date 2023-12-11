@@ -681,6 +681,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     caRequest);
 
             certificate.setState(CertificateState.REVOKED);
+            certificate.setRevokeAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getAttributes())));
             certificateRepository.save(certificate);
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REVOKE, CertificateEventStatus.SUCCESS, "Certificate revoked. Reason: " + caRequest.getReason().getLabel(), "");
         } catch (Exception e) {
@@ -692,21 +693,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateOperationException("Failed to revoke certificate: " + e.getMessage());
         }
 
-        try {
-            CertificateValidationStatus oldStatus = certificate.getValidationStatus();
-            certificate.setValidationStatus(CertificateValidationStatus.REVOKED);
-            certificate.setRevokeAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getAttributes())));
-            logger.debug("Certificate revoked. Proceeding to check and destroy key");
-
-            if (certificate.getKey() != null && request.isDestroyKey()) {
+        if (certificate.getKey() != null && request.isDestroyKey()) {
+            try {
+                logger.debug("Certificate revoked. Proceeding to check and destroy key");
                 keyService.destroyKey(List.of(certificate.getKeyUuid().toString()));
+            } catch (Exception e) {
+                logger.warn("Failed to destroy certificate key: {}", e.getMessage());
             }
-            certificateRepository.save(certificate);
-
-            eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_VALIDATION_STATUS, CertificateEventStatus.SUCCESS, oldStatus, CertificateValidationStatus.REVOKED);
-            notificationProducer.produceNotificationCertificateStatusChanged(oldStatus, CertificateValidationStatus.REVOKED, certificate.mapToListDto());
-        } catch (Exception e) {
-            logger.warn(e.getMessage());
         }
 
         // notify
