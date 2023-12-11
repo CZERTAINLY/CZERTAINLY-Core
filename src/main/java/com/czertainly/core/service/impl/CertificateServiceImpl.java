@@ -576,51 +576,91 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate) throws NotFoundException, CertificateException {
+    public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
+        List<CertificateContentDto> certificateContent = getCertificateContent(List.of(uuid.toString()));
+        if (certificateContent.size() == 0) {
+            throw new ValidationException("Cannot download certificate chain, the end certificate is not issued.");
+        }
         CertificateChainResponseDto certificateChainResponseDto = getCertificateChain(uuid, withEndCertificate);
         List<CertificateDetailDto> certificateChain = certificateChainResponseDto.getCertificates();
         CertificateChainDownloadResponseDto certificateChainDownloadResponseDto = new CertificateChainDownloadResponseDto();
         certificateChainDownloadResponseDto.setCompleteChain(certificateChainResponseDto.isCompleteChain());
         certificateChainDownloadResponseDto.setFormat(certificateFormat);
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
-        List<X509Certificate> x509CertificateChain = new ArrayList<>();
-        for (CertificateDto certificateDto : certificateChain) {
-            Certificate certificateInstance;
-            certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
-            X509Certificate x509Certificate;
-            try {
-                x509Certificate = CertificateUtil.getX509Certificate(certificateInstance.getCertificateContent().getContent());
-            } catch (CertificateException e) {
-                certificateChainDownloadResponseDto.setCompleteChain(false);
-                break;
+        certificateChainDownloadResponseDto.setEncoding(encoding);
+        certificateChainDownloadResponseDto.setContent(getDownloadedContent(certificateChain, certificateFormat, encoding, true));
+        return certificateChainDownloadResponseDto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
+    public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
+        CertificateDetailDto certificate = getCertificate(SecuredUUID.fromString(uuid));
+        if (certificate.getCertificateContent() == null) {
+            throw new ValidationException("Cannot download the certificate, certificate is not issued.");
+        }
+        CertificateDownloadResponseDto certificateDownloadResponseDto = new CertificateDownloadResponseDto();
+        certificateDownloadResponseDto.setFormat(certificateFormat);
+        certificateDownloadResponseDto.setEncoding(encoding);
+        certificateDownloadResponseDto.setContent(getDownloadedContent(List.of(certificate), certificateFormat, encoding, false));
+        return certificateDownloadResponseDto;
+    }
+
+    private String getDownloadedContent(List<CertificateDetailDto> certificateDetailDtos, CertificateFormat certificateFormat, CertificateFormatEncoding encoding, boolean downloadingChain) throws NotFoundException, CertificateException {
+        if (certificateFormat == CertificateFormat.RAW) {
+            if (encoding == CertificateFormatEncoding.DER) {
+                if (downloadingChain) {
+                    throw new ValidationException("DER encoding of raw format is unsupported for certificate chain.");
+                }
+                return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.get(0).getUuid())).getCertificateContent().getContent();
             }
-            if (certificateFormat == CertificateFormat.PEM) {
+            // Encoding is PEM otherwise
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
+            for (CertificateDto certificateDto : certificateDetailDtos) {
+                Certificate certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
+                String content = certificateInstance.getCertificateContent().getContent();
+                X509Certificate x509Certificate;
+                x509Certificate = CertificateUtil.getX509Certificate(content);
                 try {
                     jcaPEMWriter.writeObject(x509Certificate);
                     jcaPEMWriter.flush();
                 } catch (IOException e) {
-                    throw new CertificateException("Could not write certificate chain as PEM format: " + e.getMessage());
+                    throw new CertificateException("Could not write downloaded content as PEM format: " + e.getMessage());
                 }
-            } else {
+            }
+            return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
+        }
+        // Formatting is PKCS7 otherwise
+        else {
+            List<X509Certificate> x509CertificateChain = new ArrayList<>();
+            for (CertificateDto certificateDto : certificateDetailDtos) {
+                Certificate certificateInstance = getCertificateEntity(SecuredUUID.fromString(certificateDto.getUuid()));
+                X509Certificate x509Certificate;
+                x509Certificate = CertificateUtil.getX509Certificate(certificateInstance.getCertificateContent().getContent());
                 x509CertificateChain.add(x509Certificate);
             }
-        }
-        if (certificateFormat == CertificateFormat.PKCS7) {
             try {
                 CMSSignedDataGenerator generator = new CMSSignedDataGenerator();
                 generator.addCertificates(new JcaCertStore(x509CertificateChain));
                 byte[] encoded = generator.generate(new CMSProcessableByteArray(new byte[0])).getEncoded();
-                ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
-                jcaPEMWriter.writeObject(contentInfo);
-                jcaPEMWriter.flush();
+                if (encoding == CertificateFormatEncoding.PEM) {
+                    ContentInfo contentInfo = ContentInfo.getInstance(ASN1Primitive.fromByteArray(encoded));
+                    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                    JcaPEMWriter jcaPEMWriter = new JcaPEMWriter(new OutputStreamWriter(byteArrayOutputStream));
+                    jcaPEMWriter.writeObject(contentInfo);
+                    jcaPEMWriter.flush();
+                    return Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray());
+                }
+                // Encoding is DER otherwise
+                else {
+                    return Base64.getEncoder().encodeToString(encoded);
+                }
             } catch (Exception e) {
-                throw new CertificateException("Could not write certificate chain as PKCS#7 format: " + e.getMessage());
+                throw new CertificateException("Could not write downloaded content as PKCS#7 format: " + e.getMessage());
             }
         }
-        certificateChainDownloadResponseDto.setContent(Base64.getEncoder().encodeToString(byteArrayOutputStream.toByteArray()));
-        return certificateChainDownloadResponseDto;
     }
+
 
     @Override
     public void validate(Certificate certificate) {
