@@ -255,6 +255,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
+        request.setAttributes(List.of());
         clientOperationService.revokeCertificateAction(certificate.getUuid(), request, true);
     }
 
