@@ -10,9 +10,13 @@ import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.connector.authority.CaCertificatesRequestDto;
+import com.czertainly.api.model.connector.authority.CaCertificatesResponseDto;
+import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.*;
@@ -32,6 +36,8 @@ import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.X509ObjectToString;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -44,6 +50,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -69,6 +78,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ScepProfileRepository scepProfileRepository;
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
     private ApprovalProfileRepository approvalProfileRepository;
+    private CertificateContentRepository certificateContentRepository;
 
 
     @Override
@@ -497,6 +507,46 @@ public class RaProfileServiceImpl implements RaProfileService {
         approvalProfileRelationRepository.deleteAll(approvalProfileRelations);
     }
 
+    @Override
+    public List<CertificateDetailDto> retrieveAuthorityCertificateChain(String authorityUuid, String raProfileUuid) throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException {
+        String raProfileAttributes = getRaProfileEntity(SecuredUUID.fromString(raProfileUuid)).getAttributes();
+        List<RequestAttributeDto> requestAttributeDtos = AttributeDefinitionUtils.deserializeRequestAttributes(raProfileAttributes);
+        Optional<AuthorityInstanceReference> authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid));
+        if (authorityInstanceReference.isPresent()) {
+            CaCertificatesResponseDto caCertificatesResponseDto = authorityInstanceApiClient.getCaCertificates(authorityInstanceReference.get().getConnector().mapToDto(), authorityInstanceReference.get().getAuthorityInstanceUuid(),  new CaCertificatesRequestDto(requestAttributeDtos));
+            List<CertificateDataResponseDto> certificateDataResponseDtos = caCertificatesResponseDto.getCertificates();
+            List<CertificateDetailDto> certificateDetailDtos = new ArrayList<>();
+            for (CertificateDataResponseDto certificateData: certificateDataResponseDtos) {
+                X509Certificate certificate = CertificateUtil.parseCertificate(certificateData.getCertificateData());
+                String fingerprint = CertificateUtil.getThumbprint(certificate);
+                if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
+                    certificateDetailDtos.add(certificateRepository.findByFingerprint(fingerprint).get().mapToDto());
+                }
+                else {
+                    Certificate modal = new Certificate();
+                    CertificateUtil.prepareIssuedCertificate(modal, certificate);
+                    CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
+                    if (certificateContent == null) {
+                        certificateContent = new CertificateContent();
+                        certificateContent.setContent(CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(certificate)));
+                        certificateContent.setFingerprint(fingerprint);
+                    }
+
+                    certificateContentRepository.save(certificateContent);
+                    modal.setFingerprint(fingerprint);
+                    modal.setCertificateContent(certificateContent);
+                    modal.setCertificateContentId(certificateContent.getId());
+                    certificateRepository.save(modal);
+                    certificateDetailDtos.add(modal.mapToDto());
+                }
+            }
+            return certificateDetailDtos;
+        }
+        else {
+            throw new NotFoundException("Authority instance not found in inventory.");
+        }
+    }
+
     private List<DataAttribute> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
         List<BaseAttribute> definitions = authorityInstanceApiClient.listRAProfileAttributes(
                 authorityInstanceRef.getConnector().mapToDto(),
@@ -595,6 +645,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         this.certificateRepository = certificateRepository;
     }
 
+
     @Autowired
     public void setAcmeProfileRepository(AcmeProfileRepository acmeProfileRepository) {
         this.acmeProfileRepository = acmeProfileRepository;
@@ -644,4 +695,10 @@ public class RaProfileServiceImpl implements RaProfileService {
     public void setApprovalProfileRepository(ApprovalProfileRepository approvalProfileRepository) {
         this.approvalProfileRepository = approvalProfileRepository;
     }
+
+    @Autowired
+    public void setCertificateContentRepository(CertificateContentRepository certificateContentRepository) {
+        this.certificateContentRepository = certificateContentRepository;
+    }
+
 }
