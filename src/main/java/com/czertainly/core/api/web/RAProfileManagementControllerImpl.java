@@ -172,4 +172,5 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     public List<CertificateDetailDto> retrieveAuthorityCertificateChain(String authorityUuid, String raProfileUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException {
         return raProfileService.retrieveAuthorityCertificateChain(authorityUuid, raProfileUuid);
     }
+
 }
