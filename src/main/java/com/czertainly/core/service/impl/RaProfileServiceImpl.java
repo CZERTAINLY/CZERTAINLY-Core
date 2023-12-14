@@ -115,12 +115,16 @@ public class RaProfileServiceImpl implements RaProfileService {
 
         List<DataAttribute> attributes = mergeAndValidateAttributes(authorityInstanceRef, dto.getAttributes());
         RaProfile raProfile = createRaProfile(dto, attributes, authorityInstanceRef);
+
         raProfileRepository.save(raProfile);
+
+        raProfile.setAuthorityCertificateUuid(getAuthorityCertificateUuid(authorityInstanceUuid.getValue(), raProfile.getUuid()));
 
         attributeService.createAttributeContent(raProfile.getUuid(), dto.getCustomAttributes(), Resource.RA_PROFILE);
 
         RaProfileDto raProfileDto = raProfile.mapToDto();
         raProfileDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(raProfile.getUuid(), Resource.RA_PROFILE));
+
 
         return raProfileDto;
     }
@@ -511,40 +515,34 @@ public class RaProfileServiceImpl implements RaProfileService {
     public List<CertificateDetailDto> retrieveAuthorityCertificateChain(String authorityUuid, String raProfileUuid) throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException {
         String raProfileAttributes = getRaProfileEntity(SecuredUUID.fromString(raProfileUuid)).getAttributes();
         List<RequestAttributeDto> requestAttributeDtos = AttributeDefinitionUtils.deserializeRequestAttributes(raProfileAttributes);
-        Optional<AuthorityInstanceReference> authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid));
-        if (authorityInstanceReference.isPresent()) {
-            CaCertificatesResponseDto caCertificatesResponseDto = authorityInstanceApiClient.getCaCertificates(authorityInstanceReference.get().getConnector().mapToDto(), authorityInstanceReference.get().getAuthorityInstanceUuid(),  new CaCertificatesRequestDto(requestAttributeDtos));
-            List<CertificateDataResponseDto> certificateDataResponseDtos = caCertificatesResponseDto.getCertificates();
-            List<CertificateDetailDto> certificateDetailDtos = new ArrayList<>();
-            for (CertificateDataResponseDto certificateData: certificateDataResponseDtos) {
-                X509Certificate certificate = CertificateUtil.parseCertificate(certificateData.getCertificateData());
-                String fingerprint = CertificateUtil.getThumbprint(certificate);
-                if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
-                    certificateDetailDtos.add(certificateRepository.findByFingerprint(fingerprint).get().mapToDto());
+        AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
+                .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
+        CaCertificatesResponseDto caCertificatesResponseDto = authorityInstanceApiClient.getCaCertificates(authorityInstanceReference.getConnector().mapToDto(), authorityInstanceReference.getAuthorityInstanceUuid(), new CaCertificatesRequestDto(requestAttributeDtos));
+        List<CertificateDataResponseDto> certificateDataResponseDtos = caCertificatesResponseDto.getCertificates();
+        List<CertificateDetailDto> certificateDetailDtos = new ArrayList<>();
+        for (CertificateDataResponseDto certificateDataResponseDto : certificateDataResponseDtos) {
+            X509Certificate certificate = CertificateUtil.parseCertificate(certificateDataResponseDto.getCertificateData());
+            String fingerprint = CertificateUtil.getThumbprint(certificate);
+            if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
+                certificateDetailDtos.add(certificateRepository.findByFingerprint(fingerprint).get().mapToDto());
+            } else {
+                Certificate modal = new Certificate();
+                CertificateUtil.prepareIssuedCertificate(modal, certificate);
+                CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
+                if (certificateContent == null) {
+                    certificateContent = new CertificateContent();
+                    certificateContent.setContent(CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(certificate)));
+                    certificateContent.setFingerprint(fingerprint);
                 }
-                else {
-                    Certificate modal = new Certificate();
-                    CertificateUtil.prepareIssuedCertificate(modal, certificate);
-                    CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
-                    if (certificateContent == null) {
-                        certificateContent = new CertificateContent();
-                        certificateContent.setContent(CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(certificate)));
-                        certificateContent.setFingerprint(fingerprint);
-                    }
-
-                    certificateContentRepository.save(certificateContent);
-                    modal.setFingerprint(fingerprint);
-                    modal.setCertificateContent(certificateContent);
-                    modal.setCertificateContentId(certificateContent.getId());
-                    certificateRepository.save(modal);
-                    certificateDetailDtos.add(modal.mapToDto());
-                }
+                certificateContentRepository.save(certificateContent);
+                modal.setFingerprint(fingerprint);
+                modal.setCertificateContent(certificateContent);
+                modal.setCertificateContentId(certificateContent.getId());
+                certificateRepository.save(modal);
+                certificateDetailDtos.add(modal.mapToDto());
             }
-            return certificateDetailDtos;
         }
-        else {
-            throw new NotFoundException("Authority instance not found in inventory.");
-        }
+        return certificateDetailDtos;
     }
 
     private List<DataAttribute> mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
@@ -594,7 +592,23 @@ public class RaProfileServiceImpl implements RaProfileService {
             entity.setEnabled(dto.isEnabled() != null && dto.isEnabled());
         }
         entity.setAuthorityInstanceName(authorityInstanceRef.getName());
+
+        entity.setAuthorityCertificateUuid(getAuthorityCertificateUuid(authorityInstanceRef.getUuid(), entity.getUuid()));
         return entity;
+    }
+
+    private UUID getAuthorityCertificateUuid(UUID authorityUuid, UUID raProfileUuid) {
+        List<CertificateDetailDto> certificateChain;
+        try {
+            certificateChain = retrieveAuthorityCertificateChain(authorityUuid.toString(), raProfileUuid.toString());
+        } catch (java.security.cert.CertificateException | NoSuchAlgorithmException | ConnectorException ignored) {
+            return null;
+        }
+        if (!certificateChain.isEmpty())
+           return UUID.fromString(certificateChain.get(0).getUuid());
+        else {
+            return null;
+        }
     }
 
     private void deleteRaProfileInt(SecuredUUID uuid) throws NotFoundException {
