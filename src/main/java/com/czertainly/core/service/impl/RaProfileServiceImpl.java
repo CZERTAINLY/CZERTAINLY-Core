@@ -512,7 +512,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
-    public List<CertificateDetailDto> retrieveAuthorityCertificateChain(String authorityUuid, String raProfileUuid) throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException {
+    public List<CertificateDetailDto> getAuthorityCertificateChain(String authorityUuid, String raProfileUuid) throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException {
         String raProfileAttributes = getRaProfileEntity(SecuredUUID.fromString(raProfileUuid)).getAttributes();
         List<RequestAttributeDto> requestAttributeDtos = AttributeDefinitionUtils.deserializeRequestAttributes(raProfileAttributes);
         AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
@@ -600,7 +600,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     private UUID getAuthorityCertificateUuid(UUID authorityUuid, UUID raProfileUuid) {
         List<CertificateDetailDto> certificateChain;
         try {
-            certificateChain = retrieveAuthorityCertificateChain(authorityUuid.toString(), raProfileUuid.toString());
+            certificateChain = getAuthorityCertificateChain(authorityUuid.toString(), raProfileUuid.toString());
         } catch (java.security.cert.CertificateException | NoSuchAlgorithmException | ConnectorException ignored) {
             return null;
         }
