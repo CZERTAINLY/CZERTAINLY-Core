@@ -118,7 +118,11 @@ public class RaProfileServiceImpl implements RaProfileService {
 
         raProfileRepository.save(raProfile);
 
-        raProfile.setAuthorityCertificateUuid(getAuthorityCertificateUuid(authorityInstanceUuid.getValue(), raProfile.getUuid()));
+        try {
+            List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(authorityInstanceRef.getUuid().toString(), raProfile.getUuid().toString());
+            raProfile.setAuthorityCertificateUuid(certificateChain.isEmpty() ? null : UUID.fromString(certificateChain.get(0).getUuid()));
+        } catch (java.security.cert.CertificateException | NoSuchAlgorithmException ignored) {
+        }
 
         attributeService.createAttributeContent(raProfile.getUuid(), dto.getCustomAttributes(), Resource.RA_PROFILE);
 
@@ -533,8 +537,8 @@ public class RaProfileServiceImpl implements RaProfileService {
                     certificateContent = new CertificateContent();
                     certificateContent.setContent(CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(certificate)));
                     certificateContent.setFingerprint(fingerprint);
+                    certificateContentRepository.save(certificateContent);
                 }
-                certificateContentRepository.save(certificateContent);
                 modal.setFingerprint(fingerprint);
                 modal.setCertificateContent(certificateContent);
                 modal.setCertificateContentId(certificateContent.getId());
@@ -593,17 +597,18 @@ public class RaProfileServiceImpl implements RaProfileService {
         }
         entity.setAuthorityInstanceName(authorityInstanceRef.getName());
 
-        entity.setAuthorityCertificateUuid(getAuthorityCertificateUuid(authorityInstanceRef.getUuid(), entity.getUuid()));
+        try {
+            List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(authorityInstanceRef.getUuid().toString(), entity.getUuid().toString());
+            entity.setAuthorityCertificateUuid(certificateChain.isEmpty() ? null : UUID.fromString(certificateChain.get(0).getUuid()));
+        } catch (ConnectorException | java.security.cert.CertificateException | NoSuchAlgorithmException ignored) {
+            logger.warn("Error when retrieving authority UUID from authority certificate chain, the authority UUID has not been changed.");
+        }
         return entity;
     }
 
-    private UUID getAuthorityCertificateUuid(UUID authorityUuid, UUID raProfileUuid) {
+    private UUID getAuthorityCertificateFromChain(UUID authorityUuid, UUID raProfileUuid) throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException {
         List<CertificateDetailDto> certificateChain;
-        try {
-            certificateChain = getAuthorityCertificateChain(authorityUuid.toString(), raProfileUuid.toString());
-        } catch (java.security.cert.CertificateException | NoSuchAlgorithmException | ConnectorException ignored) {
-            return null;
-        }
+        certificateChain = getAuthorityCertificateChain(authorityUuid.toString(), raProfileUuid.toString());
         if (!certificateChain.isEmpty())
            return UUID.fromString(certificateChain.get(0).getUuid());
         else {
