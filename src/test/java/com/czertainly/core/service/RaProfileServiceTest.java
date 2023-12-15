@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public class RaProfileServiceTest extends ApprovalProfileData {
 
@@ -277,7 +278,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testGetAuthorityCertificateChain() throws ConnectorException {
+    public void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
                 .willReturn(WireMock.okJson("""
@@ -312,6 +313,13 @@ public class RaProfileServiceTest extends ApprovalProfileData {
                         }""")));
         raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
         Assertions.assertNull(raProfile.getAuthorityCertificateUuid());
+
+        AddRaProfileRequestDto requestAdd = new AddRaProfileRequestDto();
+        requestAdd.setName("testRaProfile2");
+        requestAdd.setAttributes(List.of());
+        RaProfileDto dto = raProfileService.addRaProfile(authorityInstanceReference.getSecuredParentUuid(), requestAdd);
+        Assertions.assertEquals(raProfile.getAuthorityCertificateUuid(), raProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).get().getAuthorityCertificateUuid());
+
     }
 
 }
