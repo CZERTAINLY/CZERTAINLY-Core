@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -23,6 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Optional;
 
@@ -164,4 +167,10 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     public void disassociateRAProfileFromApprovalProfile(String authorityUuid, String raProfileUuid, String approvalProfileUuid) throws NotFoundException {
         raProfileService.disassociateApprovalProfile(authorityUuid, raProfileUuid, SecuredUUID.fromString(approvalProfileUuid));
     }
+
+    @Override
+    public List<CertificateDetailDto> getAuthorityCertificateChain(String authorityUuid, String raProfileUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException {
+        return raProfileService.getAuthorityCertificateChain(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
+    }
+
 }
