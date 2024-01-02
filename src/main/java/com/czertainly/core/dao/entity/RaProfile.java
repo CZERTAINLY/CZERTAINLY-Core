@@ -54,6 +54,9 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "enabled")
     private Boolean enabled;
 
+    @Column(name = "authority_certificate_uuid")
+    private UUID authorityCertificateUuid;
+
     @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinTable(
             name = "ra_profile_2_compliance_profile",
@@ -272,6 +275,14 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setProtocolAttribute(RaProfileProtocolAttribute protocolAttribute) {
         this.protocolAttribute = protocolAttribute;
+    }
+
+    public UUID getAuthorityCertificateUuid() {
+        return authorityCertificateUuid;
+    }
+
+    public void setAuthorityCertificateUuid(UUID authorityCertificateUuid) {
+        this.authorityCertificateUuid = authorityCertificateUuid;
     }
 
     @Override
