@@ -129,6 +129,13 @@ public class RaProfileServiceTest extends ApprovalProfileData {
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
+                .willReturn(WireMock.okJson("""
+                        {
+                            "certificates": [
+                            ]
+                        }""")));
+        mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
 

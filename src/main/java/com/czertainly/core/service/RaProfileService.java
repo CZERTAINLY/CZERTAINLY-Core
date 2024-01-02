@@ -125,5 +125,5 @@ public interface RaProfileService extends ResourceExtensionService {
 
     void disassociateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
 
-    List<CertificateDetailDto> getAuthorityCertificateChain(String authorityUuid, String raProfileUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException;
+    List<CertificateDetailDto> getAuthorityCertificateChain(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException;
 }

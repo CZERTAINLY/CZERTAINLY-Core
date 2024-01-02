@@ -119,7 +119,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         raProfileRepository.save(raProfile);
 
         try {
-            List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(authorityInstanceRef.getUuid().toString(), raProfile.getUuid().toString());
+            List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(SecuredParentUUID.fromUUID(authorityInstanceRef.getUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
             raProfile.setAuthorityCertificateUuid(certificateChain.isEmpty() ? null : UUID.fromString(certificateChain.get(0).getUuid()));
         } catch (java.security.cert.CertificateException | NoSuchAlgorithmException ignored) {
         }
@@ -516,10 +516,11 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
-    public List<CertificateDetailDto> getAuthorityCertificateChain(String authorityUuid, String raProfileUuid) throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException {
-        String raProfileAttributes = getRaProfileEntity(SecuredUUID.fromString(raProfileUuid)).getAttributes();
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public List<CertificateDetailDto> getAuthorityCertificateChain(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid) throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException {
+        String raProfileAttributes = getRaProfileEntity(raProfileUuid).getAttributes();
         List<RequestAttributeDto> requestAttributeDtos = AttributeDefinitionUtils.deserializeRequestAttributes(raProfileAttributes);
-        AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(UUID.fromString(authorityUuid))
+        AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(authorityUuid)
                 .orElseThrow(() -> new NotFoundException(AuthorityInstanceReference.class, authorityUuid));
         CaCertificatesResponseDto caCertificatesResponseDto = authorityInstanceApiClient.getCaCertificates(authorityInstanceReference.getConnector().mapToDto(), authorityInstanceReference.getAuthorityInstanceUuid(), new CaCertificatesRequestDto(requestAttributeDtos));
         List<CertificateDataResponseDto> certificateDataResponseDtos = caCertificatesResponseDto.getCertificates();
@@ -598,22 +599,12 @@ public class RaProfileServiceImpl implements RaProfileService {
         entity.setAuthorityInstanceName(authorityInstanceRef.getName());
 
         try {
-            List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(authorityInstanceRef.getUuid().toString(), entity.getUuid().toString());
+            List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(SecuredParentUUID.fromUUID(authorityInstanceRef.getUuid()), SecuredUUID.fromUUID(entity.getUuid()));
             entity.setAuthorityCertificateUuid(certificateChain.isEmpty() ? null : UUID.fromString(certificateChain.get(0).getUuid()));
         } catch (ConnectorException | java.security.cert.CertificateException | NoSuchAlgorithmException ignored) {
             logger.warn("Error when retrieving authority UUID from authority certificate chain, the authority UUID has not been changed.");
         }
         return entity;
-    }
-
-    private UUID getAuthorityCertificateFromChain(UUID authorityUuid, UUID raProfileUuid) throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException {
-        List<CertificateDetailDto> certificateChain;
-        certificateChain = getAuthorityCertificateChain(authorityUuid.toString(), raProfileUuid.toString());
-        if (!certificateChain.isEmpty())
-           return UUID.fromString(certificateChain.get(0).getUuid());
-        else {
-            return null;
-        }
     }
 
     private void deleteRaProfileInt(SecuredUUID uuid) throws NotFoundException {
