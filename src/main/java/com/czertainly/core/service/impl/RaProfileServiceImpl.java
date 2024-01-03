@@ -121,7 +121,10 @@ public class RaProfileServiceImpl implements RaProfileService {
         try {
             List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(SecuredParentUUID.fromUUID(authorityInstanceRef.getUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
             raProfile.setAuthorityCertificateUuid(certificateChain.isEmpty() ? null : UUID.fromString(certificateChain.get(0).getUuid()));
-        } catch (java.security.cert.CertificateException | NoSuchAlgorithmException ignored) {
+        } catch (NotFoundException ignored) {
+            // exception ignored since get CA certs from connector is optional
+        } catch (Exception e) {
+            logger.warn("CA certificate chain from RA profile authority could not be retrieved: {}", e.getMessage());
         }
 
         attributeService.createAttributeContent(raProfile.getUuid(), dto.getCustomAttributes(), Resource.RA_PROFILE);
@@ -601,8 +604,10 @@ public class RaProfileServiceImpl implements RaProfileService {
         try {
             List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(SecuredParentUUID.fromUUID(authorityInstanceRef.getUuid()), SecuredUUID.fromUUID(entity.getUuid()));
             entity.setAuthorityCertificateUuid(certificateChain.isEmpty() ? null : UUID.fromString(certificateChain.get(0).getUuid()));
-        } catch (ConnectorException | java.security.cert.CertificateException | NoSuchAlgorithmException ignored) {
-            logger.warn("Error when retrieving authority UUID from authority certificate chain, the authority UUID has not been changed.");
+        } catch (NotFoundException ignored) {
+            // exception ignored since get CA certs from connector is optional
+        } catch (Exception e) {
+            logger.warn("CA certificate chain from RA profile authority could not be retrieved: {}", e.getMessage());
         }
         return entity;
     }
