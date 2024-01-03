@@ -272,8 +272,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     modal.setStatus(DiscoveryStatus.WARNING);
                     modal.setMessage(
                             "Discovery exceeded maximum time of " + MAXIMUM_WAIT_TIME / (60 * 60) + " hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
+                    discoveryRepository.save(modal);
                 }
-                discoveryRepository.save(modal);
+
                 oldCertificateCount = response.getTotalCertificatesDiscovered();
                 waitForCompletion = checkForCompletion(response);
             }
@@ -285,6 +286,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 getRequest.setPageNumber(currentPage);
                 getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
                 response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
+
+                if(response.getCertificateData().isEmpty()) {
+                    modal.setMessage(String.format("Retrieved only %d certificates but provider discovered %d certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
+                    break;
+                }
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     response.setStatus(DiscoveryStatus.FAILED);
                     updateDiscovery(modal, response);
