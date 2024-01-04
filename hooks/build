@@ -14,7 +14,12 @@ echo "PreBuild build"
 docker build --build-arg SERVER_USERNAME=$SERVER_USERNAME --build-arg SERVER_PASSWORD=$SERVER_PASSWORD -f $DOCKERFILE_PATH-pre -t prebuild .
 
 echo "MVN Build"
-docker run -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml clean package
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  echo "MacOS detected, using TESTCONTAINERS_HOST_OVERRIDE"
+  docker run -e TESTCONTAINERS_HOST_OVERRIDE=docker.for.mac.host.internal -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml clean package
+else
+  docker run -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml clean package
+fi
 
 echo "Starting czertainlycont"
 docker start -d --restart=always czertainlycont
