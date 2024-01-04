@@ -125,5 +125,15 @@ public interface RaProfileService extends ResourceExtensionService {
 
     void disassociateApprovalProfile(String authorityInstanceUuid, String raProfileUuid, SecuredUUID approvalProfileUuid) throws NotFoundException;
 
-    List<CertificateDetailDto> getAuthorityCertificateChain(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException;
+    /**
+     * Function to get the list of CA certificates associated with the RA Profile.
+     * Certificate chain is returned from the connector if the endpoint is implemented in the connector.
+     *
+     * @param authorityUuid UUID of the authority
+     * @param raProfileUuid UUID of the RA Profile
+     * @return List of CA Certificates
+     * @throws ConnectorException in case the connector throws an exception
+     */
+    List<CertificateDetailDto> getAuthorityCertificateChain(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid)
+            throws ConnectorException;
 }
