@@ -17,9 +17,7 @@ import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCal
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
@@ -32,12 +30,12 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.UUID;
 
@@ -77,9 +75,8 @@ public class CallbackServiceImpl implements CallbackService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
     public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
-        List<BaseAttribute> definitions;
-        definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
+        List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
+        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
         if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
@@ -154,7 +151,7 @@ public class CallbackServiceImpl implements CallbackService {
                 );
         }
 
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions);
+        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
         if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
@@ -172,7 +169,7 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
 
-    private AttributeCallback getAttributeByName(String name, List<BaseAttribute> attributes) throws NotFoundException {
+    private AttributeCallback getAttributeByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
         for (BaseAttribute attributeDefinition : attributes) {
             if (attributeDefinition.getName().equals(name)) {
                 switch (attributeDefinition.getType()) {
@@ -183,6 +180,13 @@ public class CallbackServiceImpl implements CallbackService {
                 }
             }
         }
+
+        // if not present in definitions from connector, search in reference attributes in DB
+        DataAttribute referencedAttribute = attributeService.getReferenceAttribute(connectorUuid, name);
+        if (referencedAttribute != null) {
+            return referencedAttribute.getAttributeCallback();
+        }
+
         throw new NotFoundException(BaseAttribute.class, name);
     }
 
