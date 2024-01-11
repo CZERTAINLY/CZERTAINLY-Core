@@ -309,12 +309,14 @@ public class AttributeServiceImpl implements AttributeService {
         AttributeDefinition attributeDefinition = getAttributeDefinition(SecuredUUID.fromUUID(attributeUuid), AttributeType.CUSTOM);
         CustomAttribute customAttribute = attributeDefinition.getAttributeDefinition(CustomAttribute.class);
 
-        // validate setting of readonly attribute
+        // validate setting of readonly attribute when it is not removal
         if (customAttribute.getProperties().isReadOnly() && attributeContent != null) {
+            // content has to have same amount of items (in case of lists)
             if (attributeContent.size() != customAttribute.getContent().size()) {
                 throw new ValidationException(ValidationError.create("Cannot change content of readonly attribute"));
             }
 
+            // convert to specific attribute content class based on content type and compare each item individually for equality
             var clazz = AttributeContentType.getClass(customAttribute.getContentType());
             for (int i = 0; i < attributeContent.size(); i++) {
                 BaseAttributeContent<?> attributeContentMapped = (BaseAttributeContent<?>) ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent.get(i), clazz);
@@ -325,6 +327,7 @@ public class AttributeServiceImpl implements AttributeService {
             }
         }
 
+        // find existing content for this resource and attribute
         List<AttributeContent2Object> attributeContent2Objects = attributeContent2ObjectRepository
                 .findByObjectUuidAndObjectTypeAndAttributeContentAttributeDefinitionUuid(
                         objectUuid,
@@ -332,10 +335,13 @@ public class AttributeServiceImpl implements AttributeService {
                         attributeUuid
                 );
 
+        // if no existing content yet, just add
         if (attributeContent != null && (attributeContent2Objects == null || attributeContent2Objects.isEmpty())) {
             createAttributeContent(objectUuid, attributeDefinition.getAttributeName(), attributeContent, resource);
             return;
         }
+
+        // remove old content and add new one
         for (AttributeContent2Object attributeContent2Object : attributeContent2Objects) {
             AttributeContent content = attributeContent2Object.getAttributeContent();
             attributeContent2ObjectRepository.delete(attributeContent2Object);
