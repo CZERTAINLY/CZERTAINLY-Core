@@ -41,6 +41,8 @@ import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
@@ -56,6 +58,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class AttributeServiceImpl implements AttributeService {
+    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
     private static final Logger logger = LoggerFactory.getLogger(AttributeServiceImpl.class);
     private final List<Resource> CUSTOM_ATTRIBUTE_COMPLIANT_RESOURCES = List.of(
             Resource.CERTIFICATE,
@@ -303,9 +307,22 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     public void updateAttributeContent(UUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContent, Resource resource) throws NotFoundException {
         AttributeDefinition attributeDefinition = getAttributeDefinition(SecuredUUID.fromUUID(attributeUuid), AttributeType.CUSTOM);
-        CustomAttributeProperties props = attributeDefinition.getAttributeDefinition(CustomAttribute.class).getProperties();
-        if (props.isReadOnly()) {
-            throw new ValidationException(ValidationError.create("Cannot update content for readonly attribute"));
+        CustomAttribute customAttribute = attributeDefinition.getAttributeDefinition(CustomAttribute.class);
+
+        // validate setting of readonly attribute
+        if (customAttribute.getProperties().isReadOnly() && attributeContent != null) {
+            if (attributeContent.size() != customAttribute.getContent().size()) {
+                throw new ValidationException(ValidationError.create("Cannot change content of readonly attribute"));
+            }
+
+            var clazz = AttributeContentType.getClass(customAttribute.getContentType());
+            for (int i = 0; i < attributeContent.size(); i++) {
+                BaseAttributeContent<?> attributeContentMapped = (BaseAttributeContent<?>) ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent.get(i), clazz);
+                BaseAttributeContent<?> definitionContentMapped = (BaseAttributeContent<?>) ATTRIBUTES_OBJECT_MAPPER.convertValue(customAttribute.getContent().get(i), clazz);
+                if (!attributeContentMapped.equals(definitionContentMapped)) {
+                    throw new ValidationException(ValidationError.create("Cannot change content of readonly attribute"));
+                }
+            }
         }
 
         List<AttributeContent2Object> attributeContent2Objects = attributeContent2ObjectRepository
@@ -503,12 +520,12 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     public List<SearchFieldDataByGroupDto> getResourceSearchableFieldInformation(Resource resource) {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-        final List<SearchFieldObject> metadataSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.META));
+        final List<SearchFieldObject> metadataSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource, List.of(AttributeType.META));
         if (!metadataSearchFieldObject.isEmpty()) {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
         }
 
-        final List<SearchFieldObject> customAttrSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.CUSTOM));
+        final List<SearchFieldObject> customAttrSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM));
         if (!customAttrSearchFieldObject.isEmpty()) {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
         }
@@ -523,7 +540,7 @@ public class AttributeServiceImpl implements AttributeService {
             return null;
         }
 
-        final List<SearchFieldObject> searchFieldObjects = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource,List.of(AttributeType.CUSTOM, AttributeType.META));
+        final List<SearchFieldObject> searchFieldObjects = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM, AttributeType.META));
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, attributesFilters, entityManager.getCriteriaBuilder(), resource);
         return attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(securityFilter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate());
     }
