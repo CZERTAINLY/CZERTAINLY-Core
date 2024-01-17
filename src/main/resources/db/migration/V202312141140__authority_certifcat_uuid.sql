@@ -1,0 +1,1 @@
+ALTER TABLE ra_profile ADD COLUMN authority_certificate_uuid UUID NULL;
