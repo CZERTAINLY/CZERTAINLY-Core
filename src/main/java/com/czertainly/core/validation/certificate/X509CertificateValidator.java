@@ -1,22 +1,31 @@
 package com.czertainly.core.validation.certificate;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationCheck;
 import com.czertainly.api.model.core.certificate.CertificateValidationCheckDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.Crl;
+import com.czertainly.core.dao.entity.CrlEntry;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.dao.repository.CrlEntryRepository;
+import com.czertainly.core.dao.repository.CrlRepository;
+import com.czertainly.core.service.CrlService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CrlUtil;
+import com.czertainly.core.util.CzertainlyX500NameStyle;
 import com.czertainly.core.util.OcspUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.security.cert.CRLException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
@@ -31,10 +40,32 @@ public class X509CertificateValidator implements ICertificateValidator {
     private static final int DAYS_TO_EXPIRE = 30;
     private CertificateRepository certificateRepository;
 
+    private CrlRepository crlRepository;
+
+    private CrlEntryRepository crlEntryRepository;
+
+    private CrlService crlService;
+
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
     }
+
+    @Autowired
+    public void setCrlRepository(CrlRepository crlRepository) {
+        this.crlRepository = crlRepository;
+    }
+
+    @Autowired
+    public void setCrlEntryRepository(CrlEntryRepository crlEntryRepository) {
+        this.crlEntryRepository = crlEntryRepository;
+    }
+
+    @Autowired
+    public void setCrlService(CrlService crlService) {
+        this.crlService = crlService;
+    }
+
 
     @Override
     public CertificateValidationStatus validateCertificate(Certificate certificate, boolean isCompleteChain) throws CertificateException {
@@ -56,7 +87,7 @@ public class X509CertificateValidator implements ICertificateValidator {
             x509Certificate = CertificateUtil.getX509Certificate(certificateChain.get(i).getCertificateContent().getContent());
 
             boolean isEndCertificate = i == 0;
-            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate);
+            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, certificateChain.get(i).getIssuerDnNormalized());
             CertificateValidationStatus resultStatus = calculateResultStatus(validationOutput);
             finalizeValidation(certificateChain.get(i), resultStatus, validationOutput);
 
@@ -68,7 +99,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         return previousCertStatus;
     }
 
-    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate) {
+    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, String issuerDn) {
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput = initializeValidationOutput();
 
         // check certificate signature
@@ -229,51 +260,39 @@ public class X509CertificateValidator implements ICertificateValidator {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "Issuer certificate is not available.");
         }
 
-        List<String> crlUrls;
-        try {
-            crlUrls = CrlUtil.getCDPFromCertificate(certificate);
-        } catch (IOException e) {
-            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to retrieve CRL URL from certificate: " + e.getMessage());
-        }
-
-        if (crlUrls.isEmpty()) {
-            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "No CRL URL in certificate");
-        }
-
-        String crlOutput = "";
-        StringBuilder crlMessage = new StringBuilder();
-        CertificateValidationStatus crlOutputStatus = CertificateValidationStatus.NOT_CHECKED;
-        for (String crlUrl : crlUrls) {
+        if (certificate.getExtensionValue(Extension.cRLDistributionPoints.getId()) == null) {
+            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "The cRLDistributionPoints extension is not set.");
+        } else {
+            Crl crl;
             try {
-                crlOutput = CrlUtil.checkCertificateRevocationList(certificate, crlUrl);
-                if (crlOutput == null) {
-                    if (crlOutputStatus.equals(CertificateValidationStatus.NOT_CHECKED)) {
-                        crlOutputStatus = CertificateValidationStatus.VALID;
-                    }
-                    crlMessage.append("CRL verification successful from URL ");
-                    crlMessage.append(crlUrl);
-                    crlMessage.append(". ");
-                } else {
-                    crlOutputStatus = CertificateValidationStatus.REVOKED;
-                    crlMessage.append("Certificate was revoked according to information from CRL URL ");
-                    crlMessage.append(crlUrl);
-                    crlMessage.append(". ");
-                    crlMessage.append(crlOutput);
-                    crlMessage.append(". ");
-                    break;
-                }
-            } catch (Exception e) {
-                logger.debug("Not able to check CRL: {}", e.getMessage());
-                crlOutputStatus = CertificateValidationStatus.FAILED;
-                crlMessage.append("Error while checking CRL URL ");
-                crlMessage.append(crlUrl);
-                crlMessage.append(". Error: ");
-                crlMessage.append(e.getMessage());
+                crl = crlService.getCurrentCrl(certificate, issuerCertificate);
+            } catch (IOException e) {
+                return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to retrieve CRL URL from certificate: " + e.getMessage());
+            } catch (ValidationException e)
+            {
+                return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Invalid delta CRL: " + e.getMessage());
+            }
+
+            StringBuilder crlMessage = new StringBuilder();
+            CertificateValidationStatus crlOutputStatus;
+
+
+            Optional<CrlEntry> crlEntry = crlEntryRepository.findBySerialNumber(String.valueOf(certificate.getSerialNumber()));
+
+            if (crlEntry.isEmpty()) {
+                crlOutputStatus = CertificateValidationStatus.VALID;
+                crlMessage.append("CRL verification successful from URL ");
+                crlMessage.append(". ");
+            } else {
+                crlOutputStatus = CertificateValidationStatus.REVOKED;
+                crlMessage.append("Certificate was revoked according to information from CRL URL ");
+                crlMessage.append(". ");
+                crlMessage.append(crlEntry.get().getRevocationReason());
                 crlMessage.append(". ");
             }
+            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, crlOutputStatus, crlMessage.toString());
         }
 
-        return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, crlOutputStatus, crlMessage.toString());
     }
 
     private CertificateValidationCheckDto checkBasicConstraints(X509Certificate certificate, X509Certificate issuerCertificate, boolean isEndCertificate) {

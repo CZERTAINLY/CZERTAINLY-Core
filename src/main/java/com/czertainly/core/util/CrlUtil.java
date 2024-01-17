@@ -1,15 +1,20 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.core.dao.entity.Crl;
+import com.czertainly.core.dao.entity.CrlEntry;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.CRLDistPoint;
 import org.bouncycastle.asn1.x509.DistributionPoint;
 import org.bouncycastle.asn1.x509.DistributionPointName;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +31,8 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class CrlUtil {
     private static final Logger logger = LoggerFactory.getLogger(CrlUtil.class);
@@ -35,14 +42,13 @@ public class CrlUtil {
     private CrlUtil() {
     }
 
-    public static List<String> getCDPFromCertificate(X509Certificate certificate) throws IOException {
-        byte[] crlDistributionPointDerEncodedArray = certificate
-                .getExtensionValue(Extension.cRLDistributionPoints.getId());
-        if (crlDistributionPointDerEncodedArray == null) {
+    public static List<String> getCDPFromCertificate(byte[] extensionToDownloadFrom) throws IOException {
+
+        if (extensionToDownloadFrom == null) {
             return new ArrayList<>();
         }
         ASN1InputStream oAsnInStream = new ASN1InputStream(
-                new ByteArrayInputStream(crlDistributionPointDerEncodedArray));
+                new ByteArrayInputStream(extensionToDownloadFrom));
         ASN1Primitive derObjCrlDP = oAsnInStream.readObject();
         DEROctetString dosCrlDP = (DEROctetString) derObjCrlDP;
 
@@ -73,27 +79,21 @@ public class CrlUtil {
         return crlUrls;
     }
 
-    public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, CertificateException, CRLException {
-        X509CRL crl;
+    public static X509CRL getX509Crl(String crlUrl) throws IOException, CertificateException {
+        X509CRL X509Crl;
         URL url = new URL(crlUrl);
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
         CertificateFactory cf = CertificateFactory.getInstance("X509");
 
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
-            crl = (X509CRL) cf.generateCRL(inStream);
-        } catch (FileNotFoundException e) {
+            X509Crl = (X509CRL) cf.generateCRL(inStream);
+        } catch (CRLException e) {
             throw new CertificateException("File " + e.getMessage() + " not found");
         }
-        X509CRLEntry crlCertificate = crl.getRevokedCertificate(certificate.getSerialNumber());
-        if (crlCertificate == null) {
-            return null;
-        } else {
-            DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-            String strDate = dateFormat.format(crlCertificate.getRevocationDate());
-            String reason = crlCertificate.getRevocationReason() != null ? crlCertificate.getRevocationReason().toString() : "Unspecified";
-
-            return String.format("Reason: %s. Date: %s", reason, strDate);
-        }
+        return X509Crl;
     }
+
+
+
 }
