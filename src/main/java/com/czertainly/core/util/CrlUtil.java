@@ -1,43 +1,29 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.core.dao.entity.Crl;
-import com.czertainly.core.dao.entity.CrlEntry;
 import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.CRLDistPoint;
-import org.bouncycastle.asn1.x509.DistributionPoint;
-import org.bouncycastle.asn1.x509.DistributionPointName;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
-import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
+import org.bouncycastle.asn1.x509.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.security.GeneralSecurityException;
-import java.security.cert.*;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.security.cert.CRLException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509CRL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 
 public class CrlUtil {
     private static final Logger logger = LoggerFactory.getLogger(CrlUtil.class);
     //CRL Timeout setting when initiating URL Connection. If the connection takes more than 30 seconds, it is determined as not reachable
-    private static final Integer CRL_CONNECTION_TIMEOUT = 30; //seconds
+    private static final Integer CRL_CONNECTION_TIMEOUT = 1000; //milliseconds
 
     private CrlUtil() {
     }
