@@ -40,25 +40,12 @@ public class X509CertificateValidator implements ICertificateValidator {
     private static final int DAYS_TO_EXPIRE = 30;
     private CertificateRepository certificateRepository;
 
-    private CrlRepository crlRepository;
-
-    private CrlEntryRepository crlEntryRepository;
 
     private CrlService crlService;
 
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
-    }
-
-    @Autowired
-    public void setCrlRepository(CrlRepository crlRepository) {
-        this.crlRepository = crlRepository;
-    }
-
-    @Autowired
-    public void setCrlEntryRepository(CrlEntryRepository crlEntryRepository) {
-        this.crlEntryRepository = crlEntryRepository;
     }
 
     @Autowired
@@ -270,24 +257,23 @@ public class X509CertificateValidator implements ICertificateValidator {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to retrieve CRL URL from certificate: " + e.getMessage());
             } catch (ValidationException e)
             {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Invalid delta CRL: " + e.getMessage());
+                return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to validate delta CRL: " + e.getMessage());
             }
 
             StringBuilder crlMessage = new StringBuilder();
             CertificateValidationStatus crlOutputStatus;
 
+            CrlEntry crlEntry = crlService.findCrlEntryForCertificate(certificate.getSerialNumber().toString(16), crl.getUuid());
 
-            Optional<CrlEntry> crlEntry = crlEntryRepository.findBySerialNumber(String.valueOf(certificate.getSerialNumber()));
-
-            if (crlEntry.isEmpty()) {
+            if (crlEntry == null) {
                 crlOutputStatus = CertificateValidationStatus.VALID;
                 crlMessage.append("CRL verification successful from URL ");
                 crlMessage.append(". ");
             } else {
                 crlOutputStatus = CertificateValidationStatus.REVOKED;
-                crlMessage.append("Certificate was revoked according to information from CRL URL ");
-                crlMessage.append(". ");
-                crlMessage.append(crlEntry.get().getRevocationReason());
+                crlMessage.append("Certificate was revoked according to information from CRL URL");
+                crlMessage.append(". Revocation reason: ");
+                crlMessage.append(crlEntry.getRevocationReason());
                 crlMessage.append(". ");
             }
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, crlOutputStatus, crlMessage.toString());
