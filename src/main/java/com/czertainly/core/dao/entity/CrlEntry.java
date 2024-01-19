@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import jakarta.persistence.*;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Objects;
@@ -9,16 +10,17 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "crl_entry")
-public class CrlEntry extends UniquelyIdentified {
+public class CrlEntry implements Serializable {
 
     @EmbeddedId
     private CrlEntryId id = new CrlEntryId();
-    @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("crl_uuid")
-    private UUID crlUuid;
 
-    @MapsId("serialNumber")
-    private String serialNumber;
+    @ManyToOne
+    @MapsId("crlUuid")
+    private Crl crl;
+
+//    @MapsId("serialNumber")
+//    private String serialNumber;
 
     @Column(name = "revocation_date")
     private Date revocationDate;
@@ -26,13 +28,15 @@ public class CrlEntry extends UniquelyIdentified {
     @Column(name = "revocation_reason")
     private String revocationReason;
 
-    public String getSerialNumber() {
-        return serialNumber;
-    }
+    public CrlEntry() {};
 
-    public void setSerialNumber(String serialNumber) {
-        this.serialNumber = serialNumber;
-    }
+//    public String getSerialNumber() {
+//        return serialNumber;
+//    }
+//
+//    public void setSerialNumber(String serialNumber) {
+//        this.serialNumber = serialNumber;
+//    }
 
     public CrlEntryId getId() {
         return id;
@@ -43,11 +47,7 @@ public class CrlEntry extends UniquelyIdentified {
     }
 
     public UUID getCrlUuid() {
-        return crlUuid;
-    }
-
-    public void setCrlUuid(UUID crlUuid) {
-        this.crlUuid = crlUuid;
+        return crl.getUuid();
     }
 
     public Date getRevocationDate() {
@@ -66,6 +66,15 @@ public class CrlEntry extends UniquelyIdentified {
         this.revocationReason = revocationReason;
     }
 
+    public Crl getCrl() {
+        return crl;
+    }
+
+    public void setCrl(Crl crl) {
+        this.crl = crl;
+    }
+
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -74,8 +83,24 @@ public class CrlEntry extends UniquelyIdentified {
             return false;
 
         CrlEntry that = (CrlEntry) o;
-        return Objects.equals(crlUuid, that.crlUuid) &&
-                Objects.equals(serialNumber, that.serialNumber);
+        return Objects.equals(crl, that.crl) &&
+                Objects.equals(id.getSerialNumber(), that.getId().getSerialNumber());
     }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getCrlUuid(), id.getSerialNumber());
+    }
+
+    @Override
+    public String toString() {
+        return "CertificateLocation{" +
+                "id=" + id +
+                ", revocationReason='" + revocationReason+ '\'' +
+                ", revocationDate='" + revocationDate + '\'' +
+                '}';
+    }
+
+
 
 }

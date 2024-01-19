@@ -1,9 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import jakarta.persistence.*;
 
 import java.util.Date;
 import java.util.List;
@@ -40,8 +38,10 @@ public class Crl extends UniquelyIdentified {
     private Date lastRevocationDate;
 
     @OneToMany(mappedBy = "crl")
+    @JsonBackReference
     private List<CrlEntry> crlEntries;
 
+    public Crl() {};
 
     public UUID getCaCertificateUuid() {
         return caCertificateUuid;

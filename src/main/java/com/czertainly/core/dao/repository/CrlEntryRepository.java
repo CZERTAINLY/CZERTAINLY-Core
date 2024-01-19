@@ -10,7 +10,5 @@ import java.util.Optional;
 public interface CrlEntryRepository extends SecurityFilterRepository<CrlEntry, Long>
 {
 
-    Optional<CrlEntry> findBySerialNumber(String serialNumber);
-
     Optional<CrlEntry> findById(CrlEntryId id);
 }
