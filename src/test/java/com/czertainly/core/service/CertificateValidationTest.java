@@ -1,17 +1,33 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.Crl;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.CrlRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.apache.commons.lang3.StringUtils;
+import org.bouncycastle.asn1.DERIA5String;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v2CRLBuilder;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CRLConverter;
+import org.bouncycastle.cert.jcajce.JcaX509v2CRLBuilder;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.util.Store;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.bouncycastle.util.io.pem.PemReader;
@@ -24,16 +40,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.security.GeneralSecurityException;
-import java.security.KeyStore;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
+import java.math.BigInteger;
+import java.security.*;
+import java.security.cert.*;
 import java.util.*;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 
 @SpringBootTest
 @Transactional
@@ -44,9 +65,15 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     private CertificateService certificateService;
 
     @Autowired
+    private CrlService crlService;
+
+    @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
     private CertificateContentRepository certificateContentRepository;
+
+    @Autowired
+    private CrlRepository crlRepository;
 
     private Certificate certificate;
     private CertificateContent certificateContent;
@@ -61,8 +88,15 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     private static final Logger logger = LoggerFactory.getLogger(CertificateValidationTest.class);
 
+    private WireMockServer mockServer;
+
+
     @BeforeEach
     public void setUp() throws GeneralSecurityException, IOException, com.czertainly.api.exception.CertificateException {
+        mockServer = new WireMockServer(0);
+        mockServer.start();
+
+        WireMock.configureFor("localhost", mockServer.port());
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         keyStore.load(keyStoreStream, "123456".toCharArray());
@@ -88,6 +122,8 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         String caCertificateContent = "MIIFyzCCA7OgAwIBAgIUOymQEJz0e6+2cDE/" + "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";
 
         caCertificate = certificateService.createCertificate(caCertificateContent, CertificateType.X509);
+
+        certificateRepository.save(caCertificate);
 
         String chainCertificateContent = "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";
         chainIncompleteCertificate = certificateService.createCertificate(chainCertificateContent, CertificateType.X509);
@@ -153,6 +189,74 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     }
 
+    @Test
+    void testCreateCrl() throws GeneralSecurityException, OperatorCreationException, IOException {
+        KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
+        keyPairGen.initialize(2048);
+        KeyPair pair = keyPairGen.generateKeyPair();
+        List<String> crlUrls = List.of(mockServer.baseUrl() + "/crl1.crl", mockServer.baseUrl() + "/crl2.crl");
+        X509Certificate certificateWithCrl = createCertificateWithCrl(crlUrls, null);
+        X509Certificate x509CaCertificate = CertificateUtil.getX509Certificate(caCertificate.getCertificateContent().getContent());
+        // Test CRL without the end certificate and without delta
+        X509CRL X509crl = createEmptyCRL(x509CaCertificate, pair.getPrivate());
+        byte[] X509CrlEncoded = X509crl.getEncoded();
+        stubCrlPoint("/crl1.crl", X509CrlEncoded);
+        Crl crl = crlService.getCurrentCrl(certificateWithCrl, x509CaCertificate);
+        Assertions.assertNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crl.getUuid()));
+        // Test CRL with revoked certificate and without delta and with one invalid CRL distribution point
+        crlRepository.delete(crl);
+        mockServer.removeStubMapping(mockServer.getStubMappings().get(0));
+        X509CRL X509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", X509crl, certificateWithCrl);
+        stubCrlPoint("/crl2.crl", X509CrlRevokedCert.getEncoded());
+        Crl crlWithRevoked = crlService.getCurrentCrl(certificateWithCrl, x509CaCertificate);
+        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlWithRevoked.getUuid()));
+        // Test properly set deltaCrl
+        X509CRL deltaCrl = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())));
+        X509Certificate certificateWithDelta = createCertificateWithCrl(crlUrls, List.of(mockServer.baseUrl() + "/deltaCrl"));
+        stubCrlPoint("/deltaCrl", deltaCrl.getEncoded());
+        Crl crlWithDelta = crlService.getCurrentCrl(certificateWithDelta, x509CaCertificate);
+        Assertions.assertNotNull(crlWithDelta.getCrlNumberDelta());
+        Assertions.assertNotNull(crlWithDelta.getNextUpdateDelta());
+        // Test improperly set deltaCrl
+        crlRepository.delete(crlWithDelta);
+        X509CRL deltaCrl2 = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.TWO);
+        stubCrlPoint("/deltaCrl", deltaCrl2.getEncoded());
+        Assertions.assertThrows(ValidationException.class, () -> crlService.getCurrentCrl(certificateWithDelta, x509CaCertificate));
+    }
+
+    private void stubCrlPoint(String urlPart, byte[] body) {
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching(urlPart))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withHeader("Set-Cookie", "session_id=91837492837")
+                        .withHeader("Set-Cookie", "split_test_group=B") // You can call withHeader more than once for the same header if multiple values are required
+                        .withHeader("Cache-Control", "no-cache")
+                        .withBody(body)));
+    }
+
+    private X509Certificate createCertificateWithCrl(List<String> crlUrls, List<String> deltaCrlUrls) throws CertIOException, NoSuchAlgorithmException, OperatorCreationException, CertificateException {
+        KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
+        keyPairGen.initialize(2048);
+        KeyPair pair = keyPairGen.generateKeyPair();
+        SubjectPublicKeyInfo subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(pair.getPublic().getEncoded());
+        X509v3CertificateBuilder certificateBuilder = new X509v3CertificateBuilder(new X500Name(caCertificate.getIssuerDnNormalized()), BigInteger.ONE, new Date(), new Date(), new X500Name("CN=cn"), subjectPublicKeyInfo);
+        CRLDistPoint crlDistPoint = new CRLDistPoint(createCrlDistributionPoints(crlUrls));
+        certificateBuilder.addExtension(Extension.cRLDistributionPoints, false, crlDistPoint);
+        if (deltaCrlUrls != null) {
+            CRLDistPoint deltaCrlDistPoint = new CRLDistPoint(createCrlDistributionPoints(deltaCrlUrls));
+            certificateBuilder.addExtension(Extension.freshestCRL, false, deltaCrlDistPoint);
+        }
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSAEncryption")
+                .build(pair.getPrivate());
+        X509CertificateHolder holder = certificateBuilder.build(signer);
+        JcaX509CertificateConverter converter = new JcaX509CertificateConverter();
+        converter.setProvider(new BouncyCastleProvider());
+        return converter.getCertificate(holder);
+    }
+
+
     private int getNumberOfCertificatesInPkcs7(String content) throws CMSException {
         String pkcs7Data = new String(Base64.getDecoder().decode(content));
         pkcs7Data = pkcs7Data.replace("-----BEGIN PKCS7-----", "").replace("-----END PKCS7-----", "").replaceAll("\\s", "");
@@ -173,6 +277,65 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         }
         reader.close();
         return pemObjects.size();
+    }
+
+    public static Date calculateDate(int hoursInFuture) {
+        long secs = System.currentTimeMillis() / 1000;
+        return new Date((secs + ((long) hoursInFuture * 60 * 60)) * 1000);
+    }
+
+    private X509CRL createEmptyCRL(X509Certificate caCert, PrivateKey caKey) throws CRLException, OperatorCreationException, CertIOException {
+        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(X500Name.getInstance(caCert.getSubjectX500Principal().getEncoded()), calculateDate(0));
+        crlGen.setNextUpdate(calculateDate(24 * 7));
+        crlGen.addExtension(Extension.cRLNumber,
+                false,
+                new CRLNumber(BigInteger.ONE));
+
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSAEncryption")
+                .setProvider("BC").build(caKey);
+
+        JcaX509CRLConverter converter = new JcaX509CRLConverter().setProvider("BC");
+        return converter.getCRL(crlGen.build(signer));
+    }
+
+    private X509CRL createEmptyDeltaCRL(X509Certificate caCert, PrivateKey caKey, BigInteger deltaCrlIndicator) throws CRLException, OperatorCreationException, CertIOException {
+        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(X500Name.getInstance(caCert.getSubjectX500Principal().getEncoded()), calculateDate(0));
+        crlGen.setNextUpdate(calculateDate(24 * 7));
+        crlGen.addExtension(Extension.cRLNumber, false, new CRLNumber(BigInteger.ONE));
+        crlGen.addExtension(Extension.deltaCRLIndicator, false, new CRLNumber(deltaCrlIndicator));
+
+        ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSAEncryption")
+                .setProvider("BC").build(caKey);
+
+        JcaX509CRLConverter converter = new JcaX509CRLConverter().setProvider("BC");
+        return converter.getCRL(crlGen.build(signer));
+    }
+
+    public X509CRL addRevocationToCRL(PrivateKey caKey, String sigAlg, X509CRL crl, X509Certificate certToRevoke) throws IOException, GeneralSecurityException, OperatorCreationException {
+        JcaX509v2CRLBuilder crlGen = new JcaX509v2CRLBuilder(crl);
+        crlGen.setNextUpdate(calculateDate(24 * 7));
+
+        // add revocation
+        ExtensionsGenerator extGen = new ExtensionsGenerator();
+        extGen.addExtension(Extension.reasonCode, false, org.bouncycastle.asn1.x509.CRLReason.lookup(2));
+        crlGen.addCRLEntry(certToRevoke.getSerialNumber(),
+                new Date(), extGen.generate());
+        ContentSigner signer = new JcaContentSignerBuilder(sigAlg)
+                .setProvider("BC").build(caKey);
+        JcaX509CRLConverter converter = new JcaX509CRLConverter().setProvider("BC");
+
+        return converter.getCRL(crlGen.build(signer));
+    }
+
+    private DistributionPoint[] createCrlDistributionPoints(List<String> urls) {
+        List<DistributionPoint> list = new ArrayList<>();
+        for (String url : urls) {
+            DERIA5String deria5String = new DERIA5String(url);
+            GeneralName generalName = new GeneralName(GeneralName.uniformResourceIdentifier, deria5String);
+            DistributionPointName distributionPointName = new DistributionPointName(new GeneralNames(generalName));
+            list.add(new DistributionPoint(distributionPointName, null, null));
+        }
+        return list.toArray(new DistributionPoint[0]);
     }
 
 

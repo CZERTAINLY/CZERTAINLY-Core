@@ -54,9 +54,9 @@ public class CrlUtil {
             if (dpn != null && dpn.getType() == DistributionPointName.FULL_NAME) {
                 GeneralName[] genNames = GeneralNames.getInstance(dpn.getName()).getNames();
                 // Look for an URI
-                for (int j = 0; j < genNames.length; j++) {
-                    if (genNames[j].getTagNo() == GeneralName.uniformResourceIdentifier) {
-                        String url = DERIA5String.getInstance(genNames[j].getName()).getString();
+                for (GeneralName genName : genNames) {
+                    if (genName.getTagNo() == GeneralName.uniformResourceIdentifier) {
+                        String url = DERIA5String.getInstance(genName.getName()).getString();
                         crlUrls.add(url);
                     }
                 }
@@ -79,7 +79,5 @@ public class CrlUtil {
         }
         return X509Crl;
     }
-
-
 
 }

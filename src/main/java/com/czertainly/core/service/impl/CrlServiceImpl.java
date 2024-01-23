@@ -60,7 +60,7 @@ public class CrlServiceImpl implements CrlService {
             X509CRL X509Crl;
             try {
                 X509Crl = CrlUtil.getX509Crl(crlUrl);
-            } catch (CertificateException e) {
+            } catch (Exception e) {
                 // Failed to read content from URL, continue to next URL
                 continue;
             }
@@ -74,13 +74,13 @@ public class CrlServiceImpl implements CrlService {
             crlRepository.save(crl);
 
             Set<? extends X509CRLEntry> crlCertificates = X509Crl.getRevokedCertificates();
-            for (X509CRLEntry x509CRLEntry : crlCertificates) {
-              CrlEntry crlEntry = createCrlEntry(x509CRLEntry, crl);
-              crlEntries.add(crlEntry);
+            if (crlCertificates != null) {
+                for (X509CRLEntry x509CRLEntry : crlCertificates) {
+                    CrlEntry crlEntry = createCrlEntry(x509CRLEntry, crl);
+                    crlEntries.add(crlEntry);
+                }
+                crl.setLastRevocationDate(Collections.max(crlEntries, Comparator.comparing(CrlEntry::getRevocationDate)).getRevocationDate());
             }
-
-            crl.setLastRevocationDate(Collections.max(crlEntries, Comparator.comparing(CrlEntry::getRevocationDate)).getRevocationDate());
-
 
             // Managed to process a CRL url and do not need to try other URLs
             break;
@@ -95,7 +95,7 @@ public class CrlServiceImpl implements CrlService {
             X509CRL deltaCrl;
             try {
                 deltaCrl = CrlUtil.getX509Crl(deltaCrlUrl);
-            } catch (CertificateException e) {
+            } catch (Exception e) {
                 // Failed to read content from URL, continue to next URL
                 continue;
             }
@@ -109,7 +109,8 @@ public class CrlServiceImpl implements CrlService {
             if (!Objects.equals(deltaCrlIndicator, crl.getCrlNumber())) {
                 Crl newCrl = createCrlAndCrlEntries(certificate.getExtensionValue(Extension.cRLDistributionPoints.getId()), issuerDn, issuerSerialNumber, caCertificateUuid, crl.getCrlNumber());
                 // If received CRL is null, it means it is the old one again, and we are not able to set delta CRL properly
-                if (newCrl == null) throw new ValidationException("Unable to get CRL with base CRL number equal to DeltaCRLIndicator");
+                if (newCrl == null)
+                    throw new ValidationException("Unable to get CRL with base CRL number equal to DeltaCRLIndicator");
                 // Otherwise delete the old CRL and continue with the new CRL
                 crlRepository.delete(crl);
                 crl = newCrl;
@@ -135,7 +136,8 @@ public class CrlServiceImpl implements CrlService {
         if (crlOptional.isPresent() && crlOptional.get().getNextUpdate().before(new Date())) {
             crl = createCrlAndCrlEntries(crlDistributionPoints, issuerDn, issuerSerialNumber, caCertificateUuid, crlOptional.get().getCrlNumber());
             // If CRL received is null, then the downloaded CRL is the old CRL, so use that one
-            if (crl != null) crlRepository.delete(crlOptional.get()); else crl = crlOptional.get();
+            if (crl != null) crlRepository.delete(crlOptional.get());
+            else crl = crlOptional.get();
         } else if (crlOptional.isPresent()) {
             // Get from database if CRL is present
             crl = crlOptional.get();
