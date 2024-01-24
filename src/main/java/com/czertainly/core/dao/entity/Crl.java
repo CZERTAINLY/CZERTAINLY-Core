@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "crl")
@@ -37,7 +39,7 @@ public class Crl extends UniquelyIdentified {
     @Column(name = "last_revocation_date")
     private Date lastRevocationDate;
 
-    @OneToMany(mappedBy = "crl")
+    @OneToMany(mappedBy = "crl", fetch = FetchType.LAZY)
     @JsonBackReference
     private List<CrlEntry> crlEntries;
 
@@ -121,5 +123,9 @@ public class Crl extends UniquelyIdentified {
 
     public void setCrlEntries(List<CrlEntry> crlEntries) {
         this.crlEntries = crlEntries;
+    }
+
+    public Map<String, CrlEntry> getCrlEntriesMap() {
+        return crlEntries.stream().collect(Collectors.toMap(crlEntry -> crlEntry.getId().getSerialNumber(), crlEntry -> crlEntry));
     }
 }

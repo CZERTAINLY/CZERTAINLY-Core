@@ -52,11 +52,6 @@ public class CrlServiceImpl implements CrlService {
         Crl crl = null;
 
         for (String crlUrl : crlUrls) {
-            crl = new Crl();
-            crl.setSerialNumber(issuerSerialNumber);
-            crl.setIssuerDn(issuerDn);
-            crl.setCaCertificateUuid(caCertificateUuid);
-            List<CrlEntry> crlEntries = new ArrayList<>();
             X509CRL X509Crl;
             try {
                 X509Crl = CrlUtil.getX509Crl(crlUrl);
@@ -64,22 +59,31 @@ public class CrlServiceImpl implements CrlService {
                 // Failed to read content from URL, continue to next URL
                 continue;
             }
+
+            String crlNumber = JcaX509ExtensionUtils.parseExtensionValue(X509Crl.getExtensionValue(Extension.cRLNumber.getId())).toString();
+            if (Objects.equals(crlNumber, oldCrlNumber)) return null;
+
+            crl = new Crl();
+            List<CrlEntry> crlEntries = new ArrayList<>();
             crl.setNextUpdate(X509Crl.getNextUpdate());
             byte[] issuerDnPrincipalEncoded = X509Crl.getIssuerX500Principal().getEncoded();
             crl.setCrlIssuerDn(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
-            String crlNumber = JcaX509ExtensionUtils.parseExtensionValue(X509Crl.getExtensionValue(Extension.cRLNumber.getId())).toString();
-            if (Objects.equals(crlNumber, oldCrlNumber)) return null;
+            crl.setSerialNumber(issuerSerialNumber);
+            crl.setIssuerDn(issuerDn);
+            crl.setCaCertificateUuid(caCertificateUuid);
             crl.setCrlNumber(crlNumber);
             crl.setCrlEntries(crlEntries);
             crlRepository.save(crl);
 
             Set<? extends X509CRLEntry> crlCertificates = X509Crl.getRevokedCertificates();
             if (crlCertificates != null) {
+                Date lastRevocationDate = new Date(0);
                 for (X509CRLEntry x509CRLEntry : crlCertificates) {
                     CrlEntry crlEntry = createCrlEntry(x509CRLEntry, crl);
                     crlEntries.add(crlEntry);
+                    if (crlEntry.getRevocationDate().after(lastRevocationDate)) lastRevocationDate = crlEntry.getRevocationDate();
                 }
-                crl.setLastRevocationDate(Collections.max(crlEntries, Comparator.comparing(CrlEntry::getRevocationDate)).getRevocationDate());
+                crl.setLastRevocationDate(lastRevocationDate);
             }
 
             // Managed to process a CRL url and do not need to try other URLs
@@ -132,15 +136,18 @@ public class CrlServiceImpl implements CrlService {
         Optional<Crl> crlOptional = crlRepository.findByIssuerDnAndSerialNumber(issuerDn, issuerSerialNumber);
         UUID caCertificateUuid = certificateRepository.findByIssuerDnNormalizedAndSerialNumber(issuerDn, issuerSerialNumber).get().getUuid();
         byte[] crlDistributionPoints = certificate.getExtensionValue(Extension.cRLDistributionPoints.getId());
-        // If CRL is present, but current UTC time is past its next_update timestamp, download the CRL and save the CRL and its entries in database
-        if (crlOptional.isPresent() && crlOptional.get().getNextUpdate().before(new Date())) {
-            crl = createCrlAndCrlEntries(crlDistributionPoints, issuerDn, issuerSerialNumber, caCertificateUuid, crlOptional.get().getCrlNumber());
-            // If CRL received is null, then the downloaded CRL is the old CRL, so use that one
-            if (crl != null) crlRepository.delete(crlOptional.get());
-            else crl = crlOptional.get();
-        } else if (crlOptional.isPresent()) {
+        if (crlOptional.isPresent()) {
             // Get from database if CRL is present
             crl = crlOptional.get();
+            // If CRL is present, but current UTC time is past its next_update timestamp, download the CRL and save the CRL and its entries in database
+            if (crl.getNextUpdate().before(new Date())) {
+                Crl newCrl = createCrlAndCrlEntries(crlDistributionPoints, issuerDn, issuerSerialNumber, caCertificateUuid, crlOptional.get().getCrlNumber());
+                // If CRL received is not null, then the downloaded CRL is updated CRL, delete old CRL and use updated one
+                if (newCrl != null) {
+                    crlRepository.delete(crl);
+                    crl = newCrl;
+                }
+            }
         } else {
             // If CRL is not present, download the CRL and save the CRL and its entries in database
             crl = createCrlAndCrlEntries(crlDistributionPoints, issuerDn, issuerSerialNumber, caCertificateUuid, "");
@@ -171,30 +178,29 @@ public class CrlServiceImpl implements CrlService {
             Date lastRevocationDateNew = crl.getLastRevocationDate();
             Set<? extends X509CRLEntry> deltaCrlEntries = deltaCrl.getRevokedCertificates();
             if (deltaCrlEntries != null) {
+                Map<String, CrlEntry> crlEntryMap = crl.getCrlEntriesMap();
                 for (X509CRLEntry deltaCrlEntry : deltaCrlEntries) {
                     Date entryRevocationDate = deltaCrlEntry.getRevocationDate();
                     // Process only entries which revocation date is >= last_revocation_date, others are already in DB
-                    if (entryRevocationDate.after(lastRevocationDateNew)) {
+                    if (entryRevocationDate.after(crl.getLastRevocationDate()) || entryRevocationDate.equals(crl.getLastRevocationDate())) {
                         String serialNumber = String.valueOf(deltaCrlEntry.getSerialNumber());
-                        CrlEntryId id = new CrlEntryId(crl.getUuid(), serialNumber);
-                        Optional<CrlEntry> crlEntry = crlEntryRepository.findById(id);
+                        CrlEntry crlEntry = crlEntryMap.get(serialNumber);
                         //  Entry by serial number is not present, add new one
-                        if (crlEntry.isEmpty()) {
+                        if (crlEntry == null) {
                             CrlEntry crlEntryNew = createCrlEntry(deltaCrlEntry, crl);
                             crlEntries.add(crlEntryNew);
-                            if (lastRevocationDateNew.before(deltaCrlEntry.getRevocationDate()))
-                                lastRevocationDateNew = deltaCrlEntry.getRevocationDate();
                             // Entry by serial number is present and revocation reason is REMOVE_FROM_CRL, remove this entry
                         } else if (Objects.equals(deltaCrlEntry.getRevocationReason().toString(), "REMOVE_FROM_CRL")) {
                             crlEntries.remove(crlEntry);
-                            crlEntryRepository.delete(crlEntry.get());
+                            crlEntryRepository.delete(crlEntry);
                             // Entry by serial number is present, probably reason changed so update its revocation reason and date
                         } else {
-                            crlEntry.get().setRevocationReason(deltaCrlEntry.getRevocationReason().toString());
-                            crlEntry.get().setRevocationDate(deltaCrlEntry.getRevocationDate());
-                            if (lastRevocationDateNew.before(deltaCrlEntry.getRevocationDate()))
-                                lastRevocationDateNew = deltaCrlEntry.getRevocationDate();
+                            crlEntry.setRevocationReason(deltaCrlEntry.getRevocationReason().toString());
+                            crlEntry.setRevocationDate(deltaCrlEntry.getRevocationDate());
+                            crlEntryRepository.save(crlEntry);
                         }
+                        if (lastRevocationDateNew.before(deltaCrlEntry.getRevocationDate()))
+                            lastRevocationDateNew = deltaCrlEntry.getRevocationDate();
                     }
                 }
             }
@@ -202,6 +208,7 @@ public class CrlServiceImpl implements CrlService {
             crl.setLastRevocationDate(lastRevocationDateNew);
             crl.setCrlNumberDelta(encodedCrlNumber.toString());
             crl.setNextUpdateDelta(deltaCrl.getNextUpdate());
+            crlRepository.save(crl);
         }
     }
 

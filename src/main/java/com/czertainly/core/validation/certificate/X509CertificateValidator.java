@@ -249,37 +249,35 @@ public class X509CertificateValidator implements ICertificateValidator {
 
         if (certificate.getExtensionValue(Extension.cRLDistributionPoints.getId()) == null) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "The cRLDistributionPoints extension is not set.");
-        } else {
-            Crl crl;
-            try {
-                crl = crlService.getCurrentCrl(certificate, issuerCertificate);
-            } catch (IOException e) {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to retrieve CRL URL from certificate: " + e.getMessage());
-            } catch (ValidationException e)
-            {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to validate delta CRL: " + e.getMessage());
-            }
-
-            StringBuilder crlMessage = new StringBuilder();
-            CertificateValidationStatus crlOutputStatus;
-
-            CrlEntry crlEntry = crlService.findCrlEntryForCertificate(certificate.getSerialNumber().toString(16), crl.getUuid());
-
-            if (crlEntry == null) {
-                crlOutputStatus = CertificateValidationStatus.VALID;
-                crlMessage.append("CRL verification successful from URL ");
-                crlMessage.append(". ");
-            } else {
-                crlOutputStatus = CertificateValidationStatus.REVOKED;
-                crlMessage.append("Certificate was revoked according to information from CRL URL");
-                crlMessage.append(". Revocation reason: ");
-                crlMessage.append(crlEntry.getRevocationReason());
-                crlMessage.append(". ");
-            }
-            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, crlOutputStatus, crlMessage.toString());
+        }
+        Crl crl;
+        try {
+            crl = crlService.getCurrentCrl(certificate, issuerCertificate);
+        } catch (IOException e) {
+            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to retrieve CRL URL from certificate: " + e.getMessage());
+        } catch (ValidationException e) {
+            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to process CRL: " + e.getMessage());
         }
 
+        StringBuilder crlMessage = new StringBuilder();
+        CertificateValidationStatus crlOutputStatus;
+
+        CrlEntry crlEntry = crlService.findCrlEntryForCertificate(certificate.getSerialNumber().toString(16), crl.getUuid());
+
+        if (crlEntry == null) {
+            crlOutputStatus = CertificateValidationStatus.VALID;
+            crlMessage.append("CRL verification successful from URL");
+            crlMessage.append(". ");
+        } else {
+            crlOutputStatus = CertificateValidationStatus.REVOKED;
+            crlMessage.append("Certificate was revoked according to information from CRL URL");
+            crlMessage.append(". Revocation reason: ");
+            crlMessage.append(crlEntry.getRevocationReason());
+            crlMessage.append(". ");
+        }
+        return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, crlOutputStatus, crlMessage.toString());
     }
+
 
     private CertificateValidationCheckDto checkBasicConstraints(X509Certificate certificate, X509Certificate issuerCertificate, boolean isEndCertificate) {
         int pathLenConstraint = certificate.getBasicConstraints();
