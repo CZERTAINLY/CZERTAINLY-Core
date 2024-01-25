@@ -4,45 +4,37 @@ import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.x509.CRLDistPoint;
-import org.bouncycastle.asn1.x509.DistributionPoint;
-import org.bouncycastle.asn1.x509.DistributionPointName;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.security.GeneralSecurityException;
-import java.security.cert.*;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.security.cert.CRLException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509CRL;
 import java.util.ArrayList;
 import java.util.List;
 
 public class CrlUtil {
     private static final Logger logger = LoggerFactory.getLogger(CrlUtil.class);
     //CRL Timeout setting when initiating URL Connection. If the connection takes more than 30 seconds, it is determined as not reachable
-    private static final Integer CRL_CONNECTION_TIMEOUT = 30; //seconds
+    private static final Integer CRL_CONNECTION_TIMEOUT = 1000; //milliseconds
 
     private CrlUtil() {
     }
 
-    public static List<String> getCDPFromCertificate(X509Certificate certificate) throws IOException {
-        byte[] crlDistributionPointDerEncodedArray = certificate
-                .getExtensionValue(Extension.cRLDistributionPoints.getId());
-        if (crlDistributionPointDerEncodedArray == null) {
+    public static List<String> getCDPFromCertificate(byte[] extensionToDownloadFrom) throws IOException {
+
+        if (extensionToDownloadFrom == null) {
             return new ArrayList<>();
         }
         ASN1InputStream oAsnInStream = new ASN1InputStream(
-                new ByteArrayInputStream(crlDistributionPointDerEncodedArray));
+                new ByteArrayInputStream(extensionToDownloadFrom));
         ASN1Primitive derObjCrlDP = oAsnInStream.readObject();
         DEROctetString dosCrlDP = (DEROctetString) derObjCrlDP;
 
@@ -62,9 +54,9 @@ public class CrlUtil {
             if (dpn != null && dpn.getType() == DistributionPointName.FULL_NAME) {
                 GeneralName[] genNames = GeneralNames.getInstance(dpn.getName()).getNames();
                 // Look for an URI
-                for (int j = 0; j < genNames.length; j++) {
-                    if (genNames[j].getTagNo() == GeneralName.uniformResourceIdentifier) {
-                        String url = DERIA5String.getInstance(genNames[j].getName()).getString();
+                for (GeneralName genName : genNames) {
+                    if (genName.getTagNo() == GeneralName.uniformResourceIdentifier) {
+                        String url = DERIA5String.getInstance(genName.getName()).getString();
                         crlUrls.add(url);
                     }
                 }
@@ -73,27 +65,19 @@ public class CrlUtil {
         return crlUrls;
     }
 
-    public static String checkCertificateRevocationList(X509Certificate certificate, String crlUrl) throws IOException, CertificateException, CRLException {
-        X509CRL crl;
+    public static X509CRL getX509Crl(String crlUrl) throws IOException, CertificateException {
+        X509CRL X509Crl;
         URL url = new URL(crlUrl);
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
         CertificateFactory cf = CertificateFactory.getInstance("X509");
 
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
-            crl = (X509CRL) cf.generateCRL(inStream);
-        } catch (FileNotFoundException e) {
+            X509Crl = (X509CRL) cf.generateCRL(inStream);
+        } catch (CRLException e) {
             throw new CertificateException("File " + e.getMessage() + " not found");
         }
-        X509CRLEntry crlCertificate = crl.getRevokedCertificate(certificate.getSerialNumber());
-        if (crlCertificate == null) {
-            return null;
-        } else {
-            DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-            String strDate = dateFormat.format(crlCertificate.getRevocationDate());
-            String reason = crlCertificate.getRevocationReason() != null ? crlCertificate.getRevocationReason().toString() : "Unspecified";
-
-            return String.format("Reason: %s. Date: %s", reason, strDate);
-        }
+        return X509Crl;
     }
+
 }

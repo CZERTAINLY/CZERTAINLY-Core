@@ -30,8 +30,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     boolean existsByFingerprint(String fingerprint);
 
-    List<Certificate> findBySubjectDn(String subjectDn);
-
     List<Certificate> findByRaProfile(RaProfile raProfile);
 
     List<Certificate> findByGroup(Group group);
@@ -76,7 +74,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByRaProfileAndComplianceStatusIsNotNull(RaProfile raProfile);
 
-    Optional<Certificate> findByIssuerDnAndSerialNumber(String issuerDn, String serialNumber);
+    Optional<Certificate> findBySubjectDnNormalizedAndSerialNumber(String subjectDnNormalized, String serialNumber);
 
     Optional<Certificate> findByIssuerDnNormalizedAndSerialNumber(String issuerDnNormalized, String serialNumber);
 
