@@ -1,13 +1,17 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Objects;
 import java.util.UUID;
 
+@Getter
+@Setter
 @Entity
 @Table(name = "crl_entry")
 public class CrlEntry implements Serializable {
@@ -19,61 +23,16 @@ public class CrlEntry implements Serializable {
     @MapsId("crlUuid")
     private Crl crl;
 
-//    @MapsId("serialNumber")
-//    private String serialNumber;
-
-    @Column(name = "revocation_date")
+    @Column(name = "revocation_date", nullable = false)
     private Date revocationDate;
 
-    @Column(name = "revocation_reason")
-    private String revocationReason;
-
-    public CrlEntry() {};
-
-//    public String getSerialNumber() {
-//        return serialNumber;
-//    }
-//
-//    public void setSerialNumber(String serialNumber) {
-//        this.serialNumber = serialNumber;
-//    }
-
-    public CrlEntryId getId() {
-        return id;
-    }
-
-    public void setId(CrlEntryId id) {
-        this.id = id;
-    }
+    @Column(name = "revocation_reason", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private CertificateRevocationReason revocationReason;
 
     public UUID getCrlUuid() {
         return crl.getUuid();
     }
-
-    public Date getRevocationDate() {
-        return revocationDate;
-    }
-
-    public void setRevocationDate(Date revocationDate) {
-        this.revocationDate = revocationDate;
-    }
-
-    public String getRevocationReason() {
-        return revocationReason;
-    }
-
-    public void setRevocationReason(String revocationReason) {
-        this.revocationReason = revocationReason;
-    }
-
-    public Crl getCrl() {
-        return crl;
-    }
-
-    public void setCrl(Crl crl) {
-        this.crl = crl;
-    }
-
 
     @Override
     public boolean equals(Object o) {
@@ -96,11 +55,10 @@ public class CrlEntry implements Serializable {
     public String toString() {
         return "CertificateLocation{" +
                 "id=" + id +
-                ", revocationReason='" + revocationReason+ '\'' +
+                ", revocationReason='" + revocationReason + '\'' +
                 ", revocationDate='" + revocationDate + '\'' +
                 '}';
     }
-
 
 
 }

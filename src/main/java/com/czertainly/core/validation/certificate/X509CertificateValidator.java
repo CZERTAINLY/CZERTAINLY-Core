@@ -100,7 +100,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         // check if certificate is not revoked - OCSP & CRL
         // section (a)(3) in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.3
         validationOutput.put(CertificateValidationCheck.OCSP_VERIFICATION, checkOcspRevocationStatus(certificate, issuerCertificate));
-        validationOutput.put(CertificateValidationCheck.CRL_VERIFICATION, checkCrlRevocationStatus(certificate, issuerCertificate));
+        validationOutput.put(CertificateValidationCheck.CRL_VERIFICATION, checkCrlRevocationStatus(certificate, issuerCertificate, isCompleteChain));
 
         // check certificate issuer DN and if certificate chain is valid
         // section (a)(4) in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.3
@@ -242,9 +242,11 @@ public class X509CertificateValidator implements ICertificateValidator {
         return new CertificateValidationCheckDto(CertificateValidationCheck.OCSP_VERIFICATION, ocspOutputStatus, ocspMessage.toString());
     }
 
-    private CertificateValidationCheckDto checkCrlRevocationStatus(X509Certificate certificate, X509Certificate issuerCertificate) {
+    private CertificateValidationCheckDto checkCrlRevocationStatus(X509Certificate certificate, X509Certificate issuerCertificate, boolean isCompleteChain) {
         if (issuerCertificate == null) {
-            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "Issuer certificate is not available.");
+            if (!isCompleteChain)
+                return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "Issuer certificate is not available.");
+            issuerCertificate = certificate;
         }
 
         if (certificate.getExtensionValue(Extension.cRLDistributionPoints.getId()) == null) {

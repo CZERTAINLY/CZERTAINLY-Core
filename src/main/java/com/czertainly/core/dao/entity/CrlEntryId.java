@@ -2,6 +2,8 @@ package com.czertainly.core.dao.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -10,18 +12,21 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- Embedded class for a composite primary key
+ * Embedded class for a composite primary key
  */
+@Getter
+@Setter
 @Embeddable
 public class CrlEntryId implements Serializable {
 
-    @Column(name = "crl_uuid")
+    @Column(name = "crl_uuid", nullable = false)
     private UUID crlUuid;
 
-    @Column(name = "serial_number")
+    @Column(name = "serial_number", nullable = false)
     private String serialNumber;
 
-    public CrlEntryId() {}
+    public CrlEntryId() {
+    }
 
     public CrlEntryId(UUID crlUuid, String serialNumber) {
         this.crlUuid = crlUuid;
@@ -51,21 +56,5 @@ public class CrlEntryId implements Serializable {
                 .append("crlUuid", crlUuid)
                 .append("serialNumber", serialNumber)
                 .toString();
-    }
-
-    public UUID getCrlUuid() {
-        return crlUuid;
-    }
-
-    public void setCrlUuid(UUID crlUuid) {
-        this.crlUuid = crlUuid;
-    }
-
-    public String getSerialNumber() {
-        return serialNumber;
-    }
-
-    public void setSerialNumber(String serialNumber) {
-        this.serialNumber = serialNumber;
     }
 }
