@@ -1627,9 +1627,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void bulkUpdateOwner(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
         boolean removeOwner = request.getOwnerUuid().isEmpty();
+        String ownerUuid = null;
         String ownerName = null;
         if (!removeOwner) {
             UserDetailDto userDetail = userManagementApiClient.getUserDetail(request.getOwnerUuid());
+            ownerUuid = request.getOwnerUuid();
             ownerName = userDetail.getUsername();
         }
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
@@ -1638,7 +1640,7 @@ public class CertificateServiceImpl implements CertificateService {
             for (String certificateUuidString : request.getCertificateUuids()) {
                 SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
                 permissionEvaluator.certificate(certificateUuid);
-                updateOwner(certificateUuid, request.getOwnerUuid(), ownerName);
+                updateOwner(certificateUuid, ownerUuid, ownerName);
             }
             certificateRepository.saveAll(batchOperationList);
             certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
