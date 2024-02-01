@@ -177,6 +177,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setSubjectDN(request.getSubjectDN());
         caRequest.setSubjectAltName(request.getSubjectAltName());
         caRequest.setExtensionData(request.getExtensionData());
+        caRequest.setStatus(request.getStatus());
         caRequest.setRaProfile(raProfile.mapToDto());
 
         endEntityApiClient.updateEndEntity(
