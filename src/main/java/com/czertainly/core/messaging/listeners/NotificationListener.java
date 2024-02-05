@@ -180,9 +180,14 @@ public class NotificationListener {
                 UUID roleUuid = recipient.getRecipientUuid();
                 try {
                     RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(roleUuid.toString());
-                    recipientDto = new NotificationRecipientDto();
-                    recipientDto.setEmail(roleDetailDto.getEmail());
-                    recipientDto.setName(roleDetailDto.getName());
+                    String email = roleDetailDto.getEmail();
+                    if (email == null || email.isBlank()) {
+                        logger.warn("Role with UUID {} does not have specified email, notification was not sent for this role.", roleUuid);
+                    } else {
+                        recipientDto = new NotificationRecipientDto();
+                        recipientDto.setEmail(email);
+                        recipientDto.setName(roleDetailDto.getName());
+                    }
 
                     recipientCustomAttributes = attributeService.getCustomAttributesWithValues(roleUuid, Resource.ROLE);
                 } catch (Exception e) {
@@ -193,9 +198,14 @@ public class NotificationListener {
                 UUID groupUuid = recipient.getRecipientUuid();
                 Optional<Group> group = groupRepository.findByUuid(groupUuid);
                 if (group.isPresent()) {
-                    NotificationRecipientDto groupDto = new NotificationRecipientDto();
-                    groupDto.setName(group.get().getName());
-                    groupDto.setEmail(group.get().getEmail());
+                    String email = group.get().getEmail();
+                    if (email == null || email.isBlank()) {
+                        logger.warn("Group with UUID {} does not have specified email, notification was not sent for this group.", groupUuid);
+                    } else {
+                        recipientDto = new NotificationRecipientDto();
+                        recipientDto.setName(group.get().getName());
+                        recipientDto.setEmail(email);
+                    }
 
                     recipientCustomAttributes = attributeService.getCustomAttributesWithValues(groupUuid, Resource.GROUP);
                 } else {
