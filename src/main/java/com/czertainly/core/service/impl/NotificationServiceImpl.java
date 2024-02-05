@@ -79,12 +79,12 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target, String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail, userManagementApiClient.getUsers().getData().stream().filter(u -> groupUuid.equals(u.getGroupUuid())).map(UserDto::getUuid).collect(Collectors.toList()), target, targetUuids);
+        return createNotificationForUsers(message, detail, userManagementApiClient.getUsers().getData().stream().filter(u -> groupUuid.equals(u.getGroupUuid())).map(UserDto::getUuid).toList(), target, targetUuids);
     }
 
     @Override
     public NotificationDto createNotificationForRole(String message, String detail, String roleUuid, Resource target, String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail, roleManagementApiClient.getRoleUsers(roleUuid).stream().map(UserDto::getUuid).collect(Collectors.toList()), target, targetUuids);
+        return createNotificationForUsers(message, detail, roleManagementApiClient.getRoleUsers(roleUuid).stream().map(UserDto::getUuid).toList(), target, targetUuids);
     }
 
     @Override

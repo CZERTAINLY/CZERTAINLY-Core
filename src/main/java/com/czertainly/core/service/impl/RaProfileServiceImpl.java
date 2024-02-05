@@ -532,8 +532,9 @@ public class RaProfileServiceImpl implements RaProfileService {
                 break;
             }
 
-            if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
-                certificateDetailDtos.add(certificateRepository.findByFingerprint(fingerprint).get().mapToDto());
+            Optional<Certificate> existingCertificate = certificateRepository.findByFingerprint(fingerprint);
+            if (existingCertificate.isPresent()) {
+                certificateDetailDtos.add(existingCertificate.get().mapToDto());
             } else {
                 Certificate modal = new Certificate();
                 CertificateUtil.prepareIssuedCertificate(modal, certificate);
