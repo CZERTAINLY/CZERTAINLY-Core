@@ -155,7 +155,7 @@ public class CrlServiceImpl implements CrlService {
         // Check if certificate has freshestCrl extension set
         if (certificate.getExtensionValue(Extension.freshestCRL.getId()) != null) {
             // If no delta CRL is set or delta CRL is not up-to-date, download delta CRL
-            if (crl.getNextUpdateDelta() == null || !crl.getNextUpdateDelta().before(new Date())) {
+            if (crl != null && (crl.getNextUpdateDelta() == null || !crl.getNextUpdateDelta().before(new Date()))) {
                 updateCrlAndCrlEntriesFromDeltaCrl(certificate, crl, issuerDn, issuerSerialNumber, caCertificateUuid);
             }
         }

@@ -261,6 +261,10 @@ public class X509CertificateValidator implements ICertificateValidator {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to process CRL: " + e.getMessage());
         }
 
+        if (crl == null) {
+            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "No available working CRL URL found in cRLDistributionPoints extension.");
+        }
+
         StringBuilder crlMessage = new StringBuilder();
         CertificateValidationStatus crlOutputStatus;
 
@@ -274,7 +278,7 @@ public class X509CertificateValidator implements ICertificateValidator {
             crlOutputStatus = CertificateValidationStatus.REVOKED;
             crlMessage.append("Certificate was revoked according to information from CRL URL");
             crlMessage.append(". Revocation reason: ");
-            crlMessage.append(crlEntry.getRevocationReason());
+            crlMessage.append(crlEntry.getRevocationReason().getLabel());
             crlMessage.append(". ");
         }
         return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, crlOutputStatus, crlMessage.toString());
