@@ -846,7 +846,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                             item.getKeyData(),
                             cryptographicKey,
                             connectorUuid,
-                            true
+                            true,
+                            false
                     )
             );
         }
@@ -881,7 +882,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         return key;
     }
 
-    private CryptographicKeyItem createKeyContent(String referenceUuid, String referenceName, KeyData keyData, CryptographicKey cryptographicKey, UUID connectorUuid, boolean isDiscovered) {
+    private CryptographicKeyItem createKeyContent(String referenceUuid, String referenceName, KeyData keyData, CryptographicKey cryptographicKey, UUID connectorUuid, boolean isDiscovered, boolean enabled) {
         logger.info("Creating the Key Content for {}", cryptographicKey);
         CryptographicKeyItem content = new CryptographicKeyItem();
         content.setName(referenceName);
@@ -893,7 +894,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         content.setLength(keyData.getLength());
         content.setKeyReferenceUuid(UUID.fromString(referenceUuid));
         content.setState(KeyState.ACTIVE);
-        content.setEnabled(false);
+        content.setEnabled(enabled);
         if (cryptographicKey.getTokenProfile() != null) {
             content.setUsage(
                     cryptographicKey
@@ -1020,6 +1021,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     private CryptographicKey createKeyTypeOfKeyPair(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto, List<DataAttribute> attributes) throws ConnectorException {
+        boolean enabled = Boolean.TRUE.equals(request.getEnabled());
         KeyPairDataResponseDto response = keyManagementApiClient.createKeyPair(
                 connector.mapToDto(),
                 tokenProfile.getTokenInstanceReference().getTokenInstanceUuid(),
@@ -1039,7 +1041,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 response.getPrivateKeyData().getKeyData(),
                 key,
                 connector.getUuid(),
-                false
+                false,
+                enabled
         ));
         children.add(createKeyContent(
                 response.getPublicKeyData().getUuid(),
@@ -1047,7 +1050,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 response.getPublicKeyData().getKeyData(),
                 key,
                 connector.getUuid(),
-                false
+                false,
+                enabled
         ));
         key.setItems(children);
         try {
@@ -1082,7 +1086,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                                 response.getKeyData(),
                                 key,
                                 connector.getUuid(),
-                                false
+                                false,
+                                Boolean.TRUE.equals(request.getEnabled()
+                                )
                         )
                 )
         );

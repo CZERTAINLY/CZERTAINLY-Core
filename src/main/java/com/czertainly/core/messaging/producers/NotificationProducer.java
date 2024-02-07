@@ -63,7 +63,7 @@ public class NotificationProducer {
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_STATUS_CHANGED,
                 Resource.CERTIFICATE,
                 UUID.fromString(certificateDto.getUuid()),
-                NotificationRecipient.buildUserOrGroupNotificationRecipient(UUID.fromString(certificateDto.getOwnerUuid()), certificateDto.getGroup() != null ? UUID.fromString(certificateDto.getGroup().getUuid()) : null),
+                NotificationRecipient.buildUserOrGroupNotificationRecipient(certificateDto.getOwnerUuid() != null ? UUID.fromString(certificateDto.getOwnerUuid()) : null, certificateDto.getGroup() != null ? UUID.fromString(certificateDto.getGroup().getUuid()) : null),
                 certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn())
                         : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
     }

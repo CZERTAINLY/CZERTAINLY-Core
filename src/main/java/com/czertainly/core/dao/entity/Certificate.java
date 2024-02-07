@@ -182,6 +182,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "revoke_attributes")
     private String revokeAttributes;
 
+    @Column(name = "trusted_ca")
+    private Boolean trustedCa;
+
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
@@ -210,6 +213,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setValidationStatus(validationStatus);
         dto.setCertificateType(certificateType);
         dto.setOwner(owner);
+        dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
@@ -293,6 +297,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setValidationStatus(validationStatus);
         dto.setFingerprint(fingerprint);
         dto.setOwner(owner);
+        dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
         dto.setCertificateType(certificateType);
@@ -743,5 +748,13 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             return EMPTY_COMMON_NAME;
         }
         return null;
+    }
+
+    public void setTrustedCa(boolean trustedCa) {
+        this.trustedCa = trustedCa;
+    }
+
+    public Boolean getTrustedCa() {
+        return trustedCa;
     }
 }

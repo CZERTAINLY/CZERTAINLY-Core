@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import jakarta.transaction.Transactional;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -134,11 +135,13 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.DETAIL)
     public List<UserDto> getRoleUsers(String roleUuid) {
         return roleManagementApiClient.getRoleUsers(roleUuid);
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
     public RoleDetailDto updateUsers(String roleUuid, List<String> userUuids) {
         return roleManagementApiClient.updateUsers(roleUuid, userUuids);
     }

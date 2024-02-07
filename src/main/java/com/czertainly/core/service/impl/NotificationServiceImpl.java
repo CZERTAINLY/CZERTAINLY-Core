@@ -10,6 +10,8 @@ import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.core.dao.entity.Notification;
 import com.czertainly.core.dao.entity.NotificationRecipient;
 import com.czertainly.core.dao.repository.NotificationRepository;
+import com.czertainly.core.security.authn.client.RoleManagementApiClient;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.RoleManagementService;
@@ -39,10 +41,10 @@ public class NotificationServiceImpl implements NotificationService {
     NotificationRepository notificationRepository;
 
     @Autowired
-    UserManagementService userService;
+    private UserManagementApiClient userManagementApiClient;
 
     @Autowired
-    RoleManagementService roleService;
+    private RoleManagementApiClient roleManagementApiClient;
 
     @Override
     public NotificationDto createNotificationForUser(String message, String detail, String userUuid, Resource target, String targetUuids) throws ValidationException {
@@ -77,12 +79,12 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target, String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail, userService.listUsers().stream().filter(u -> groupUuid.equals(u.getGroupUuid())).map(UserDto::getUuid).collect(Collectors.toList()), target, targetUuids);
+        return createNotificationForUsers(message, detail, userManagementApiClient.getUsers().getData().stream().filter(u -> groupUuid.equals(u.getGroupUuid())).map(UserDto::getUuid).toList(), target, targetUuids);
     }
 
     @Override
     public NotificationDto createNotificationForRole(String message, String detail, String roleUuid, Resource target, String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail, roleService.getRoleUsers(roleUuid).stream().map(UserDto::getUuid).collect(Collectors.toList()), target, targetUuids);
+        return createNotificationForUsers(message, detail, roleManagementApiClient.getRoleUsers(roleUuid).stream().map(UserDto::getUuid).toList(), target, targetUuids);
     }
 
     @Override
