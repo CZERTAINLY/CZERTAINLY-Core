@@ -98,7 +98,7 @@ public class UserManagementServiceImpl implements UserManagementService {
             certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
         }
 
-        attributeService.deleteAttributeContent(UUID.fromString(response.getUuid()), request.getCustomAttributes(), Resource.USER);
+        attributeService.createAttributeContent(UUID.fromString(response.getUuid()), request.getCustomAttributes(), Resource.USER);
         response.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(response.getUuid()), Resource.USER));
         return response;
     }
