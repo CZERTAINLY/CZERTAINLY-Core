@@ -274,15 +274,25 @@ public class AttributeServiceImpl implements AttributeService {
     public void validateCustomAttributes(List<RequestAttributeDto> attributes, Resource resource) throws ValidationException {
         logger.debug("Validating custom attributes: {}", attributes);
         List<BaseAttribute> definitions = getResourceAttributes(resource);
-        if (definitions.size() == 0 && attributes == null) {
-            return;
-        }
-        if (definitions.size() == 0 && attributes.size() > 0) {
-            throw new ValidationException(ValidationError.create("Custom attributes are provided for the resource that does not accept them"));
-        }
+
         if (attributes == null) {
             attributes = new ArrayList<>();
         }
+        if (definitions.isEmpty() && attributes.isEmpty()) {
+            return;
+        }
+
+        List<ValidationError> errors = new ArrayList<>();
+        Set<String> definitionsNames = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toSet());
+        for (RequestAttributeDto attribute : attributes) {
+            if(!definitionsNames.contains(attribute.getName())) {
+                errors.add(ValidationError.create("Content for custom attribute {} is provided but resource {} is not associated with it", attribute.getName(), resource.getLabel()));
+            }
+        }
+        if(!errors.isEmpty()) {
+            throw new ValidationException(errors);
+        }
+
         AttributeDefinitionUtils.validateAttributes(definitions, attributes);
     }
 
