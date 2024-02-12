@@ -25,11 +25,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -136,5 +132,31 @@ public class NotificationServiceImpl implements NotificationService {
             }
         }
         return notification.mapToDto();
+    }
+
+    @Override
+    public void bulkDeleteNotifications(List<String> uuids) {
+        for (String uuid : uuids) {
+            try {
+                deleteNotification(uuid);
+            } catch (NotFoundException e) {
+                logger.warn(e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public NotificationResponseDto bulkMarkNotificationAsRead(List<String> uuids) {
+        List<NotificationDto> notificationDtos = new ArrayList<>();
+        for (String uuid : uuids) {
+            try {
+                notificationDtos.add(markNotificationAsRead(uuid));
+            } catch (NotFoundException e) {
+                logger.warn(e.getMessage());
+            }
+        }
+        NotificationResponseDto notificationResponseDto = new NotificationResponseDto();
+        notificationResponseDto.setItems(notificationDtos);
+        return notificationResponseDto;
     }
 }
