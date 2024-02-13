@@ -119,7 +119,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public NotificationDto markNotificationAsRead(String uuid) throws NotFoundException {
+    public void markNotificationAsRead(String uuid) throws NotFoundException {
         final UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid());
         Notification notification = notificationRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(Notification.class, uuid));
         for (NotificationRecipient recipient : notification.getNotificationRecipients()) {
@@ -131,7 +131,6 @@ public class NotificationServiceImpl implements NotificationService {
                 break;
             }
         }
-        return notification.mapToDto();
     }
 
     @Override
@@ -146,17 +145,13 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public NotificationResponseDto bulkMarkNotificationAsRead(List<String> uuids) {
-        List<NotificationDto> notificationDtos = new ArrayList<>();
+    public void bulkMarkNotificationAsRead(List<String> uuids) {
         for (String uuid : uuids) {
             try {
-                notificationDtos.add(markNotificationAsRead(uuid));
+                markNotificationAsRead(uuid);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }
         }
-        NotificationResponseDto notificationResponseDto = new NotificationResponseDto();
-        notificationResponseDto.setItems(notificationDtos);
-        return notificationResponseDto;
     }
 }

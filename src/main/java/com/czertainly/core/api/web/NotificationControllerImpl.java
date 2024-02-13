@@ -28,8 +28,8 @@ public class NotificationControllerImpl implements NotificationController {
     }
 
     @Override
-    public NotificationDto markNotificationAsRead(String uuid) throws ValidationException, NotFoundException {
-        return notificationService.markNotificationAsRead(uuid);
+    public void markNotificationAsRead(String uuid) throws ValidationException, NotFoundException {
+        notificationService.markNotificationAsRead(uuid);
     }
 
     @Override
@@ -38,7 +38,7 @@ public class NotificationControllerImpl implements NotificationController {
     }
 
     @Override
-    public NotificationResponseDto bulkMarkNotificationAsRead(List<String> uuids) {
-        return notificationService.bulkMarkNotificationAsRead(uuids);
+    public void bulkMarkNotificationAsRead(List<String> uuids) {
+        notificationService.bulkMarkNotificationAsRead(uuids);
     }
 }

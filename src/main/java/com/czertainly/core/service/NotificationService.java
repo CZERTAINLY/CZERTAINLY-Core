@@ -22,9 +22,9 @@ public interface NotificationService {
 
     void deleteNotification(String uuid) throws NotFoundException;
 
-    NotificationDto markNotificationAsRead(String uuid) throws NotFoundException;
+    void markNotificationAsRead(String uuid) throws NotFoundException;
 
     void bulkDeleteNotifications(List<String> uuids);
 
-    NotificationResponseDto bulkMarkNotificationAsRead(List<String> uuids);
+    void bulkMarkNotificationAsRead(List<String> uuids);
 }
