@@ -10,6 +10,8 @@ import com.czertainly.core.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 public class NotificationControllerImpl implements NotificationController {
     @Autowired
@@ -26,7 +28,17 @@ public class NotificationControllerImpl implements NotificationController {
     }
 
     @Override
-    public NotificationDto markNotificationAsRead(String uuid) throws ValidationException, NotFoundException {
-        return notificationService.markNotificationAsRead(uuid);
+    public void markNotificationAsRead(String uuid) throws ValidationException, NotFoundException {
+        notificationService.markNotificationAsRead(uuid);
+    }
+
+    @Override
+    public void bulkDeleteNotification(List<String> uuids) {
+        notificationService.bulkDeleteNotifications(uuids);
+    }
+
+    @Override
+    public void bulkMarkNotificationAsRead(List<String> uuids) {
+        notificationService.bulkMarkNotificationAsRead(uuids);
     }
 }
