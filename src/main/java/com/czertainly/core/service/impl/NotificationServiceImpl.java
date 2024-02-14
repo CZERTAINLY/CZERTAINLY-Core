@@ -25,11 +25,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -123,7 +119,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public NotificationDto markNotificationAsRead(String uuid) throws NotFoundException {
+    public void markNotificationAsRead(String uuid) throws NotFoundException {
         final UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid());
         Notification notification = notificationRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(Notification.class, uuid));
         for (NotificationRecipient recipient : notification.getNotificationRecipients()) {
@@ -135,6 +131,27 @@ public class NotificationServiceImpl implements NotificationService {
                 break;
             }
         }
-        return notification.mapToDto();
+    }
+
+    @Override
+    public void bulkDeleteNotifications(List<String> uuids) {
+        for (String uuid : uuids) {
+            try {
+                deleteNotification(uuid);
+            } catch (NotFoundException e) {
+                logger.warn(e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public void bulkMarkNotificationAsRead(List<String> uuids) {
+        for (String uuid : uuids) {
+            try {
+                markNotificationAsRead(uuid);
+            } catch (NotFoundException e) {
+                logger.warn(e.getMessage());
+            }
+        }
     }
 }
