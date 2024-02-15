@@ -1,0 +1,27 @@
+
+package com.czertainly.core.dao.entity;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Getter
+@Setter
+@Table(name = "rule_condition_group")
+public class RuleConditionGroup extends UniquelyIdentified{
+
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "description")
+    private String description;
+
+    @OneToMany(mappedBy = "rule_condition_group", fetch = FetchType.LAZY)
+    @JsonBackReference
+    private List<RuleCondition> conditions;
+}
