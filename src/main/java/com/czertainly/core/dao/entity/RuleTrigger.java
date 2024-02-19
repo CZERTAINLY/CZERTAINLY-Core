@@ -13,7 +13,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Table(name = "rule_trigger")
-public class RuleTrigger extends UniquelyIdentified{
+public class RuleTrigger extends UniquelyIdentified {
 
     @Column(name = "trigger_type", nullable = false)
     private String triggerType;
@@ -28,15 +28,20 @@ public class RuleTrigger extends UniquelyIdentified{
     private UUID resourceUuid;
 
 
-    @OneToMany(mappedBy = "rule_trigger", fetch = FetchType.LAZY)
-    @JsonBackReference
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "rule_trigger_2_rule",
+            joinColumns = @JoinColumn(name = "rule_trigger_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "rule_uuid"))
     private List<Rule> rules;
 
-    @OneToMany(mappedBy = "rule_trigger", fetch = FetchType.LAZY)
-    @JsonBackReference
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "rule_trigger_2_rule_action_group",
+            joinColumns = @JoinColumn(name = "rule_trigger_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "rule_action_group_uuid"))
     private List<RuleActionGroup> actionGroups;
 
-    @OneToMany(mappedBy = "rule_trigger", fetch = FetchType.LAZY)
-    @JsonBackReference
+    @OneToMany(mappedBy = "ruleTrigger", fetch = FetchType.LAZY)
     private List<RuleAction> actions;
 }

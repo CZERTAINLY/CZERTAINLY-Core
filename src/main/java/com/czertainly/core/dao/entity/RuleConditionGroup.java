@@ -13,7 +13,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Table(name = "rule_condition_group")
-public class RuleConditionGroup extends UniquelyIdentified{
+public class RuleConditionGroup extends UniquelyIdentified {
 
     @Column(name = "name", nullable = false)
     private String name;
@@ -21,7 +21,13 @@ public class RuleConditionGroup extends UniquelyIdentified{
     @Column(name = "description")
     private String description;
 
-    @OneToMany(mappedBy = "rule_condition_group", fetch = FetchType.LAZY)
-    @JsonBackReference
+    @Column(name = "resource")
+    private String resource;
+
+    @OneToMany(mappedBy = "ruleConditionGroup", fetch = FetchType.LAZY)
     private List<RuleCondition> conditions;
+
+    @ManyToMany(mappedBy = "conditionGroups")
+    @JsonBackReference
+    private List<Rule> rules;
 }

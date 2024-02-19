@@ -20,7 +20,13 @@ public class RuleActionGroup extends UniquelyIdentified{
     @Column(name = "description")
     private String description;
 
-    @OneToMany(mappedBy = "rule_action_group", fetch = FetchType.LAZY)
-    @JsonBackReference
+    @Column(name = "resource")
+    private String resource;
+
+    @OneToMany(mappedBy = "ruleActionGroup", fetch = FetchType.LAZY)
     private List<RuleAction> actions;
+
+    @ManyToMany(mappedBy = "actionGroups")
+    @JsonBackReference
+    private List<RuleTrigger> ruleTriggers;
 }
