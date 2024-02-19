@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.search.SearchCondition;
+import com.czertainly.api.model.core.search.SearchGroup;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,7 +23,8 @@ public class RuleCondition extends UniquelyIdentified {
     private Rule rule;
 
     @Column(name = "search_group")
-    private String search_group;
+    @Enumerated(EnumType.STRING)
+    private SearchGroup search_group;
 
     @Column(name = "field_identifier")
     private String fieldIdentifier;

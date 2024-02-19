@@ -1,6 +1,7 @@
 
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.auth.Resource;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -22,7 +23,8 @@ public class Rule extends UniquelyIdentified {
     private String name;
 
     @Column(name = "resource", nullable = false)
-    private String resource;
+    @Enumerated(EnumType.STRING)
+    private Resource resource;
 
     @Column(name = "resource_type")
     private String resourceType;

@@ -1,6 +1,8 @@
 
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.rules.RuleTriggerType;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -16,13 +18,15 @@ import java.util.UUID;
 public class RuleTrigger extends UniquelyIdentified {
 
     @Column(name = "trigger_type", nullable = false)
-    private String triggerType;
+    @Enumerated(EnumType.STRING)
+    private RuleTriggerType triggerType;
 
     @Column(name = "event_name", nullable = false)
     private String eventName;
 
     @Column(name = "resource", nullable = false)
-    private String resource;
+    @Enumerated(EnumType.STRING)
+    private Resource resource;
 
     @Column(name = "resource_uuid")
     private UUID resourceUuid;

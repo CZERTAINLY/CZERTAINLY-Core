@@ -1,6 +1,7 @@
 
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.auth.Resource;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -22,7 +23,8 @@ public class RuleConditionGroup extends UniquelyIdentified {
     private String description;
 
     @Column(name = "resource")
-    private String resource;
+    @Enumerated(EnumType.STRING)
+    private Resource resource;
 
     @OneToMany(mappedBy = "ruleConditionGroup", fetch = FetchType.LAZY)
     private List<RuleCondition> conditions;
