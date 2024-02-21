@@ -21,16 +21,18 @@ public class RuleTrigger extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private RuleTriggerType triggerType;
 
-    @Column(name = "event_name", nullable = false)
+    @Column(name = "name", nullable = false)
+    private String name;
+
+    @Column(name = "event_name")
     private String eventName;
 
-    @Column(name = "resource", nullable = false)
+    @Column(name = "resource")
     @Enumerated(EnumType.STRING)
     private Resource resource;
 
     @Column(name = "resource_uuid")
     private UUID resourceUuid;
-
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

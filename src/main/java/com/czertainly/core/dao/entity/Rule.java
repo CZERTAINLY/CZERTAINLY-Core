@@ -1,11 +1,14 @@
 
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.List;
 import java.util.UUID;
@@ -22,6 +25,9 @@ public class Rule extends UniquelyIdentified {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "description")
+    private String description;
+
     @Column(name = "resource", nullable = false)
     @Enumerated(EnumType.STRING)
     private Resource resource;
@@ -32,8 +38,10 @@ public class Rule extends UniquelyIdentified {
     @Column(name = "resource_format")
     private String resourceFormat;
 
-    @Column(name = "attributes")
-    private String attributes;
+    @Column(name = "attributes", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<BaseAttribute> attributes;
+
 
     @OneToMany(mappedBy = "rule", fetch = FetchType.LAZY)
     @JsonBackReference

@@ -1,8 +1,9 @@
 CREATE TABLE rule_trigger (
 	uuid UUID NOT NULL,
+	name VARCHAR NOT NULL,
 	trigger_type VARCHAR NOT NULL,
-	event_name VARCHAR NOT NULL,
-	resource VARCHAR NOT NULL,
+	event_name VARCHAR,
+	resource VARCHAR,
     resource_uuid UUID,
 	PRIMARY KEY (uuid)
 );
@@ -11,6 +12,7 @@ CREATE TABLE rule (
 	uuid UUID NOT NULL,
 	connector_uuid UUID,
 	name VARCHAR NOT NULL,
+	description VARCHAR,
     resource VARCHAR NOT NULL,
     resource_type VARCHAR,
     resource_format VARCHAR,
@@ -23,7 +25,7 @@ CREATE TABLE rule_condition_group (
 	uuid UUID NOT NULL,
 	name VARCHAR NOT NULL,
     description VARCHAR,
-    resource VARCHAR,
+    resource VARCHAR NOT NULL,
 	PRIMARY KEY (uuid)
 );
 
@@ -31,9 +33,9 @@ CREATE TABLE rule_condition (
 	uuid UUID NOT NULL,
 	condition_group_uuid UUID,
 	rule_uuid UUID,
-	search_group VARCHAR,
-    field_identifier VARCHAR,
-    operator VARCHAR,
+	field_source VARCHAR NOT NULL,
+    field_identifier VARCHAR NOT NULL,
+    operator VARCHAR NOT NULL,
     value JSONB,
 	PRIMARY KEY (uuid),
 	FOREIGN KEY (condition_group_uuid) REFERENCES rule_condition_group(uuid) ON UPDATE CASCADE ON DELETE CASCADE,
@@ -44,7 +46,7 @@ CREATE TABLE rule_action_group (
 	uuid UUID NOT NULL,
 	name VARCHAR NOT NULL,
     description VARCHAR,
-    resource VARCHAR,
+    resource VARCHAR NOT NULL,
 	PRIMARY KEY (uuid)
 );
 
@@ -53,9 +55,9 @@ CREATE TABLE rule_action (
 	trigger_uuid UUID,
 	action_group_uuid UUID,
 	action_type VARCHAR NOT NULL,
-	search_group VARCHAR,
+	field_source VARCHAR,
     field_identifier VARCHAR,
-    value JSONB,
+    action_data JSONB,
 	PRIMARY KEY (uuid),
 	FOREIGN KEY (action_group_uuid) REFERENCES rule_action_group(uuid) ON UPDATE CASCADE ON DELETE CASCADE,
 	FOREIGN KEY (trigger_uuid) REFERENCES rule_trigger(uuid) ON UPDATE CASCADE ON DELETE CASCADE

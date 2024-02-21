@@ -22,14 +22,14 @@ public class RuleConditionGroup extends UniquelyIdentified {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "resource")
+    @Column(name = "resource", nullable = false)
     @Enumerated(EnumType.STRING)
     private Resource resource;
 
     @OneToMany(mappedBy = "ruleConditionGroup", fetch = FetchType.LAZY)
     private List<RuleCondition> conditions;
 
-    @ManyToMany(mappedBy = "conditionGroups")
+    @ManyToMany(mappedBy = "conditionGroups", fetch = FetchType.LAZY)
     @JsonBackReference
     private List<Rule> rules;
 }

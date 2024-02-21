@@ -21,13 +21,14 @@ public class RuleActionGroup extends UniquelyIdentified{
     @Column(name = "description")
     private String description;
 
-    @Column(name = "resource")
+    @Column(name = "resource", nullable = false)
+    @Enumerated(EnumType.STRING)
     private Resource resource;
 
     @OneToMany(mappedBy = "ruleActionGroup", fetch = FetchType.LAZY)
     private List<RuleAction> actions;
 
-    @ManyToMany(mappedBy = "actionGroups")
+    @ManyToMany(mappedBy = "actionGroups", fetch = FetchType.LAZY)
     @JsonBackReference
     private List<RuleTrigger> ruleTriggers;
 }

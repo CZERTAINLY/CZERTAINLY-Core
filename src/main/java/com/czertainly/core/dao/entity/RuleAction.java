@@ -1,12 +1,12 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.rules.RuleActionType;
-import com.czertainly.api.model.core.search.SearchCondition;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Getter
@@ -26,12 +26,13 @@ public class RuleAction extends UniquelyIdentified{
     @Enumerated(EnumType.STRING)
     private RuleActionType actionType;
 
-    @Column(name = "search_group")
-    private String search_group;
+    @Column(name = "field_source")
+    private FilterFieldSource fieldSource;
 
     @Column(name = "field_identifier")
     private String fieldIdentifier;
 
-    @Column(name = "value")
-    private Object value;
+    @Column(name = "action_data", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Object actionData;
 }

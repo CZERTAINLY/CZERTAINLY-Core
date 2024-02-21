@@ -1,12 +1,12 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.search.SearchCondition;
-import com.czertainly.api.model.core.search.SearchGroup;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.UUID;
+import java.io.Serializable;
 
 @Entity
 @Getter
@@ -22,17 +22,17 @@ public class RuleCondition extends UniquelyIdentified {
     @JoinColumn(name = "rule_uuid")
     private Rule rule;
 
-    @Column(name = "search_group")
+    @Column(name = "field_source", nullable = false)
     @Enumerated(EnumType.STRING)
-    private SearchGroup search_group;
+    private FilterFieldSource fieldSource;
 
-    @Column(name = "field_identifier")
+    @Column(name = "field_identifier", nullable = false)
     private String fieldIdentifier;
 
-    @Column(name = "operator")
+    @Column(name = "operator", nullable = false)
     @Enumerated(EnumType.STRING)
-    private SearchCondition operator;
+    private FilterConditionOperator operator;
 
     @Column(name = "value")
-    private Object value;
+    private Serializable value;
 }
