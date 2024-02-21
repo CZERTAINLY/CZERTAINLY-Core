@@ -23,7 +23,7 @@ import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributePr
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.search.SearchGroup;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.dao.entity.AttributeContent;
 import com.czertainly.core.dao.entity.AttributeContent2Object;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -538,12 +538,12 @@ public class AttributeServiceImpl implements AttributeService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
         final List<SearchFieldObject> metadataSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource, List.of(AttributeType.META));
         if (!metadataSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), FilterFieldSource.META));
         }
 
         final List<SearchFieldObject> customAttrSearchFieldObject = attributeContentRepository.findDistinctAttributeContentNamesByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM));
         if (!customAttrSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), FilterFieldSource.CUSTOM));
         }
 
         return searchFieldDataByGroupDtos;
@@ -552,7 +552,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     public List<UUID> getResourceObjectUuidsByFilters(Resource resource, SecurityFilter securityFilter, List<SearchFilterRequestDto> searchFilters) {
         List<SearchFilterRequestDto> attributesFilters;
-        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getSearchGroup() == SearchGroup.CUSTOM || f.getSearchGroup() == SearchGroup.META).toList()).isEmpty()) {
+        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getSearchGroup() == FilterFieldSource.CUSTOM || f.getSearchGroup() == FilterFieldSource.META).toList()).isEmpty()) {
             return null;
         }
 

@@ -1,32 +1,32 @@
 package com.czertainly.core.search;
 
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.core.search.SearchCondition;
-import com.czertainly.api.model.core.search.SearchGroup;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 
 import java.io.Serializable;
 
 public class SearchFilterRequestDtoDummy extends SearchFilterRequestDto {
 
-    private SearchGroup searchGroup;
+    private FilterFieldSource filterFieldSource;
     private String fieldIdentifier;
-    private SearchCondition condition;
+    private FilterConditionOperator condition;
     private Serializable value;
 
-    public SearchFilterRequestDtoDummy(SearchGroup searchGroup, String fieldIdentifier, SearchCondition condition, Serializable value) {
-        this.searchGroup = searchGroup;
+    public SearchFilterRequestDtoDummy(FilterFieldSource filterFieldSource, String fieldIdentifier, FilterConditionOperator condition, Serializable value) {
+        this.filterFieldSource = filterFieldSource;
         this.fieldIdentifier = fieldIdentifier;
         this.condition = condition;
         this.value = value;
     }
 
     @Override
-    public SearchGroup getSearchGroup() {
-        return searchGroup;
+    public FilterFieldSource getSearchGroup() {
+        return filterFieldSource;
     }
 
     @Override
-    public SearchCondition getCondition() {
+    public FilterConditionOperator getCondition() {
         return condition;
     }
 

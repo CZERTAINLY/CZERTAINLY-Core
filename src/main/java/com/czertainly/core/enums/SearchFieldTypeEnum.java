@@ -1,53 +1,53 @@
 package com.czertainly.core.enums;
 
-import com.czertainly.api.model.core.search.SearchCondition;
-import com.czertainly.api.model.core.search.SearchableFieldType;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldType;
 
 import java.util.List;
 
 public enum SearchFieldTypeEnum {
 
-    STRING(SearchableFieldType.STRING,
-            List.of(SearchCondition.CONTAINS, SearchCondition.NOT_CONTAINS, SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY, SearchCondition.STARTS_WITH, SearchCondition.ENDS_WITH)
+    STRING(FilterFieldType.STRING,
+            List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.STARTS_WITH, FilterConditionOperator.ENDS_WITH)
             , false),
-    DATE(SearchableFieldType.DATE,
-            List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.GREATER, SearchCondition.LESSER)
+    DATE(FilterFieldType.DATE,
+            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.LESSER)
             , false),
-    DATETIME(SearchableFieldType.DATE,
-            List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.GREATER, SearchCondition.LESSER)
+    DATETIME(FilterFieldType.DATE,
+            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.LESSER)
             , false),
-    NUMBER(SearchableFieldType.NUMBER,
-            List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.GREATER, SearchCondition.LESSER)
+    NUMBER(FilterFieldType.NUMBER,
+            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.LESSER)
             , false),
-    LIST(SearchableFieldType.LIST,
-            List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY)
+    LIST(FilterFieldType.LIST,
+            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
             , true),
 
-    BOOLEAN(SearchableFieldType.BOOLEAN,
-         List.of(SearchCondition.EQUALS, SearchCondition.NOT_EQUALS)
+    BOOLEAN(FilterFieldType.BOOLEAN,
+         List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS)
             , false),
-    OTHERS_AS_STRING(SearchableFieldType.STRING,
-            List.of(SearchCondition.CONTAINS, SearchCondition.NOT_CONTAINS, SearchCondition.EQUALS, SearchCondition.NOT_EQUALS, SearchCondition.EMPTY, SearchCondition.NOT_EMPTY, SearchCondition.STARTS_WITH, SearchCondition.ENDS_WITH)
+    OTHERS_AS_STRING(FilterFieldType.STRING,
+            List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.STARTS_WITH, FilterConditionOperator.ENDS_WITH)
             , false);
 
 
-    private SearchableFieldType fieldType;
+    private FilterFieldType fieldType;
 
-    private List<SearchCondition> contitions;
+    private List<FilterConditionOperator> contitions;
 
     private boolean multiValue;
 
-    SearchFieldTypeEnum(final SearchableFieldType fieldType, final List<SearchCondition> contitions, final boolean multiValue) {
+    SearchFieldTypeEnum(final FilterFieldType fieldType, final List<FilterConditionOperator> contitions, final boolean multiValue) {
         this.fieldType = fieldType;
         this.contitions = contitions;
         this.multiValue = multiValue;
     }
 
-    public SearchableFieldType getFieldType() {
+    public FilterFieldType getFieldType() {
         return fieldType;
     }
 
-    public List<SearchCondition> getContitions() {
+    public List<FilterConditionOperator> getContitions() {
         return contitions;
     }
 
