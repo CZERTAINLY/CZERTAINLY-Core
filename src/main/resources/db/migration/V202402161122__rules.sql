@@ -1,10 +1,12 @@
 CREATE TABLE rule_trigger (
 	uuid UUID NOT NULL,
 	name VARCHAR NOT NULL,
+	description VARCHAR,
 	trigger_type VARCHAR NOT NULL,
 	event_name VARCHAR,
 	resource VARCHAR,
-    resource_uuid UUID,
+	trigger_resource VARCHAR,
+    trigger_resource_uuid UUID,
 	PRIMARY KEY (uuid)
 );
 
