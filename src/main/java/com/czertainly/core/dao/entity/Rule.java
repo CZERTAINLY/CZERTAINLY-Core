@@ -3,6 +3,9 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.rules.RuleDetailDto;
+import com.czertainly.api.model.core.rules.RuleDto;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -57,4 +60,34 @@ public class Rule extends UniquelyIdentified {
     @ManyToMany(mappedBy = "rules", fetch = FetchType.LAZY)
     @JsonBackReference
     private List<RuleTrigger> ruleTriggers;
+
+
+    public RuleDto mapToDto() {
+        RuleDto ruleDto = new RuleDto();
+        ruleDto.setUuid(uuid.toString());
+        ruleDto.setName(name);
+        ruleDto.setDescription(description);
+        if (connectorUuid != null) ruleDto.setConnector_uuid(connectorUuid.toString());
+        ruleDto.setResource(resource);
+        ruleDto.setResourceType(resourceType);
+        ruleDto.setResourceFormat(resourceFormat);
+        ruleDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(attributes));
+        return ruleDto;
+    }
+
+    public RuleDetailDto mapToDetailDto() {
+
+        RuleDetailDto ruleDetailDto = new RuleDetailDto();
+        ruleDetailDto.setUuid(uuid.toString());
+        ruleDetailDto.setName(name);
+        ruleDetailDto.setDescription(description);
+        if (connectorUuid != null) ruleDetailDto.setConnector_uuid(connectorUuid.toString());
+        ruleDetailDto.setResource(resource);
+        ruleDetailDto.setResourceType(resourceType);
+        ruleDetailDto.setResourceFormat(resourceFormat);
+        ruleDetailDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(attributes));
+        if (conditions != null) ruleDetailDto.setConditions(conditions.stream().map(RuleCondition::mapToDto).toList());
+        ruleDetailDto.setConditionGroups(conditionGroups.stream().map(RuleConditionGroup::mapToDto).toList());
+        return ruleDetailDto;
+    }
 }

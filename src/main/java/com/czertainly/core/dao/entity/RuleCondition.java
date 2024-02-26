@@ -1,10 +1,13 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.rules.RuleConditionDto;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 
@@ -33,6 +36,17 @@ public class RuleCondition extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private FilterConditionOperator operator;
 
-    @Column(name = "value")
+    @Column(name = "value", columnDefinition = "TEXT")
+    @JdbcTypeCode(SqlTypes.BLOB)
     private Serializable value;
+
+    public RuleConditionDto mapToDto() {
+        RuleConditionDto ruleConditionDto = new RuleConditionDto();
+        ruleConditionDto.setUuid(uuid.toString());
+        ruleConditionDto.setFieldSource(fieldSource);
+        ruleConditionDto.setFieldIdentifier(fieldIdentifier);
+        ruleConditionDto.setOperator(operator);
+        ruleConditionDto.setValue(value);
+        return ruleConditionDto;
+    }
 }
