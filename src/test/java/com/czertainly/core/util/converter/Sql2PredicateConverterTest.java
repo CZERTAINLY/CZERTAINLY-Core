@@ -377,7 +377,7 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
     }
 
     @Override
-    public FilterFieldSource getSearchGroup() {
+    public FilterFieldSource getFieldSource() {
         return filterFieldSource;
     }
 }

@@ -552,7 +552,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     public List<UUID> getResourceObjectUuidsByFilters(Resource resource, SecurityFilter securityFilter, List<SearchFilterRequestDto> searchFilters) {
         List<SearchFilterRequestDto> attributesFilters;
-        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getSearchGroup() == FilterFieldSource.CUSTOM || f.getSearchGroup() == FilterFieldSource.META).toList()).isEmpty()) {
+        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getFieldSource() == FilterFieldSource.CUSTOM || f.getFieldSource() == FilterFieldSource.META).toList()).isEmpty()) {
             return null;
         }
 

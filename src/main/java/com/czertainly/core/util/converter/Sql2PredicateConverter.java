@@ -30,7 +30,7 @@ public class Sql2PredicateConverter {
         final List<Predicate> predicates = new ArrayList<>();
         boolean hasFilteredAttributes = false;
         for (final SearchFilterRequestDto dto : dtos) {
-            if (dto.getSearchGroup() == FilterFieldSource.PROPERTY) {
+            if (dto.getFieldSource() == FilterFieldSource.PROPERTY) {
                 predicates.add(mapSearchFilter2Predicate(dto, criteriaBuilder, root));
             } else {
                 hasFilteredAttributes = true;
@@ -302,7 +302,7 @@ public class Sql2PredicateConverter {
         final List<Predicate> rootPredicates = new ArrayList<>();
 
         for (final SearchFilterRequestDto dto : dtos) {
-            final FilterFieldSource filterFieldSource = dto.getSearchGroup();
+            final FilterFieldSource filterFieldSource = dto.getFieldSource();
             if (filterFieldSource == FilterFieldSource.CUSTOM || filterFieldSource == FilterFieldSource.META) {
 
                 // --- SUB QUERY ---
