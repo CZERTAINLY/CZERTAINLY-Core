@@ -1,30 +1,35 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.rules.*;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
-
 
 public interface RuleService {
 
     List<RuleDto> listRules();
-    RuleDto createRule(RuleRequestDto request);
-    RuleDto updateRule(String ruleUuid, RuleRequestDto request);
-    void deleteRule(String ruleUuid);
+    RuleDetailDto createRule(RuleRequestDto request);
+    RuleDetailDto getRule(String ruleUuid) throws NotFoundException;
+    RuleDetailDto updateRule(String ruleUuid, RuleRequestDto request) throws NotFoundException;
+    void deleteRule(String ruleUuid) throws NotFoundException;
 
     List<RuleConditionGroupDto> listConditionGroups();
-    RuleConditionGroupDto createConditionGroup(RuleConditionGroupRequestDto request);
-    RuleConditionGroupDto updateConditionGroup(String conditionGroupUuid, RuleConditionGroupRequestDto request);
-    void deleteConditionGroup(String conditionGroupUuid);
+    RuleConditionGroupDetailDto createConditionGroup(RuleConditionGroupRequestDto request);
+    RuleConditionGroupDetailDto getConditionGroup(String conditionGroupUuid) throws NotFoundException;
+    RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, RuleConditionGroupRequestDto request) throws NotFoundException;
+    void deleteConditionGroup(String conditionGroupUuid) throws NotFoundException;
 
     List<RuleActionGroupDto> listActionGroups();
-    RuleActionGroupDto createActionGroup(RuleActionGroupRequestDto request);
-    RuleActionGroupDto updateActionGroup(String actionGroupUuid, RuleActionGroupRequestDto request);
-    void deleteActionGroup(String actionGroupUuid);
+    RuleActionGroupDetailDto createActionGroup(RuleActionGroupRequestDto request);
+    RuleActionGroupDetailDto getActionGroup(String actionGroupUuid) throws NotFoundException;
+    RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, RuleActionGroupRequestDto request) throws NotFoundException;
+    void deleteActionGroup(String actionGroupUuid) throws NotFoundException;
 
     List<RuleTriggerDto> listTriggers();
-    RuleTriggerDto createTrigger(RuleTriggerRequestDto request);
-    RuleTriggerDto updateTrigger(String triggerUuid, RuleTriggerRequestDto request);
-    void deleteTrigger(String triggerUuid);
+    RuleTriggerDetailDto createTrigger(RuleTriggerRequestDto request);
+    RuleTriggerDetailDto getTrigger(String triggerUuid) throws NotFoundException;
+    RuleTriggerDetailDto updateTrigger(String triggerUuid, RuleTriggerRequestDto request) throws NotFoundException;
+    void deleteTrigger(String triggerUuid) throws NotFoundException;
 
 }
