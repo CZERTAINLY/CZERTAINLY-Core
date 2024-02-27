@@ -38,7 +38,7 @@ CREATE TABLE rule_condition (
 	field_source VARCHAR NOT NULL,
     field_identifier VARCHAR NOT NULL,
     operator VARCHAR NOT NULL,
-    value TEXT,
+    value JSONB,
 	PRIMARY KEY (uuid),
 	FOREIGN KEY (condition_group_uuid) REFERENCES rule_condition_group(uuid) ON UPDATE CASCADE ON DELETE CASCADE,
 	FOREIGN KEY (rule_uuid) REFERENCES rule(uuid) ON UPDATE CASCADE ON DELETE CASCADE

@@ -3,10 +3,18 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.RuleController;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateFormat;
+import com.czertainly.api.model.core.certificate.CertificateFormatEncoding;
 import com.czertainly.api.model.core.rules.*;
 import com.czertainly.core.service.RuleService;
+import com.czertainly.core.util.converter.CertificateFormatConverter;
+import com.czertainly.core.util.converter.CertificateFormatEncodingConverter;
+import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -20,10 +28,15 @@ public class RuleControllerImpl implements RuleController {
         this.ruleService = ruleService;
     }
 
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
+    }
+
 
     @Override
-    public List<RuleDto> listRules() {
-        return ruleService.listRules();
+    public List<RuleDto> listRules(Resource resource) {
+        return ruleService.listRules(resource);
     }
 
     @Override
@@ -47,8 +60,8 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public List<RuleConditionGroupDto> listConditionGroups() {
-        return ruleService.listConditionGroups();
+    public List<RuleConditionGroupDto> listConditionGroups(Resource resource) {
+        return ruleService.listConditionGroups(resource);
     }
 
     @Override
@@ -72,8 +85,8 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public List<RuleActionGroupDto> listActionGroups() {
-        return ruleService.listActionGroups();
+    public List<RuleActionGroupDto> listActionGroups(Resource resource) {
+        return ruleService.listActionGroups(resource);
     }
 
     @Override
@@ -97,8 +110,8 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public List<RuleTriggerDto> listTriggers() {
-        return ruleService.listTriggers();
+    public List<RuleTriggerDto> listTriggers(Resource resource, Resource triggerResource) {
+        return ruleService.listTriggers(resource, triggerResource);
     }
 
     @Override

@@ -36,9 +36,9 @@ public class RuleCondition extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private FilterConditionOperator operator;
 
-    @Column(name = "value", columnDefinition = "TEXT")
-    @JdbcTypeCode(SqlTypes.BLOB)
-    private Serializable value;
+    @Column(name = "value", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Object value;
 
     public RuleConditionDto mapToDto() {
         RuleConditionDto ruleConditionDto = new RuleConditionDto();

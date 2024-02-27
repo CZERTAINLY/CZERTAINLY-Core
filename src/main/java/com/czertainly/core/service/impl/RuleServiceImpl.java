@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.*;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -71,8 +72,9 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public List<RuleDto> listRules() {
-        return ruleRepository.findAll().stream().map(Rule::mapToDto).toList();
+    public List<RuleDto> listRules(Resource resource) {
+        if (resource == null) return ruleRepository.findAll().stream().map(Rule::mapToDto).toList();
+        return ruleRepository.findAllByResource(resource).stream().map(Rule::mapToDto).toList();
     }
 
     @Override
@@ -169,7 +171,7 @@ public class RuleServiceImpl implements RuleService {
             rule.setConditions(createConditions(request.getConditions(), rule, null));
         }
         else if (ruleConditionGroups.isEmpty()) {
-            throw new ValidationException("Cannot update a rule without any conditions nor any condition groups.");
+            throw new ValidationException("Cannot update a rule without any conditions or any condition groups.");
         } else {
             // If conditions were updated to none, but there are some condition groups, old conditions should be deleted
             conditionRepository.deleteAll(oldConditions);
@@ -192,8 +194,9 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public List<RuleConditionGroupDto> listConditionGroups() {
-        return conditionGroupRepository.findAll().stream().map(RuleConditionGroup::mapToDto).toList();
+    public List<RuleConditionGroupDto> listConditionGroups(Resource resource) {
+        if (resource == null) return conditionGroupRepository.findAll().stream().map(RuleConditionGroup::mapToDto).toList();
+        return conditionGroupRepository.findAllByResource(resource).stream().map(RuleConditionGroup::mapToDto).toList();
     }
 
     @Override
@@ -256,8 +259,9 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public List<RuleActionGroupDto> listActionGroups() {
-        return actionGroupRepository.findAll().stream().map(RuleActionGroup::mapToDto).toList();
+    public List<RuleActionGroupDto> listActionGroups(Resource resource) {
+        if (resource == null) return actionGroupRepository.findAll().stream().map(RuleActionGroup::mapToDto).toList();
+        return actionGroupRepository.findAllByResource(resource).stream().map(RuleActionGroup::mapToDto).toList();
     }
 
     @Override
@@ -299,7 +303,7 @@ public class RuleServiceImpl implements RuleService {
     @Override
     public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, RuleActionGroupRequestDto request) throws NotFoundException {
         if (request.getActions() == null) {
-            throw new ValidationException("Trying to update an action group without any actions.");
+            throw new ValidationException("Cannot update an action group without any actions.");
         }
         if (request.getResource() == null) {
             throw new ValidationException("Property resource cannot be empty.");
@@ -319,8 +323,11 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public List<RuleTriggerDto> listTriggers() {
-        return triggerRepository.findAll().stream().map(RuleTrigger::mapToDto).toList();
+    public List<RuleTriggerDto> listTriggers(Resource resource, Resource triggerResource) {
+        List<RuleTrigger> ruleTriggers = triggerRepository.findAll();
+        if (triggerResource != null) ruleTriggers = ruleTriggers.stream().filter(trigger -> trigger.getTriggerResource() == triggerResource).toList();
+        if (resource != null) ruleTriggers = ruleTriggers.stream().filter(trigger -> (trigger.getResource() == resource)).toList();
+        return ruleTriggers.stream().map(RuleTrigger::mapToDto).toList();
     }
 
     @Override
@@ -338,8 +345,8 @@ public class RuleServiceImpl implements RuleService {
             throw new ValidationException("Property trigger type cannot be empty.");
         }
 
-        if (triggerRepository.findAllByTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid())).stream().map(RuleTrigger::getName).toList().contains(request.getName()))
-            throw new ValidationException("Rule trigger with this name already exists for this instance of trigger resource.");
+        if (triggerRepository.findAllByTriggerResource(request.getTriggerResource()).stream().map(RuleTrigger::getName).toList().contains(request.getName()))
+            throw new ValidationException("Rule trigger with this name already exists for this trigger resource.");
 
         RuleTrigger trigger = new RuleTrigger();
 
@@ -373,7 +380,7 @@ public class RuleServiceImpl implements RuleService {
 
         if (request.getActions() != null) trigger.setActions(createActions(request.getActions(), trigger, null));
         else if (rules.isEmpty() & actionGroups.isEmpty()) {
-            throw new ValidationException("Cannot create a trigger without any actions, action groups nor rules.");
+            throw new ValidationException("Cannot create a trigger without any actions, action groups or rules.");
         }
 
 
@@ -447,7 +454,7 @@ public class RuleServiceImpl implements RuleService {
             trigger.setActions(createActions(request.getActions(), trigger, null));
         }
         else if (actionGroups.isEmpty() & rules.isEmpty()) {
-            throw new ValidationException("Cannot update a trigger without any actions, action groups nor rules.");
+            throw new ValidationException("Cannot update a trigger without any actions, action groups or rules.");
         } else {
             // If actions were updated to none, but there are some action groups or rules, old actions should be deleted
             actionRepository.deleteAll(oldActions);
@@ -476,6 +483,7 @@ public class RuleServiceImpl implements RuleService {
     private List<RuleCondition> createConditions(List<RuleConditionRequestDto> conditionRequestDtos, Rule rule, RuleConditionGroup conditionGroup) {
         List<RuleCondition> conditions = new ArrayList<>();
         for (RuleConditionRequestDto conditionRequestDto : conditionRequestDtos) {
+            if (conditionRequestDto.getFieldSource() == null || conditionRequestDto.getFieldIdentifier() == null || conditionRequestDto.getOperator() == null) continue;
             RuleCondition condition = new RuleCondition();
             if (rule != null) {
                 condition.setRule(rule);
