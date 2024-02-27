@@ -28,7 +28,7 @@ public class RuleTrigger extends UniquelyIdentified {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "resource")
+    @Column(name = "resource", nullable = false)
     @Enumerated(EnumType.STRING)
     private Resource resource;
 

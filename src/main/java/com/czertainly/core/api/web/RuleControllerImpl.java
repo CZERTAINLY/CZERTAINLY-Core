@@ -1,10 +1,12 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.RuleController;
 import com.czertainly.api.model.core.rules.*;
 import com.czertainly.core.service.RuleService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;

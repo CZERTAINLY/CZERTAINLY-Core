@@ -4,7 +4,7 @@ CREATE TABLE rule_trigger (
 	description VARCHAR,
 	trigger_type VARCHAR NOT NULL,
 	event_name VARCHAR,
-	resource VARCHAR,
+	resource VARCHAR NOT NULL,
 	trigger_resource VARCHAR,
     trigger_resource_uuid UUID,
 	PRIMARY KEY (uuid)

@@ -10,13 +10,14 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Getter
 @Setter
 @Table(name = "rule_action_group")
-public class RuleActionGroup extends UniquelyIdentified{
+public class RuleActionGroup extends UniquelyIdentified {
 
     @Column(name = "name", nullable = false)
     private String name;
