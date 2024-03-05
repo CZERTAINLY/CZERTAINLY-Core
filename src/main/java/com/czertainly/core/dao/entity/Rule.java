@@ -1,6 +1,7 @@
 
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.RuleDetailDto;
@@ -90,4 +91,5 @@ public class Rule extends UniquelyIdentified {
         ruleDetailDto.setConditionGroups(conditionGroups.stream().map(RuleConditionGroup::mapToDto).toList());
         return ruleDetailDto;
     }
+
 }

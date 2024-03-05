@@ -5,8 +5,13 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.*;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.FilterFieldType;
+import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.RuleService;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
@@ -17,11 +22,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.BiFunction;
+
+import static com.czertainly.api.model.core.search.FilterConditionOperator.*;
+import static com.czertainly.api.model.core.search.FilterConditionOperator.NOT_EMPTY;
 
 @Service
 @Transactional
@@ -518,6 +523,29 @@ public class RuleServiceImpl implements RuleService {
             actions.add(action);
         }
         return actions;
+    }
+
+    private boolean isValidCondition(RuleCondition condition) {
+        if (condition.getFieldSource() == null || condition.getFieldIdentifier() == null || condition.getOperator() == null) return false;
+        SearchFieldNameEnum propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(condition.getFieldIdentifier()));
+        FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
+        // Check if fieldIdentifier is valid for fieldSource
+        // Check if operator is valid for fieldIdentifier
+        if (!allowedOperationsByType.get(fieldType).contains(condition.getOperator())) return false;
+        // Check if value is valid for fieldIdentifier
+
+        return true;
+    }
+
+    public static Map<FilterFieldType, List<FilterConditionOperator>> allowedOperationsByType;
+    static {
+        allowedOperationsByType = new HashMap<>();
+        allowedOperationsByType.put(FilterFieldType.STRING, List.of(EQUALS, NOT_EQUALS, CONTAINS, NOT_CONTAINS, STARTS_WITH, ENDS_WITH, EMPTY, NOT_EMPTY));
+        allowedOperationsByType.put(FilterFieldType.NUMBER, List.of(EQUALS, NOT_EQUALS, EMPTY, NOT_EMPTY, LESSER, LESSER_OR_EQUAL, GREATER, GREATER_OR_EQUAL));
+        allowedOperationsByType.put(FilterFieldType.LIST, List.of(EQUALS, NOT_EQUALS, EMPTY, NOT_EMPTY));
+        allowedOperationsByType.put(FilterFieldType.DATE, List.of(EQUALS, NOT_EQUALS, EMPTY, NOT_EMPTY, LESSER, LESSER_OR_EQUAL, GREATER, GREATER_OR_EQUAL));
+        allowedOperationsByType.put(FilterFieldType.DATETIME, List.of(EQUALS, NOT_EQUALS, EMPTY, NOT_EMPTY, LESSER, LESSER_OR_EQUAL, GREATER, GREATER_OR_EQUAL));
+        allowedOperationsByType.put(FilterFieldType.BOOLEAN, List.of(EQUALS, NOT_EQUALS, EMPTY, NOT_EMPTY));
     }
 
 
