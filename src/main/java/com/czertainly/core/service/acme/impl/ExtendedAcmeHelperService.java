@@ -40,6 +40,7 @@ import com.nimbusds.jose.crypto.ECDSAVerifier;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
+import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.style.BCStyle;
@@ -554,6 +555,7 @@ public class ExtendedAcmeHelperService {
         return order;
     }
 
+    @Transactional
     @Async("threadPoolTaskExecutor")
     public void finalizeOrder(AcmeOrder order) throws AcmeProblemDocumentException {
         logger.info("Finalizing Order with ID: {}", order.getOrderId());
