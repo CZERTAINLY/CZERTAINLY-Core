@@ -17,9 +17,21 @@
         </encoder>
     </appender>
 
+    <if condition='property("otel.sdk.disabled").equals("false")'>
+        <appender name="OpenTelemetry" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        </appender>
+
+        <appender name="SpanEvents" class="com.czertainly.core.config.SpanEventsAppender">
+        </appender>
+    </if>
+
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
         <!--        <appender-ref ref="FILE" />-->
+        <if condition='property("otel.sdk.disabled").equals("false")'>
+            <appender-ref ref="OpenTelemetry" />
+            <appender-ref ref="SpanEvents" />
+        </if>
     </root>
     <logger name="com.czertainly" level="INFO"/>
 </configuration>

@@ -85,6 +85,23 @@ Operations can be automated by the `Core`, but also can be performed manually by
 | `RABBITMQ_PASSWORD`       | RabbitMQ messaging password                                         | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
 | `RABBITMQ_VHOST`          | RabbitMQ messaging virtual host                                     | ![](https://img.shields.io/badge/-NO-red.svg)      | `czertainly`        |
 
+### OpenTelemetry settings
+
+`Core` supports OpenTelemetry for producing signals (metrics, traces, logs) to the observability system. The following environment variables can be used to configure OpenTelemetry:
+
+| Variable                              | Description                                                                                                                         | Required                                      | Default value           |
+|---------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------|-------------------------|
+| `OTEL_SDK_DISABLED`                   | Disables the OpenTelemetry SDK. Supported values: `true`, `false`. OpenTelemetry SDK is disabled by default                         | ![](https://img.shields.io/badge/-NO-red.svg) | `true`                  |
+| `OTEL_LOGS_EXPORTER`                  | The logs exporter to use. Supported values: `none`, `otlp`, `logging`.                                                              | ![](https://img.shields.io/badge/-NO-red.svg) | `none`                  |
+| `OTEL_METRICS_EXPORTER`               | The metrics exporter to use. Supported values: `none`, `otlp`, `logging`.                                                           | ![](https://img.shields.io/badge/-NO-red.svg) | `none`                  |
+| `OTEL_TRACES_EXPORTER`                | The traces exporter to use. Supported values: `none`, `otlp`, `logging`.                                                            | ![](https://img.shields.io/badge/-NO-red.svg) | `none`                  |
+| `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`    | Endpoint URL for log data only, with an optionally-specified port number. Typically ends with `v1/logs` when using OTLP/HTTP.       | ![](https://img.shields.io/badge/-NO-red.svg) | `http://localhost:4317` |
+| `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL`    | Protocol to use for the logs exporter. Supported values: `grpc`, `http/protobuf`, `http/json`.                                      | ![](https://img.shields.io/badge/-NO-red.svg) | `grpc`                  |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | Endpoint URL for metric data only, with an optionally-specified port number. Typically ends with `v1/metrics` when using OTLP/HTTP. | ![](https://img.shields.io/badge/-NO-red.svg) | `http://localhost:4317` |
+| `OTEL_EXPORTER_OTLP_METRICS_PROTOCOL` | Protocol to use for the metrics exporter. Supported values: `grpc`, `http/protobuf`, `http/json`.                                   | ![](https://img.shields.io/badge/-NO-red.svg) | `grpc`                  |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`  | Endpoint URL for trace data only, with an optionally-specified port number. Typically ends with `v1/traces` when using OTLP/HTTP.   | ![](https://img.shields.io/badge/-NO-red.svg) | `http://localhost:4317` |
+| `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL`  | Protocol to use for the traces exporter. Supported values: `grpc`, `http/protobuf`, `http/json`.                                    | ![](https://img.shields.io/badge/-NO-red.svg) | `grpc`                  |
+
 ### Proxy settings
 
 You may need to configure proxy to allow `Core` to communicate with external systems.
