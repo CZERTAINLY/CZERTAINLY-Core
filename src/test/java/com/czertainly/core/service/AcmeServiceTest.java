@@ -175,7 +175,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetNonce(){
-        ResponseEntity<?> response = acmeService.getNonce(true);
+        ResponseEntity<?> response = acmeService.getNonce("testAcmeProfile", true);
         Assertions.assertNotNull(response.getHeaders().get("Replay-Nonce"));
     }
 

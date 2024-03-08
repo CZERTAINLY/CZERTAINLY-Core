@@ -10,48 +10,28 @@ import com.czertainly.api.model.core.acme.Authorization;
 import com.czertainly.api.model.core.acme.Challenge;
 import com.czertainly.api.model.core.acme.Directory;
 import com.czertainly.api.model.core.acme.Order;
-import com.czertainly.core.service.acme.AcmeRaProfileService;
-import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
+import com.czertainly.core.service.acme.AcmeService;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.HandlerMapping;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
 
-    @ModelAttribute
-    public void setResponseHeader(HttpServletRequest request, HttpServletResponse response) {
-        String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        String linkUrl;
-        Map pathVariables = (Map) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
-        if(pathVariables.containsKey("acmeProfileName")){
-            linkUrl = baseUri + ExtendedAcmeHelperService.ACME_URI_HEADER + "/" + pathVariables.get("acmeProfileName") + "/directory";
-        }else{
-            linkUrl = baseUri + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/"+ pathVariables.get("raProfileName") + "/directory";
-        }
-        response.addHeader("Link", "<"+linkUrl + ">;rel=\"index\"");
+    private AcmeService acmeService;
+
+    @Autowired
+    public void setAcmeService(AcmeService acmeService) {
+        this.acmeService = acmeService;
     }
-
-    private static final String NONCE_HEADER_NAME = "Replay-Nonce";
-
-    @Autowired
-    private AcmeRaProfileService acmeService;
-    @Autowired
-    private ExtendedAcmeHelperService extendedAcmeHelperService;
 
     @Override
     public ResponseEntity<Directory> getDirectory(@PathVariable String raProfileName) throws NotFoundException, AcmeProblemDocumentException {
@@ -60,13 +40,13 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
 
     @Override
     public ResponseEntity<?> getNonce(String raProfileName) {
-        return acmeService.getNonce(false);
+        return acmeService.getNonce(raProfileName, false);
 
     }
 
     @Override
     public ResponseEntity<?> headNonce(String raProfileName) {
-        return acmeService.getNonce(true);
+        return acmeService.getNonce(raProfileName, true);
     }
 
     @Override

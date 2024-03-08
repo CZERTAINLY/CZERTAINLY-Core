@@ -25,7 +25,7 @@ import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
 import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
-import com.czertainly.core.service.acme.AcmeRaProfileService;
+import com.czertainly.core.service.acme.AcmeService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Assertions;
@@ -85,7 +85,7 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
     private AcmeChallengeRepository acmeChallengeRepository;
 
     @Autowired
-    private AcmeRaProfileService acmeService;
+    private AcmeService acmeService;
 
     private AcmeProfile acmeProfile;
 
@@ -175,7 +175,7 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetNonce() {
-        ResponseEntity<?> response = acmeService.getNonce(true);
+        ResponseEntity<?> response = acmeService.getNonce("testAcmeProfile", true);
         Assertions.assertNotNull(response.getHeaders().get("Replay-Nonce"));
     }
 

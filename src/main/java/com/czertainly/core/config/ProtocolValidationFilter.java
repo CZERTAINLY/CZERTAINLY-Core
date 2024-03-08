@@ -9,11 +9,9 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.*;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
-import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
-import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
-import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
-import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
+import com.czertainly.core.dao.repository.acme.*;
+import com.czertainly.core.service.acme.AcmeConstants;
+import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.AcmeJsonProcessor;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
 import com.czertainly.core.util.AuthHelper;
@@ -61,7 +59,7 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
     @Autowired
     private AcmeChallengeRepository acmeChallengeRepository;
     @Autowired
-    private ExtendedAcmeHelperService extendedAcmeHelperService;
+    private AcmeNonceRepository acmeNonceRepository;
     @Autowired
     @Qualifier("handlerExceptionResolver")
     private HandlerExceptionResolver resolver;
@@ -179,7 +177,7 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
 
     private void validateAcme(Map<String, String> pathVariables) throws AcmeProblemDocumentException {
         String acmeProfileName = pathVariables.getOrDefault("acmeProfileName", "");
-        AcmeProfile acmeProfile = acmeProfileRepository.findByName(acmeProfileName);
+        AcmeProfile acmeProfile = acmeProfileRepository.findByName(acmeProfileName).orElse(null);
         if (acmeProfile == null) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
                     new ProblemDocument("acmeProfileNotFound",
@@ -279,7 +277,13 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
             logger.error("Nonce is not found in the request");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE);
         }
-        extendedAcmeHelperService.isNonceValid(nonce.toString());
+
+        acmeNonceRepository.deleteAll(acmeNonceRepository.findAllByExpiresBefore(new Date()));
+        AcmeNonce acmeNonce = acmeNonceRepository.findByNonce(nonce.toString()).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE));
+        if (acmeNonce.getExpires().after(AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY))) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE);
+        }
+
     }
 
     private void validateUrl(String url, String requestUrl) throws AcmeProblemDocumentException {
@@ -310,25 +314,25 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
                 PublicKey publicKey;
                 KeyType keyType = jwsObject.getHeader().getJWK().getKeyType();
                 logger.debug("Key type for the request: " + keyType.toString());
-                if (keyType.toString().equals(ExtendedAcmeHelperService.RSA_KEY_TYPE_NOTATION)) {
+                if (keyType.toString().equals(AcmeConstants.RSA_KEY_TYPE_NOTATION)) {
                     publicKey = jwsObject.getHeader().getJWK().toRSAKey().toPublicKey();
                     int keySize = jwsObject.getHeader().getJWK().toRSAKey().size();
-                    if (keySize < ExtendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH){
-                        logger.error("Key length is : " + keySize + ", Expecting more than: " + ExtendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH);
+                    if (keySize < AcmeConstants.ACME_RSA_MINIMUM_KEY_LENGTH){
+                        logger.error("Key length is : " + keySize + ", Expecting more than: " + AcmeConstants.ACME_RSA_MINIMUM_KEY_LENGTH);
                         throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
-                                "Bit length of the RSA key should be at least " + ExtendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH);
+                                "Bit length of the RSA key should be at least " + AcmeConstants.ACME_RSA_MINIMUM_KEY_LENGTH);
                     }
-                } else if (keyType.toString().equals(ExtendedAcmeHelperService.EC_KEY_TYPE_NOTATION)) {
+                } else if (keyType.toString().equals(AcmeConstants.EC_KEY_TYPE_NOTATION)) {
                     publicKey = jwsObject.getHeader().getJWK().toECKey().toPublicKey();
                     int keySize = jwsObject.getHeader().getJWK().toECKey().size();
-                    if (keySize < ExtendedAcmeHelperService.ACME_EC_MINIMUM_KEY_LENGTH){
-                        logger.error("Key length is : " + keySize + ", Expecting more than: " + ExtendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH);
+                    if (keySize < AcmeConstants.ACME_EC_MINIMUM_KEY_LENGTH){
+                        logger.error("Key length is : " + keySize + ", Expecting more than: " + AcmeConstants.ACME_RSA_MINIMUM_KEY_LENGTH);
                         throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY,
-                                "Bit length of the EC key should be at least " + ExtendedAcmeHelperService.ACME_RSA_MINIMUM_KEY_LENGTH);
+                                "Bit length of the EC key should be at least " + AcmeConstants.ACME_RSA_MINIMUM_KEY_LENGTH);
                     }
                 } else {
                     String message = "Account key is generated using unsupported key type by the server. Supported key types are " +
-                            String.join(", ", ExtendedAcmeHelperService.ACME_SUPPORTED_ALGORITHMS);
+                            String.join(", ", AcmeConstants.ACME_SUPPORTED_ALGORITHMS);
                     logger.error(message);
                     throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY, message);
                 }
@@ -361,7 +365,7 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
         if (!isCertRevoke) {
             try {
                 String keyType = publicKey.getAlgorithm();
-                if (keyType.equals(ExtendedAcmeHelperService.RSA_KEY_TYPE_NOTATION)) {
+                if (keyType.equals(AcmeConstants.RSA_KEY_TYPE_NOTATION)) {
                     if (jwsObject.verify(new RSASSAVerifier((RSAPublicKey) publicKey))) {
                         return;
                     }

@@ -16,7 +16,7 @@ public interface AcmeProfileRepository extends SecurityFilterRepository<AcmeProf
     boolean existsByName(String name);
 
     @EntityGraph(attributePaths = {"raProfile"})
-    AcmeProfile findByName(String name);
+    Optional<AcmeProfile> findByName(String name);
 
     List<AcmeProfile> findByRaProfile(RaProfile raProfile);
 }
