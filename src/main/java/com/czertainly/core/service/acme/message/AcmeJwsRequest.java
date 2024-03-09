@@ -41,6 +41,7 @@ public class AcmeJwsRequest {
 
     public boolean checkSignature(PublicKey publicKey) throws AcmeProblemDocumentException {
         try {
+            String keyType = publicKey.getAlgorithm();
             if (keyType.equals(AcmeConstants.RSA_KEY_TYPE_NOTATION)) {
                 return jwsObject.verify(new RSASSAVerifier((RSAPublicKey) publicKey));
             } else if (keyType.equals(AcmeConstants.EC_KEY_TYPE_NOTATION)) {
