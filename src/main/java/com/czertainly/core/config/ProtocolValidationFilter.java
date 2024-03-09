@@ -5,12 +5,11 @@ import com.czertainly.api.model.common.JwsBody;
 import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.Problem;
 import com.czertainly.api.model.core.acme.ProblemDocument;
-import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.*;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.acme.*;
 import com.czertainly.core.service.acme.AcmeConstants;
+import com.czertainly.core.service.acme.AcmeService;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.AcmeJsonProcessor;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
@@ -49,8 +48,6 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
     @Autowired
     private AcmeAccountRepository acmeAccountRepository;
     @Autowired
-    private RaProfileRepository raProfileRepository;
-    @Autowired
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
     private AcmeOrderRepository acmeOrderRepository;
@@ -60,6 +57,8 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
     private AcmeChallengeRepository acmeChallengeRepository;
     @Autowired
     private AcmeNonceRepository acmeNonceRepository;
+    @Autowired
+    private AcmeService acmeService;
     @Autowired
     @Qualifier("handlerExceptionResolver")
     private HandlerExceptionResolver resolver;
@@ -214,32 +213,7 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
     }
 
     private void validateRaBasedAcme(Map<String, String> pathVariables) throws AcmeProblemDocumentException {
-        String raProfileName = pathVariables.getOrDefault("raProfileName", "");
-        RaProfile raProfile = raProfileRepository.findByName(raProfileName).orElseThrow(() ->
-                new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                        new ProblemDocument("raProfileNotFound",
-                                "RA Profile is not found",
-                                "Given RA Profile in the request URL is not found")));
-        if (raProfile.getAcmeProfile() == null) {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                    new ProblemDocument("acmeProfileNotAssociated",
-                            "ACME Profile is not associated",
-                            "ACME Profile is not associated with the RA Profile"));
-        }
-        if (!raProfile.getEnabled()) {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                    new ProblemDocument("raProfileDisabled",
-                            "RA Profile is not enabled",
-                            "RA Profile is not enabled"));
-        }
-
-        if (!raProfile.getAcmeProfile().isEnabled()) {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                    new ProblemDocument("acmeProfileDisabled",
-                            "ACME Profile is not enabled",
-                            "ACME Profile is not enabled"));
-        }
-
+        acmeService.validateRaBasedAcme(pathVariables);
     }
 
     private void validateJwsHeader(String requestUrl, String requestUri, CustomHttpServletRequestWrapper requestWrapper) throws AcmeProblemDocumentException {

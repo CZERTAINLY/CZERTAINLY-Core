@@ -674,6 +674,35 @@ public class AcmeServiceImpl implements AcmeService {
         }
     }
 
+    @Override
+    public void validateRaBasedAcme(Map<String, String> pathVariables) throws AcmeProblemDocumentException {
+        String raProfileName = pathVariables.getOrDefault("raProfileName", "");
+        RaProfile raProfile = raProfileRepository.findByName(raProfileName).orElseThrow(() ->
+                new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                        new ProblemDocument("raProfileNotFound",
+                                "RA Profile is not found",
+                                "Given RA Profile in the request URL is not found")));
+        if (raProfile.getAcmeProfile() == null) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("acmeProfileNotAssociated",
+                            "ACME Profile is not associated",
+                            "ACME Profile is not associated with the RA Profile"));
+        }
+        if (!raProfile.getEnabled()) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("raProfileDisabled",
+                            "RA Profile is not enabled",
+                            "RA Profile is not enabled"));
+        }
+
+        if (!raProfile.getAcmeProfile().isEnabled()) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("acmeProfileDisabled",
+                            "ACME Profile is not enabled",
+                            "ACME Profile is not enabled"));
+        }
+    }
+
     private boolean isRaProfileBased() {
         return ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
     }
