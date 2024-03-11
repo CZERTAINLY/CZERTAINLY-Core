@@ -476,6 +476,7 @@ public class AcmeServiceImpl implements AcmeService {
         return ResponseEntity.ok()
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
                 .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName))
+                .header("Link", "<" + challenge.getAuthorization().getUrl() + ">;rel=\"up\"")
                 .body(challenge.mapToDto());
     }
 
@@ -516,7 +517,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Async("threadPoolTaskExecutor")
-    protected void finalizeOrder(AcmeOrder order, AcmeJwsRequest jwsRequest) throws AcmeProblemDocumentException {
+    public void finalizeOrder(AcmeOrder order, AcmeJwsRequest jwsRequest) throws AcmeProblemDocumentException {
         logger.debug("Finalizing Order with ID: {}", order.getOrderId());
         CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), CertificateFinalizeRequest.class);
         logger.debug("Finalize Order request: {}", request);
