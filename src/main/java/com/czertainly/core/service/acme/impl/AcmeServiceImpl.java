@@ -28,9 +28,11 @@ import com.czertainly.core.service.acme.message.AcmeJwsRequest;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.*;
 import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSObject;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
+import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.style.BCStyle;
 import org.bouncycastle.asn1.x500.style.IETFUtils;
@@ -52,8 +54,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-
-import jakarta.transaction.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.naming.Context;
@@ -141,13 +141,13 @@ public class AcmeServiceImpl implements AcmeService {
 
 
     @Override
-    public ResponseEntity<Directory> getDirectory(String acmeProfileName) throws AcmeProblemDocumentException {
+    public ResponseEntity<Directory> getDirectory(String acmeProfileName, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         logger.debug("Gathering Directory information for ACME: {}", acmeProfileName);
 
         Directory directory = new Directory();
         String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER;
         String replaceUrl;
-        if (isRaProfileBased()) {
+        if (isRaProfileBased) {
             replaceUrl = "%s/raProfile/%s/";
         } else {
             replaceUrl = "%s/%s/";
@@ -159,7 +159,7 @@ public class AcmeServiceImpl implements AcmeService {
         directory.setRevokeCert(String.format(replaceUrl + "revoke-cert", baseUri, acmeProfileName));
         directory.setKeyChange(String.format(replaceUrl + "key-change", baseUri, acmeProfileName));
         try {
-            directory.setMeta(frameDirectoryMeta(acmeProfileName));
+            directory.setMeta(frameDirectoryMeta(acmeProfileName, isRaProfileBased));
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("profileNotFound", "Profile Not Found", "Given profile name is not found"));
         }
@@ -191,7 +191,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<Account> newAccount(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException {
+    public ResponseEntity<Account> newAccount(String acmeProfileName, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         if (requestJson.isEmpty()) {
             logger.error("New Account request is empty. JWS is malformed for profile: {}", acmeProfileName);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
@@ -199,17 +199,16 @@ public class AcmeServiceImpl implements AcmeService {
 
         // Parse and check the JWS request
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
-        jwsRequest.readPublicKey();
-        jwsRequest.checkSignature();
+        validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
 
         NewAccountRequest accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), NewAccountRequest.class);
         logger.debug("New Account requested: {}", accountRequest.toString());
-        AcmeAccount account = addNewAccount(acmeProfileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsRequest.getPublicKey()), accountRequest);
+        AcmeAccount account = addNewAccount(acmeProfileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsRequest.getPublicKey()), accountRequest, isRaProfileBased);
         Account accountDto = account.mapToDto();
         String baseUri = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER;
 
         ResponseEntity.BodyBuilder responseBuilder;
-        if (isRaProfileBased()) {
+        if (isRaProfileBased) {
             accountDto.setOrders(String.format("%s/raProfile/%s/acct/%s/orders", baseUri, acmeProfileName, account.getAccountId()));
             if (accountRequest.isOnlyReturnExisting()) {
                 responseBuilder = ResponseEntity.ok()
@@ -237,7 +236,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<Account> updateAccount(String acmeProfileName, String accountId, String requestJson) throws AcmeProblemDocumentException {
+    public ResponseEntity<Account> updateAccount(String acmeProfileName, String accountId, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         if (requestJson.isEmpty()) {
             logger.error("Update Account request is empty. JWS is malformed for profile: {}", acmeProfileName);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
@@ -245,6 +244,8 @@ public class AcmeServiceImpl implements AcmeService {
 
         // Parse and check the JWS request
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
+        validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
+        validateAccount(accountId);
 
         logger.debug("Request to update the ACME Account with ID: {}", accountId);
         AcmeAccount account;
@@ -279,7 +280,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<?> keyRollover(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException {
+    public ResponseEntity<?> keyRollover(String acmeProfileName, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         if (requestJson.isEmpty()) {
             logger.error("Update Account request is empty. JWS is malformed for profile: {}", acmeProfileName);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
@@ -287,6 +288,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         // Parse and check the JWS request
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
+        validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
 
         JWSObject innerJws = jwsRequest.getJwsObject().getPayload().toJWSObject();
         PublicKey newKey;
@@ -332,7 +334,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<Order> newOrder(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException {
+    public ResponseEntity<Order> newOrder(String acmeProfileName, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         if (requestJson.isEmpty()) {
             logger.error("Update Account request is empty. JWS is malformed for profile: {}", acmeProfileName);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
@@ -340,6 +342,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         // Parse and check the JWS request
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
+        validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
 
         String[] acmeAccountKeyIdSegment = jwsRequest.getJwsObject().getHeader().getKeyID().split("/");
         String acmeAccountId = acmeAccountKeyIdSegment[acmeAccountKeyIdSegment.length - 1];
@@ -395,7 +398,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<Authorization> getAuthorization(String acmeProfileName, String authorizationId, String requestJson) throws AcmeProblemDocumentException {
+    public ResponseEntity<Authorization> getAuthorization(String acmeProfileName, String authorizationId, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         if (requestJson.isEmpty()) {
             logger.error("Update Account request is empty. JWS is malformed for profile: {}", acmeProfileName);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
@@ -403,15 +406,13 @@ public class AcmeServiceImpl implements AcmeService {
 
         // Parse and check the JWS request
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
+        validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
+        AcmeAuthorization authorization = validateAuthorization(authorizationId);
 
         boolean isDeactivateRequest = false;
         if (jwsRequest.getJwsObject().getPayload().toJSONObject() != null) {
             isDeactivateRequest = jwsRequest.getJwsObject().getPayload().toJSONObject().getOrDefault("status", "") == "deactivated";
         }
-        // TODO: Check response for not found authorization
-        AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(
-                authorizationId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                new ProblemDocument("authorizationNotFound", "Authorization Not Found", "The authorization is not found")));
 
         if (authorization.getExpires() != null && authorization.getExpires().before(new Date())) {
             authorization.setStatus(AuthorizationStatus.INVALID);
@@ -434,17 +435,8 @@ public class AcmeServiceImpl implements AcmeService {
     @Override
     public ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId) throws AcmeProblemDocumentException {
         logger.debug("Validating Challenge with ID {}:", challengeId);
-        AcmeChallenge challenge;
-        try {
-            challenge = acmeChallengeRepository.findByChallengeId(challengeId).orElseThrow(() -> new NotFoundException(Challenge.class, challengeId));
-            validateAccount(challenge.getAuthorization().getOrder().getAcmeAccount());
-            logger.debug("Challenge: {}", challenge);
-
-        } catch (NotFoundException e) {
-            logger.error("Challenge not found with ID: {}", challengeId);
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                    new ProblemDocument("challengeNotFound", "Challenge Not Found", "The requested challenge is not found"));
-        }
+        AcmeChallenge challenge = validateChallenge(challengeId);
+        validateAccount(challenge.getAuthorization().getOrder().getAcmeAccount());
 
         AcmeAuthorization authorization = challenge.getAuthorization();
         logger.debug("Authorization corresponding to the Order: {}", authorization.toString());
@@ -481,7 +473,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String requestJson) throws AcmeProblemDocumentException {
+    public ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         if (requestJson.isEmpty()) {
             logger.error("Update Account request is empty. JWS is malformed for profile: {}", acmeProfileName);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
@@ -489,14 +481,11 @@ public class AcmeServiceImpl implements AcmeService {
 
         // Parse and check the JWS request
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
+        validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
 
         logger.debug("Request to finalize the Order with ID: {}", orderId);
-        AcmeOrder order;
+        AcmeOrder order = validateOrder(orderId);
 
-        order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(
-                () -> new AcmeProblemDocumentException(
-                        HttpStatus.BAD_REQUEST,
-                        new ProblemDocument("orderNotFound", "Order Not Found", "The given Order is not found")));
         validateAccount(order.getAcmeAccount());
         logger.debug("Order found : {}", order);
 
@@ -506,7 +495,7 @@ public class AcmeServiceImpl implements AcmeService {
         }
 
         // Now finalize the order
-        finalizeOrder(order, jwsRequest);
+        finalizeOrder(order, jwsRequest, isRaProfileBased);
 
         return ResponseEntity.ok()
                 .location(URI.create(order.getUrl()))
@@ -517,7 +506,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Async("threadPoolTaskExecutor")
-    public void finalizeOrder(AcmeOrder order, AcmeJwsRequest jwsRequest) throws AcmeProblemDocumentException {
+    public void finalizeOrder(AcmeOrder order, AcmeJwsRequest jwsRequest, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         logger.debug("Finalizing Order with ID: {}", order.getOrderId());
         CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), CertificateFinalizeRequest.class);
         logger.debug("Finalize Order request: {}", request);
@@ -542,7 +531,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         logger.debug("Initiating issue Certificate for Order with ID: {}", order.getOrderId());
         ClientCertificateSignRequestDto certificateSignRequestDto = new ClientCertificateSignRequestDto();
-        certificateSignRequestDto.setAttributes(getClientOperationAttributes(false, order.getAcmeAccount()));
+        certificateSignRequestDto.setAttributes(getClientOperationAttributes(false, order.getAcmeAccount(), isRaProfileBased));
         certificateSignRequestDto.setPkcs10(decodedCsr);
         order.setStatus(OrderStatus.PROCESSING);
         acmeOrderRepository.save(order);
@@ -551,7 +540,7 @@ public class AcmeServiceImpl implements AcmeService {
 
     @Override
     public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
-        AcmeOrder order = getAcmeOrderEntity(orderId);
+        AcmeOrder order = validateOrder(orderId);
 
         updateOrderStatusByExpiry(order);
 
@@ -581,7 +570,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<?> revokeCertificate(String acmeProfileName, String requestJson) throws AcmeProblemDocumentException, ConnectorException, CertificateException {
+    public ResponseEntity<?> revokeCertificate(String acmeProfileName, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException, ConnectorException, CertificateException {
         if (requestJson.isEmpty()) {
             logger.error("Update Account request is empty. JWS is malformed for profile: {}", acmeProfileName);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
@@ -589,6 +578,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         // Parse and check the JWS request
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
+        validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
 
         CertificateRevocationRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), CertificateRevocationRequest.class);
         logger.debug("Certificate revocation is triggered with the payload: {}", request.toString());
@@ -657,7 +647,7 @@ public class AcmeServiceImpl implements AcmeService {
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.BAD_REVOCATION_REASON, details);
         }
         revokeRequest.setReason(reason);
-        revokeRequest.setAttributes(getClientOperationAttributes(true, account));
+        revokeRequest.setAttributes(getClientOperationAttributes(true, account, isRaProfileBased));
 
         try {
             clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(cert.getRaProfile().getAuthorityInstanceReferenceUuid()), cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest);
@@ -675,42 +665,13 @@ public class AcmeServiceImpl implements AcmeService {
         }
     }
 
-    @Override
-    public void validateRaBasedAcme(Map<String, String> pathVariables) throws AcmeProblemDocumentException {
-        String raProfileName = pathVariables.getOrDefault("raProfileName", "");
-        RaProfile raProfile = raProfileRepository.findByName(raProfileName).orElseThrow(() ->
-                new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                        new ProblemDocument("raProfileNotFound",
-                                "RA Profile is not found",
-                                "Given RA Profile in the request URL is not found")));
-        if (raProfile.getAcmeProfile() == null) {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                    new ProblemDocument("acmeProfileNotAssociated",
-                            "ACME Profile is not associated",
-                            "ACME Profile is not associated with the RA Profile"));
-        }
-        if (!raProfile.getEnabled()) {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                    new ProblemDocument("raProfileDisabled",
-                            "RA Profile is not enabled",
-                            "RA Profile is not enabled"));
-        }
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Private methods
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        if (!raProfile.getAcmeProfile().isEnabled()) {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
-                    new ProblemDocument("acmeProfileDisabled",
-                            "ACME Profile is not enabled",
-                            "ACME Profile is not enabled"));
-        }
-    }
-
-    private boolean isRaProfileBased() {
-        return ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
-    }
-
-    private DirectoryMeta frameDirectoryMeta(String profileName) throws NotFoundException {
+    private DirectoryMeta frameDirectoryMeta(String profileName, boolean isRaProfileBased) throws NotFoundException {
         AcmeProfile acmeProfile;
-        if (isRaProfileBased()) {
+        if (isRaProfileBased) {
             acmeProfile = getRaProfileEntity(profileName).getAcmeProfile();
         } else {
             acmeProfile = acmeProfileRepository.findByName(profileName).orElse(null);
@@ -746,11 +707,11 @@ public class AcmeServiceImpl implements AcmeService {
         return "<" + baseUri + AcmeConstants.ACME_URI_HEADER + "/" + profileName + "/directory>;rel=\"index\"";
     }
 
-    private AcmeAccount addNewAccount(String profileName, String publicKey, NewAccountRequest accountRequest) throws AcmeProblemDocumentException {
+    private AcmeAccount addNewAccount(String profileName, String publicKey, NewAccountRequest accountRequest, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         AcmeProfile acmeProfile;
         RaProfile raProfileToUse;
 
-        if (isRaProfileBased()) {
+        if (isRaProfileBased) {
             try {
                 raProfileToUse = getRaProfileEntity(profileName);
             } catch (NotFoundException e) {
@@ -789,7 +750,7 @@ public class AcmeServiceImpl implements AcmeService {
             }
         }
 
-        if (!isRaProfileBased() && acmeProfile.getRaProfile() == null) {
+        if (!isRaProfileBased && acmeProfile.getRaProfile() == null) {
             logger.error("RA Profile is not associated for the ACME Profile: {}", acmeProfile);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("invalidRaProfile",
                     "RA Profile Not Associated",
@@ -880,7 +841,7 @@ public class AcmeServiceImpl implements AcmeService {
         }
     }
 
-    private AcmeOrder generateOrder(AcmeAccount acmeAccount, AcmeJwsRequest jwsRequest) {
+    private AcmeOrder generateOrder(AcmeAccount acmeAccount, AcmeJwsRequest jwsRequest) throws AcmeProblemDocumentException {
         logger.debug("Generating new Order for Account: {}", acmeAccount.toString());
         Order orderRequest = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), Order.class);
         logger.debug("Order requested: {}", orderRequest.toString());
@@ -1144,12 +1105,12 @@ public class AcmeServiceImpl implements AcmeService {
         return decodedCsr.toString();
     }
 
-    private List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke, AcmeAccount acmeAccount) {
+    private List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke, AcmeAccount acmeAccount, boolean isRaProfileBased) {
         if (acmeAccount == null) {
             return List.of();
         }
         String attributes;
-        if (ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")) {
+        if (isRaProfileBased) {
             if (isRevoke) {
                 attributes = acmeAccount.getRaProfile().getProtocolAttribute().getAcmeRevokeCertificateAttributes();
             } else {
@@ -1201,24 +1162,6 @@ public class AcmeServiceImpl implements AcmeService {
         return OrderStatus.INVALID;
     }
 
-    protected AcmeOrder getAcmeOrderEntity(String orderId) throws AcmeProblemDocumentException {
-        logger.info("Gathering ACME Order details with ID: {}", orderId);
-        AcmeOrder acmeOrder = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound", "Order Not Found", "Specified ACME Order not found")));
-        logger.debug("Order: {}", acmeOrder);
-
-        // check for status if certificate reference is set
-        if(acmeOrder.getCertificateReference() != null) {
-            OrderStatus newStatus = checkOrderStatusByCertificate(acmeOrder.getCertificateReference());
-            if (!newStatus.equals(acmeOrder.getStatus())) {
-                logger.info("ACME Order status changed from {} to {}.", acmeOrder.getStatus(), newStatus);
-                acmeOrder.setStatus(newStatus);
-                acmeOrderRepository.save(acmeOrder);
-            }
-        }
-
-        return acmeOrder;
-    }
-
     private void updateOrderStatusByExpiry(AcmeOrder order) {
         if (order.getExpires() != null && order.getExpires().before(new Date()) && !order.getStatus().equals(OrderStatus.VALID)) {
             order.setStatus(OrderStatus.INVALID);
@@ -1246,5 +1189,202 @@ public class AcmeServiceImpl implements AcmeService {
                 .replace("\r", "")
                 .replace("\n", "")
                 .replace("-----END CERTIFICATE-----", ""));
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Validation of ACME requests
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    private void validateRequest(AcmeJwsRequest acmeJwsRequest, String acmeProfileName, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
+        if (acmeJwsRequest.getJwsHeader() == null) {
+            logger.error("JWS header is missing or malformed");
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
+        }
+
+        //Validate JWS Header for Nonce if it has the correct value
+        validateNonce(acmeJwsRequest.getJwsHeader().getCustomParam("nonce"));
+
+        acmeJwsRequest.validateUrl(requestUri.toString());
+
+        validateKid(acmeJwsRequest, requestUri.toString());
+
+        if (isRaProfileBased) {
+            validateRaBasedAcme(acmeProfileName);
+        } else {
+            validateAcme(acmeProfileName);
+        }
+    }
+
+    private void validateNonce(Object nonce) throws AcmeProblemDocumentException {
+        if (nonce == null) {
+            logger.error("Nonce is not found in the request");
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE);
+        }
+
+        acmeNonceRepository.deleteAll(acmeNonceRepository.findAllByExpiresBefore(new Date()));
+        AcmeNonce acmeNonce = acmeNonceRepository.findByNonce(nonce.toString()).orElseThrow(
+                () -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE));
+        if (acmeNonce.getExpires().after(AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY))) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE);
+        }
+    }
+
+    private void validateKid(AcmeJwsRequest acmeJwsRequest, String requestUri) throws AcmeProblemDocumentException {
+        JWSHeader jwsHeader = acmeJwsRequest.getJwsHeader();
+        Object kidHeader = jwsHeader.getCustomParam("kid");
+        Object jwkHeader = jwsHeader.getCustomParam("jwk");
+
+        if (kidHeader != null && jwkHeader != null) {
+            logger.error("JWK Header contains both kid and jwk");
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
+        }
+
+        if (kidHeader == null && jwkHeader == null) {
+            logger.error("JWK Header does not contains kid nor jwk");
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
+        }
+
+        if (requestUri.contains("/new-account")) {
+            if (jwkHeader == null) {
+                logger.error("New Account and Revocation of Certificate should have JWK in header");
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
+            }
+            acmeJwsRequest.checkSignature(acmeJwsRequest.getPublicKey());
+
+        } else {
+            if (kidHeader == null) {
+                logger.error("Request should contain account url in kid of header");
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
+            }
+            AcmeAccount account = acmeAccountRepository.findByAccountId(
+                            kidHeader.toString().split("/")[kidHeader.toString().split("/").length - 1])
+                    .orElseThrow(
+                            () -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+            PublicKey publicKey;
+            try {
+                publicKey = AcmePublicKeyProcessor.publicKeyObjectFromString(account.getPublicKey());
+                if (!acmeJwsRequest.checkSignature(publicKey)) {
+                    throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.UNAUTHORIZED);
+                }
+            } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
+                logger.error(e.getMessage());
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
+            }
+        }
+    }
+
+    public void validateRaBasedAcme(String raProfileName) throws AcmeProblemDocumentException {
+        RaProfile raProfile = raProfileRepository.findByName(raProfileName).orElseThrow(() ->
+                new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                        new ProblemDocument("raProfileNotFound",
+                                "RA Profile is not found",
+                                "Given RA Profile in the request URL is not found")));
+        if (raProfile.getAcmeProfile() == null) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("acmeProfileNotAssociated",
+                            "ACME Profile is not associated",
+                            "ACME Profile is not associated with the RA Profile"));
+        }
+        if (!raProfile.getEnabled()) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("raProfileDisabled",
+                            "RA Profile is not enabled",
+                            "RA Profile is not enabled"));
+        }
+
+        if (!raProfile.getAcmeProfile().isEnabled()) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("acmeProfileDisabled",
+                            "ACME Profile is not enabled",
+                            "ACME Profile is not enabled"));
+        }
+    }
+
+    private void validateAcme(String acmeProfileName) throws AcmeProblemDocumentException {
+        AcmeProfile acmeProfile = acmeProfileRepository.findByName(acmeProfileName).orElse(null);
+        if (acmeProfile == null) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("acmeProfileNotFound",
+                            "ACME Profile is not found",
+                            "Given ACME Profile in the request URL is not found"));
+        }
+
+        if (!acmeProfile.isEnabled()) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("acmeProfileDisabled",
+                            "ACME Profile is not enabled",
+                            "ACME Profile is not enabled"));
+        }
+        if (acmeProfile.getRaProfile() == null) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("raProfileNotFound",
+                            "RA Profile is not found",
+                            "RA Profile is not found"));
+        }
+        if (!acmeProfile.getRaProfile().getEnabled()) {
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                    new ProblemDocument("raProfileDisabled",
+                            "RA Profile is not enabled",
+                            "RA Profile is not enabled"));
+        }
+        if (acmeProfile.isDisableNewOrders()) {
+            ProblemDocument problemDocument = new ProblemDocument(Problem.USER_ACTION_REQUIRED);
+            problemDocument.setInstance(acmeProfile.getTermsOfServiceUrl());
+            problemDocument.setDetail("Terms of service have changed");
+            Map<String, String> additionalHeaders = new HashMap<>();
+            additionalHeaders.put("Link", "<" + acmeProfile.getTermsOfServiceChangeUrl() + ">;rel=\"terms-of-service\"");
+            throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, problemDocument, additionalHeaders);
+        }
+    }
+
+    private AcmeOrder validateOrder(String orderId) throws AcmeProblemDocumentException {
+        AcmeOrder order = acmeOrderRepository.findByOrderId(orderId).orElseThrow(() -> new
+                AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, new ProblemDocument("orderNotFound",
+                "Order Not Found",
+                "Requested order is not found")));
+        if (order.getExpires() != null) {
+            if (order.getExpires().before(new Date())) {
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                        new ProblemDocument("orderExpired",
+                                "Order Expired",
+                                "Expiry of the order is reached"));
+            }
+        }
+        return order;
+    }
+
+    private AcmeAuthorization validateAuthorization(String authorizationId) throws AcmeProblemDocumentException {
+        AcmeAuthorization authorization = acmeAuthorizationRepository.findByAuthorizationId(authorizationId)
+                .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                        Problem.ACCOUNT_DOES_NOT_EXIST));
+        if (authorization.getExpires() != null) {
+            if (authorization.getExpires().before(new Date())) {
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                        new ProblemDocument("authNotFound",
+                                "Authorization Expired",
+                                "Expiry of the authorization is reached"));
+            }
+        }
+        return authorization;
+    }
+
+    private AcmeChallenge validateChallenge(String challengeId) throws AcmeProblemDocumentException {
+        AcmeChallenge challenge = acmeChallengeRepository.findByChallengeId(challengeId)
+                .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                        Problem.SERVER_INTERNAL, "Requested challenge is not found"));
+        if (challenge.getAuthorization().getExpires() != null) {
+            if (challenge.getAuthorization().getExpires().before(new Date())) {
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST,
+                        Problem.MALFORMED, "Challenge is expired");
+            }
+        }
+        return challenge;
+    }
+
+    private void validateAccount(String accountId) throws AcmeProblemDocumentException {
+        AcmeAccount acmeAccount = acmeAccountRepository.findByAccountId(accountId)
+                .orElseThrow(() ->
+                        new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
+        validateAccount(acmeAccount);
     }
 }

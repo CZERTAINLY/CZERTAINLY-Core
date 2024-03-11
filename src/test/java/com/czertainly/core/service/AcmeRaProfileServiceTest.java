@@ -10,22 +10,17 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.acme.AcmeAccount;
-import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
-import com.czertainly.core.dao.entity.acme.AcmeChallenge;
-import com.czertainly.core.dao.entity.acme.AcmeOrder;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.acme.*;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
-import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
-import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
-import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
+import com.czertainly.core.dao.repository.acme.*;
+import com.czertainly.core.service.acme.AcmeConstants;
 import com.czertainly.core.service.acme.AcmeService;
+import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.junit.jupiter.api.Assertions;
@@ -34,7 +29,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.cert.CertificateException;
+import java.util.Date;
 import java.util.List;
 
 public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
@@ -83,6 +81,9 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AcmeChallengeRepository acmeChallengeRepository;
+
+    @Autowired
+    private AcmeNonceRepository acmeNonceRepository;
 
     @Autowired
     private AcmeService acmeService;
@@ -164,7 +165,7 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetDirectory() throws AcmeProblemDocumentException, NotFoundException {
-        ResponseEntity<Directory> directory = acmeService.getDirectory("sameName");
+        ResponseEntity<Directory> directory = acmeService.getDirectory("sameName", true);
         Assertions.assertNotNull(directory);
         Assertions.assertEquals(true, directory.getBody().getNewOrder().endsWith("/new-order"));
         Assertions.assertEquals(true, directory.getBody().getKeyChange().endsWith("/key-change"));
@@ -179,14 +180,35 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(response.getHeaders().get("Replay-Nonce"));
     }
 
+    /*
+    {
+        "jwk": {
+            "n": "-xh-M3mPlDxAzxuCOTAbkfk9bZCWdepsBCRuLZnrjJsCQEzym_dRwiN5QnwxiIjpMbtwjIs7tJ62vS9VJCwt_Mdg_c90GgSMrU4nKdSKuprVfxXr70kyQJMD87fEEXh9dARNuSH3AsZUZJZleYLmLFVLsWqJVVfOP-68QYFA7ASXwTk6fdF61dbuqGJhnITJQe4gEn1wkrnlmRGT32WmOatRhXuQPfGM06egyLqSfe5sht4I10OaSQY0ClxnPkVCnHUCIpnEZS8Re40iesD8Q1AAf3FknXs1sLt73m-wR1HOxaTbTRFiPVvNSpUrLLRvkpU8eGnZjhnX80sjSk41iQ",
+            "e": "AQAB",
+            "kty": "RSA"
+        },
+        "nonce": "5pSv1vR6SEJryGlA0JRns6e376ZGjUt-CYxmqvwBEaY",
+        "url": "https://192.168.0.111:8443/api/acme/raProfile/q/new-account"
+    }
+     */
     @Test
-    public void testNewAccount() throws AcmeProblemDocumentException, NotFoundException {
+    public void testNewAccount() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException {
         String requestJson = "{\n" +
                 "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAiandrIjogeyJuIjogIi14aC1NM21QbER4QXp4dUNPVEFia2ZrOWJaQ1dkZXBzQkNSdUxabnJqSnNDUUV6eW1fZFJ3aU41UW53eGlJanBNYnR3aklzN3RKNjJ2UzlWSkN3dF9NZGdfYzkwR2dTTXJVNG5LZFNLdXByVmZ4WHI3MGt5UUpNRDg3ZkVFWGg5ZEFSTnVTSDNBc1pVWkpabGVZTG1MRlZMc1dxSlZWZk9QLTY4UVlGQTdBU1h3VGs2ZmRGNjFkYnVxR0pobklUSlFlNGdFbjF3a3JubG1SR1QzMldtT2F0UmhYdVFQZkdNMDZlZ3lMcVNmZTVzaHQ0STEwT2FTUVkwQ2x4blBrVkNuSFVDSXBuRVpTOFJlNDBpZXNEOFExQUFmM0ZrblhzMXNMdDczbS13UjFIT3hhVGJUUkZpUFZ2TlNwVXJMTFJ2a3BVOGVHblpqaG5YODBzalNrNDFpUSIsICJlIjogIkFRQUIiLCAia3R5IjogIlJTQSJ9LCAibm9uY2UiOiAiNXBTdjF2UjZTRUpyeUdsQTBKUm5zNmUzNzZaR2pVdC1DWXhtcXZ3QkVhWSIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvcmFQcm9maWxlL3EvbmV3LWFjY291bnQifQ\",\n" +
                 "  \"signature\": \"qR4sGW8IpGEeszEEoecE0l-cYZw-g1vWOTnEDVXgafotTN0cJosM55L_MB416Gixm2KPPPWSa96FzZ53Z0tEUJiqfrmczdW14fsHEpXuEuBfQ9jptlqZyoS3flYz98VDAUpr4jnHVvzyeMY5zTo2pSOt9Vrs2TJgjwbjqybsF7W4R_DWULyHnHF6mb-6eBx5u3KWUSgRd4sd83NZkI-XJp3X3fMenCDyMHKp0sT4hffI0_LaurD-Zxt4c6UgPEX1LCZSUthPEcZvdYfW1gxvNjWs4QR4SGKe2CqWurxlfShi8BRHiCk2oT2qKP5Y8Nyqq_OXQPLm9B24a9izieqPwA\",\n" +
                 "  \"payload\": \"ewogICJjb250YWN0IjogWwogICAgIm1haWx0bzp0ZXN0LnRlc3RAdGVzdCIKICBdLAogICJ0ZXJtc09mU2VydmljZUFncmVlZCI6IHRydWUKfQ\"\n" +
                 "}";
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount(RA_PROFILE_NAME, requestJson));
+
+        Date expires = AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY);
+        AcmeNonce acmeNonce = new AcmeNonce();
+        acmeNonce.setNonce("5pSv1vR6SEJryGlA0JRns6e376ZGjUt-CYxmqvwBEaY");
+        acmeNonce.setCreated(new Date());
+        acmeNonce.setExpires(expires);
+        acmeNonceRepository.save(acmeNonce);
+
+        URI requestUri = new URI("https://192.168.0.111:8443/api/acme/raProfile/q/new-account");
+
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount(RA_PROFILE_NAME, requestJson, requestUri, true));
     }
 
     @Test
@@ -196,9 +218,17 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
                 "  \"signature\": \"fdghdfgh-cYZw-dfghfdgh-fdgh-dfgh-dfgh\",\n" +
                 "  \"payload\": \"dfgdrtyufghgjghktyfghdtu\"\n" +
                 "}";
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount(RA_PROFILE_NAME, requestJson));
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount(RA_PROFILE_NAME, requestJson, new URI("https://localhost"), true));
     }
 
+    /*
+    {
+        "alg": "RS256",
+        "kid": "https://192.168.0.111:8443/api/acme/raProfile/q/acct/RMAl70zrRrs",
+        "nonce": "zrbsYirHf_te3kOyyZp86p86NjgVztE9J9n3AeDSp-4",
+        "url": "https://192.168.0.111:8443/api/acme/raProfile/q/new-order"
+    }
+     */
     @Test
     public void testNewOrder() throws AcmeProblemDocumentException, NotFoundException {
         String requestJson = "{\n" +
@@ -207,7 +237,17 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
                 "  \"payload\": \"ewogICJpZGVudGlmaWVycyI6IFsKICAgIHsKICAgICAgInR5cGUiOiAiZG5zIiwKICAgICAgInZhbHVlIjogImRlYmlhbjEwLmFjbWUubG9jYWwiCiAgICB9CiAgXQp9\"\n" +
                 "}";
         try {
-            ResponseEntity<Order> order = acmeService.newOrder(RA_PROFILE_NAME, requestJson);
+
+            Date expires = AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY);
+            AcmeNonce acmeNonce = new AcmeNonce();
+            acmeNonce.setNonce("zrbsYirHf_te3kOyyZp86p86NjgVztE9J9n3AeDSp-4");
+            acmeNonce.setCreated(new Date());
+            acmeNonce.setExpires(expires);
+            acmeNonceRepository.save(acmeNonce);
+
+            URI requestUri = new URI("https://192.168.0.111:8443/api/acme/raProfile/q/new-order");
+
+            ResponseEntity<Order> order = acmeService.newOrder(RA_PROFILE_NAME, requestJson, requestUri, true);
             Assertions.assertNotNull(order.getBody());
             Assertions.assertEquals(OrderStatus.PENDING, order.getBody().getStatus());
             Assertions.assertEquals(1, order.getBody().getAuthorizations().size());
@@ -224,41 +264,95 @@ public class AcmeRaProfileServiceTest extends BaseSpringBootTest {
                 "  \"signature\": \"fdghdfgh-cYZw-dfghfdgh-fdgh-dfgh-dfgh\",\n" +
                 "  \"payload\": \"dfgdrtyufghgjghktyfghdtu\"\n" +
                 "}";
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newOrder(RA_PROFILE_NAME, requestJson));
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newOrder(RA_PROFILE_NAME, requestJson, new URI("https://localhost"), true));
     }
 
+    /*
+    {
+        "alg": "RS256",
+        "kid": "https://192.168.0.111:8443/api/acme/raProfile/q/acct/RMAl70zrRrs",
+        "nonce": "dHTc6PDM6mpe6GDr1pytNPC7dY0U-rhEsP3LNeJ9iEM",
+        "url": "https://192.168.0.111:8443/api/acme/TP/authz/J_1ULegVCU4"
+    }
+     */
     @Test
-    public void testGetAuthorization() throws AcmeProblemDocumentException, NotFoundException {
+    public void testGetAuthorization() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException {
         String requestJson = "{\n" +
                 "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vMTkyLjE2OC4wLjExMTo4NDQzL2FwaS9hY21lL3JhUHJvZmlsZS9xL2FjY3QvUk1BbDcwenJScnMiLCAibm9uY2UiOiAiZEhUYzZQRE02bXBlNkdEcjFweXROUEM3ZFkwVS1yaEVzUDNMTmVKOWlFTSIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvVFAvYXV0aHovSl8xVUxlZ1ZDVTQifQ\",\n" +
                 "  \"signature\": \"P7rY0IydqGImlCystf80dMbtH9Av1Pxn5UF-qO3C2SdIunJCepsYuDNncsOiTH83OV93aIM9O-UzdbdQ-h5AyqWVH8l_UwJnYUGrpKnNcw-c4gXwtRaqnMn86Cz62SkTHpsRK-uEOat8UqCMBpJk86Tj9P5_lHsEnlYMTpeGor3Zm5sg25dS_iLSdsK0KeyB5elv5yDfKWAMvcnU5PvxhUIF9DLoFI0xDB5O1svQ6uuBfTlBfez5ElWRnWtUReDRVWuEg5Vw-faREq4sBbdkTLiyJJvzFJ-2JG9qRUHU5_8zYn_frnBnFMT3Bprhwg6k0x2iKg92_bWjIGs9nmbtEw\",\n" +
                 "  \"payload\": \"\"\n" +
                 "}";
-        ResponseEntity<Authorization> authorization = acmeService.getAuthorization(RA_PROFILE_NAME, "auth123", requestJson);
+
+        Date expires = AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY);
+        AcmeNonce acmeNonce = new AcmeNonce();
+        acmeNonce.setNonce("dHTc6PDM6mpe6GDr1pytNPC7dY0U-rhEsP3LNeJ9iEM");
+        acmeNonce.setCreated(new Date());
+        acmeNonce.setExpires(expires);
+        acmeNonceRepository.save(acmeNonce);
+
+        URI requestUri = new URI("https://192.168.0.111:8443/api/acme/TP/authz/J_1ULegVCU4");
+
+        ResponseEntity<Authorization> authorization = acmeService.getAuthorization(RA_PROFILE_NAME, "auth123", requestJson, requestUri, true);
         Assertions.assertNotNull(authorization);
         Assertions.assertEquals(0, authorization.getBody().getChallenges().size());
     }
 
+    /*
+    {
+        "alg": "RS256",
+        "kid": "https://192.168.0.111:8443/api/acme/raProfile/q/acct/RMAl70zrRrs",
+        "nonce": "ZG9ikXu0xwRMgVit9Kdv9DnsFayt03mgWOLxZWc0Q8Q",
+        "url": "https://192.168.0.111:8443/api/acme/TP/order/jYwyRGJMIeA/finalize"
+    }
+     */
     @Test
-    public void testFinalize() throws AcmeProblemDocumentException, ConnectorException, CertificateException, AlreadyExistException, JsonProcessingException {
+    public void testFinalize() throws AcmeProblemDocumentException, ConnectorException, CertificateException, AlreadyExistException, JsonProcessingException, URISyntaxException {
         String requestJson = "{\n" +
                 "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vMTkyLjE2OC4wLjExMTo4NDQzL2FwaS9hY21lL3JhUHJvZmlsZS9xL2FjY3QvUk1BbDcwenJScnMiLCAibm9uY2UiOiAiWkc5aWtYdTB4d1JNZ1ZpdDlLZHY5RG5zRmF5dDAzbWdXT0x4WldjMFE4USIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvVFAvb3JkZXIvall3eVJHSk1JZUEvZmluYWxpemUifQ\",\n" +
                 "  \"signature\": \"0xnnC2Stx0IJyDvEZ3sDda_50oEocMGZkQvOxniXp8cbk17fpKYS9sRgMqDTeC8uaUWtv7YIRGoCHQvTYs40_Q3bdGmJGtN-ltZte3LM5oJARQPwgB8NIVzXkE6axd_8So1Xsau5yVi23dHO_y0MIYQzUYFpyn_30bCkTfNdiOIrX55qb8EX0E5OwPUrcUXeVtXAkpxLLMew2ZcQF1pHYjTNFQ1ZXtlO9xcTWZikLq5Eg_3FRWuh0ZxqsVw6-8QtYM2W44Zna2ZGbIAm2jveVTEM2O-ZAvYxFxYmNdUR9aNVPpme76OC5v3rjVsnJaBtDjpkJ9ub7EbOk9kvG1oD6w\",\n" +
                 "  \"payload\": \"ewogICJjc3IiOiAiTUlJQ2RqQ0NBVjRDQVFJd0FEQ0NBU0l3RFFZSktvWklodmNOQVFFQkJRQURnZ0VQQURDQ0FRb0NnZ0VCQUxlSnZ4N0pXYnd6b2JXTDc0S3lIejBGalBxdDBSNWlPYU94aVlxcGZNWS1aVmhNQmtTMEZxbkNCUXpNbjVCa0h1a2R4N0hzSU1rSi1zTTAxSFZISmFScGdwZjF6ZVR5UlFqWTdFU0Rpa1JMXzFFa3hpNlNnZjV1bnpCMzVhUDJFQnhpQWFvbUc2MTBIanBxU2ZHdE96RWYxMmh5NGprY0M0NDZUVDhuRTlkbTZDQmY3WEFvcTl2WHhYUmpuQWdka3I2MnlJemFuWGVkRHdkY055azVFaWlSV1FYd1ctTDVQZXg1ODA4aXAyZ21FNUFsNVNQVWl2OGVEQ3EwMlFWREo4TG40VVBZa3hMMWI2Uk1sZkVnS0xzR0VaWDBlLUZDMHdfZmlCTjQ4enJ2SHhxTTJmZFU3QWU4cFJEd1VPQ2xZT3hEa3J2RHY2MFJHaWtMbFFaNDVGY0NBd0VBQWFBeE1DOEdDU3FHU0liM0RRRUpEakVpTUNBd0hnWURWUjBSQkJjd0ZZSVRaR1ZpYVdGdU1UQXVZV050WlM1c2IyTmhiREFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBSGxPMFp1UHVZRXRwbFUwZ0VVajg4WWkxTVdrckVseDBKb1RrN3FvblJzdWZ1X1kyUF91LVJya1dPek0zVkowOGxOejkwTF9tbmM4Tk9PTk1sX1dsWVdCeXdiVU1zR2FyNFlfMXgweVNPRWRwNWZnODdyeFkxYjJqYlNMN3RQZTRPVjd5QWViZENFenpYWEJpM0F5OU5vSkFod05PTmp5UnA5MnZxVDUtTVdNWFF5WnZkY1VNTTM4bDZhTmM5am9mM0VsdU5iZ083bldTbGU2TVFKSnZsRVl3WHg3WlB2dmd4TWZyUmEtWWNfYVdTN3cyNU1TQU9ES0t3dklpdkduNXFfb3dmZDVBb3pZcDBweW1pTExidkFXaFlWV0xfLWJHdkoxM3hweWZOUG5HSklkd2NZOHpnaWtZUHlCZmJSbVB5S0pMUEk0UW5XejhHc1dHaWFVZ2pBIgp9\"\n" +
                 "}";
+
+        Date expires = AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY);
+        AcmeNonce acmeNonce = new AcmeNonce();
+        acmeNonce.setNonce("ZG9ikXu0xwRMgVit9Kdv9DnsFayt03mgWOLxZWc0Q8Q");
+        acmeNonce.setCreated(new Date());
+        acmeNonce.setExpires(expires);
+        acmeNonceRepository.save(acmeNonce);
+
+        URI requestUri = new URI("https://192.168.0.111:8443/api/acme/TP/order/jYwyRGJMIeA/finalize");
+
         // ResponseEntity<Order> order = acmeService.finalizeOrder("sameName", "order123", requestJson);
         // Assertions.assertNotNull(order);
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder("sameName", "order123", requestJson));
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder("sameName", "order123", requestJson, requestUri, true));
     }
 
+    /*
+    {
+        "alg": "RS256",
+        "kid": "https://192.168.0.111:8443/api/acme/raProfile/q/acct/RMAl70zrRrs",
+        "nonce": "e69EKbEOGhZsv8v3LfSLL3Cc-SEA2vbcqpfgOpB6UKo",
+        "url": "https://192.168.0.111:8443/api/acme/raProfile/q/revoke-cert"
+    }
+     */
     @Test
-    public void testRevokeCert() throws AcmeProblemDocumentException, ConnectorException, CertificateException {
+    public void testRevokeCert() throws AcmeProblemDocumentException, ConnectorException, CertificateException, URISyntaxException {
         String requestJson = "{\n" +
                 "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vMTkyLjE2OC4wLjExMTo4NDQzL2FwaS9hY21lL3JhUHJvZmlsZS9xL2FjY3QvUk1BbDcwenJScnMiLCAibm9uY2UiOiAiZTY5RUtiRU9HaFpzdjh2M0xmU0xMM0NjLVNFQTJ2YmNxcGZnT3BCNlVLbyIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvcmFQcm9maWxlL3EvcmV2b2tlLWNlcnQifQ\",\n" +
                 "  \"signature\": \"jIx3Xq51pACNHhUc2c7Er1_V5E0rpJU5dHvuaCnUkfyXrr8kilSVlKSRJJhVq8RuX4r8gHWR10fmgZnxk1N8WhvHEro44jSgYT2Jrp-7DxEPGJy0v4LhHoLJWtyquUo8MtunWaoGJn6yzT3mtvVyIG1ROiNnwA6pm8xGYaQdyPiW3kCiiYyj1E8SDMqo10UMWRYQlINCNVh_1M8SAvar4MDJgKL19jR-r3_BL4yjaW9pMjVhFtHVJqpu-DcqMS07twW5OS9Wu11QeKG0gmwJ57lgS_jqtK-SrXGPKw13QVBqJg4ftUzSWeQh11oBLpFmtvwegn4EpRWdlGoXJCU_rA\",\n" +
                 "  \"payload\": \"ewogICJjZXJ0aWZpY2F0ZSI6ICJNSUlGVlRDQ0F6MmdBd0lCQWdJVEdBQUFBVWREY28xdGlEM3RhQUFBQUFBQlJ6QU5CZ2txaGtpRzl3MEJBUTBGQURBM01SY3dGUVlEVlFRRERBNUVaVzF2SUUxVElGTjFZaUJEUVRFY01Cb0dBMVVFQ2d3VE0wdGxlU0JEYjIxd1lXNTVJSE11Y2k1dkxqQWVGdzB5TWpBeE1qVXdPVFV6TVRCYUZ3MHlOREF4TWpVd09UVXpNVEJhTUFBd2dnRWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUUMzaWI4ZXlWbThNNkcxaS0tQ3NoODlCWXo2cmRFZVlqbWpzWW1LcVh6R1BtVllUQVpFdEJhcHdnVU16Si1RWkI3cEhjZXg3Q0RKQ2ZyRE5OUjFSeVdrYVlLWDljM2s4a1VJMk94RWc0cEVTXzlSSk1ZdWtvSC1icDh3ZC1XajloQWNZZ0dxSmh1dGRCNDZha254clRzeEg5ZG9jdUk1SEF1T09rMF9KeFBYWnVnZ1gtMXdLS3ZiMThWMFk1d0lIWkstdHNpTTJwMTNuUThIWERjcE9SSW9rVmtGOEZ2aS1UM3NlZk5QSXFkb0poT1FKZVVqMUlyX0hnd3F0TmtGUXlmQzUtRkQySk1TOVcta1RKWHhJQ2k3QmhHVjlIdmhRdE1QMzRnVGVQTTY3eDhhak5uM1ZPd0h2S1VROEZEZ3BXRHNRNUs3dzctdEVSb3BDNVVHZU9SWEFnTUJBQUdqZ2dHUE1JSUJpekFoQmdOVkhSRUJBZjhFRnpBVmdoTmtaV0pwWVc0eE1DNWhZMjFsTG14dlkyRnNNQjBHQTFVZERnUVdCQlNOUFFiaTN1dGMtSnJCQXlaMXhldUVfcXl4WERBZkJnTlZIU01FR0RBV2dCU1N3cnpmVmNYQms0VkpCX2VzeVIwTGFBRUhVVEJOQmdOVkhSOEVSakJFTUVLZ1FLQS1oanhvZEhSd09pOHZiR0ZpTURJdU0ydGxlUzVqYjIxd1lXNTVMMk55YkhNdlpHVnRieTlFWlcxdkpUSXdUVk1sTWpCVGRXSWxNakJEUVM1amNtd3dWd1lJS3dZQkJRVUhBUUVFU3pCSk1FY0dDQ3NHQVFVRkJ6QUJoanRvZEhSd09pOHZiR0ZpTURJdU0ydGxlUzVqYjIxd1lXNTVMMk5oY3k5a1pXMXZMMFJsYlc4bE1qQk5VeVV5TUZOMVlpVXlNRU5CTG1OeWREQU9CZ05WSFE4QkFmOEVCQU1DQmFBd1BBWUpLd1lCQkFHQ054VUhCQzh3TFFZbEt3WUJCQUdDTnhVSWgtV0RZYWlIY0lLSmdUeUVrOElCaFlpNWFvRk1ncEhlVHBPV1ZRSUJaQUlCQkRBVEJnTlZIU1VFRERBS0JnZ3JCZ0VGQlFjREFUQWJCZ2tyQmdFRUFZSTNGUW9FRGpBTU1Bb0dDQ3NHQVFVRkJ3TUJNQTBHQ1NxR1NJYjNEUUVCRFFVQUE0SUNBUUNqMlVBeVhrb0tib0xKUWQyQW5XRGVoQXdMcEV3OWpoalNzMzZKbzVzZVJyVEpSWEZvNGxkWHlIUGdNUFJNTldoRGItTHpuUk52d2tiMHh6S292Ynk1ZlFjOFVxcmlNV1cyVGZlSEhudW1pQUJWVWRmNHcyalpzSGJpMFMyMEY4dTlFNHV0YW1mdUNlU1Q2ZHlBdW96eXlZdjNRUzZuVnIxazZTbXI2UHYxOHFPZklaMzdZRzgtdGZkZ3Y5VVF3SlZ2eEJ1UElma04xeVpBN2tudXEyb0JxRXpmUHVrOGoybXV5VHdndkFfM3phRVRtT1F4UDREcnM3bVJwSkIzbDJuTHpwdWViZ1ZsWUppSEdieWFnRWlueHZSUTZMdVBnN25TYmdLYXFIa0pWSGtDSTZpSF9ONlk3aWNxcGZIT0pRUEFIaVBObXhyZUtJVVpyV2l5SERGMWJKQ3paWmk3R0ZRVXNzaktDbTI2bnI5aEY4VGJnVnlybDFyMnAxOEFwb0NrdmdQaGtQT0swdzVqMUowMzJjT1FQTTZlUm5kZXJlbEJzV3lGWk9ZcDVpeExoeUxHcklFN2p4ZXk3N1hmSzgtUUVLMy1hd3c5c0V5VDVBUnhiUFdnNDVuNEd6QXBwanFfbVo2OVJBdS1WcVJvSjNjUldNNUxsUUh5VjR5dnA3ZEg3TUZUMVZyc2U1MWJoNE5yc0RwcGthTE5GSFVMcmE5RlNoYUtkSTBBeENKUFhLWmF6TGVpeDg5am5KM0hGbjR0WERINkJIdGZzeDd3aG5Ea1RuUzVsRDF3QXR4eHI1LWZtSWNCUHhDSmtGclBDWGlxNzIwOFZxQ2FuazBQX0JOb0NZOVhwYWF2NjBhNFNjTjAtSkJQSVRJcFVvQ0RUeHEzbDN4TDd1dEdudyIsCiAgInJlYXNvbiI6IDAKfQ\"\n" +
                 "}";
-        Assertions.assertThrows(NullPointerException.class, () -> acmeService.revokeCertificate(RA_PROFILE_NAME, requestJson));
+
+        Date expires = AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY);
+        AcmeNonce acmeNonce = new AcmeNonce();
+        acmeNonce.setNonce("e69EKbEOGhZsv8v3LfSLL3Cc-SEA2vbcqpfgOpB6UKo");
+        acmeNonce.setCreated(new Date());
+        acmeNonce.setExpires(expires);
+        acmeNonceRepository.save(acmeNonce);
+
+        URI requestUri = new URI("https://192.168.0.111:8443/api/acme/raProfile/q/revoke-cert");
+
+        Assertions.assertThrows(NullPointerException.class, () -> acmeService.revokeCertificate(RA_PROFILE_NAME, requestJson, requestUri, true));
 
     }
 

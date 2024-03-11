@@ -17,7 +17,9 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
@@ -35,7 +37,7 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
 
     @Override
     public ResponseEntity<Directory> getDirectory(@PathVariable String raProfileName) throws NotFoundException, AcmeProblemDocumentException {
-        return acmeService.getDirectory(raProfileName);
+        return acmeService.getDirectory(raProfileName, true);
     }
 
     @Override
@@ -52,25 +54,29 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
     @Override
     public ResponseEntity<Account> newAccount(String raProfileName, String jwsBody) throws
             AcmeProblemDocumentException, NotFoundException {
-        return acmeService.newAccount(raProfileName, jwsBody);
+        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
+        return acmeService.newAccount(raProfileName, jwsBody, requestUri, true);
     }
 
     @Override
     public ResponseEntity<Account> updateAccount(String raProfileName, String accountId, String jwsBody)
             throws AcmeProblemDocumentException, NotFoundException {
-        return acmeService.updateAccount(raProfileName, accountId, jwsBody);
+        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
+        return acmeService.updateAccount(raProfileName, accountId, jwsBody, requestUri, true);
     }
 
     @Override
     public ResponseEntity<?> keyRollover(String raProfileName, String jwsBody) throws
             NotFoundException, AcmeProblemDocumentException {
-        return acmeService.keyRollover(raProfileName, jwsBody);
+        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
+        return acmeService.keyRollover(raProfileName, jwsBody, requestUri, true);
     }
 
     @Override
     public ResponseEntity<Order> newOrder(String raProfileName, String jwsBody) throws
             AcmeProblemDocumentException, NotFoundException {
-        return acmeService.newOrder(raProfileName, jwsBody);
+        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
+        return acmeService.newOrder(raProfileName, jwsBody, requestUri, true);
     }
 
     @Override
@@ -81,7 +87,8 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
     @Override
     public ResponseEntity<Authorization> getAuthorizations(String raProfileName, String authorizationId, String jwsBody)
             throws NotFoundException, AcmeProblemDocumentException {
-        return acmeService.getAuthorization(raProfileName, authorizationId, jwsBody);
+        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
+        return acmeService.getAuthorization(raProfileName, authorizationId, jwsBody, requestUri, true);
     }
 
     @Override
@@ -98,7 +105,8 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
     @Override
     public ResponseEntity<Order> finalizeOrder(String raProfileName, String orderId, String jwsBody) throws
             AcmeProblemDocumentException, ConnectorException, JsonProcessingException, CertificateException, AlreadyExistException {
-        return acmeService.finalizeOrder(raProfileName, orderId, jwsBody);
+        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
+        return acmeService.finalizeOrder(raProfileName, orderId, jwsBody, requestUri, true);
     }
 
     @Override
@@ -110,6 +118,7 @@ public class AcmeRaProfileControllerImpl implements AcmeRaProfileController {
     @Override
     public ResponseEntity<?> revokeCertificate(String raProfileName, String jwsBody) throws
             AcmeProblemDocumentException, ConnectorException, CertificateException {
-        return acmeService.revokeCertificate(raProfileName, jwsBody);
+        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
+        return acmeService.revokeCertificate(raProfileName, jwsBody, requestUri, true);
     }
 }
