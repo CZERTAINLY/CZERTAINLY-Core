@@ -154,7 +154,9 @@ public class AcmeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetDirectory() throws AcmeProblemDocumentException, NotFoundException {
-        ResponseEntity<Directory> directory = acmeService.getDirectory(ACME_PROFILE_NAME, false);
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/directory");
+
+        ResponseEntity<Directory> directory = acmeService.getDirectory(ACME_PROFILE_NAME, requestUri, false);
 
         Assertions.assertNotNull(directory);
         // status code is 200
@@ -169,7 +171,9 @@ public class AcmeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetNonce(){
-        ResponseEntity<?> response = acmeService.getNonce(ACME_PROFILE_NAME, true);
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/new-nonce");
+
+        ResponseEntity<?> response = acmeService.getNonce(ACME_PROFILE_NAME, true, requestUri, false);
 
         // status code is 200
         Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -314,7 +318,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     public void testRevokeCert() throws URISyntaxException, JOSEException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/revoke-cert");
 
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"MIIFVTCCAz2gAwIBAgITGAAAAUdDco1tiD3taAAAAAABRzANBgkqhkiG9w0BAQ0FADA3MRcwFQYDVQQDDA5EZW1vIE1TIFN1YiBDQTEcMBoGA1UECgwTM0tleSBDb21wYW55IHMuci5vLjAeFw0yMjAxMjUwOTUzMTBaFw0yNDAxMjUwOTUzMTBaMAAwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC3ib8eyVm8M6G1i--Csh89BYz6rdEeYjmjsYmKqXzGPmVYTAZEtBapwgUMzJ-QZB7pHcex7CDJCfrDNNR1RyWkaYKX9c3k8kUI2OxEg4pES_9RJMYukoH-bp8wd-Wj9hAcYgGqJhutdB46aknxrTsxH9docuI5HAuOOk0_JxPXZuggX-1wKKvb18V0Y5wIHZK-tsiM2p13nQ8HXDcpORIokVkF8Fvi-T3sefNPIqdoJhOQJeUj1Ir_HgwqtNkFQyfC5-FD2JMS9W-kTJXxICi7BhGV9HvhQtMP34gTePM67x8ajNn3VOwHvKUQ8FDgpWDsQ5K7w7-tERopC5UGeORXAgMBAAGjggGPMIIBizAhBgNVHREBAf8EFzAVghNkZWJpYW4xMC5hY21lLmxvY2FsMB0GA1UdDgQWBBSNPQbi3utc-JrBAyZ1xeuE_qyxXDAfBgNVHSMEGDAWgBSSwrzfVcXBk4VJB_esyR0LaAEHUTBNBgNVHR8ERjBEMEKgQKA-hjxodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2NybHMvZGVtby9EZW1vJTIwTVMlMjBTdWIlMjBDQS5jcmwwVwYIKwYBBQUHAQEESzBJMEcGCCsGAQUFBzABhjtodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2Nhcy9kZW1vL0RlbW8lMjBNUyUyMFN1YiUyMENBLmNydDAOBgNVHQ8BAf8EBAMCBaAwPAYJKwYBBAGCNxUHBC8wLQYlKwYBBAGCNxUIh-WDYaiHcIKJgTyEk8IBhYi5aoFMgpHeTpOWVQIBZAIBBDATBgNVHSUEDDAKBggrBgEFBQcDATAbBgkrBgEEAYI3FQoEDjAMMAoGCCsGAQUFBwMBMA0GCSqGSIb3DQEBDQUAA4ICAQCj2UAyXkoKboLJQd2AnWDehAwLpEw9jhjSs36Jo5seRrTJRXFo4ldXyHPgMPRMNWhDb-LznRNvwkb0xzKovby5fQc8UqriMWW2TfeHHnumiABVUdf4w2jZsHbi0S20F8u9E4utamfuCeST6dyAuozyyYv3QS6nVr1k6Smr6Pv18qOfIZ37YG8-tfdgv9UQwJVvxBuPIfkN1yZA7knuq2oBqEzfPuk8j2muyTwgvA_3zaETmOQxP4Drs7mRpJB3l2nLzpuebgVlYJiHGbyagEinxvRQ6LuPg7nSbgKaqHkJVHkCI6iH_N6Y7icqpfHOJQPAHiPNmxreKIUZrWiyHDF1bJCzZZi7GFQUssjKCm26nr9hF8TbgVyrl1r2p18ApoCkvgPhkPOK0w5j1J032cOQPM6eRnderelBsWyFZOYp5ixLhyLGrIE7jxey77XfK8-QEK3-aww9sEyT5ARxbPWg45n4GzAppjq_mZ69RAu-VqRoJ3cRWM5LlQHyV4yvp7dH7MFT1Vrse51bh4NrsDppkaLNFHULra9FShaKdI0AxCJPXKZazLeix89jnJ3HFn4tXDH6BHtfsx7whnDkTnS5lD1wAtxxr5-fmIcBPxCJkFrPCXiq7208VqCank0P_BNoCY9Xpaav60a4ScN0-JBPITIpUoCDTxq3l3xL7utGnw\",\"reason\":8}"));
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"MIIFOzCCAyOgAwIBAgITGAAAA4HCMidgplmlrQAAAAADgTANBgkqhkiG9w0BAQ0FADA3MRcwFQYDVQQDDA5EZW1vIE1TIFN1YiBDQTEcMBoGA1UECgwTM0tleSBDb21wYW55IHMuci5vLjAeFw0yNDAzMTIxMTI3MDBaFw0yNjAzMTIxMTI3MDBaMBgxFjAUBgNVBAMTDXRmdC4za2V5LnRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDgoHj1WO_sXoqfcr7pm5KUjsAnmdjgzBbFwHCAvlDwsF8Z6B6i77AB-xLIUdcVLPu417mApEbH9Nu9jvcO_b2QEh_tDAczbug6SVMwgl7va3H5qGwg_0qepRHNWAMt1TWgY-rFZbUn1WLSO97armFjVPKK-AeuBVz4EQIqS1vxLLg0MxajR19euvkLBjbjYtjp7pwgHT2jMsccJ06bGN3Ik7wTZMnObfwxhhmwApEjyeDevVywopULc9zarvOSgFTnejlfOmwUBnnHlp8Xpq7P_izt1AhJkij9eElzSXnZUHAFQoQh3fQ6yelXFBxDOEAao8o3FR-R6Ss3kZ3mxkbjAgMBAAGjggFdMIIBWTAnBgNVHREEIDAegg10ZnQuM2tleS50ZXN0gg13d3cuM2tleS50ZXN0MB0GA1UdDgQWBBSA81KtARou26mp921nppmTGjC6BTAfBgNVHSMEGDAWgBSSwrzfVcXBk4VJB_esyR0LaAEHUTBNBgNVHR8ERjBEMEKgQKA-hjxodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2NybHMvZGVtby9EZW1vJTIwTVMlMjBTdWIlMjBDQS5jcmwwVwYIKwYBBQUHAQEESzBJMEcGCCsGAQUFBzABhjtodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2Nhcy9kZW1vL0RlbW8lMjBNUyUyMFN1YiUyMENBLmNydDAhBgkrBgEEAYI3FAIEFB4SAFcAZQBiAFMAZQByAHYAZQByMA4GA1UdDwEB_wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATANBgkqhkiG9w0BAQ0FAAOCAgEAb_N3sf9Kda5t_jsL_VQYW0OPiHD0V1QcwqiyplvclD7NahnV7QiUwS7V-QmHHD1V2_xkYNhlgkinu1SWbpJ8gAcLDbADfnMkaOZNr6dvKiDGw0Xppmfbha1Bbb3JA_DOHFrXBm3795mQDgaRuvPke0qyyL1DP9xAdxubQaYQDZA9WAYNztgVe3V4zngwzI6P6BiDQ7CgZLNv_e8e5ME4_MCeO0cUFxt7mzKIhH54wL4yY8DJ3LHVWXsMPntRMdvYWjYf-1Ivb5x2WvuU_SPcnCSyEj0qdcLlm9BWxbfM-5h4gXWvsCjG2anGLtsl5Ut3Sz1vvoM49N981pZEZDlNFlsBgYCF-MDKZwBOiX8uTgQkv5bqA7_tPvIgQI_JTbSYeqRtb4J6SH1_uRrhyU7w88PlSmZwkf5S5ZxX9eqjSEFENB7ARh4KaiHyYqTfYxAP6-EFs9dxBTQ5eQu2jFXy4xJG4g-r1KZujv6wgPoDZsbbqTfBg27_sQsTyzZqI1vL5UrCqxDSo-Pw9JPITYi8AdOffT0hkgQ7RmLHb6HYV7JqABmhZ3G9QQfuk2W7_o6l6jnpZM7pHEkZ30s54cIHgYG3JifXd2m6uxU6iX48mJy_VUZcVikxSbCg5eLlvq_HWnxk2DE_9PWjA_YxZs2Jtqpi2FtLCli2cykGGumhhJ0\",\"reason\":8}"));
         jwsObjectJSON.sign(
                 new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .keyID(BASE_URI + ACME_PROFILE_NAME + "/acct/" + ACME_ACCOUNT_ID_VALID)
@@ -333,7 +337,9 @@ public class AcmeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetOrderList() throws AcmeProblemDocumentException, NotFoundException {
-        ResponseEntity<List<Order>> orders = acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID);
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
+
+        ResponseEntity<List<Order>> orders = acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
 
         // status code is 200
         Assertions.assertEquals(HttpStatus.OK, orders.getStatusCode());
@@ -342,13 +348,17 @@ public class AcmeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetOrderListFail() {
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_INVALID);
+
         Assertions.assertThrows(AcmeProblemDocumentException.class,
-                () -> acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID));
+                () -> acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, false));
     }
 
     @Test
     public void testGetOrder() throws AcmeProblemDocumentException, NotFoundException {
-        ResponseEntity<Order> orders = acmeService.getOrder(ACME_PROFILE_NAME, ORDER_ID_VALID);
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/order/" + ORDER_ID_VALID);
+
+        ResponseEntity<Order> orders = acmeService.getOrder(ACME_PROFILE_NAME, ORDER_ID_VALID, requestUri, false);
 
         // status code is 200
         Assertions.assertEquals(HttpStatus.OK, orders.getStatusCode());

@@ -108,6 +108,14 @@ public class CertificateUtil {
         return getX509Certificate(Base64.getDecoder().decode(certInBase64));
     }
 
+    public static X509Certificate getX509CertificateFromBase64Url(String certInBase64) throws CertificateException {
+        return getX509Certificate(Base64.getUrlDecoder().decode(certInBase64));
+    }
+
+    public static String getBase64FromX509Certificate(X509Certificate certificate) throws CertificateException {
+        return Base64.getEncoder().encodeToString(certificate.getEncoded());
+    }
+
     public static List<String> keyUsageExtractor(boolean[] keyUsage) {
         List<String> keyUsageNames = new ArrayList<>();
         if (keyUsage == null) {

@@ -20,9 +20,9 @@ import java.security.spec.InvalidKeySpecException;
 import java.util.List;
 
 public interface AcmeService {
-    ResponseEntity<Directory> getDirectory(String acmeProfileName, boolean isRaProfileBased) throws NotFoundException, AcmeProblemDocumentException;
+    ResponseEntity<Directory> getDirectory(String acmeProfileName, URI requestUri, boolean isRaProfileBased) throws NotFoundException, AcmeProblemDocumentException;
 
-    ResponseEntity<?> getNonce(String acmeProfileName, Boolean isHead);
+    ResponseEntity<?> getNonce(String acmeProfileName, Boolean isHead, URI requestUri, boolean isRaProfileBased);
 
     ResponseEntity<Account> newAccount(String acmeProfileName, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException, NotFoundException;
 
@@ -32,17 +32,17 @@ public interface AcmeService {
 
     ResponseEntity<Order> newOrder(String acmeProfileName, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException, NotFoundException;
 
-    ResponseEntity<List<Order>> listOrders(String acmeProfileName, String accountId) throws NotFoundException, AcmeProblemDocumentException;
+    ResponseEntity<List<Order>> listOrders(String acmeProfileName, String accountId, URI requestUri, boolean isRaProfileBased) throws NotFoundException, AcmeProblemDocumentException;
 
     ResponseEntity<Authorization> getAuthorization(String acmeProfileName, String authorizationId, String jwsBody, URI requestUri, boolean isRaProfileBased) throws NotFoundException, AcmeProblemDocumentException;
 
-    ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, AcmeProblemDocumentException;
+    ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId, URI requestUri, boolean isRaProfileBased) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, AcmeProblemDocumentException;
 
     ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String jwsBody, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException, ConnectorException, JsonProcessingException, CertificateException, AlreadyExistException;
 
-    ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException;
+    ResponseEntity<Order> getOrder(String acmeProfileName, String orderId, URI requestUri, boolean isRaProfileBased) throws NotFoundException, AcmeProblemDocumentException;
 
-    ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId) throws NotFoundException, CertificateException;
+    ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId, URI requestUri, boolean isRaProfileBased) throws NotFoundException, CertificateException;
 
     ResponseEntity<?> revokeCertificate(String acmeProfileName, String jwsBody, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException, ConnectorException, CertificateException;
 

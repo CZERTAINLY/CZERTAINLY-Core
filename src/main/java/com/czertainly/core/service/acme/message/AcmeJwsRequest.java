@@ -35,6 +35,12 @@ public class AcmeJwsRequest {
     private PublicKey publicKey;
     @Getter
     private boolean isJwkPresent = false;
+    @Getter
+    private boolean isKidPresent = false;
+    @Getter
+    private JWK jwk;
+    @Getter
+    private String kid;
 
     public AcmeJwsRequest(String request) throws AcmeProblemDocumentException {
         this.request = request;
@@ -72,8 +78,22 @@ public class AcmeJwsRequest {
             this.jwsObject = new JWSObject(new Base64URL(jwsBody.getProtected()), new Base64URL(jwsBody.getPayload()),
                     new Base64URL(jwsBody.getSignature()));
             this.jwsHeader = jwsObject.getHeader();
-            if (jwsHeader.getCustomParam("jwk") != null) {
+            if (jwsHeader.getJWK() != null) {
                 this.isJwkPresent = true;
+                this.jwk = jwsHeader.getJWK();
+            }
+            if (jwsHeader.getKeyID() != null) {
+                this.isKidPresent = true;
+                this.kid = jwsHeader.getKeyID();
+            }
+            if (isKidPresent && isJwkPresent) {
+                logger.error("JWK Header contains both kid and jwk");
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
+            }
+
+            if (!isKidPresent && !isJwkPresent) {
+                logger.error("JWK Header does not contains kid nor jwk");
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
             }
         } catch (ParseException | JsonProcessingException e) {
             logger.error("Error while parsing JWS request, {}", e.getMessage());

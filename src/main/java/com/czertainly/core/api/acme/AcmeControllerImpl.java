@@ -36,88 +36,85 @@ public class AcmeControllerImpl implements AcmeController {
 
     @Override
     public ResponseEntity<Directory> getDirectory(String acmeProfileName) throws NotFoundException, AcmeProblemDocumentException {
-        return acmeService.getDirectory(acmeProfileName, false);
+        return acmeService.getDirectory(acmeProfileName, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<?> getNonce(String acmeProfileName) {
-        return acmeService.getNonce(acmeProfileName, false);
+        return acmeService.getNonce(acmeProfileName, false, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<?> headNonce(String acmeProfileName) {
-        return acmeService.getNonce(acmeProfileName, true);
+        return acmeService.getNonce(acmeProfileName, true, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<Account> newAccount(String acmeProfileName, String jwsBody) throws
             AcmeProblemDocumentException, NotFoundException {
-        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
-        return acmeService.newAccount(acmeProfileName, jwsBody, requestUri, false);
+        return acmeService.newAccount(acmeProfileName, jwsBody, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<Account> updateAccount(String acmeProfileName, String accountId, String jwsBody) throws
             AcmeProblemDocumentException, NotFoundException {
-        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
-        return acmeService.updateAccount(acmeProfileName, accountId, jwsBody, requestUri, false);
+        return acmeService.updateAccount(acmeProfileName, accountId, jwsBody, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<?> keyRollover(String acmeProfileName, String jwsBody) throws
             NotFoundException, AcmeProblemDocumentException {
-        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
-        return acmeService.keyRollover(acmeProfileName, jwsBody, requestUri, false);
+        return acmeService.keyRollover(acmeProfileName, jwsBody, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<Order> newOrder(String acmeProfileName, String jwsBody) throws
             AcmeProblemDocumentException, NotFoundException {
-        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
-        return acmeService.newOrder(acmeProfileName, jwsBody, requestUri, false);
+        return acmeService.newOrder(acmeProfileName, jwsBody, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<List<Order>> listOrders(String acmeProfileName, String accountId) throws
             NotFoundException, AcmeProblemDocumentException {
-        return acmeService.listOrders(acmeProfileName, accountId);
+        return acmeService.listOrders(acmeProfileName, accountId, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<Authorization> getAuthorizations(String acmeProfileName, String authorizationId, String jwsBody)
             throws NotFoundException, AcmeProblemDocumentException {
-        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
-        return acmeService.getAuthorization(acmeProfileName, authorizationId, jwsBody, requestUri, false);
+        return acmeService.getAuthorization(acmeProfileName, authorizationId, jwsBody, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<Challenge> validateChallenge(String acmeProfileName, String challengeId)
             throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, AcmeProblemDocumentException {
-        return acmeService.validateChallenge(acmeProfileName, challengeId);
+        return acmeService.validateChallenge(acmeProfileName, challengeId, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId) throws NotFoundException, AcmeProblemDocumentException {
-        return acmeService.getOrder(acmeProfileName, orderId);
+        return acmeService.getOrder(acmeProfileName, orderId, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<Order> finalizeOrder(String acmeProfileName, String orderId, String jwsBody) throws
             AcmeProblemDocumentException, ConnectorException, JsonProcessingException, CertificateException, AlreadyExistException {
-        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
-        return acmeService.finalizeOrder(acmeProfileName, orderId, jwsBody, requestUri, false);
+        return acmeService.finalizeOrder(acmeProfileName, orderId, jwsBody, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<Resource> downloadCertificate(String acmeProfileName, String certificateId) throws
             NotFoundException, CertificateException {
-        return acmeService.downloadCertificate(acmeProfileName, certificateId);
+        return acmeService.downloadCertificate(acmeProfileName, certificateId, getRequestUri(), false);
     }
 
     @Override
     public ResponseEntity<?> revokeCertificate(String acmeProfileName, String jwsBody) throws
             AcmeProblemDocumentException, ConnectorException, CertificateException {
-        URI requestUri = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
-        return acmeService.revokeCertificate(acmeProfileName, jwsBody, requestUri, false);
+        return acmeService.revokeCertificate(acmeProfileName, jwsBody, getRequestUri(), false);
+    }
+
+    private URI getRequestUri() {
+        return ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUri();
     }
 }
