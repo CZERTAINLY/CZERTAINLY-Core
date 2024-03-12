@@ -93,6 +93,11 @@ public class RuleServiceImpl implements RuleService {
 
         if (ruleRepository.findAllByResource(request.getResource()).stream().map(Rule::getName).toList().contains(request.getName()))
             throw new ValidationException("Rule with this name already exists for this resource.");
+
+        if (request.getConditionGroups() == null & request.getConditionGroupsUuids() == null & request.getConditions() == null) {
+            throw new ValidationException("Cannot crate a rule without any conditions or any condition groups.");
+        }
+
         Rule rule = new Rule();
 
         List<RuleConditionGroup> ruleConditionGroups = new ArrayList<>();
@@ -114,9 +119,6 @@ public class RuleServiceImpl implements RuleService {
 
         if (request.getConditions() != null)
             rule.setConditions(createConditions(request.getConditions(), rule, null));
-        else if (ruleConditionGroups.isEmpty()) {
-            throw new ValidationException("Cannot create a rule without any conditions nor any condition groups.");
-        }
 
         rule.setName(request.getName());
         rule.setDescription(request.getDescription());
@@ -146,6 +148,11 @@ public class RuleServiceImpl implements RuleService {
             throw new ValidationException("Property resource cannot be empty.");
         }
 
+        if (request.getConditionGroups() == null & request.getConditionGroupsUuids() == null & request.getConditions() == null) {
+            throw new ValidationException("Cannot update a rule without any conditions or any condition groups.");
+        }
+
+
         Rule rule = getRuleEntity(ruleUuid);
 
         List<RuleConditionGroup> ruleConditionGroups = new ArrayList<>();
@@ -165,17 +172,11 @@ public class RuleServiceImpl implements RuleService {
             }
         }
 
-        List<RuleCondition> oldConditions = rule.getConditions();
+        conditionRepository.deleteAll(rule.getConditions());
         if (request.getConditions() != null) {
-            conditionRepository.deleteAll(oldConditions);
             rule.setConditions(createConditions(request.getConditions(), rule, null));
         }
-        else if (ruleConditionGroups.isEmpty()) {
-            throw new ValidationException("Cannot update a rule without any conditions or any condition groups.");
-        } else {
-            // If conditions were updated to none, but there are some condition groups, old conditions should be deleted
-            conditionRepository.deleteAll(oldConditions);
-        }
+
 
         rule.setDescription(request.getDescription());
         rule.setResource(request.getResource());
@@ -348,6 +349,10 @@ public class RuleServiceImpl implements RuleService {
         if (triggerRepository.findAllByTriggerResource(request.getTriggerResource()).stream().map(RuleTrigger::getName).toList().contains(request.getName()))
             throw new ValidationException("Rule trigger with this name already exists for this trigger resource.");
 
+        if (request.getActionGroups() == null & request.getActionGroupsUuids() == null & request.getRules() == null & request.getRulesUuids() == null & request.getActions() == null) {
+            throw new ValidationException("Cannot create a trigger without any actions, action groups or rules.");
+        }
+
         RuleTrigger trigger = new RuleTrigger();
 
         List<RuleActionGroup> actionGroups = new ArrayList<>();
@@ -379,9 +384,6 @@ public class RuleServiceImpl implements RuleService {
         }
 
         if (request.getActions() != null) trigger.setActions(createActions(request.getActions(), trigger, null));
-        else if (rules.isEmpty() & actionGroups.isEmpty()) {
-            throw new ValidationException("Cannot create a trigger without any actions, action groups or rules.");
-        }
 
 
         trigger.setName(request.getName());
@@ -417,6 +419,10 @@ public class RuleServiceImpl implements RuleService {
             throw new ValidationException("Property trigger type cannot be empty.");
         }
 
+        if (request.getActionGroups() == null & request.getActionGroupsUuids() == null & request.getRules() == null & request.getRulesUuids() == null & request.getActions() == null) {
+            throw new ValidationException("Cannot update a trigger without any actions, action groups or rules.");
+        }
+
         RuleTrigger trigger = getRuleTriggerEntity(triggerUuid);
 
         List<RuleActionGroup> actionGroups = new ArrayList<>();
@@ -448,16 +454,9 @@ public class RuleServiceImpl implements RuleService {
             }
         }
 
-        List<RuleAction> oldActions = trigger.getActions();
+        actionRepository.deleteAll(trigger.getActions());
         if (request.getActions() != null) {
-            actionRepository.deleteAll(oldActions);
             trigger.setActions(createActions(request.getActions(), trigger, null));
-        }
-        else if (actionGroups.isEmpty() & rules.isEmpty()) {
-            throw new ValidationException("Cannot update a trigger without any actions, action groups or rules.");
-        } else {
-            // If actions were updated to none, but there are some action groups or rules, old actions should be deleted
-            actionRepository.deleteAll(oldActions);
         }
 
 
