@@ -27,7 +27,8 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name="account_id")
     private String accountId;
 
-    @Column(name="public_key")
+    // length should be enough for more than 4096 bit RSA keys
+    @Column(name="public_key", length = 1000)
     private String publicKey;
 
     @Column(name="is_default_ra_profile")

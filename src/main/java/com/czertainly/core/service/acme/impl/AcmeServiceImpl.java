@@ -30,6 +30,7 @@ import com.czertainly.core.util.*;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSObject;
+import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
 import jakarta.transaction.Transactional;
@@ -355,11 +356,6 @@ public class AcmeServiceImpl implements AcmeService {
         } catch (NotFoundException e) {
             logger.error("Requested Account with ID {} does not exists", acmeAccountId);
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
-        }
-
-        if (!acmeAccount.getStatus().equals(AccountStatus.VALID)) {
-            logger.error("Account status is not valid: {}", acmeAccount.getStatus().toString());
-            throw new AcmeProblemDocumentException(HttpStatus.UNAUTHORIZED, Problem.UNAUTHORIZED, "Account is " + acmeAccount.getStatus().toString());
         }
 
         AcmeOrder order = generateOrder(acmeAccount, jwsRequest);
@@ -841,7 +837,7 @@ public class AcmeServiceImpl implements AcmeService {
         }
     }
 
-    private AcmeOrder generateOrder(AcmeAccount acmeAccount, AcmeJwsRequest jwsRequest) throws AcmeProblemDocumentException {
+    private AcmeOrder generateOrder(AcmeAccount acmeAccount, AcmeJwsRequest jwsRequest) {
         logger.debug("Generating new Order for Account: {}", acmeAccount.toString());
         Order orderRequest = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), Order.class);
         logger.debug("Order requested: {}", orderRequest.toString());
@@ -859,21 +855,22 @@ public class AcmeServiceImpl implements AcmeService {
         }
         acmeOrderRepository.save(order);
         logger.debug("Order created: {}", order);
-        Set<AcmeAuthorization> authorizations = generateValidations(order, orderRequest.getIdentifiers(), jwsRequest.getPublicKey());
+
+        Set<AcmeAuthorization> authorizations = generateValidations(order, orderRequest.getIdentifiers());
         order.setAuthorizations(authorizations);
         logger.debug("Challenges created for Order: {}", order);
         return order;
     }
 
-    private Set<AcmeAuthorization> generateValidations(AcmeOrder acmeOrder, List<Identifier> identifiers, PublicKey publicKey) {
+    private Set<AcmeAuthorization> generateValidations(AcmeOrder acmeOrder, List<Identifier> identifiers) {
         Set<AcmeAuthorization> authorizations = new HashSet<>();
         for (Identifier identifier : identifiers) {
-            authorizations.add(authorization(acmeOrder, identifier, publicKey));
+            authorizations.add(authorization(acmeOrder, identifier));
         }
         return authorizations;
     }
 
-    private AcmeAuthorization authorization(AcmeOrder acmeOrder, Identifier identifier, PublicKey publicKey) {
+    private AcmeAuthorization authorization(AcmeOrder acmeOrder, Identifier identifier) {
         AcmeAuthorization authorization = new AcmeAuthorization();
         authorization.setAuthorizationId(AcmeRandomGeneratorAndValidator.generateRandomId());
         authorization.setStatus(AuthorizationStatus.PENDING);
@@ -886,8 +883,8 @@ public class AcmeServiceImpl implements AcmeService {
         authorization.setWildcard(checkWildcard(identifier));
         authorization.setIdentifier(SerializationUtil.serialize(identifier));
         acmeAuthorizationRepository.save(authorization);
-        AcmeChallenge dnsChallenge = generateChallenge(ChallengeType.DNS01, authorization, publicKey);
-        AcmeChallenge httpChallenge = generateChallenge(ChallengeType.HTTP01, authorization, publicKey);
+        AcmeChallenge dnsChallenge = generateChallenge(ChallengeType.DNS01, authorization);
+        AcmeChallenge httpChallenge = generateChallenge(ChallengeType.HTTP01, authorization);
         authorization.setChallenges(Set.of(dnsChallenge, httpChallenge));
         return authorization;
     }
@@ -896,12 +893,12 @@ public class AcmeServiceImpl implements AcmeService {
         return identifier.getValue().contains("*");
     }
 
-    private AcmeChallenge generateChallenge(ChallengeType challengeType, AcmeAuthorization authorization, PublicKey publicKey) {
+    private AcmeChallenge generateChallenge(ChallengeType challengeType, AcmeAuthorization authorization) {
         logger.info("Generating new Challenge for Authorization: {}", authorization.toString());
         AcmeChallenge challenge = new AcmeChallenge();
         challenge.setChallengeId(AcmeRandomGeneratorAndValidator.generateRandomId());
         challenge.setStatus(ChallengeStatus.PENDING);
-        challenge.setToken(AcmeRandomGeneratorAndValidator.generateRandomTokenForValidation(publicKey));
+        challenge.setToken(AcmeRandomGeneratorAndValidator.generateRandomTokenForValidation());
         challenge.setAuthorization(authorization);
         challenge.setType(challengeType);
         acmeChallengeRepository.save(challenge);
@@ -1231,33 +1228,33 @@ public class AcmeServiceImpl implements AcmeService {
 
     private void validateKid(AcmeJwsRequest acmeJwsRequest, String requestUri) throws AcmeProblemDocumentException {
         JWSHeader jwsHeader = acmeJwsRequest.getJwsHeader();
-        Object kidHeader = jwsHeader.getCustomParam("kid");
-        Object jwkHeader = jwsHeader.getCustomParam("jwk");
+        String kidInHeader = jwsHeader.getKeyID();
+        JWK jwkInHeader = jwsHeader.getJWK();
 
-        if (kidHeader != null && jwkHeader != null) {
+        if (kidInHeader != null && jwkInHeader != null) {
             logger.error("JWK Header contains both kid and jwk");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
 
-        if (kidHeader == null && jwkHeader == null) {
+        if (kidInHeader == null && jwkInHeader == null) {
             logger.error("JWK Header does not contains kid nor jwk");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
 
         if (requestUri.contains("/new-account")) {
-            if (jwkHeader == null) {
+            if (jwkInHeader == null) {
                 logger.error("New Account and Revocation of Certificate should have JWK in header");
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
             }
             acmeJwsRequest.checkSignature(acmeJwsRequest.getPublicKey());
 
         } else {
-            if (kidHeader == null) {
+            if (kidInHeader == null) {
                 logger.error("Request should contain account url in kid of header");
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
             }
             AcmeAccount account = acmeAccountRepository.findByAccountId(
-                            kidHeader.toString().split("/")[kidHeader.toString().split("/").length - 1])
+                            kidInHeader.split("/")[kidInHeader.split("/").length - 1])
                     .orElseThrow(
                             () -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
             PublicKey publicKey;
