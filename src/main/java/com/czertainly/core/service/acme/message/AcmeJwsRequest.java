@@ -140,6 +140,10 @@ public class AcmeJwsRequest {
     }
 
     public void validateUrl(String requestUri) throws AcmeProblemDocumentException {
+        if (jwsHeader.getCustomParam("url") == null) {
+            logger.error("JWS Header does not contain url");
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "JWS Header does not contain url");
+        }
         String headerUrl = jwsHeader.getCustomParam("url").toString();
         if (!requestUri.equals(headerUrl)) {
             logger.error("Request URL: " + requestUri + " does not match the JWS Header URL: " + headerUrl);
