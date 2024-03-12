@@ -70,6 +70,8 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     private AcmeNonce acmeValidNonce;
     private JWSSigner rsa2048Signer;
     private RSAKey rsa2048PublicJWK;
+    private JWSSigner newRsa2048Signer;
+    private RSAKey newRsa2048PublicJWK;
 
     @BeforeEach
     public void setUp() throws JOSEException {
@@ -78,6 +80,11 @@ public class AcmeServiceTest extends BaseSpringBootTest {
                 .generate();
         rsa2048PublicJWK = rsa2048JWK.toPublicJWK();
         rsa2048Signer = new RSASSASigner(rsa2048JWK);
+
+        RSAKey newRsa2048JWK = new RSAKeyGenerator(2048)
+                .generate();
+        newRsa2048PublicJWK = newRsa2048JWK.toPublicJWK();
+        newRsa2048Signer = new RSASSASigner(newRsa2048JWK);
 
         Connector connector = new Connector();
         connector.setUrl("http://localhost:3665");
@@ -365,5 +372,41 @@ public class AcmeServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(orders);
         // order status is VALID
         Assertions.assertEquals(OrderStatus.VALID, Objects.requireNonNull(orders.getBody()).getStatus());
+    }
+
+    @Test
+    public void testKeyRollover() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/key-change");
+
+        String account = BASE_URI + ACME_PROFILE_NAME + "/acct/" + ACME_ACCOUNT_ID_VALID;
+        String oldKey = rsa2048PublicJWK.toString();
+
+        JWSObjectJSON innerJwsObjectJSON = new JWSObjectJSON(new Payload("{\"account\":\"" + account + "\",\"oldKey\":" + oldKey + "}"));
+        innerJwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(newRsa2048PublicJWK)
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                newRsa2048Signer
+        );
+
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(innerJwsObjectJSON.serializeFlattened()));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .keyID(BASE_URI + ACME_PROFILE_NAME + "/acct/" + ACME_ACCOUNT_ID_VALID)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+
+        String acmeJwsRequestJSON = jwsObjectJSON.serializeFlattened();
+
+        ResponseEntity<?> response = acmeService.keyRollover(ACME_PROFILE_NAME, acmeJwsRequestJSON, requestUri, false);
+
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
+        // contains Link header
+        Assertions.assertNotNull(response.getHeaders().get("Link"));
     }
 }

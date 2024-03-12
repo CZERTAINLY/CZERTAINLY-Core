@@ -29,8 +29,6 @@ import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.*;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSObject;
-import com.nimbusds.jose.jwk.ECKey;
-import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.util.Base64URL;
 import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
@@ -54,6 +52,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import javax.naming.Context;
 import javax.naming.NamingEnumeration;
@@ -73,6 +72,7 @@ import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
+import java.text.ParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -143,7 +143,7 @@ public class AcmeServiceImpl implements AcmeService {
         logger.debug("Gathering Directory information for ACME: {}", acmeProfileName);
 
         Directory directory = new Directory();
-        String baseUri = getAcmeBaseUri(requestUri);
+        String baseUri = getAcmeBaseUri();
         String replaceUrl;
         if (isRaProfileBased) {
             replaceUrl = "%s/raProfile/%s/";
@@ -184,7 +184,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         return responseBuilder
                 .header(AcmeConstants.NONCE_HEADER_NAME, nonce)
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .build();
     }
 
@@ -203,7 +203,7 @@ public class AcmeServiceImpl implements AcmeService {
         logger.debug("New Account requested: {}", accountRequest.toString());
         AcmeAccount account = addNewAccount(acmeProfileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsRequest.getPublicKey()), accountRequest, isRaProfileBased);
         Account accountDto = account.mapToDto();
-        String baseUri = getAcmeBaseUri(requestUri);
+        String baseUri = getAcmeBaseUri();
 
         ResponseEntity.BodyBuilder responseBuilder;
         if (isRaProfileBased) {
@@ -229,7 +229,7 @@ public class AcmeServiceImpl implements AcmeService {
         return responseBuilder
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
                 .header(AcmeConstants.RETRY_HEADER_NAME, account.getAcmeProfile().getRetryInterval().toString())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .body(accountDto);
     }
 
@@ -273,7 +273,7 @@ public class AcmeServiceImpl implements AcmeService {
         return ResponseEntity.ok()
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
                 .header(AcmeConstants.RETRY_HEADER_NAME, account.getAcmeProfile().getRetryInterval().toString())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .body(account.mapToDto());
     }
 
@@ -288,17 +288,19 @@ public class AcmeServiceImpl implements AcmeService {
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
         validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
 
-        JWSObject innerJws = jwsRequest.getJwsObject().getPayload().toJWSObject();
+        AcmeJwsRequest innerJws = new AcmeJwsRequest(jwsRequest.getJsonStringPayload());
+        validateRequestNoNonce(innerJws, acmeProfileName, requestUri, isRaProfileBased);
+
         PublicKey newKey;
         PublicKey oldKey;
         try {
-            String keyType = innerJws.getHeader().getJWK().getKeyType().toString();
+            String keyType = innerJws.getJwk().getKeyType().toString();
             if (keyType.equals(AcmeConstants.RSA_KEY_TYPE_NOTATION)) {
-                newKey = ((RSAKey) innerJws.getHeader().getJWK()).toPublicKey();
-                oldKey = ((RSAKey) (innerJws.getPayload().toJSONObject().get("oldKey"))).toPublicKey();
+                newKey = innerJws.getJwk().toRSAKey().toPublicKey();
+                oldKey = innerJws.getOldKeyJWK().toRSAKey().toPublicKey();
             } else if (keyType.equals(AcmeConstants.EC_KEY_TYPE_NOTATION)) {
-                newKey = ((ECKey) innerJws.getHeader().getJWK()).toPublicKey();
-                oldKey = ((ECKey) (innerJws.getPayload().toJSONObject().get("oldKey"))).toPublicKey();
+                newKey = innerJws.getJwk().toECKey().toPublicKey();
+                oldKey = innerJws.getOldKeyJWK().toECKey().toPublicKey();
             } else {
                 logger.error("Unsupported Key Type: {}", keyType);
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "Unsupported Key Type");
@@ -306,9 +308,12 @@ public class AcmeServiceImpl implements AcmeService {
         } catch (JOSEException e) {
             logger.error("Error while parsing JWS: {}", e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "JWS Malformed. Error while decoding the JWS Object");
+        } catch (ParseException e) {
+            logger.error("Error while parsing JWS: {}", e.getMessage());
+            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "Error while parsing the JWS Payload");
         }
 
-        String account = innerJws.getPayload().toJSONObject().get("account").toString();
+        String account = innerJws.getJwsObject().getPayload().toJSONObject().get("account").toString();
         String accountId = account.split("/")[account.split("/").length - 1];
 
         AcmeAccount acmeAccount;
@@ -331,13 +336,13 @@ public class AcmeServiceImpl implements AcmeService {
                     .body(new ProblemDocument("keyExists", "New Key already exists", "New key already tagged to a different account"));
         }
 
-        validateKey(jwsRequest.getJwsObject(), innerJws);
+        validateKey(jwsRequest.getJwsObject(), innerJws.getJwsObject());
 
         acmeAccount.setPublicKey(AcmePublicKeyProcessor.publicKeyPemStringFromObject(newKey));
         acmeAccountRepository.save(acmeAccount);
 
         return ResponseEntity.ok()
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .build();
     }
 
@@ -371,7 +376,7 @@ public class AcmeServiceImpl implements AcmeService {
         return ResponseEntity.created(URI.create(order.getUrl()))
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
                 .header(AcmeConstants.RETRY_HEADER_NAME, order.getAcmeAccount().getAcmeProfile().getRetryInterval().toString())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .body(order.mapToDto());
     }
 
@@ -396,7 +401,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         return ResponseEntity.ok()
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .body(orders);
     }
 
@@ -431,7 +436,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         return ResponseEntity.ok()
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .body(authorizationDto);
     }
 
@@ -470,7 +475,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         return ResponseEntity.ok()
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .header(AcmeConstants.LINK_HEADER_NAME, "<" + challenge.getAuthorization().getUrl() + ">;rel=\"up\"")
                 .body(challenge.mapToDto());
     }
@@ -504,7 +509,7 @@ public class AcmeServiceImpl implements AcmeService {
                 .location(URI.create(order.getUrl()))
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
                 .header(AcmeConstants.RETRY_HEADER_NAME, order.getAcmeAccount().getAcmeProfile().getRetryInterval().toString())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .body(order.mapToDto());
     }
 
@@ -548,7 +553,7 @@ public class AcmeServiceImpl implements AcmeService {
                 .location(URI.create(order.getUrl()))
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
                 .header(AcmeConstants.RETRY_HEADER_NAME, order.getAcmeAccount().getAcmeProfile().getRetryInterval().toString())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .body(order.mapToDto());
     }
 
@@ -559,7 +564,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         return ResponseEntity.ok()
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
-                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                 .contentType(MediaType.valueOf("application/pem-certificate-chain"))
                 .body(byteArrayResource);
     }
@@ -645,13 +650,13 @@ public class AcmeServiceImpl implements AcmeService {
             return ResponseEntity
                     .ok()
                     .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
-                    .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                    .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                     .build();
         } catch (NotFoundException e) {
             return ResponseEntity
                     .badRequest()
                     .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
-                    .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, requestUri, isRaProfileBased))
+                    .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                     .build();
         }
     }
@@ -660,9 +665,8 @@ public class AcmeServiceImpl implements AcmeService {
     // Private methods
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    private String getAcmeBaseUri(URI requestUri) {
-        // do not use ServletUriComponentsBuilder
-        return requestUri.getScheme() + "://" + requestUri.getAuthority() + AcmeConstants.ACME_URI_HEADER;
+    private String getAcmeBaseUri() {
+        return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER;
     }
 
     private DirectoryMeta frameDirectoryMeta(String profileName, boolean isRaProfileBased) throws NotFoundException {
@@ -698,8 +702,8 @@ public class AcmeServiceImpl implements AcmeService {
     // RFC 8555 Section 7.1
     // The "index" link relation is present on all resources other than the
     // directory and indicates the URL of the directory.
-    private String generateLinkHeader(String profileName, URI requestUri, boolean isRaProfileBased) {
-        String baseUri = getAcmeBaseUri(requestUri);
+    private String generateLinkHeader(String profileName, boolean isRaProfileBased) {
+        String baseUri = getAcmeBaseUri();
         if (isRaProfileBased) {
             baseUri = baseUri + "/raProfile";
         }
@@ -1179,13 +1183,17 @@ public class AcmeServiceImpl implements AcmeService {
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     private void validateRequest(AcmeJwsRequest acmeJwsRequest, String acmeProfileName, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
+        validateRequestNoNonce(acmeJwsRequest, acmeProfileName, requestUri, isRaProfileBased);
+
+        //Validate JWS Header for Nonce if it has the correct value
+        validateNonce(acmeJwsRequest.getJwsHeader().getCustomParam("nonce"));
+    }
+
+    private void validateRequestNoNonce(AcmeJwsRequest acmeJwsRequest, String acmeProfileName, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         if (acmeJwsRequest.getJwsHeader() == null) {
             logger.error("JWS header is missing or malformed");
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
         }
-
-        //Validate JWS Header for Nonce if it has the correct value
-        validateNonce(acmeJwsRequest.getJwsHeader().getCustomParam("nonce"));
 
         acmeJwsRequest.validateUrl(requestUri.toString());
 
