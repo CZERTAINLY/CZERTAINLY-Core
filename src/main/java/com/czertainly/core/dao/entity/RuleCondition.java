@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.core.rules.RuleConditionDto;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -48,5 +49,14 @@ public class RuleCondition extends UniquelyIdentified {
         ruleConditionDto.setOperator(operator);
         ruleConditionDto.setValue(value);
         return ruleConditionDto;
+    }
+
+    public SearchFilterRequestDto mapToSearchFilterRequestDto() {
+        SearchFilterRequestDto searchFilterRequestDto = new SearchFilterRequestDto();
+        searchFilterRequestDto.setFieldSource(fieldSource);
+        searchFilterRequestDto.setFieldIdentifier(fieldIdentifier);
+        searchFilterRequestDto.setCondition(operator);
+        searchFilterRequestDto.setValue((Serializable) value);
+        return searchFilterRequestDto;
     }
 }

@@ -13,7 +13,7 @@ public enum SearchFieldTypeEnum {
     DATE(FilterFieldType.DATE,
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.LESSER)
             , false),
-    DATETIME(FilterFieldType.DATE,
+    DATETIME(FilterFieldType.DATETIME,
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.LESSER)
             , false),
     NUMBER(FilterFieldType.NUMBER,

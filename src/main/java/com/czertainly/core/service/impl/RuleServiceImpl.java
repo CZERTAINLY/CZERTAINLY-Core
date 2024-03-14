@@ -5,8 +5,13 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.*;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.FilterFieldType;
+import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.RuleService;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
@@ -17,11 +22,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.BiFunction;
+
+import static com.czertainly.api.model.core.search.FilterConditionOperator.*;
+import static com.czertainly.api.model.core.search.FilterConditionOperator.NOT_EMPTY;
 
 @Service
 @Transactional
@@ -518,6 +523,8 @@ public class RuleServiceImpl implements RuleService {
         }
         return actions;
     }
+
+
 
 
 }
