@@ -5,8 +5,6 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
-import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
-import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -15,26 +13,22 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.*;
+import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.MetadataService;
+import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.BaseSpringBootTest;
-import lombok.Data;
-import org.apache.commons.beanutils.PropertyUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.locks.Condition;
 
 public class RuleEvaluatorTest extends BaseSpringBootTest {
 
@@ -75,7 +69,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCertificateEvaluatorOnProperties() throws RuleException, ParseException {
+    public void testCertificateEvaluatorOnProperties() throws RuleException {
 
         certificate.setCommonName("Common Name");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
@@ -202,7 +196,8 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         customAttributeRequest.setContentType(AttributeContentType.STRING);
 
         CustomAttributeDefinitionDetailDto customAttribute = attributeService.createAttribute(customAttributeRequest);
-        resourceService.updateAttributeContentForObject(Resource.CERTIFICATE, SecuredUUID.fromUUID(certificate.getUuid()), UUID.fromString(customAttribute.getUuid()), List.of(new BaseAttributeContent("ref", "data")));
+        resourceService.updateAttributeContentForObject(Resource.CERTIFICATE, SecuredUUID.fromUUID(certificate.getUuid()), UUID.fromString(customAttribute.getUuid()),
+                List.of(new BaseAttributeContent("ref", "data1"), new BaseAttributeContent("ref", "data")));
 
         RuleCondition condition = new RuleCondition();
         condition.setFieldSource(FilterFieldSource.CUSTOM);

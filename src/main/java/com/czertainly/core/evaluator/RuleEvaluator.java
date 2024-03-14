@@ -2,11 +2,8 @@ package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
@@ -14,34 +11,24 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
-import com.czertainly.core.dao.repository.AttributeContentRepository;
-import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
+import com.czertainly.core.dao.entity.Rule;
+import com.czertainly.core.dao.entity.RuleCondition;
+import com.czertainly.core.dao.entity.RuleConditionGroup;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.MetadataService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.InvocationTargetException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Component
 public class RuleEvaluator<T> implements IRuleEvaluator<T> {
