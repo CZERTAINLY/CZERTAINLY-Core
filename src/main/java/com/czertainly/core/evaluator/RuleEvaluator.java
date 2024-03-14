@@ -1,162 +1,256 @@
 package com.czertainly.core.evaluator;
 
+import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.metadata.MetadataResponseDto;
+import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
-import com.czertainly.core.dao.entity.Rule;
-import com.czertainly.core.dao.entity.RuleCondition;
-import com.czertainly.core.dao.entity.RuleConditionGroup;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
+import com.czertainly.core.dao.repository.AttributeContentRepository;
+import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
+import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.MetadataService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import org.apache.commons.beanutils.PropertyUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.function.BiFunction;
-import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Component
 public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
-//    @Autowired
-//    SecurityFilterRepository<T, Long> repository;
+    private MetadataService metadataService;
+    private AttributeService attributeService;
+
+    private static final String DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
+
+
+    @Autowired
+    public void setMetadataService(MetadataService metadataService) {
+        this.metadataService = metadataService;
+    }
+    @Autowired
+    public void setAttributeService(AttributeService attributeService) {
+        this.attributeService = attributeService;
+    }
+
+
+
 
     @Override
-    public boolean evaluateRule(Rule rule, T object) throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
-        for (RuleCondition condition : rule.getConditions()) {
-            if (evaluateCondition(condition, object)) return false;
-        }
+    public boolean evaluateRules(List<Rule> rules, T object) throws RuleException {
+        boolean ruleEvaluated = false;
+        for (Rule rule : rules) {
+            // Check if resource in the rule corresponds to the class of evaluator
+            if (!ResourceToClass.getClassByResource(rule.getResource()).isInstance(object)) continue;
+            ruleEvaluated = true;
+            for (RuleCondition condition : rule.getConditions()) {
+                if (evaluateCondition(condition, object, rule.getResource())) return false;
+            }
 
-        for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
-            for (RuleCondition condition : conditionGroup.getConditions()) {
-                if (evaluateCondition(condition, object)) return false;
+            for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
+                for (RuleCondition condition : conditionGroup.getConditions()) {
+                    if (evaluateCondition(condition, object, rule.getResource())) return false;
+                }
             }
         }
-
-        return true;
+        return ruleEvaluated;
     }
 
     @Override
-    public boolean evaluateRuleOnList(Rule rule, List<T> list) throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
-        for (T object : list) {
-            if (!evaluateRule(rule, object)) return false;
+    public boolean evaluateRulesOnList(List<Rule> rules, List<T> listOfObjects) throws RuleException {
+        for (T object : listOfObjects) {
+            if (!evaluateRules(rules, object)) return false;
         }
         return true;
     }
 
     @Override
-    public boolean evaluateCondition(RuleCondition condition, T object) throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    public Boolean evaluateCondition(RuleCondition condition, T object, Resource resource) throws RuleException {
         FilterFieldSource fieldSource = condition.getFieldSource();
         String fieldIdentifier = condition.getFieldIdentifier();
         FilterConditionOperator operator = condition.getOperator();
+
         Object conditionValue = condition.getValue();
-        switch (fieldSource) {
-            case PROPERTY -> {
-                String getterName = "get" + Character.toUpperCase(fieldIdentifier.charAt(0)) + fieldIdentifier.substring(1);
-                Method getter = object.getClass().getMethod(getterName);
-                Object objectValue = getter.invoke(object);
-                SearchFieldNameEnum propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
-                FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
-                switch (operator) {
-                    case EQUALS -> {
-                        return objectValue == conditionValue;
-                    }
-                    case NOT_EQUALS -> {
-                        return objectValue != conditionValue;
-                    }
-                    case CONTAINS -> {
-                        return objectValue.toString().contains(conditionValue.toString());
-                    }
-                    case NOT_CONTAINS -> {
-                        return !((objectValue.toString()).contains(conditionValue.toString()));
-                    }
-                    case STARTS_WITH -> {
-                        return (objectValue.toString()).startsWith(conditionValue.toString());
-                    }
 
-                    case ENDS_WITH -> {
-                        return !(objectValue.toString()).startsWith(conditionValue.toString());
-                    }
+        if (fieldSource == FilterFieldSource.PROPERTY) {
+            Object objectValue;
+            try {
+                objectValue = PropertyUtils.getProperty(object, fieldIdentifier);
+            } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
+            }
+            SearchFieldNameEnum propertyEnum;
+            try {
+                propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
+            } catch (Exception e) {
+                throw new RuleException("Field identifier " + " is not supported.");
+            }
+            FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
+            try {
+                return fieldTypeToOperatorMapMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
+            } catch (Exception e) {
+                throw new RuleException("Condition is not set properly: " + e.getMessage());
+            }
+        }
 
-                    case EMPTY -> {
-                        return objectValue == null;
-                    }
+        UUID objectUuid;
+        try {
+            objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
+        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuleException("Cannot get uuid from resource " + resource + ".");
+        }
 
-                    case NOT_EMPTY -> {
-                        return objectValue != null;
-                    }
-                    case LESSER -> {
-                        if (fieldType == FilterFieldType.NUMBER) return (float) objectValue < (float) conditionValue;
-                        if (fieldType == FilterFieldType.DATE) return ((Date) objectValue).before((Date) conditionValue);
-                        if (fieldType == FilterFieldType.DATETIME) return ((LocalDateTime) objectValue).isBefore((LocalDateTime) conditionValue);
-                    }
+        if (objectUuid != null) {
+            if (fieldSource == FilterFieldSource.CUSTOM) {
+                List<ResponseAttributeDto> responseAttributeDtos = attributeService.getCustomAttributesWithValues(objectUuid, resource);
+                ResponseAttributeDto attributeToCompare = responseAttributeDtos.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
+                if (attributeToCompare == null) return false;
+                return evaluateConditionOnAttribute(attributeToCompare, conditionValue, operator);
+            }
 
-                    case LESSER_OR_EQUAL -> {
-                        if (fieldType == FilterFieldType.NUMBER) return (float) objectValue <= (float) conditionValue;
-                        if (fieldType == FilterFieldType.DATE) return !((Date) objectValue).after((Date) conditionValue);
-                        if (fieldType == FilterFieldType.DATETIME) return !((LocalDateTime) objectValue).isAfter((LocalDateTime) conditionValue);
-
-                    }
-
-                    case GREATER -> {
-                        if (fieldType == FilterFieldType.NUMBER) return (float) objectValue > (float) conditionValue;
-                        if (fieldType == FilterFieldType.DATE) return ((Date) objectValue).after((Date) conditionValue);
-                        if (fieldType == FilterFieldType.DATETIME) return ((LocalDateTime) objectValue).isAfter((LocalDateTime) conditionValue);
-                    }
-
-                    case GREATER_OR_EQUAL -> {
-                        if (fieldType == FilterFieldType.NUMBER) return (float) objectValue >= (float) conditionValue;
-                        if (fieldType == FilterFieldType.DATE) return !((Date) objectValue).before((Date) conditionValue);
-                        if (fieldType == FilterFieldType.DATETIME) return !((LocalDateTime) objectValue).isBefore((LocalDateTime) conditionValue);
+            if (fieldSource == FilterFieldSource.META) {
+                String[] split = fieldIdentifier.split("\\|");
+                if (split.length < 2) throw new RuleException("Field identifier is not in correct format.");
+                AttributeContentType fieldAttributeContentType = AttributeContentType.valueOf(split[1]);
+                String fieldIdentifierName = split[0];
+                List<MetadataResponseDto> metadata = metadataService.getFullMetadata(objectUuid, resource);
+                for (List<ResponseMetadataDto> responseMetadataDtos :  metadata.stream().map(MetadataResponseDto::getItems).toList()) {
+                    for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
+                        if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) & fieldAttributeContentType == responseAttributeDto.getContentType()) {
+                            if (evaluateConditionOnAttribute(responseAttributeDto, conditionValue, operator))
+                                return true;
+                        }
                     }
                 }
-
-                return true;
-            }
-            case META -> {
-
-
-                return true;
-            }
-            case CUSTOM -> {
-                return true;
+                return false;
             }
         }
         return false;
     }
 
-    @Override
-    public List<T> fetchObjectsSatisfyingRules(List<Rule> rules) {
-        List<SearchFilterRequestDto> searchFilterRequestDtos = new ArrayList<>();
-        for (Rule rule : rules) {
-            searchFilterRequestDtos.addAll(rule.getConditions().stream().map(RuleCondition::mapToSearchFilterRequestDto).toList());
-            for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
-                searchFilterRequestDtos.addAll(conditionGroup.getConditions().stream().map(RuleCondition::mapToSearchFilterRequestDto).toList());
+    private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;
+    private static final Map<FilterFieldType, Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>>> fieldTypeToOperatorMapMap;
+    private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> stringOperatorFunctionMap;
+    private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> numberOperatorFunctionMap;
+    private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> dateOperatorFunctionMap;
+    private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> datetimeOperatorFunctionMap;
+
+
+    static {
+        commonOperatorFunctionMap = new HashMap<>();
+        commonOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> o == c);
+        commonOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> o != c);
+        commonOperatorFunctionMap.put(FilterConditionOperator.EMPTY, (o, c) -> o == null);
+        commonOperatorFunctionMap.put(FilterConditionOperator.NOT_EMPTY, (o, c) -> o != null);
+
+        fieldTypeToOperatorMapMap = new HashMap<>();
+
+        stringOperatorFunctionMap = new HashMap<>();
+        stringOperatorFunctionMap.putAll(commonOperatorFunctionMap);
+        stringOperatorFunctionMap.put(FilterConditionOperator.CONTAINS, (o, c) -> o.toString().contains(c.toString()));
+        stringOperatorFunctionMap.put(FilterConditionOperator.NOT_CONTAINS, (o, c) -> !o.toString().contains(c.toString()));
+        stringOperatorFunctionMap.put(FilterConditionOperator.STARTS_WITH, (o, c) -> o.toString().startsWith(c.toString()));
+        stringOperatorFunctionMap.put(FilterConditionOperator.ENDS_WITH, (o, c) -> o.toString().endsWith(c.toString()));
+        fieldTypeToOperatorMapMap.put(FilterFieldType.STRING, stringOperatorFunctionMap);
+
+        numberOperatorFunctionMap = new HashMap<>();
+        numberOperatorFunctionMap.putAll(commonOperatorFunctionMap);
+        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> compareNumbers((Number) o, (Number) c) > 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, (Number) c) > 0 || compareNumbers((Number) o, (Number) c) == 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> compareNumbers((Number) o, (Number) c) < 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, (Number) c) < 0 || compareNumbers((Number) o, (Number) c) == 0);
+        fieldTypeToOperatorMapMap.put(FilterFieldType.NUMBER, numberOperatorFunctionMap);
+
+        dateOperatorFunctionMap = new HashMap<>();
+        dateOperatorFunctionMap.putAll(commonOperatorFunctionMap);
+        dateOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(LocalDate.parse(c.toString())));
+        dateOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isBefore(LocalDate.parse(c.toString()))));
+        dateOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isBefore(LocalDate.parse(c.toString())));
+        dateOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(LocalDate.parse(c.toString()))));
+        fieldTypeToOperatorMapMap.put(FilterFieldType.DATE, dateOperatorFunctionMap);
+
+        datetimeOperatorFunctionMap = new HashMap<>();
+        datetimeOperatorFunctionMap.putAll(commonOperatorFunctionMap);
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
+        fieldTypeToOperatorMapMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
+
+        fieldTypeToOperatorMapMap.put(FilterFieldType.LIST, commonOperatorFunctionMap);
+        fieldTypeToOperatorMapMap.put(FilterFieldType.BOOLEAN, commonOperatorFunctionMap);
+
+    }
+
+    private static int compareNumbers(Number objectNumber, Number conditionNumber) {
+        return Float.compare(objectNumber.floatValue(), conditionNumber.floatValue());
+    }
+
+    private boolean evaluateConditionOnAttribute(ResponseAttributeDto attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
+        AttributeContentType contentType = attributeDto.getContentType();
+        for (BaseAttributeContent attributeContent : attributeDto.getContent()) {
+            Object attributeValue = contentType.isFilterByData() ? attributeContent.getData() : attributeContent.getReference();
+            try {
+                if (fieldTypeToOperatorMapMap.get(contentTypeToFieldType(contentType)).get(operator).apply(attributeValue, conditionValue))
+                    return true;
+            } catch (Exception e) {
+                throw new RuleException("Invalid condition.");
             }
         }
-        List<T> resourceObjects = new ArrayList<>();
-        final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(searchFilterRequestDtos, cb, root, null);
-//        return repository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
-//                .stream()
-//                .map(Certificate::mapToListDto).toList();
-        return resourceObjects;
+        return false;
     }
 
-    private SearchFilterRequestDto ruleToSearchFilter(Rule rule) {
-    return null;
-    }
 
-    private Map<String, Function> fieldIdentifierToGetter;
+
+    private FilterFieldType contentTypeToFieldType(AttributeContentType contentType) {
+        switch (contentType) {
+            case STRING, TEXT, CODEBLOCK, SECRET, FILE, CREDENTIAL, OBJECT -> {
+                return FilterFieldType.STRING;
+            }
+            case INTEGER, FLOAT -> {
+                return FilterFieldType.NUMBER;
+            }
+            case BOOLEAN -> {
+                return FilterFieldType.BOOLEAN;
+            }
+            case DATE -> {
+                return FilterFieldType.DATE;
+            }
+            case TIME, DATETIME -> {
+                return FilterFieldType.DATETIME;
+            }
+        }
+        return null;
+    }
 
 
 }
+
