@@ -1,88 +1,240 @@
 package com.czertainly.core.evaluator;
 
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
+import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CryptographicKey;
-import com.czertainly.core.dao.entity.RuleCondition;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.service.*;
+import com.czertainly.core.util.BaseSpringBootTest;
+import lombok.Data;
+import org.apache.commons.beanutils.PropertyUtils;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.lang.reflect.InvocationTargetException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.locks.Condition;
 
-@SpringBootTest
-public class RuleEvaluatorTest {
+public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     @Autowired
     private RuleEvaluator<Certificate> certificateRuleEvaluator;
     @Autowired
-    private RuleEvaluator<CryptographicKey> cryptographicKeyRuleEvaluator;
+    private RuleEvaluator<CryptographicKeyItem> cryptographicKeyRuleEvaluator;
+
+    @Autowired
+    private RuleEvaluator<DiscoveryHistory> discoveryHistoryRuleEvaluator;
+
+    @Autowired
+    private CertificateRepository certificateRepository;
+
+    @Autowired
+    private AttributeService attributeService;
+
+    @Autowired
+    private ResourceService resourceService;
+
+    @Autowired
+    private MetadataService metadataService;
+
+    @Autowired
+    private ConnectorRepository connectorRepository;
+
+    private Certificate certificate;
+
+    private RuleCondition condition;
+
+
+
+    @BeforeEach
+    public void setUp() {
+        certificate = new Certificate();
+        certificateRepository.save(certificate);
+        condition = new RuleCondition();
+    }
 
     @Test
-    public void testCertificateEvaluatorOnProperties() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException, ParseException {
+    public void testCertificateEvaluatorOnProperties() throws RuleException, ParseException {
 
-        Certificate certificate = new Certificate();
         certificate.setCommonName("Common Name");
-        RuleCondition condition = new RuleCondition();
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setFieldIdentifier("commonName");
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
         condition.setValue("Common Name");
         condition.setOperator(FilterConditionOperator.EQUALS);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EQUALS);
         certificate.setCommonName("Common NameE");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.CONTAINS);
         condition.setValue("Name");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_CONTAINS);
         condition.setValue("abc");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.STARTS_WITH);
         condition.setValue("Comm");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.ENDS_WITH);
         condition.setValue("eE");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
         certificate.setCommonName(null);
         condition.setOperator(FilterConditionOperator.EMPTY);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
 
-        certificate.setKeySize(30);
-        condition.setFieldIdentifier("keySize");
-        condition.setOperator(FilterConditionOperator.GREATER);
-        condition.setValue(15);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        Group group = new Group();
+        group.setName("group");
 
-        certificate.setNotBefore(new SimpleDateFormat(("dd.MM.yyyy")).parse("01.01.2000"));
-        condition.setFieldIdentifier("notBefore");
-        condition.setValue(new SimpleDateFormat(("dd.MM.yyyy")).parse("01.01.1999"));
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
+        certificate.setGroup(group);
+
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setFieldIdentifier("group.name");
+        condition.setValue("group");
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+
 
         certificate.setTrustedCa(true);
         condition.setFieldIdentifier("trustedCa");
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue(true);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
-        for (int i = 0; i < 100000; i++) {
-            Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate));
-        }
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+
+
     }
 
     @Test
-    public void testsCryptographicKeyRuleEvaluator() throws InvocationTargetException, NoSuchMethodException, IllegalAccessException {
-        CryptographicKey cryptographicKey = new CryptographicKey();
+    public void testExceptions() throws RuleException, ParseException {
+        Rule rule = new Rule();
+        rule.setResource(Resource.CRYPTOGRAPHIC_KEY);
+        Assertions.assertFalse(certificateRuleEvaluator.evaluateRules(List.of(rule), certificate));
+
+        condition.setFieldIdentifier("invalid");
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+
+        condition.setFieldIdentifier("commonName");
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        condition.setOperator(FilterConditionOperator.GREATER);
+        Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+
+        condition.setValue(123);
+        condition.setOperator(FilterConditionOperator.CONTAINS);
+        Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+
+        condition.setFieldIdentifier("expiryInDays");
+        condition.setOperator(FilterConditionOperator.GREATER);
+        condition.setValue(1);
+        certificate.setNotAfter(new SimpleDateFormat(("dd.MM.yyyy")).parse("01.01.5000"));
+        Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+    }
+
+
+    @Test
+    public void testEvaluatorDate() throws RuleException, ParseException {
+        certificate.setNotBefore(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        condition.setFieldIdentifier("notBefore");
+        condition.setValue("2010-12-12");
+        condition.setOperator(FilterConditionOperator.GREATER);
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+
+        DiscoveryHistory discovery = new DiscoveryHistory();
+        discovery.setStartTime(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
+        condition.setFieldIdentifier("startTime");
+        condition.setValue("2019-12-01T22:10:00.274+00:00");
+        Assertions.assertTrue(discoveryHistoryRuleEvaluator.evaluateCondition(condition, discovery, Resource.DISCOVERY));
+
+    }
+
+
+
+    @Test
+    public void testsCryptographicKeyRuleEvaluator() throws RuleException {
+        CryptographicKeyItem cryptographicKey = new CryptographicKeyItem();
         cryptographicKey.setName("Key");
         RuleCondition condition = new RuleCondition();
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setFieldIdentifier("name");
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
-        Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateCondition(condition, cryptographicKey));
+        Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateCondition(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        cryptographicKey.setLength(256);
+        condition.setFieldIdentifier("length");
+        condition.setOperator(FilterConditionOperator.GREATER);
+        condition.setValue(255);
+        Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateCondition(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        condition.setValue(255.4);
+        Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateCondition(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+
+
     }
+
+    @Test
+    public void testCertificateRuleEvaluatorCustomAttributes() throws AlreadyExistException, NotFoundException, RuleException {
+        Certificate certificate = new Certificate();
+        certificateRepository.save(certificate);
+
+        CustomAttributeCreateRequestDto customAttributeRequest = new CustomAttributeCreateRequestDto();
+        customAttributeRequest.setName("custom");
+        customAttributeRequest.setLabel("custom");
+        customAttributeRequest.setResources(List.of(Resource.CERTIFICATE));
+        customAttributeRequest.setContentType(AttributeContentType.STRING);
+
+        CustomAttributeDefinitionDetailDto customAttribute = attributeService.createAttribute(customAttributeRequest);
+        resourceService.updateAttributeContentForObject(Resource.CERTIFICATE, SecuredUUID.fromUUID(certificate.getUuid()), UUID.fromString(customAttribute.getUuid()), List.of(new BaseAttributeContent("ref", "data")));
+
+        RuleCondition condition = new RuleCondition();
+        condition.setFieldSource(FilterFieldSource.CUSTOM);
+        condition.setFieldIdentifier("custom");
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setValue("data");
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+    }
+
+    @Test
+    public void testCertificateRuleEvaluatorMeta() throws RuleException {
+        Certificate certificate = new Certificate();
+        certificateRepository.save(certificate);
+        Connector connector = new Connector();
+        connectorRepository.save(connector);
+        UUID connectorUuid = connector.getUuid();
+        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        metadataAttribute.setContentType(AttributeContentType.STRING);
+        metadataAttribute.setName("meta");
+        metadataAttribute.setUuid(UUID.randomUUID().toString());
+        metadataAttribute.setContent(List.of(new BaseAttributeContent<>("ref","data")));
+        metadataAttribute.setType(AttributeType.META);
+        metadataService.createMetadataDefinitions(connectorUuid, List.of(metadataAttribute));
+        metadataService.createMetadata(connectorUuid, certificate.getUuid(), null, null, List.of(metadataAttribute), Resource.CERTIFICATE, null);
+
+        RuleCondition condition = new RuleCondition();
+        condition.setFieldSource(FilterFieldSource.META);
+        condition.setFieldIdentifier("meta|STRING");
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setValue("data");
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+
+    }
+
 }
