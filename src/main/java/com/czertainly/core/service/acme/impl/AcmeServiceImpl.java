@@ -595,44 +595,15 @@ public class AcmeServiceImpl implements AcmeService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ALREADY_REVOKED);
         }
 
-        String pemPubKeyJws = "";
         if (jwsRequest.isJwkPresent()) {
-            pemPubKeyJws = AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsRequest.getPublicKey());
-        }
+            PublicKey certPublicKey = x509Certificate.getPublicKey();
+            PublicKey jwsPublicKey = jwsRequest.getPublicKey();
 
-        PublicKey accountPublicKey;
-        PublicKey certPublicKey;
-        AcmeAccount account = null;
-        String accountKid = jwsRequest.getKid();
-        logger.debug("kid of the Account for revocation: {}", accountKid);
-        if (jwsRequest.isKidPresent()) {
-            String accountId = accountKid.split("/")[accountKid.split("/").length - 1];
-            account = getAcmeAccountEntity(accountId);
-            validateAccount(account);
-            try {
-                accountPublicKey = AcmePublicKeyProcessor.publicKeyObjectFromString(account.getPublicKey());
-            } catch (Exception e) {
-                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
-            }
-        } else {
-            accountPublicKey = jwsRequest.getPublicKey();
-        }
-
-        certPublicKey = x509Certificate.getPublicKey();
-        if (jwsRequest.isJwkPresent()) {
             String pemPubKeyCert = AcmePublicKeyProcessor.publicKeyPemStringFromObject(certPublicKey);
-            String pemPubKeyAcc = AcmePublicKeyProcessor.publicKeyPemStringFromObject(accountPublicKey);
-            if (!pemPubKeyCert.equals(pemPubKeyJws) || pemPubKeyAcc.equals(pemPubKeyJws)) {
+            String pemPubKeyJws = AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsPublicKey);
+            if (!pemPubKeyCert.equals(pemPubKeyJws)) { // check that the public key of the certificate matches the public key of the JWS
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
             }
-        }
-
-        if ((accountPublicKey != null && jwsRequest.checkSignature(accountPublicKey))) {
-            logger.info("ACME Revocation request is signed by Account key: {}", request);
-        } else if ((certPublicKey != null && jwsRequest.checkSignature(certPublicKey))) {
-            logger.info("ACME Revocation request is signed by private key associated to the Certificate: {}", request);
-        } else {
-            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
         }
 
         // if the revocation reason is null, set it to UNSPECIFIED, otherwise get the code from the request
@@ -642,8 +613,10 @@ public class AcmeServiceImpl implements AcmeService {
             final String details = "Allowed revocation reason codes are: " + Arrays.toString(Arrays.stream(CertificateRevocationReason.values()).map(CertificateRevocationReason::getCode).toArray());
             throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.BAD_REVOCATION_REASON, details);
         }
+
         revokeRequest.setReason(reason);
-        revokeRequest.setAttributes(getClientOperationAttributes(true, account, isRaProfileBased));
+        // TODO: acme account should be identified from certificate, now empty revocation attributes are always used
+        revokeRequest.setAttributes(getClientOperationAttributes(true, null, isRaProfileBased));
 
         try {
             clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(cert.getRaProfile().getAuthorityInstanceReferenceUuid()), cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest);
