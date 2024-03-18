@@ -9,7 +9,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
-import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
+import com.czertainly.core.service.acme.AcmeConstants;
 import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.service.scep.impl.ScepServiceImpl;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -94,7 +94,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setUuid(acmeProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), DataAttribute.class)));
         dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), DataAttribute.class)));
-        dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
+        dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
         dto.setAcmeAvailable(true);
         return dto;
     }

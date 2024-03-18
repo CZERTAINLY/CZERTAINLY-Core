@@ -129,7 +129,7 @@ public class CsrUtil {
         return new X500Principal(nameBuilder.toString());
     }
 
-    private static String normalizeCsrContent(String csr) {
+    public static String normalizeCsrContent(String csr) {
         csr = csr.replace("-----BEGIN CERTIFICATE REQUEST-----", "")
                 .replace("\r", "").replace("\n", "")
                 .replace("-----END CERTIFICATE REQUEST-----", "");
