@@ -29,11 +29,14 @@ public class RuleActionGroup extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private Resource resource;
 
-    @OneToMany(mappedBy = "ruleActionGroup", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "ruleActionGroup", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<RuleAction> actions;
 
-    @ManyToMany(mappedBy = "actionGroups", fetch = FetchType.LAZY)
-    @JsonBackReference
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "rule_trigger_2_rule_action_group",
+            joinColumns = @JoinColumn(name = "rule_action_group_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "rule_trigger_uuid"))
     private List<RuleTrigger> ruleTriggers;
 
     public RuleActionGroupDto mapToDto() {

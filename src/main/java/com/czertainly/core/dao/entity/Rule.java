@@ -1,7 +1,6 @@
 
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.RuleDetailDto;
@@ -47,7 +46,7 @@ public class Rule extends UniquelyIdentified {
     private List<BaseAttribute> attributes;
 
 
-    @OneToMany(mappedBy = "rule", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "rule", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonBackReference
     private List<RuleCondition> conditions;
 
@@ -58,8 +57,11 @@ public class Rule extends UniquelyIdentified {
             inverseJoinColumns = @JoinColumn(name = "rule_condition_group_uuid"))
     private List<RuleConditionGroup> conditionGroups;
 
-    @ManyToMany(mappedBy = "rules", fetch = FetchType.LAZY)
-    @JsonBackReference
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "rule_trigger_2_rule",
+            joinColumns = @JoinColumn(name = "rule_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "rule_trigger_uuid"))
     private List<RuleTrigger> ruleTriggers;
 
 

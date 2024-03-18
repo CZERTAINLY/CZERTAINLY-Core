@@ -363,28 +363,28 @@ public class RuleServiceImpl implements RuleService {
         List<RuleActionGroup> actionGroups = new ArrayList<>();
         if (request.getActionGroups() != null) {
             for (RuleActionGroupRequestDto actionGroupRequestDto : request.getActionGroups()) {
-                if (actionGroupRequestDto.getResource() == trigger.getResource()) actionGroups.add(createActionGroupEntity(actionGroupRequestDto));
+                if (actionGroupRequestDto.getResource() == request.getResource()) actionGroups.add(createActionGroupEntity(actionGroupRequestDto));
             }
         }
 
         if (request.getActionGroupsUuids() != null) {
             for (String actionGroupUuid : request.getActionGroupsUuids()) {
                 Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
-                if (actionGroup.isPresent() && actionGroup.get().getResource() == trigger.getResource()) actionGroups.add(actionGroup.get());
+                if (actionGroup.isPresent() && actionGroup.get().getResource() == request.getResource()) actionGroups.add(actionGroup.get());
             }
         }
 
         List<Rule> rules = new ArrayList<>();
         if (request.getRules() != null) {
             for (RuleRequestDto ruleRequestDto : request.getRules()) {
-                if (ruleRequestDto.getResource() == trigger.getResource()) rules.add(createRuleEntity(ruleRequestDto));
+                if (ruleRequestDto.getResource() == request.getResource()) rules.add(createRuleEntity(ruleRequestDto));
             }
         }
 
         if (request.getRulesUuids() != null) {
             for (String ruleUuid : request.getRulesUuids()) {
                 Optional<Rule> rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid));
-                if (rule.isPresent() && rule.get().getResource() == trigger.getResource()) rules.add(rule.get());
+                if (rule.isPresent() && rule.get().getResource() == request.getResource()) rules.add(rule.get());
             }
         }
 
@@ -395,7 +395,7 @@ public class RuleServiceImpl implements RuleService {
         trigger.setDescription(request.getDescription());
         trigger.setResource(request.getResource());
         trigger.setTriggerResource(request.getTriggerResource());
-        trigger.setTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid()));
+        if (request.getTriggerResourceUuid()!= null) trigger.setTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid()));
         trigger.setTriggerType(request.getTriggerType());
         trigger.setRules(rules);
         trigger.setActionGroups(actionGroups);
@@ -433,14 +433,14 @@ public class RuleServiceImpl implements RuleService {
         List<RuleActionGroup> actionGroups = new ArrayList<>();
         if (request.getActionGroups() != null) {
             for (RuleActionGroupRequestDto actionGroupRequestDto : request.getActionGroups()) {
-                if (actionGroupRequestDto.getResource() == trigger.getResource()) actionGroups.add(createActionGroupEntity(actionGroupRequestDto));
+                if (actionGroupRequestDto.getResource() == request.getResource()) actionGroups.add(createActionGroupEntity(actionGroupRequestDto));
             }
         }
 
         if (request.getActionGroupsUuids() != null) {
             for (String actionGroupUuid : request.getActionGroupsUuids()) {
                 Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
-                if (actionGroup.isPresent() && actionGroup.get().getResource() == trigger.getResource()) actionGroups.add(actionGroup.get());
+                if (actionGroup.isPresent() && actionGroup.get().getResource() == request.getResource()) actionGroups.add(actionGroup.get());
             }
         }
 
@@ -448,14 +448,14 @@ public class RuleServiceImpl implements RuleService {
         List<Rule> rules = new ArrayList<>();
         if (request.getRules() != null) {
             for (RuleRequestDto ruleRequestDto : request.getRules()) {
-                if (ruleRequestDto.getResource() == trigger.getResource()) rules.add(createRuleEntity(ruleRequestDto));
+                if (ruleRequestDto.getResource() == request.getResource()) rules.add(createRuleEntity(ruleRequestDto));
             }
         }
 
         if (request.getRulesUuids() != null) {
             for (String ruleUuid : request.getRulesUuids()) {
                 Optional<Rule> rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid));
-                if (rule.isPresent() && rule.get().getResource() == trigger.getResource()) rules.add(rule.get());
+                if (rule.isPresent() && rule.get().getResource() == request.getResource()) rules.add(rule.get());
             }
         }
 
@@ -467,11 +467,10 @@ public class RuleServiceImpl implements RuleService {
 
         trigger.setRules(rules);
 
-        trigger.setName(request.getName());
         trigger.setDescription(request.getDescription());
         trigger.setResource(request.getResource());
         trigger.setTriggerResource(request.getTriggerResource());
-        trigger.setTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid()));
+        if (request.getTriggerResourceUuid() != null) trigger.setTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid()));
         trigger.setTriggerType(request.getTriggerType());
         trigger.setActionGroups(actionGroups);
 

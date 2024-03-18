@@ -10,7 +10,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -28,11 +27,14 @@ public class RuleConditionGroup extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private Resource resource;
 
-    @OneToMany(mappedBy = "ruleConditionGroup", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "ruleConditionGroup", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<RuleCondition> conditions;
 
-    @ManyToMany(mappedBy = "conditionGroups", fetch = FetchType.LAZY)
-    @JsonBackReference
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "rule_2_rule_condition_group",
+            joinColumns = @JoinColumn(name = "rule_condition_group_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "rule_uuid"))
     private List<Rule> rules;
 
     public RuleConditionGroupDto mapToDto() {

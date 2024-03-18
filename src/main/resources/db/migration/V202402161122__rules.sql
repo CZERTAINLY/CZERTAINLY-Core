@@ -68,25 +68,19 @@ CREATE TABLE rule_action (
 CREATE TABLE rule_trigger_2_rule (
     rule_trigger_uuid UUID,
     rule_uuid UUID,
-    PRIMARY KEY (rule_trigger_uuid, rule_uuid),
-    FOREIGN KEY (rule_trigger_uuid) REFERENCES rule_trigger(uuid),
-    FOREIGN KEY (rule_uuid) REFERENCES rule(uuid)
+    PRIMARY KEY (rule_trigger_uuid, rule_uuid)
 );
 
 CREATE TABLE rule_trigger_2_rule_action_group (
     rule_trigger_uuid UUID,
     rule_action_group_uuid UUID,
-    PRIMARY KEY (rule_trigger_uuid, rule_action_group_uuid),
-    FOREIGN KEY (rule_trigger_uuid) REFERENCES rule_trigger(uuid),
-    FOREIGN KEY (rule_action_group_uuid) REFERENCES rule_action_group(uuid)
+    PRIMARY KEY (rule_trigger_uuid, rule_action_group_uuid)
 );
 
 CREATE TABLE rule_2_rule_condition_group (
     rule_uuid UUID,
     rule_condition_group_uuid UUID,
-    PRIMARY KEY (rule_uuid, rule_condition_group_uuid),
-    FOREIGN KEY (rule_uuid) REFERENCES rule(uuid),
-    FOREIGN KEY (rule_condition_group_uuid) REFERENCES rule_condition_group(uuid)
+    PRIMARY KEY (rule_uuid, rule_condition_group_uuid)
 );
 
 

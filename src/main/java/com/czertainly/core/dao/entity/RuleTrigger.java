@@ -56,7 +56,7 @@ public class RuleTrigger extends UniquelyIdentified {
             inverseJoinColumns = @JoinColumn(name = "rule_action_group_uuid"))
     private List<RuleActionGroup> actionGroups;
 
-    @OneToMany(mappedBy = "ruleTrigger", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "ruleTrigger", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<RuleAction> actions;
 
     public RuleTriggerDto mapToDto() {
@@ -66,7 +66,7 @@ public class RuleTrigger extends UniquelyIdentified {
         ruleTriggerDto.setDescription(description);
         ruleTriggerDto.setResource(resource);
         ruleTriggerDto.setTriggerResource(triggerResource);
-        ruleTriggerDto.setTriggerResourceUuid(triggerResourceUuid.toString());
+        if (triggerResourceUuid != null) ruleTriggerDto.setTriggerResourceUuid(triggerResourceUuid.toString());
         ruleTriggerDto.setTriggerType(triggerType);
         ruleTriggerDto.setEventName(eventName);
         return ruleTriggerDto;
@@ -79,12 +79,12 @@ public class RuleTrigger extends UniquelyIdentified {
         triggerDetailDto.setDescription(description);
         triggerDetailDto.setResource(resource);
         triggerDetailDto.setTriggerResource(triggerResource);
-        triggerDetailDto.setTriggerResourceUuid(triggerResourceUuid.toString());
+        if (triggerResourceUuid != null) triggerDetailDto.setTriggerResourceUuid(triggerResourceUuid.toString());
         triggerDetailDto.setTriggerType(triggerType);
         triggerDetailDto.setEventName(eventName);
         triggerDetailDto.setRules(rules.stream().map(Rule::mapToDto).toList());
-        triggerDetailDto.setActionGroups(actionGroups.stream().map(RuleActionGroup::mapToDto).toList());
-        triggerDetailDto.setActions(actions.stream().map(RuleAction::mapToDto).toList());
+        if (actionGroups != null) triggerDetailDto.setActionGroups(actionGroups.stream().map(RuleActionGroup::mapToDto).toList());
+        if (actions != null) triggerDetailDto.setActions(actions.stream().map(RuleAction::mapToDto).toList());
         return triggerDetailDto;
     }
 }
