@@ -1,18 +1,12 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.RuleController;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateFormat;
-import com.czertainly.api.model.core.certificate.CertificateFormatEncoding;
 import com.czertainly.api.model.core.rules.*;
 import com.czertainly.core.service.RuleService;
-import com.czertainly.core.util.converter.CertificateFormatConverter;
-import com.czertainly.core.util.converter.CertificateFormatEncodingConverter;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,7 +44,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleDetailDto updateRule(String ruleUuid, RuleRequestDto request) throws NotFoundException {
+    public RuleDetailDto updateRule(String ruleUuid, UpdateRuleRequestDto request) throws NotFoundException {
         return ruleService.updateRule(ruleUuid, request);
     }
 
@@ -75,7 +69,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, RuleConditionGroupRequestDto request) throws NotFoundException {
+    public RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, UpdateConditionGroupRequestDto request) throws NotFoundException {
         return ruleService.updateConditionGroup(conditionGroupUuid, request);
     }
 
@@ -100,7 +94,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, RuleActionGroupRequestDto request) throws NotFoundException {
+    public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, UpdateActionGroupRequestDto request) throws NotFoundException {
         return ruleService.updateActionGroup(actionGroupUuid, request);
     }
 
@@ -125,7 +119,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleTriggerDetailDto updateTrigger(String triggerUuid, RuleTriggerRequestDto request) throws NotFoundException {
+    public RuleTriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
         return ruleService.updateTrigger(triggerUuid, request);
     }
 

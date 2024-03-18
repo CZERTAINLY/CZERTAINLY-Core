@@ -6,11 +6,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.*;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.core.dao.entity.Rule;
-import com.czertainly.core.dao.entity.RuleCondition;
-import com.czertainly.core.dao.entity.RuleConditionGroup;
-import com.czertainly.core.dao.entity.RuleTrigger;
-import com.czertainly.core.dao.repository.RuleConditionGroupRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,8 +49,11 @@ public class RuleServiceTest extends BaseSpringBootTest {
         RuleDetailDto ruleDetailDto = ruleService.createRule(ruleRequestDto);
         Assertions.assertNotNull(ruleDetailDto);
 
-        ruleRequestDto.setDescription("description");
-        Assertions.assertEquals("description", ruleService.updateRule(ruleDetailDto.getUuid(), ruleRequestDto).getDescription());
+
+        UpdateRuleRequestDto updateRuleRequestDto = new UpdateRuleRequestDto();
+        updateRuleRequestDto.setDescription("description");
+        updateRuleRequestDto.setConditions(ruleRequestDto.getConditions());
+        Assertions.assertEquals("description", ruleService.updateRule(ruleDetailDto.getUuid(), updateRuleRequestDto).getDescription());
 
         Assertions.assertNotNull(ruleService.getRule(ruleDetailDto.getUuid()));
 
@@ -73,12 +71,15 @@ public class RuleServiceTest extends BaseSpringBootTest {
         conditionGroupRequestDto.setName("name");
         conditionGroupRequestDto.setResource(Resource.CERTIFICATE);
         Assertions.assertThrows(ValidationException.class, () -> ruleService.createConditionGroup(conditionGroupRequestDto));
+
         conditionGroupRequestDto.setConditions(List.of(conditionRequestDto));
         RuleConditionGroupDetailDto conditionGroupDetailDto = ruleService.createConditionGroup(conditionGroupRequestDto);
         Assertions.assertNotNull(conditionGroupDetailDto);
 
-        conditionGroupRequestDto.setDescription("description");
-        Assertions.assertEquals("description", ruleService.updateConditionGroup(conditionGroupDetailDto.getUuid(), conditionGroupRequestDto).getDescription());
+        UpdateConditionGroupRequestDto updateConditionGroupRequestDto = new UpdateConditionGroupRequestDto();
+        updateConditionGroupRequestDto.setDescription("description");
+        updateConditionGroupRequestDto.setConditions(conditionGroupRequestDto.getConditions());
+        Assertions.assertEquals("description", ruleService.updateConditionGroup(conditionGroupDetailDto.getUuid(), updateConditionGroupRequestDto).getDescription());
 
         Assertions.assertNotNull(ruleService.getConditionGroup(conditionGroupDetailDto.getUuid()));
 
@@ -99,8 +100,11 @@ public class RuleServiceTest extends BaseSpringBootTest {
         RuleTriggerDetailDto triggerDetailDto = ruleService.createTrigger(triggerRequestDto);
         Assertions.assertNotNull(triggerDetailDto);
 
-        triggerRequestDto.setDescription("description");
-        Assertions.assertEquals("description", ruleService.updateTrigger(triggerDetailDto.getUuid(), triggerRequestDto).getDescription());
+        UpdateTriggerRequestDto updateTriggerRequestDto = new UpdateTriggerRequestDto();
+        updateTriggerRequestDto.setDescription("description");
+        updateTriggerRequestDto.setTriggerType(RuleTriggerType.EVENT);
+        updateTriggerRequestDto.setActions(triggerRequestDto.getActions());
+        Assertions.assertEquals("description", ruleService.updateTrigger(triggerDetailDto.getUuid(), updateTriggerRequestDto).getDescription());
 
         Assertions.assertNotNull(ruleService.getTrigger(triggerDetailDto.getUuid()));
 
@@ -123,8 +127,10 @@ public class RuleServiceTest extends BaseSpringBootTest {
         RuleActionGroupDetailDto actionGroupDetailDto = ruleService.createActionGroup(actionGroupRequestDto);
         Assertions.assertNotNull(actionGroupDetailDto);
 
-        actionGroupRequestDto.setDescription("description");
-        Assertions.assertEquals("description", ruleService.updateActionGroup(actionGroupDetailDto.getUuid(), actionGroupRequestDto).getDescription());
+        UpdateActionGroupRequestDto updateActionGroupRequestDto = new UpdateActionGroupRequestDto();
+        updateActionGroupRequestDto.setDescription("description");
+        updateActionGroupRequestDto.setActions(actionGroupRequestDto.getActions());
+        Assertions.assertEquals("description", ruleService.updateActionGroup(actionGroupDetailDto.getUuid(), updateActionGroupRequestDto).getDescription());
 
         Assertions.assertNotNull(ruleService.getActionGroup(actionGroupDetailDto.getUuid()));
 
