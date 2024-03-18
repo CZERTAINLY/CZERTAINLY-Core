@@ -1,76 +1,67 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AcmeProblemDocumentException;
-import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.acme.*;
-import com.czertainly.core.dao.entity.AuthorityInstanceReference;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.acme.AcmeAccount;
-import com.czertainly.core.dao.entity.acme.AcmeAuthorization;
-import com.czertainly.core.dao.entity.acme.AcmeChallenge;
-import com.czertainly.core.dao.entity.acme.AcmeOrder;
-import com.czertainly.core.dao.entity.acme.AcmeProfile;
-import com.czertainly.core.dao.repository.AcmeProfileRepository;
-import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
-import com.czertainly.core.dao.repository.acme.AcmeAuthorizationRepository;
-import com.czertainly.core.dao.repository.acme.AcmeChallengeRepository;
-import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
+import com.czertainly.core.dao.entity.acme.*;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.acme.*;
+import com.czertainly.core.service.acme.AcmeConstants;
 import com.czertainly.core.service.acme.AcmeService;
+import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.czertainly.core.util.CertificateUtil;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.*;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.Base64;
+import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 public class AcmeServiceTest extends BaseSpringBootTest {
-    private static final String ADMIN_NAME = "ACME_USER";
 
+    private static final String BASE_URI = "https://localhost:8443/api/acme/";
+    private static final String RA_BASE_URI = BASE_URI + "raProfiles/";
+    private static final String ACME_PROFILE_NAME = "testAcmeProfile1";
     private static final String RA_PROFILE_NAME = "testRaProfile1";
-    private static final String CLIENT_NAME = "testClient1";
-
-    @Autowired
-    private com.czertainly.core.service.RaProfileService raProfileService;
+    private static final String NONCE_HEADER_CUSTOM_PARAM = "nonce";
+    private static final String URL_HEADER_CUSTOM_PARAM = "url";
+    private static final String ACME_ACCOUNT_ID_VALID = "RMAl70zrRrs";
+    private static final String ACME_ACCOUNT_ID_INVALID = "invalidAccountId";
+    private static final String AUTHORIZATION_ID_PENDING = "auth123";
+    private static final String ORDER_ID_VALID = "order123";
 
     @Autowired
     private RaProfileRepository raProfileRepository;
     @Autowired
-    private CertificateRepository certificateRepository;
-    @Autowired
-    private CertificateContentRepository certificateContentRepository;
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
-
-    private RaProfile raProfile;
-    private Certificate certificate;
-    private CertificateContent certificateContent;
-    private AuthorityInstanceReference authorityInstanceReference;
-    private Connector connector;
-
     @Autowired
-    private AcmeAccountService acmeAccountService;
+    private AcmeNonceRepository acmeNonceRepository;
 
     @Autowired
     private AcmeAccountRepository acmeAccountRepository;
-
-    @Autowired
-    private AcmeProfileService acmeProfileService;
 
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
@@ -85,68 +76,104 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     private AcmeChallengeRepository acmeChallengeRepository;
 
     @Autowired
+    private CertificateContentRepository certificateContentRepository;
+
+    @Autowired
+    private CertificateRepository certificateRepository;
+
+    @Autowired
     private AcmeService acmeService;
 
-    private AcmeProfile acmeProfile;
-
-    private AcmeAccount acmeAccount;
+    private AcmeNonce acmeValidNonce;
+    private JWSSigner rsa2048Signer;
+    private RSAKey rsa2048PublicJWK;
+    private JWSSigner newRsa2048Signer;
+    private RSAKey newRsa2048PublicJWK;
+    private String b64UrlCertificate;
 
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
 
-        certificateContent = new CertificateContent();
-        certificateContent = certificateContentRepository.save(certificateContent);
+        RSAKey rsa2048JWK = new RSAKeyGenerator(2048)
+                .generate();
+        rsa2048PublicJWK = rsa2048JWK.toPublicJWK();
+        rsa2048Signer = new RSASSASigner(rsa2048JWK);
 
-        certificate = new Certificate();
-        certificate.setCertificateContent(certificateContent);
-        certificate.setSerialNumber("123456789");
-        certificate = certificateRepository.save(certificate);
+        RSAKey newRsa2048JWK = new RSAKeyGenerator(2048)
+                .generate();
+        newRsa2048PublicJWK = newRsa2048JWK.toPublicJWK();
+        newRsa2048Signer = new RSASSASigner(newRsa2048JWK);
 
-        connector = new Connector();
+        KeyPair keyPair = rsa2048JWK.toKeyPair();
+        X509Certificate x509Certificate = CertificateUtil.generateRandomX509Certificate(keyPair);
+        String b64Certificate = Base64.getEncoder().encodeToString(x509Certificate.getEncoded());
+        b64UrlCertificate = Base64.getUrlEncoder().encodeToString(x509Certificate.getEncoded());
+
+        Connector connector = new Connector();
         connector.setUrl("http://localhost:3665");
         connector = connectorRepository.save(connector);
 
-        authorityInstanceReference = new AuthorityInstanceReference();
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
         authorityInstanceReference.setAuthorityInstanceUuid("1l");
         authorityInstanceReference.setConnector(connector);
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
-        raProfile = new RaProfile();
+        RaProfile raProfile = new RaProfile();
+        raProfile.setEnabled(true);
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile = raProfileRepository.save(raProfile);
 
-        acmeProfile = new AcmeProfile();
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContent.setContent(b64Certificate);
+        certificateContent = certificateContentRepository.save(certificateContent);
+
+        Certificate certificate = new Certificate();
+        certificate.setCertificateContent(certificateContent);
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
+        certificate.setRaProfile(raProfile);
+        certificate = certificateRepository.save(certificate);
+
+        certificateContent.setCertificate(certificate);
+        certificateContentRepository.save(certificateContent);
+
+        AcmeProfile acmeProfile = new AcmeProfile();
         acmeProfile.setRaProfile(raProfile);
         acmeProfile.setWebsite("sample website");
         acmeProfile.setTermsOfServiceUrl("sample terms");
         acmeProfile.setValidity(30);
         acmeProfile.setRetryInterval(30);
         acmeProfile.setDescription("sample description");
-        acmeProfile.setName("sameName");
+        acmeProfile.setName(ACME_PROFILE_NAME);
         acmeProfile.setDnsResolverPort("53");
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
+        acmeProfile.setEnabled(true);
+        acmeProfile.setDisableNewOrders(false);
         acmeProfileRepository.save(acmeProfile);
 
+        raProfile.setAcmeProfile(acmeProfile);
+        raProfileRepository.save(raProfile);
 
-        acmeAccount = new AcmeAccount();
+        AcmeAccount acmeAccount = new AcmeAccount();
         acmeAccount.setStatus(AccountStatus.VALID);
         acmeAccount.setEnabled(true);
-        acmeAccount.setAccountId("RMAl70zrRrs");
+        acmeAccount.setAccountId(ACME_ACCOUNT_ID_VALID);
         acmeAccount.setTermsOfServiceAgreed(true);
         acmeAccount.setAcmeProfile(acmeProfile);
         acmeAccount.setRaProfile(raProfile);
+        acmeAccount.setPublicKey(Base64.getEncoder().encodeToString(rsa2048JWK.toPublicKey().getEncoded()));
         acmeAccountRepository.save(acmeAccount);
 
         AcmeOrder order1 = new AcmeOrder();
-        order1.setOrderId("order123");
+        order1.setOrderId(ORDER_ID_VALID);
         order1.setStatus(OrderStatus.VALID);
         order1.setAcmeAccount(acmeAccount);
         acmeOrderRepository.save(order1);
 
         AcmeAuthorization authorization1 = new AcmeAuthorization();
-        authorization1.setAuthorizationId("auth123");
+        authorization1.setAuthorizationId(AUTHORIZATION_ID_PENDING);
         authorization1.setStatus(AuthorizationStatus.PENDING);
         authorization1.setWildcard(false);
         authorization1.setOrderUuid(order1.getUuid());
@@ -160,126 +187,433 @@ public class AcmeServiceTest extends BaseSpringBootTest {
         challenge2.setAuthorizationUuid(authorization1.getUuid());
         acmeChallengeRepository.save(challenge2);
 
+        Date expires = AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY);
+        acmeValidNonce = new AcmeNonce();
+        acmeValidNonce.setNonce("5pSv1vR6SEJryGlA0JRns6e376ZGjUt-CYxmqvwBEaY");
+        acmeValidNonce.setCreated(new Date());
+        acmeValidNonce.setExpires(expires);
+        acmeNonceRepository.save(acmeValidNonce);
+
     }
 
     @Test
     public void testGetDirectory() throws AcmeProblemDocumentException, NotFoundException {
-        ResponseEntity<Directory> directory = acmeService.getDirectory("sameName");
-        Assertions.assertNotNull(directory);
-        Assertions.assertEquals(true, directory.getBody().getNewOrder().endsWith("/new-order"));
-        Assertions.assertEquals(true, directory.getBody().getKeyChange().endsWith("/key-change"));
-        Assertions.assertEquals(true, directory.getBody().getNewAccount().endsWith("/new-account"));
-        Assertions.assertEquals(true, directory.getBody().getNewNonce().endsWith("/new-nonce"));
-        Assertions.assertEquals(true, directory.getBody().getRevokeCert().endsWith("/revoke-cert"));
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/directory");
+        ResponseEntity<Directory> directory = acmeService.getDirectory(ACME_PROFILE_NAME, requestUri, false);
+        assertGetDirectory(directory);
+    }
+
+    @Test
+    public void testGetDirectory_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/directory");
+        ResponseEntity<Directory> directory = acmeService.getDirectory(RA_PROFILE_NAME, requestUri, true);
+        assertGetDirectory(directory);
+    }
+
+    private void assertGetDirectory(ResponseEntity<Directory> response) {
+        Assertions.assertNotNull(response);
+        // status code is 200
+        Assertions.assertEquals(200, response.getStatusCode().value());
+
+        Assertions.assertTrue(Objects.requireNonNull(response.getBody()).getNewOrder().endsWith("/new-order"));
+        Assertions.assertTrue(response.getBody().getKeyChange().endsWith("/key-change"));
+        Assertions.assertTrue(response.getBody().getNewAccount().endsWith("/new-account"));
+        Assertions.assertTrue(response.getBody().getNewNonce().endsWith("/new-nonce"));
+        Assertions.assertTrue(response.getBody().getRevokeCert().endsWith("/revoke-cert"));
     }
 
     @Test
     public void testGetNonce(){
-        ResponseEntity<?> response = acmeService.getNonce(true);
-        Assertions.assertNotNull(response.getHeaders().get("Replay-Nonce"));
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/new-nonce");
+        ResponseEntity<?> response = acmeService.getNonce(ACME_PROFILE_NAME, true, requestUri, false);
+        assertGetNonce(response);
     }
 
     @Test
-    public void testNewAccount() throws AcmeProblemDocumentException, NotFoundException {
-        String requestJson = "{\n" +
-                "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAiandrIjogeyJuIjogIi14aC1NM21QbER4QXp4dUNPVEFia2ZrOWJaQ1dkZXBzQkNSdUxabnJqSnNDUUV6eW1fZFJ3aU41UW53eGlJanBNYnR3aklzN3RKNjJ2UzlWSkN3dF9NZGdfYzkwR2dTTXJVNG5LZFNLdXByVmZ4WHI3MGt5UUpNRDg3ZkVFWGg5ZEFSTnVTSDNBc1pVWkpabGVZTG1MRlZMc1dxSlZWZk9QLTY4UVlGQTdBU1h3VGs2ZmRGNjFkYnVxR0pobklUSlFlNGdFbjF3a3JubG1SR1QzMldtT2F0UmhYdVFQZkdNMDZlZ3lMcVNmZTVzaHQ0STEwT2FTUVkwQ2x4blBrVkNuSFVDSXBuRVpTOFJlNDBpZXNEOFExQUFmM0ZrblhzMXNMdDczbS13UjFIT3hhVGJUUkZpUFZ2TlNwVXJMTFJ2a3BVOGVHblpqaG5YODBzalNrNDFpUSIsICJlIjogIkFRQUIiLCAia3R5IjogIlJTQSJ9LCAibm9uY2UiOiAiNXBTdjF2UjZTRUpyeUdsQTBKUm5zNmUzNzZaR2pVdC1DWXhtcXZ3QkVhWSIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvcmFQcm9maWxlL3EvbmV3LWFjY291bnQifQ\",\n" +
-                "  \"signature\": \"qR4sGW8IpGEeszEEoecE0l-cYZw-g1vWOTnEDVXgafotTN0cJosM55L_MB416Gixm2KPPPWSa96FzZ53Z0tEUJiqfrmczdW14fsHEpXuEuBfQ9jptlqZyoS3flYz98VDAUpr4jnHVvzyeMY5zTo2pSOt9Vrs2TJgjwbjqybsF7W4R_DWULyHnHF6mb-6eBx5u3KWUSgRd4sd83NZkI-XJp3X3fMenCDyMHKp0sT4hffI0_LaurD-Zxt4c6UgPEX1LCZSUthPEcZvdYfW1gxvNjWs4QR4SGKe2CqWurxlfShi8BRHiCk2oT2qKP5Y8Nyqq_OXQPLm9B24a9izieqPwA\",\n" +
-                "  \"payload\": \"ewogICJjb250YWN0IjogWwogICAgIm1haWx0bzp0ZXN0LnRlc3RAdGVzdCIKICBdLAogICJ0ZXJtc09mU2VydmljZUFncmVlZCI6IHRydWUKfQ\"\n" +
-                "}";
-            ResponseEntity<Account> account = acmeService.newAccount("sameName", requestJson);
-            Assertions.assertNotNull(account);
-            Assertions.assertNotNull(account.getHeaders().getLocation());
-            Assertions.assertEquals(AccountStatus.VALID, account.getBody().getStatus());
+    public void testGetNonce_raProfileBased(){
+        URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/new-nonce");
+        ResponseEntity<?> response = acmeService.getNonce(RA_PROFILE_NAME, true, requestUri, true);
+        assertGetNonce(response);
+    }
+
+    private void assertGetNonce(ResponseEntity<?> response) {
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
+        // Nonce header is present
+        Assertions.assertNotNull(response.getHeaders().get(AcmeConstants.NONCE_HEADER_NAME));
     }
 
     @Test
-    public void testNewAccount_Fail() throws AcmeProblemDocumentException, NotFoundException {
-        String requestJson = "{\n" +
-                "  \"protected\": \"gfdfhgfghfdgh\",\n" +
-                "  \"signature\": \"fdghdfgh-cYZw-dfghfdgh-fdgh-dfgh-dfgh\",\n" +
-                "  \"payload\": \"dfgdrtyufghgjghktyfghdtu\"\n" +
-                "}";
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newAccount("sameName", requestJson));
+    public void testNewAccount() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
+        ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON(requestUri), requestUri, false);
+        assertNewAccount(account);
     }
 
     @Test
-    public void testNewOrder() throws AcmeProblemDocumentException, NotFoundException {
-        String requestJson = "{\n" +
-                "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vMTkyLjE2OC4wLjExMTo4NDQzL2FwaS9hY21lL3JhUHJvZmlsZS9xL2FjY3QvUk1BbDcwenJScnMiLCAibm9uY2UiOiAienJic1lpckhmX3RlM2tPeXlacDg2cDg2TmpnVnp0RTlKOW4zQWVEU3AtNCIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvcmFQcm9maWxlL3EvbmV3LW9yZGVyIn0\",\n" +
-                "  \"signature\": \"ttx50ZQERMtL4I3GjaM8g4Z9ljJUweevmEbBJt827dgiDbEP3clmXBhB-D5AmyfDvlYSqdxDdVhnl3tBBKSxtFs9irnoPfc-0-mFua_Eh1nsWeRq36z7utBNYaeUwc7IqwXK_dGRPZN0WD7fNs_YUi9nM1_-1rlRl3wQ3bH5aS_1w6EsZgfwVEEAuzMACT45OuuEvfrqddWnv6pEs2i6MhRBIG9u5-BQdet410NfRjaO74U6keVmhfFZiaroraCjnpcZwzo-ZkUfLHwxe16vO6dM9Jjfo9zijVI2I0U7oRl1d2jHllJCYlpnQdxufcjqJcWZBXglGfzjbTvES38wEQ\",\n" +
-                "  \"payload\": \"ewogICJpZGVudGlmaWVycyI6IFsKICAgIHsKICAgICAgInR5cGUiOiAiZG5zIiwKICAgICAgInZhbHVlIjogImRlYmlhbjEwLmFjbWUubG9jYWwiCiAgICB9CiAgXQp9\"\n" +
-                "}";
-        try {
-            ResponseEntity<Order> order = acmeService.newOrder("sameName", requestJson);
-            Assertions.assertNotNull(order.getBody());
-            Assertions.assertEquals(OrderStatus.PENDING, order.getBody().getStatus());
-            Assertions.assertEquals(1, order.getBody().getAuthorizations().size());
-        }catch (Exception e){
-                System.out.println(e.getMessage());
-        }
+    public void testNewAccount_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
+        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON(requestUri), requestUri, true);
+        assertNewAccount(account);
+    }
 
+    private String buildNewAccountRequestJSON(URI requestUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(rsa2048PublicJWK)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    private void assertNewAccount(ResponseEntity<Account> account) {
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.CREATED, account.getStatusCode());
+
+        Assertions.assertNotNull(account);
+        Assertions.assertNotNull(account.getHeaders().getLocation());
+        Assertions.assertEquals(AccountStatus.VALID, Objects.requireNonNull(account.getBody()).getStatus());
     }
 
     @Test
-    public void testNewOrder_Fail() throws AcmeProblemDocumentException, NotFoundException {
-        String requestJson = "{\n" +
-                "  \"protected\": \"gfdfhgfghfdgh\",\n" +
-                "  \"signature\": \"fdghdfgh-cYZw-dfghfdgh-fdgh-dfgh-dfgh\",\n" +
-                "  \"payload\": \"dfgdrtyufghgjghktyfghdtu\"\n" +
-                "}";
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.newOrder("sameName", requestJson));
+    public void testNewAccount_fail() throws URISyntaxException {
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_fail(), requestUri, false));
     }
 
     @Test
-    public void testGetAuthorization() throws AcmeProblemDocumentException, NotFoundException {
-        String requestJson = "{\n" +
-                "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vMTkyLjE2OC4wLjExMTo4NDQzL2FwaS9hY21lL3JhUHJvZmlsZS9xL2FjY3QvUk1BbDcwenJScnMiLCAibm9uY2UiOiAiZEhUYzZQRE02bXBlNkdEcjFweXROUEM3ZFkwVS1yaEVzUDNMTmVKOWlFTSIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvVFAvYXV0aHovSl8xVUxlZ1ZDVTQifQ\",\n" +
-                "  \"signature\": \"P7rY0IydqGImlCystf80dMbtH9Av1Pxn5UF-qO3C2SdIunJCepsYuDNncsOiTH83OV93aIM9O-UzdbdQ-h5AyqWVH8l_UwJnYUGrpKnNcw-c4gXwtRaqnMn86Cz62SkTHpsRK-uEOat8UqCMBpJk86Tj9P5_lHsEnlYMTpeGor3Zm5sg25dS_iLSdsK0KeyB5elv5yDfKWAMvcnU5PvxhUIF9DLoFI0xDB5O1svQ6uuBfTlBfez5ElWRnWtUReDRVWuEg5Vw-faREq4sBbdkTLiyJJvzFJ-2JG9qRUHU5_8zYn_frnBnFMT3Bprhwg6k0x2iKg92_bWjIGs9nmbtEw\",\n" +
-                "  \"payload\": \"\"\n" +
-                "}";
-        ResponseEntity<Authorization> authorization = acmeService.getAuthorization("sameName", "auth123", requestJson);
+    public void testNewAccount_fail_raProfileBased() throws URISyntaxException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_fail(), requestUri, true));
+    }
+
+    private String buildNewAccountRequestJSON_fail() throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("dfgdrtyufghgjghktyfghdtu"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(rsa2048PublicJWK)
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    @Test
+    public void testNewOrder() throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-order");
+        ResponseEntity<Order> order = acmeService.newOrder(
+                ACME_PROFILE_NAME,
+                buildNewOrderRequestJSON(requestUri, BASE_URI + ACME_PROFILE_NAME), requestUri, false);
+        assertNewOrder(order);
+    }
+
+    @Test
+    public void testNewOrder_raProfileBased() throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-order");
+        ResponseEntity<Order> order = acmeService.newOrder(
+                RA_PROFILE_NAME,
+                buildNewOrderRequestJSON(requestUri, RA_BASE_URI + RA_PROFILE_NAME), requestUri, true);
+        assertNewOrder(order);
+    }
+
+    private String buildNewOrderRequestJSON(URI requestUri, String baseUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"identifiers\":[{\"type\":\"dns\",\"value\":\"debian10.acme.local\"}]}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    private void assertNewOrder(ResponseEntity<Order> order) {
+        // status code is 201
+        Assertions.assertEquals(HttpStatus.CREATED, order.getStatusCode());
+
+        Assertions.assertNotNull(order.getBody());
+        Assertions.assertEquals(OrderStatus.PENDING, order.getBody().getStatus());
+        Assertions.assertEquals(1, order.getBody().getAuthorizations().size());
+    }
+
+    @Test
+    public void testNewOrder_Fail() throws URISyntaxException {
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-order");
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.newOrder(ACME_PROFILE_NAME, buildNewOrderRequestJSON_fail(), requestUri, false));
+    }
+
+    @Test
+    public void testNewOrder_fail_raProfileBased() throws URISyntaxException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-order");
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.newOrder(RA_PROFILE_NAME, buildNewOrderRequestJSON_fail(), requestUri, true));
+    }
+
+    private String buildNewOrderRequestJSON_fail() throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("dfgdrtyufghgjghktyfghdtu"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    @Test
+    public void testGetAuthorization() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+        String baseUri = BASE_URI + ACME_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/authz/" + AUTHORIZATION_ID_PENDING);
+        ResponseEntity<Authorization> authorization = acmeService.getAuthorization(
+                ACME_PROFILE_NAME, AUTHORIZATION_ID_PENDING,
+                buildGetAuthorizationRequestJSON(requestUri, baseUri), requestUri, false);
+        assertGetAuthorization(authorization);
+    }
+
+    @Test
+    public void testGetAuthorization_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+        String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/authz/" + AUTHORIZATION_ID_PENDING);
+        ResponseEntity<Authorization> authorization = acmeService.getAuthorization(
+                RA_PROFILE_NAME, AUTHORIZATION_ID_PENDING,
+                buildGetAuthorizationRequestJSON(requestUri, baseUri), requestUri, true);
+        assertGetAuthorization(authorization);
+    }
+
+    private String buildGetAuthorizationRequestJSON(URI requestUri, String baseUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(""));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    private void assertGetAuthorization(ResponseEntity<Authorization> authorization) {
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.OK, authorization.getStatusCode());
+
         Assertions.assertNotNull(authorization);
-        Assertions.assertEquals(0, authorization.getBody().getChallenges().size());
+        Assertions.assertEquals(0, Objects.requireNonNull(authorization.getBody()).getChallenges().size());
+        // is pending
+        Assertions.assertEquals(AuthorizationStatus.PENDING, authorization.getBody().getStatus());
     }
 
     @Test
-    public void testFinalize() throws AcmeProblemDocumentException, ConnectorException, CertificateException, AlreadyExistException, JsonProcessingException {
-        String requestJson = "{\n" +
-                "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vMTkyLjE2OC4wLjExMTo4NDQzL2FwaS9hY21lL3JhUHJvZmlsZS9xL2FjY3QvUk1BbDcwenJScnMiLCAibm9uY2UiOiAiWkc5aWtYdTB4d1JNZ1ZpdDlLZHY5RG5zRmF5dDAzbWdXT0x4WldjMFE4USIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvVFAvb3JkZXIvall3eVJHSk1JZUEvZmluYWxpemUifQ\",\n" +
-                "  \"signature\": \"0xnnC2Stx0IJyDvEZ3sDda_50oEocMGZkQvOxniXp8cbk17fpKYS9sRgMqDTeC8uaUWtv7YIRGoCHQvTYs40_Q3bdGmJGtN-ltZte3LM5oJARQPwgB8NIVzXkE6axd_8So1Xsau5yVi23dHO_y0MIYQzUYFpyn_30bCkTfNdiOIrX55qb8EX0E5OwPUrcUXeVtXAkpxLLMew2ZcQF1pHYjTNFQ1ZXtlO9xcTWZikLq5Eg_3FRWuh0ZxqsVw6-8QtYM2W44Zna2ZGbIAm2jveVTEM2O-ZAvYxFxYmNdUR9aNVPpme76OC5v3rjVsnJaBtDjpkJ9ub7EbOk9kvG1oD6w\",\n" +
-                "  \"payload\": \"ewogICJjc3IiOiAiTUlJQ2RqQ0NBVjRDQVFJd0FEQ0NBU0l3RFFZSktvWklodmNOQVFFQkJRQURnZ0VQQURDQ0FRb0NnZ0VCQUxlSnZ4N0pXYnd6b2JXTDc0S3lIejBGalBxdDBSNWlPYU94aVlxcGZNWS1aVmhNQmtTMEZxbkNCUXpNbjVCa0h1a2R4N0hzSU1rSi1zTTAxSFZISmFScGdwZjF6ZVR5UlFqWTdFU0Rpa1JMXzFFa3hpNlNnZjV1bnpCMzVhUDJFQnhpQWFvbUc2MTBIanBxU2ZHdE96RWYxMmh5NGprY0M0NDZUVDhuRTlkbTZDQmY3WEFvcTl2WHhYUmpuQWdka3I2MnlJemFuWGVkRHdkY055azVFaWlSV1FYd1ctTDVQZXg1ODA4aXAyZ21FNUFsNVNQVWl2OGVEQ3EwMlFWREo4TG40VVBZa3hMMWI2Uk1sZkVnS0xzR0VaWDBlLUZDMHdfZmlCTjQ4enJ2SHhxTTJmZFU3QWU4cFJEd1VPQ2xZT3hEa3J2RHY2MFJHaWtMbFFaNDVGY0NBd0VBQWFBeE1DOEdDU3FHU0liM0RRRUpEakVpTUNBd0hnWURWUjBSQkJjd0ZZSVRaR1ZpYVdGdU1UQXVZV050WlM1c2IyTmhiREFOQmdrcWhraUc5dzBCQVFzRkFBT0NBUUVBSGxPMFp1UHVZRXRwbFUwZ0VVajg4WWkxTVdrckVseDBKb1RrN3FvblJzdWZ1X1kyUF91LVJya1dPek0zVkowOGxOejkwTF9tbmM4Tk9PTk1sX1dsWVdCeXdiVU1zR2FyNFlfMXgweVNPRWRwNWZnODdyeFkxYjJqYlNMN3RQZTRPVjd5QWViZENFenpYWEJpM0F5OU5vSkFod05PTmp5UnA5MnZxVDUtTVdNWFF5WnZkY1VNTTM4bDZhTmM5am9mM0VsdU5iZ083bldTbGU2TVFKSnZsRVl3WHg3WlB2dmd4TWZyUmEtWWNfYVdTN3cyNU1TQU9ES0t3dklpdkduNXFfb3dmZDVBb3pZcDBweW1pTExidkFXaFlWV0xfLWJHdkoxM3hweWZOUG5HSklkd2NZOHpnaWtZUHlCZmJSbVB5S0pMUEk0UW5XejhHc1dHaWFVZ2pBIgp9\"\n" +
-                "}";
-        // ResponseEntity<Order> order = acmeService.finalizeOrder("sameName", "order123", requestJson);
-        // Assertions.assertNotNull(order);
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder("sameName", "order123", requestJson));
+    public void testFinalize() throws URISyntaxException {
+        String baseUri = BASE_URI + ACME_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
+                ACME_PROFILE_NAME, ORDER_ID_VALID,
+                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
     }
 
     @Test
-    public void testRevokeCert() throws AcmeProblemDocumentException, ConnectorException, CertificateException {
-        String requestJson = "{\n" +
-                "  \"protected\": \"eyJhbGciOiAiUlMyNTYiLCAia2lkIjogImh0dHBzOi8vMTkyLjE2OC4wLjExMTo4NDQzL2FwaS9hY21lL3JhUHJvZmlsZS9xL2FjY3QvUk1BbDcwenJScnMiLCAibm9uY2UiOiAiZTY5RUtiRU9HaFpzdjh2M0xmU0xMM0NjLVNFQTJ2YmNxcGZnT3BCNlVLbyIsICJ1cmwiOiAiaHR0cHM6Ly8xOTIuMTY4LjAuMTExOjg0NDMvYXBpL2FjbWUvcmFQcm9maWxlL3EvcmV2b2tlLWNlcnQifQ\",\n" +
-                "  \"signature\": \"jIx3Xq51pACNHhUc2c7Er1_V5E0rpJU5dHvuaCnUkfyXrr8kilSVlKSRJJhVq8RuX4r8gHWR10fmgZnxk1N8WhvHEro44jSgYT2Jrp-7DxEPGJy0v4LhHoLJWtyquUo8MtunWaoGJn6yzT3mtvVyIG1ROiNnwA6pm8xGYaQdyPiW3kCiiYyj1E8SDMqo10UMWRYQlINCNVh_1M8SAvar4MDJgKL19jR-r3_BL4yjaW9pMjVhFtHVJqpu-DcqMS07twW5OS9Wu11QeKG0gmwJ57lgS_jqtK-SrXGPKw13QVBqJg4ftUzSWeQh11oBLpFmtvwegn4EpRWdlGoXJCU_rA\",\n" +
-                "  \"payload\": \"ewogICJjZXJ0aWZpY2F0ZSI6ICJNSUlGVlRDQ0F6MmdBd0lCQWdJVEdBQUFBVWREY28xdGlEM3RhQUFBQUFBQlJ6QU5CZ2txaGtpRzl3MEJBUTBGQURBM01SY3dGUVlEVlFRRERBNUVaVzF2SUUxVElGTjFZaUJEUVRFY01Cb0dBMVVFQ2d3VE0wdGxlU0JEYjIxd1lXNTVJSE11Y2k1dkxqQWVGdzB5TWpBeE1qVXdPVFV6TVRCYUZ3MHlOREF4TWpVd09UVXpNVEJhTUFBd2dnRWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUUMzaWI4ZXlWbThNNkcxaS0tQ3NoODlCWXo2cmRFZVlqbWpzWW1LcVh6R1BtVllUQVpFdEJhcHdnVU16Si1RWkI3cEhjZXg3Q0RKQ2ZyRE5OUjFSeVdrYVlLWDljM2s4a1VJMk94RWc0cEVTXzlSSk1ZdWtvSC1icDh3ZC1XajloQWNZZ0dxSmh1dGRCNDZha254clRzeEg5ZG9jdUk1SEF1T09rMF9KeFBYWnVnZ1gtMXdLS3ZiMThWMFk1d0lIWkstdHNpTTJwMTNuUThIWERjcE9SSW9rVmtGOEZ2aS1UM3NlZk5QSXFkb0poT1FKZVVqMUlyX0hnd3F0TmtGUXlmQzUtRkQySk1TOVcta1RKWHhJQ2k3QmhHVjlIdmhRdE1QMzRnVGVQTTY3eDhhak5uM1ZPd0h2S1VROEZEZ3BXRHNRNUs3dzctdEVSb3BDNVVHZU9SWEFnTUJBQUdqZ2dHUE1JSUJpekFoQmdOVkhSRUJBZjhFRnpBVmdoTmtaV0pwWVc0eE1DNWhZMjFsTG14dlkyRnNNQjBHQTFVZERnUVdCQlNOUFFiaTN1dGMtSnJCQXlaMXhldUVfcXl4WERBZkJnTlZIU01FR0RBV2dCU1N3cnpmVmNYQms0VkpCX2VzeVIwTGFBRUhVVEJOQmdOVkhSOEVSakJFTUVLZ1FLQS1oanhvZEhSd09pOHZiR0ZpTURJdU0ydGxlUzVqYjIxd1lXNTVMMk55YkhNdlpHVnRieTlFWlcxdkpUSXdUVk1sTWpCVGRXSWxNakJEUVM1amNtd3dWd1lJS3dZQkJRVUhBUUVFU3pCSk1FY0dDQ3NHQVFVRkJ6QUJoanRvZEhSd09pOHZiR0ZpTURJdU0ydGxlUzVqYjIxd1lXNTVMMk5oY3k5a1pXMXZMMFJsYlc4bE1qQk5VeVV5TUZOMVlpVXlNRU5CTG1OeWREQU9CZ05WSFE4QkFmOEVCQU1DQmFBd1BBWUpLd1lCQkFHQ054VUhCQzh3TFFZbEt3WUJCQUdDTnhVSWgtV0RZYWlIY0lLSmdUeUVrOElCaFlpNWFvRk1ncEhlVHBPV1ZRSUJaQUlCQkRBVEJnTlZIU1VFRERBS0JnZ3JCZ0VGQlFjREFUQWJCZ2tyQmdFRUFZSTNGUW9FRGpBTU1Bb0dDQ3NHQVFVRkJ3TUJNQTBHQ1NxR1NJYjNEUUVCRFFVQUE0SUNBUUNqMlVBeVhrb0tib0xKUWQyQW5XRGVoQXdMcEV3OWpoalNzMzZKbzVzZVJyVEpSWEZvNGxkWHlIUGdNUFJNTldoRGItTHpuUk52d2tiMHh6S292Ynk1ZlFjOFVxcmlNV1cyVGZlSEhudW1pQUJWVWRmNHcyalpzSGJpMFMyMEY4dTlFNHV0YW1mdUNlU1Q2ZHlBdW96eXlZdjNRUzZuVnIxazZTbXI2UHYxOHFPZklaMzdZRzgtdGZkZ3Y5VVF3SlZ2eEJ1UElma04xeVpBN2tudXEyb0JxRXpmUHVrOGoybXV5VHdndkFfM3phRVRtT1F4UDREcnM3bVJwSkIzbDJuTHpwdWViZ1ZsWUppSEdieWFnRWlueHZSUTZMdVBnN25TYmdLYXFIa0pWSGtDSTZpSF9ONlk3aWNxcGZIT0pRUEFIaVBObXhyZUtJVVpyV2l5SERGMWJKQ3paWmk3R0ZRVXNzaktDbTI2bnI5aEY4VGJnVnlybDFyMnAxOEFwb0NrdmdQaGtQT0swdzVqMUowMzJjT1FQTTZlUm5kZXJlbEJzV3lGWk9ZcDVpeExoeUxHcklFN2p4ZXk3N1hmSzgtUUVLMy1hd3c5c0V5VDVBUnhiUFdnNDVuNEd6QXBwanFfbVo2OVJBdS1WcVJvSjNjUldNNUxsUUh5VjR5dnA3ZEg3TUZUMVZyc2U1MWJoNE5yc0RwcGthTE5GSFVMcmE5RlNoYUtkSTBBeENKUFhLWmF6TGVpeDg5am5KM0hGbjR0WERINkJIdGZzeDd3aG5Ea1RuUzVsRDF3QXR4eHI1LWZtSWNCUHhDSmtGclBDWGlxNzIwOFZxQ2FuazBQX0JOb0NZOVhwYWF2NjBhNFNjTjAtSkJQSVRJcFVvQ0RUeHEzbDN4TDd1dEdudyIsCiAgInJlYXNvbiI6IDgKfQ==\"\n" +
-                "}";
-        Assertions.assertThrows(NullPointerException.class, () -> acmeService.revokeCertificate("sameName", requestJson));
+    public void testFinalize_raProfileBased() throws URISyntaxException {
+        String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
+                RA_PROFILE_NAME, ORDER_ID_VALID,
+                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, true));
+    }
 
+    private String buildFinalizeRequestJSON(URI requestUri, String baseUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"csr\":\"MIICdjCCAV4CAQIwADCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALeJvx7JWbwzobWL74KyHz0FjPqt0R5iOaOxiYqpfMY-ZVhMBkS0FqnCBQzMn5BkHukdx7HsIMkJ-sM01HVHJaRpgpf1zeTyRQjY7ESDikRL_1Ekxi6Sgf5unzB35aP2EBxiAaomG610HjpqSfGtOzEf12hy4jkcC446TT8nE9dm6CBf7XAoq9vXxXRjnAgdkr62yIzanXedDwdcNyk5EiiRWQXwW-L5Pex5808ip2gmE5Al5SPUiv8eDCq02QVDJ8Ln4UPYkxL1b6RMlfEgKLsGEZX0e-FC0w_fiBN48zrvHxqM2fdU7Ae8pRDwUOClYOxDkrvDv60RGikLlQZ45FcCAwEAAaAxMC8GCSqGSIb3DQEJDjEiMCAwHgYDVR0RBBcwFYITZGViaWFuMTAuYWNtZS5sb2NhbDANBgkqhkiG9w0BAQsFAAOCAQEAHlO0ZuPuYEtplU0gEUj88Yi1MWkrElx0JoTk7qonRsufu_Y2P_u-RrkWOzM3VJ08lNz90L_mnc8NOONMl_WlYWBywbUMsGar4Y_1x0ySOEdp5fg87rxY1b2jbSL7tPe4OV7yAebdCEzzXXBi3Ay9NoJAhwNONjyRp92vqT5-MWMXQyZvdcUMM38l6aNc9jof3EluNbgO7nWSle6MQJJvlEYwXx7ZPvvgxMfrRa-Yc_aWS7w25MSAODKKwvIivGn5q_owfd5AozYp0pymiLLbvAWhYVWL_-bGvJ13xpyfNPnGJIdwcY8zgikYPyBfbRmPyKJLPI4QnWz8GsWGiaUgjA\"}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    @Test
+    public void testRevokeCert_fail() throws URISyntaxException {
+        String baseUri = BASE_URI + ACME_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/revoke-cert");
+        Assertions.assertThrows(NullPointerException.class,
+                () -> acmeService.revokeCertificate(
+                        ACME_PROFILE_NAME, buildRevokeCertRequestJSON_fail(requestUri, baseUri), requestUri, false));
+
+    }
+
+    @Test
+    public void testRevokeCert_fail_raProfileBased() throws URISyntaxException {
+        String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/revoke-cert");
+        Assertions.assertThrows(NullPointerException.class,
+                () -> acmeService.revokeCertificate(
+                        RA_PROFILE_NAME, buildRevokeCertRequestJSON_fail(requestUri, baseUri), requestUri, true));
+
+    }
+
+    private String buildRevokeCertRequestJSON_fail(URI requestUri, String baseUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"MIIFOzCCAyOgAwIBAgITGAAAA4HCMidgplmlrQAAAAADgTANBgkqhkiG9w0BAQ0FADA3MRcwFQYDVQQDDA5EZW1vIE1TIFN1YiBDQTEcMBoGA1UECgwTM0tleSBDb21wYW55IHMuci5vLjAeFw0yNDAzMTIxMTI3MDBaFw0yNjAzMTIxMTI3MDBaMBgxFjAUBgNVBAMTDXRmdC4za2V5LnRlc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDgoHj1WO_sXoqfcr7pm5KUjsAnmdjgzBbFwHCAvlDwsF8Z6B6i77AB-xLIUdcVLPu417mApEbH9Nu9jvcO_b2QEh_tDAczbug6SVMwgl7va3H5qGwg_0qepRHNWAMt1TWgY-rFZbUn1WLSO97armFjVPKK-AeuBVz4EQIqS1vxLLg0MxajR19euvkLBjbjYtjp7pwgHT2jMsccJ06bGN3Ik7wTZMnObfwxhhmwApEjyeDevVywopULc9zarvOSgFTnejlfOmwUBnnHlp8Xpq7P_izt1AhJkij9eElzSXnZUHAFQoQh3fQ6yelXFBxDOEAao8o3FR-R6Ss3kZ3mxkbjAgMBAAGjggFdMIIBWTAnBgNVHREEIDAegg10ZnQuM2tleS50ZXN0gg13d3cuM2tleS50ZXN0MB0GA1UdDgQWBBSA81KtARou26mp921nppmTGjC6BTAfBgNVHSMEGDAWgBSSwrzfVcXBk4VJB_esyR0LaAEHUTBNBgNVHR8ERjBEMEKgQKA-hjxodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2NybHMvZGVtby9EZW1vJTIwTVMlMjBTdWIlMjBDQS5jcmwwVwYIKwYBBQUHAQEESzBJMEcGCCsGAQUFBzABhjtodHRwOi8vbGFiMDIuM2tleS5jb21wYW55L2Nhcy9kZW1vL0RlbW8lMjBNUyUyMFN1YiUyMENBLmNydDAhBgkrBgEEAYI3FAIEFB4SAFcAZQBiAFMAZQByAHYAZQByMA4GA1UdDwEB_wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATANBgkqhkiG9w0BAQ0FAAOCAgEAb_N3sf9Kda5t_jsL_VQYW0OPiHD0V1QcwqiyplvclD7NahnV7QiUwS7V-QmHHD1V2_xkYNhlgkinu1SWbpJ8gAcLDbADfnMkaOZNr6dvKiDGw0Xppmfbha1Bbb3JA_DOHFrXBm3795mQDgaRuvPke0qyyL1DP9xAdxubQaYQDZA9WAYNztgVe3V4zngwzI6P6BiDQ7CgZLNv_e8e5ME4_MCeO0cUFxt7mzKIhH54wL4yY8DJ3LHVWXsMPntRMdvYWjYf-1Ivb5x2WvuU_SPcnCSyEj0qdcLlm9BWxbfM-5h4gXWvsCjG2anGLtsl5Ut3Sz1vvoM49N981pZEZDlNFlsBgYCF-MDKZwBOiX8uTgQkv5bqA7_tPvIgQI_JTbSYeqRtb4J6SH1_uRrhyU7w88PlSmZwkf5S5ZxX9eqjSEFENB7ARh4KaiHyYqTfYxAP6-EFs9dxBTQ5eQu2jFXy4xJG4g-r1KZujv6wgPoDZsbbqTfBg27_sQsTyzZqI1vL5UrCqxDSo-Pw9JPITYi8AdOffT0hkgQ7RmLHb6HYV7JqABmhZ3G9QQfuk2W7_o6l6jnpZM7pHEkZ30s54cIHgYG3JifXd2m6uxU6iX48mJy_VUZcVikxSbCg5eLlvq_HWnxk2DE_9PWjA_YxZs2Jtqpi2FtLCli2cykGGumhhJ0\",\"reason\":8}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    @Test
+    public void testRevokeCert_withPrivateKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/revoke-cert");
+        ResponseEntity<?> response = acmeService.revokeCertificate(
+                ACME_PROFILE_NAME,
+                buildRevokeCertRequestJSON_withPrivateKey(requestUri), requestUri, false);
+        assertRevokeCert_withPrivateKey(response);
+    }
+
+    @Test
+    public void testRevokeCert_withPrivateKey_raProfileBased() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/revoke-cert");
+        ResponseEntity<?> response = acmeService.revokeCertificate(
+                RA_PROFILE_NAME,
+                buildRevokeCertRequestJSON_withPrivateKey(requestUri), requestUri, true);
+        assertRevokeCert_withPrivateKey(response);
+    }
+
+    private String buildRevokeCertRequestJSON_withPrivateKey(URI requestUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"" + b64UrlCertificate + "\",\"reason\":0}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(rsa2048PublicJWK)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    private void assertRevokeCert_withPrivateKey(ResponseEntity<?> response) {
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
     }
 
     @Test
     public void testGetOrderList() throws AcmeProblemDocumentException, NotFoundException {
-        ResponseEntity<List<Order>> orders = acmeService.listOrders("sameName", "RMAl70zrRrs");
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
+        ResponseEntity<List<Order>> orders = acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
+        assertGetOrderList(orders);
+    }
+
+    @Test
+    public void testGetOrderList_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
+        ResponseEntity<List<Order>> orders = acmeService.listOrders(RA_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, true);
+        assertGetOrderList(orders);
+    }
+
+    private void assertGetOrderList(ResponseEntity<List<Order>> orders) {
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.OK, orders.getStatusCode());
         Assertions.assertNotNull(orders);
     }
 
     @Test
-    public void testGetOrderListFail() throws AcmeProblemDocumentException, NotFoundException {
-        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.listOrders("sameName", "wrong"));
+    public void testGetOrderListFail() {
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_INVALID);
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, false));
+    }
+
+    @Test
+    public void testGetOrderList_fail_isRaProfileBased() {
+        URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_INVALID);
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.listOrders(RA_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, true));
     }
 
     @Test
     public void testGetOrder() throws AcmeProblemDocumentException, NotFoundException {
-        ResponseEntity<Order> orders = acmeService.getOrder("sameName", "order123");
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/order/" + ORDER_ID_VALID);
+        ResponseEntity<Order> orders = acmeService.getOrder(ACME_PROFILE_NAME, ORDER_ID_VALID, requestUri, false);
+        assertGetOrder(orders);
+    }
+
+    @Test
+    public void testGetOrder_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/order/" + ORDER_ID_VALID);
+        ResponseEntity<Order> orders = acmeService.getOrder(RA_PROFILE_NAME, ORDER_ID_VALID, requestUri, true);
+        assertGetOrder(orders);
+    }
+
+    private void assertGetOrder(ResponseEntity<Order> orders) {
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.OK, orders.getStatusCode());
         Assertions.assertNotNull(orders);
-        Assertions.assertNotNull(orders.getBody().getStatus());
+        // order status is VALID
+        Assertions.assertEquals(OrderStatus.VALID, Objects.requireNonNull(orders.getBody()).getStatus());
+    }
+
+    @Test
+    public void testKeyRollover() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/key-change");
+        ResponseEntity<?> response = acmeService.keyRollover(
+                ACME_PROFILE_NAME,
+                buildKeyRolloverRequestJSON(requestUri, BASE_URI + ACME_PROFILE_NAME), requestUri, false);
+        assertKeyRollover(response);
+    }
+
+    @Test
+    public void testKeyRollover_raProfileBased() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/key-change");
+        ResponseEntity<?> response = acmeService.keyRollover(
+                RA_PROFILE_NAME,
+                buildKeyRolloverRequestJSON(requestUri, RA_BASE_URI + RA_PROFILE_NAME), requestUri, true);
+        assertKeyRollover(response);
+    }
+
+    private String buildKeyRolloverRequestJSON(URI requestUri, String baseUri) throws JOSEException {
+        String account = baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID;
+        String oldKey = rsa2048PublicJWK.toString();
+
+        JWSObjectJSON innerJwsObjectJSON = new JWSObjectJSON(new Payload("{\"account\":\"" + account + "\",\"oldKey\":" + oldKey + "}"));
+        innerJwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(newRsa2048PublicJWK)
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                newRsa2048Signer
+        );
+
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload(innerJwsObjectJSON.serializeFlattened()));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    private void assertKeyRollover(ResponseEntity<?> response) {
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
+        // contains Link header
+        Assertions.assertNotNull(response.getHeaders().get("Link"));
     }
 }

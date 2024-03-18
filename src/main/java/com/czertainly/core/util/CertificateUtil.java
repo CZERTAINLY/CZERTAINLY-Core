@@ -24,11 +24,18 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
@@ -37,16 +44,15 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.KeyStore;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 public class CertificateUtil {
@@ -54,9 +60,7 @@ public class CertificateUtil {
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
-    @SuppressWarnings("serial")
     private static final Map<Integer, String> SAN_TYPE_MAP = new HashMap<>();
-    @SuppressWarnings("serial")
 
     public static final String KEY_USAGE_KEY_CERT_SIGN = "keyCertSign";
     private static final List<String> KEY_USAGE_LIST = Arrays.asList("digitalSignature", "nonRepudiation", "keyEncipherment", "dataEncipherment", "keyAgreement", KEY_USAGE_KEY_CERT_SIGN, "cRLSign", "encipherOnly", "decipherOnly");
@@ -106,6 +110,14 @@ public class CertificateUtil {
 
     public static X509Certificate getX509Certificate(String certInBase64) throws CertificateException {
         return getX509Certificate(Base64.getDecoder().decode(certInBase64));
+    }
+
+    public static X509Certificate getX509CertificateFromBase64Url(String certInBase64) throws CertificateException {
+        return getX509Certificate(Base64.getUrlDecoder().decode(certInBase64));
+    }
+
+    public static String getBase64FromX509Certificate(X509Certificate certificate) throws CertificateException {
+        return Base64.getEncoder().encodeToString(certificate.getEncoded());
     }
 
     public static List<String> keyUsageExtractor(boolean[] keyUsage) {
@@ -462,6 +474,66 @@ public class CertificateUtil {
             }
         }
         return privateKeyAvailable;
+    }
+
+    public static String generateRandomX509CertificateBase64(KeyPair keyPair) throws CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
+        return Base64.getEncoder().encodeToString(generateRandomX509Certificate(keyPair).getEncoded());
+    }
+
+    public static X509Certificate generateRandomX509Certificate(KeyPair keyPair) throws NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
+        SecureRandom random = new SecureRandom();
+
+        X500Name owner = new X500Name("CN=generatedCertificate,O=random");
+
+        // Current time minus 1 year, just in case software clock goes back due to time synchronization
+        Date notBefore = new Date(System.currentTimeMillis() - 86400000L * 365);
+        // Random date between the generated time and 1 year from now
+        Date notAfter = between(new Date(System.currentTimeMillis() - 86400000L * 365),
+                new Date(System.currentTimeMillis() + 86400000L * 365));
+
+        if (keyPair == null) {
+            keyPair = generateRandomKeyPair();
+        }
+
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                owner, new BigInteger( 64, random ), notBefore, notAfter, owner, keyPair.getPublic() );
+
+        PrivateKey privateKey = keyPair.getPrivate();
+        ContentSigner signer = new JcaContentSignerBuilder("SHA512WithRSAEncryption" ).build(privateKey);
+        X509CertificateHolder certHolder = builder.build( signer );
+        X509Certificate cert = new JcaX509CertificateConverter()
+                .setProvider(new BouncyCastleProvider())
+                .getCertificate(certHolder);
+
+        //check so that cert is valid
+        cert.verify(keyPair.getPublic());
+
+        return cert;
+    }
+
+    public static Date between(Date startInclusive, Date endExclusive) {
+        long startMillis = startInclusive.getTime();
+        long endMillis = endExclusive.getTime();
+        long randomMillisSinceEpoch = ThreadLocalRandom
+                .current()
+                .nextLong(startMillis, endMillis);
+
+        return new Date(randomMillisSinceEpoch);
+    }
+
+    public static KeyPair generateRandomKeyPair() throws NoSuchAlgorithmException {
+        SecureRandom random = new SecureRandom();
+
+        KeyPair keyPair;
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+
+        List<Integer> keySizeList = Arrays.asList(1024, 2048, 4096);
+        int randomKeySize = keySizeList.get(random.nextInt(keySizeList.size()));
+
+        keyPairGenerator.initialize(randomKeySize);
+        keyPair = keyPairGenerator.generateKeyPair();
+
+        return keyPair;
     }
 
 }

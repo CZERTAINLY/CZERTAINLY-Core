@@ -1,11 +1,9 @@
 package com.czertainly.core;
 
-import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.util.AcmePublicKeyProcessor;
 import com.czertainly.core.util.AcmeRandomGeneratorAndValidator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.security.KeyPair;
@@ -16,9 +14,6 @@ import java.security.spec.InvalidKeySpecException;
 
 @SpringBootTest
 public class AcmeUtilTest {
-
-    @Autowired
-    private AuditLogService auditLogService;
 
     @Test
     public void testNonceGeneration(){
@@ -35,12 +30,8 @@ public class AcmeUtilTest {
     }
 
     @Test
-    public void testRandomTokenForValidation() throws NoSuchAlgorithmException {
-        KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
-        kpg.initialize(2048);
-        KeyPair keyPair = kpg.generateKeyPair();
-        PublicKey publicKey = keyPair.getPublic();
-        String nonce = AcmeRandomGeneratorAndValidator.generateRandomTokenForValidation(publicKey);
+    public void testRandomTokenForValidation() {
+        String nonce = AcmeRandomGeneratorAndValidator.generateRandomTokenForValidation();
         Assertions.assertNotNull(nonce);
         Assertions.assertTrue(nonce.length() > 3);
     }

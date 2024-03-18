@@ -31,7 +31,7 @@ public class AcmeRandomGeneratorAndValidator {
         return randomId.replace("/", "-");
     }
 
-    public static String generateRandomTokenForValidation(PublicKey publicKey) {
+    public static String generateRandomTokenForValidation() {
         SecureRandom secureRandom = new SecureRandom();
         byte[] randomArray = new byte[RANDOM_CHALLENGE_TOKEN_SIZE];
         secureRandom.nextBytes(randomArray);
