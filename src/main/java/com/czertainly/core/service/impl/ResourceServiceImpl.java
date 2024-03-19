@@ -1,10 +1,12 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
@@ -16,7 +18,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -40,7 +41,12 @@ public class ResourceServiceImpl implements ResourceService {
     private UserManagementService userManagementService;
     private RoleManagementService roleManagementService;
     private CertificateService certificateService;
-    private AttributeService attributeService;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setAcmeProfileService(AcmeProfileService acmeProfileService) {
@@ -127,11 +133,6 @@ public class ResourceServiceImpl implements ResourceService {
         this.certificateService = certificateService;
     }
 
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
-    }
-
     @Override
     public List<NameAndUuidDto> getObjectsForResource(Resource resourceName) throws NotFoundException {
         return switch (resourceName) {
@@ -153,9 +154,9 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource resourceName, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> request) throws NotFoundException {
-        logger.info("Updating the attribute {} for resource {} ith value {}", attributeUuid, resourceName, attributeUuid);
-        switch (resourceName) {
+    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource objectType, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
+        logger.info("Updating the attribute {} for resource {} ith value {}", attributeUuid, objectType, attributeUuid);
+        switch (objectType) {
             case ACME_PROFILE:
                 acmeProfileService.evaluatePermissionChain(objectUuid);
                 break;
@@ -205,27 +206,10 @@ public class ResourceServiceImpl implements ResourceService {
                 certificateService.evaluatePermissionChain(objectUuid);
                 break;
             default:
-                throw new NotFoundException("Cannot update custom attribute for requested resource: " + resourceName.getCode());
+                throw new NotFoundException("Cannot update custom attribute for requested resource: " + objectType.getCode());
         }
-        if (attributeService.getResourceAttributes(resourceName)
-                .stream()
-                .filter(
-                        e -> e.getUuid()
-                                .equals(attributeUuid.toString())
-                ).collect(Collectors.toList()).isEmpty()) {
-            throw new NotFoundException(
-                    "Given Attribute is not available for the resource or is not enabled"
-            );
-        }
-        attributeService.updateAttributeContent(
-                objectUuid.getValue(),
-                attributeUuid,
-                request,
-                resourceName
-        );
-        return attributeService.getCustomAttributesWithValues(
-                objectUuid.getValue(),
-                resourceName
-        );
+
+        attributeEngine.updateObjectCustomAttributeContent(objectType, objectUuid.getValue(), attributeUuid, attributeContentItems);
+        return attributeEngine.getObjectCustomAttributesContent(objectType, objectUuid.getValue());
     }
 }

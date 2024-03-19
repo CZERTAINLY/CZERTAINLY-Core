@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.auth.RoleDetailDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.NotificationInstanceMappedAttributes;
 import com.czertainly.core.dao.entity.NotificationInstanceReference;
@@ -27,7 +28,6 @@ import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
-import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.SettingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,7 +52,7 @@ public class NotificationListener {
 
     private SettingService settingService;
 
-    private AttributeService attributeService;
+    private AttributeEngine attributeEngine;
 
     private NotificationInstanceApiClient notificationInstanceApiClient;
 
@@ -75,8 +75,8 @@ public class NotificationListener {
     }
 
     @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
     }
 
     @Autowired
@@ -171,7 +171,7 @@ public class NotificationListener {
                     recipientDto.setEmail(userDetailDto.getEmail());
                     recipientDto.setName(userDetailDto.getUsername());
 
-                    recipientCustomAttributes = attributeService.getCustomAttributesWithValues(recipientUuid, Resource.USER);
+                    recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.USER, recipientUuid);
                 } catch (Exception e) {
                     logger.warn("User with UUID {} was not found, notification was not sent for this user.", recipientUuid);
                 }
@@ -189,7 +189,7 @@ public class NotificationListener {
                         recipientDto.setName(roleDetailDto.getName());
                     }
 
-                    recipientCustomAttributes = attributeService.getCustomAttributesWithValues(roleUuid, Resource.ROLE);
+                    recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.ROLE, roleUuid);
                 } catch (Exception e) {
                     logger.warn("Role with UUID {} was not found, notification was not sent for this role.", roleUuid);
                 }
@@ -207,7 +207,7 @@ public class NotificationListener {
                         recipientDto.setEmail(email);
                     }
 
-                    recipientCustomAttributes = attributeService.getCustomAttributesWithValues(groupUuid, Resource.GROUP);
+                    recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.GROUP, groupUuid);
                 } else {
                     logger.warn("Group with UUID {} was not found, notification was not sent for this group.", groupUuid);
                 }

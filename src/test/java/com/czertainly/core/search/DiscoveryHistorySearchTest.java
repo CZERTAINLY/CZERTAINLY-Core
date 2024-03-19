@@ -1,11 +1,19 @@
 package com.czertainly.core.search;
 
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -13,6 +21,8 @@ import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.search.SearchCondition;
 import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.api.model.core.search.SearchableFields;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -27,9 +37,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
 
@@ -41,15 +51,14 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     private FunctionGroupRepository functionGroupRepository;
     @Autowired
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
-
-    @Autowired
-    private AttributeDefinitionRepository attributeDefinitionRepository;
-    @Autowired
-    private AttributeContentRepository attributeContentRepository;
-    @Autowired
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
     @Autowired
     private DiscoveryService discoveryService;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     private static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 
@@ -132,63 +141,39 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
             loadMetaData();
             loadCustomAttributesData();
             isLoadedData = true;
-        } catch (ParseException e) {
+        } catch (ParseException | NotFoundException | AttributeException e) {
             isLoadedData = false;
         }
     }
 
-    private void loadMetaData() {
+    private void loadMetaData() throws AttributeException {
+        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        metadataAttribute.setUuid(UUID.randomUUID().toString());
+        metadataAttribute.setName("attributeMeta1");
+        metadataAttribute.setType(AttributeType.META);
+        metadataAttribute.setContentType(AttributeContentType.TEXT);
+        metadataAttribute.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
+        metadataAttribute.setContent(List.of(new TextAttributeContent("reference-test-1", "data-meta-test-1")));
 
-        AttributeDefinition attributeDefinition = new AttributeDefinition();
-        attributeDefinition.setContentType(AttributeContentType.TEXT);
-        attributeDefinition.setCreated(LocalDateTime.now());
-        attributeDefinition.setAttributeName("attributeMeta1");
-        attributeDefinition.setType(AttributeType.META);
-        attributeDefinition.setConnector(connector);
-        attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
-
-        final AttributeContentItem attributeContentItem = new AttributeContentItem();
-        attributeContentItem.setJson(new BaseAttributeContent("reference-test-1", "data-meta-test-1"));
-        AttributeContent attributeContent = new AttributeContent();
-        attributeContent.setAttributeContentItems(List.of(attributeContentItem));
-        attributeContent.setAttributeDefinition(attributeDefinition);
-        attributeContentItem.setAttributeContent(attributeContent);
-        attributeContent = attributeContentRepository.save(attributeContent);
-
-        final AttributeContent2Object ac2o = new AttributeContent2Object();
-        ac2o.setAttributeContent(attributeContent);
-        ac2o.setConnector(connector);
-        ac2o.setObjectUuid(discoveryHistory.getUuid());
-        ac2o.setObjectType(Resource.DISCOVERY);
-        attributeContent2ObjectRepository.save(ac2o);
-
+        attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.DISCOVERY, discoveryHistory.getUuid()));
     }
 
-    private void loadCustomAttributesData() {
+    private void loadCustomAttributesData() throws AttributeException, NotFoundException {
+        CustomAttribute customAttribute = new CustomAttribute();
+        customAttribute.setUuid(UUID.randomUUID().toString());
+        customAttribute.setName("attributeCustom1");
+        customAttribute.setType(AttributeType.CUSTOM);
+        customAttribute.setContentType(AttributeContentType.TEXT);
+        customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        AttributeDefinition attributeDefinition = new AttributeDefinition();
-        attributeDefinition.setContentType(AttributeContentType.TEXT);
-        attributeDefinition.setCreated(LocalDateTime.now());
-        attributeDefinition.setAttributeName("attributeCustom1");
-        attributeDefinition.setType(AttributeType.CUSTOM);
-        attributeDefinition.setConnector(connector);
-        attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
+        List<BaseAttributeContent> contentItems = List.of(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
+        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
+        requestAttributeDto.setUuid(customAttribute.getUuid());
+        requestAttributeDto.setName(customAttribute.getName());
+        requestAttributeDto.setContent(contentItems);
 
-        final AttributeContentItem attributeContentItem = new AttributeContentItem();
-        attributeContentItem.setJson(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
-        AttributeContent attributeContent = new AttributeContent();
-        attributeContent.setAttributeContentItems(List.of(attributeContentItem));
-        attributeContent.setAttributeDefinition(attributeDefinition);
-        attributeContentItem.setAttributeContent(attributeContent);
-        attributeContent = attributeContentRepository.save(attributeContent);
-
-        final AttributeContent2Object ac2o = new AttributeContent2Object();
-        ac2o.setAttributeContent(attributeContent);
-        ac2o.setConnector(connector);
-        ac2o.setObjectUuid(discoveryHistory.getUuid());
-        ac2o.setObjectType(Resource.DISCOVERY);
-        attributeContent2ObjectRepository.save(ac2o);
-
+        attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.DISCOVERY));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid(), List.of(requestAttributeDto));
     }
 
 
@@ -207,8 +192,10 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
 
     @Test
     public void testInsertedAttributes() {
-        final List<AttributeContent2Object> attributeContent2ObjectList = attributeContent2ObjectRepository.findByObjectUuidAndObjectType(discoveryHistory.getUuid(), Resource.DISCOVERY);
-        Assertions.assertEquals(2, attributeContent2ObjectList.size());
+        var customAttrs = attributeEngine.getObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid());
+        var metaAttrs = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(Resource.DISCOVERY, discoveryHistory.getUuid()));
+        Assertions.assertEquals(1, customAttrs.size());
+        Assertions.assertEquals(1, metaAttrs.size());
     }
 
     @Test

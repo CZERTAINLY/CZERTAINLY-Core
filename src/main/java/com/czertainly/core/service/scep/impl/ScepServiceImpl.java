@@ -3,8 +3,10 @@ package com.czertainly.core.service.scep.impl;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -14,6 +16,8 @@ import com.czertainly.api.model.core.scep.PkiStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -98,6 +102,12 @@ public class ScepServiceImpl implements ScepService {
     private CertificateService certificateService;
     private CryptographicKeyService cryptographicKeyService;
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
@@ -173,7 +183,6 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private void init(String profileName) throws ScepException {
-        String attributes;
         this.raProfileBased = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
         if (raProfileBased) {
             raProfile = raProfileRepository.findByName(profileName).orElse(null);
@@ -181,16 +190,20 @@ public class ScepServiceImpl implements ScepService {
                 return;
             }
             scepProfile = raProfile.getScepProfile();
-            attributes = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getScepIssueCertificateAttributes() : null;
+            String attributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getScepIssueCertificateAttributes() : null;
+            issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttribute.class));
         } else {
             scepProfile = scepProfileRepository.findByName(profileName).orElse(null);
             if (scepProfile == null) {
                 return;
             }
             raProfile = scepProfile.getRaProfile();
-            attributes = scepProfile.getIssueCertificateAttributes();
+            if (raProfile == null) {
+                return;
+            }
+
+            issueAttributes = attributeEngine.getRequestObjectDataAttributesContent(scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid());
         }
-        issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
         if (scepCaCertificate == null) {
@@ -499,8 +512,8 @@ public class ScepServiceImpl implements ScepService {
         CertificateDetailDto response;
         try {
             response = clientOperationService.submitCertificateRequest(requestDto);
-        } catch (NotFoundException | CertificateException | IOException | NoSuchAlgorithmException |
-                 InvalidKeyException e) {
+        } catch (CertificateException | IOException | NoSuchAlgorithmException |
+                 InvalidKeyException | AttributeException | ConnectorException e) {
             throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }
 

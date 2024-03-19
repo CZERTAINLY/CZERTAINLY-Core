@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceRequestDto;
@@ -116,7 +113,7 @@ public class EntityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddEntityInstance() throws ConnectorException, AlreadyExistException {
+    public void testAddEntityInstance() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));

@@ -1,9 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -30,10 +28,6 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     @Column(name = "entity_instance_name")
     private String entityInstanceName;
-
-    @Basic(fetch = FetchType.LAZY)
-    @Column(name = "attributes", length = 4096)
-    private String attributes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "entity_instance_ref_uuid", insertable = false, updatable = false)
@@ -82,18 +76,6 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     public void setEntityInstanceName(String entityInstanceName) {
         this.entityInstanceName = entityInstanceName;
-    }
-
-    public List<RequestAttributeDto> getRequestAttributes() {
-        return AttributeDefinitionUtils.deserializeRequestAttributes(this.attributes);
-    }
-
-    public List<DataAttribute> getAttributes() {
-        return AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class);
-    }
-
-    public void setAttributes(List<DataAttribute> attributes) {
-        this.attributes = AttributeDefinitionUtils.serialize(attributes);
     }
 
     public EntityInstanceReference getEntityInstanceReference() {
@@ -157,7 +139,6 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class)));
         dto.setEntityInstanceUuid(entityInstanceReference != null ? entityInstanceReference.getUuid().toString() : null);
         dto.setEntityInstanceName(this.entityInstanceName);
         dto.setEnabled(enabled);

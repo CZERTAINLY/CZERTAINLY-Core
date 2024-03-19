@@ -1,19 +1,22 @@
 package com.czertainly.core.service.v2.impl;
 
 import com.czertainly.api.clients.v2.CertificateApiClient;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -21,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service("extendedAcmeServiceImpl")
 public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
@@ -29,6 +33,13 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     private CertificateApiClient certificateApiClient;
     @Autowired
     private ConnectorRepository connectorRepository;
+
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
@@ -52,22 +63,20 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public List<DataAttribute> mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
-        if(raProfile.getAuthorityInstanceReference().getConnector() == null){
+    public void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException {
+        if (raProfile.getAuthorityInstanceReference().getConnector() == null) {
             throw new ValidationException(ValidationError.create("Connector of the Authority is not available / deleted"));
         }
-        List<BaseAttribute> definitions = certificateApiClient.listIssueCertificateAttributes(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
+        ConnectorDto connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToDto();
 
-        List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+        // validate first by connector
+        certificateApiClient.validateIssueCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), attributes);
 
-        certificateApiClient.validateIssueCertificateAttributes(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                attributes);
+        // get definitions from connector
+        List<BaseAttribute> definitions = certificateApiClient.listIssueCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
 
-        return merged;
+        // validate and update definitions with attribute engine
+        attributeEngine.validateUpdateDataAttributes(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, definitions, attributes);
     }
 
     @Override
@@ -92,19 +101,21 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public List<DataAttribute> mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException {
-        List<BaseAttribute> definitions = certificateApiClient.listRevokeCertificateAttributes(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
+    public void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException {
+        if (raProfile.getAuthorityInstanceReference().getConnector() == null) {
+            throw new ValidationException(ValidationError.create("Connector of the Authority is not available / deleted"));
+        }
 
-        List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
+        ConnectorDto connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToDto();
 
-        certificateApiClient.validateRevokeCertificateAttributes(
-                raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
-                raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
-                attributes);
+        // validate first by connector
+        certificateApiClient.validateRevokeCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), attributes);
 
-        return merged;
+        // get definitions from connector
+        List<BaseAttribute> definitions = certificateApiClient.listRevokeCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
+
+        // validate and update definitions with attribute engine
+        attributeEngine.validateUpdateDataAttributes(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, definitions, attributes);
     }
 
     @Override

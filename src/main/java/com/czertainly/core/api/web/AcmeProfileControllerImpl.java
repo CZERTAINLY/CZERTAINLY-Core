@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.AcmeProfileController;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
@@ -42,7 +39,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    public ResponseEntity<UuidDto> createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public ResponseEntity<UuidDto> createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         AcmeProfileDto acmeProfile = acmeProfileService.createAcmeProfile(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(acmeProfile.getUuid()).toUri();
@@ -53,7 +50,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
     }
 
     @Override
-    public AcmeProfileDto editAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
+    public AcmeProfileDto editAcmeProfile(String uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException {
         return acmeProfileService.editAcmeProfile(SecuredUUID.fromString(uuid), request);
     }
 

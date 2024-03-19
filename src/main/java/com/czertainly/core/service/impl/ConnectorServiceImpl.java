@@ -3,18 +3,9 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.AttributeApiClient;
 import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.clients.HealthApiClient;
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorCommunicationException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.connector.ConnectDto;
-import com.czertainly.api.model.client.connector.ConnectRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorRequestDto;
-import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
-import com.czertainly.api.model.client.connector.InfoResponse;
+import com.czertainly.api.model.client.connector.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -23,20 +14,15 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.connector.BaseFunctionGroupDto;
-import com.czertainly.api.model.core.connector.ConnectorDto;
-import com.czertainly.api.model.core.connector.ConnectorStatus;
-import com.czertainly.api.model.core.connector.EndpointDto;
-import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.connector.FunctionGroupDto;
+import com.czertainly.api.model.core.connector.*;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.ConnectorAuthService;
@@ -87,11 +73,15 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Autowired
     private ComplianceProfileService complianceProfileService;
     @Autowired
-    private AttributeService attributeService;
-    @Autowired
     private AttributeDefinitionRepository attributeDefinitionRepository;
     @Autowired
     private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.REQUEST)
@@ -138,7 +128,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
             logger.error("Unable to fetch list of supported functions of connector " + dto.getName(), Exceptions.unwrap(e));
         }
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CONNECTOR));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CONNECTOR, uuid.getValue()));
         return dto;
     }
 
@@ -152,25 +142,24 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
-    public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
+    public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException {
+        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         return createNewConnector(request, ConnectorStatus.CONNECTED);
     }
 
     //Internal and anonymous user only - Not exposed through service
-    public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
+    public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException {
+        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
     }
 
-    private ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException {
+    private ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException, AttributeException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("name must not be empty"));
         }
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
+        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
 
         List<DataAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
-
         if (connectorRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(Connector.class, request.getName());
         }
@@ -196,12 +185,10 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorRepository.save(connector);
 
         setFunctionGroups(functionGroupDtos, connector);
-
         complianceRuleGroupUpdate(connector, false);
 
-        attributeService.createAttributeContent(connector.getUuid(), request.getCustomAttributes(), Resource.CONNECTOR);
         ConnectorDto dto = connector.mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(connector.getUuid(), Resource.CONNECTOR));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
         return dto;
     }
 
@@ -242,8 +229,8 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CONNECTOR, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
-    public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException {
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CONNECTOR);
+    public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException {
+        attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         List<DataAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
                 AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
@@ -274,9 +261,8 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         complianceRuleGroupUpdate(connector, true);
 
-        attributeService.updateAttributeContent(connector.getUuid(), request.getCustomAttributes(), Resource.CONNECTOR);
         ConnectorDto dto = connector.mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(connector.getUuid(), Resource.CONNECTOR));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CONNECTOR, connector.getUuid(), request.getCustomAttributes()));
 
         return dto;
     }
@@ -556,25 +542,18 @@ public class ConnectorServiceImpl implements ConnectorService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public List<DataAttribute> mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
+    public void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> requestAttributes, String functionGroupType) throws ValidationException, ConnectorException, AttributeException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
+        // validate first by connector
+        validateAttributes(connector, functionGroup, requestAttributes, functionGroupType);
+
+        // get definitions from connector
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, functionGroupType);
-        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).toList();
-        for (RequestAttributeDto requestAttributeDto : attributes) {
-            if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
-                DataAttribute referencedAttribute = attributeService.getReferenceAttribute(connector.getUuid(), requestAttributeDto.getName());
-                if (referencedAttribute != null) {
-                    definitions.add(referencedAttribute);
-                }
-            }
-        }
-        List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
 
-        validateAttributes(connector, functionGroup, attributes, functionGroupType);
-
-        return merged;
+        // validate and update definitions with attribute engine
+        attributeEngine.validateUpdateDataAttributes(connector.getUuid(), null, definitions, requestAttributes);
     }
 
     @Override
@@ -670,6 +649,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                     complianceProfileService.nullifyComplianceProviderAssociation(connector);
                 }
 
+                // TODO: what to do with attribute definitions when connector is deleted?
                 if (!connector.getAttributeDefinitions().isEmpty()) {
                     for (AttributeDefinition ref : connector.getAttributeDefinitions()) {
                         ref.setConnector(null);
@@ -680,6 +660,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                     connectorRepository.save(connector);
                 }
 
+                // TODO: what to do with attribute content when connector is deleted?
                 if (!connector.getAttributeContent2Objects().isEmpty()) {
                     for (AttributeContent2Object ref : connector.getAttributeContent2Objects()) {
                         ref.setConnector(null);
@@ -747,7 +728,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
         List<Connector2FunctionGroup> connector2FunctionGroups = connector2FunctionGroupRepository.findAllByConnector(connector);
         connector2FunctionGroupRepository.deleteAll(connector2FunctionGroups);
-        attributeService.deleteAttributeContent(connector.getUuid(), Resource.CONNECTOR);
+        attributeEngine.deleteAllObjectAttributeContent(Resource.CONNECTOR, connector.getUuid());
         connectorRepository.delete(connector);
     }
 

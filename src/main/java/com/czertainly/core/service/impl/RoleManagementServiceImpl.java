@@ -1,23 +1,23 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.RoleManagementService;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-import jakarta.transaction.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -30,8 +30,12 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @Autowired
     private RoleManagementApiClient roleManagementApiClient;
 
+    private AttributeEngine attributeEngine;
+
     @Autowired
-    private AttributeService attributeService;
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.LIST)
@@ -43,37 +47,36 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.DETAIL)
     public RoleDetailDto getRole(String roleUuid) {
         RoleDetailDto dto = roleManagementApiClient.getRoleDetail(roleUuid);
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(roleUuid), Resource.ROLE));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(roleUuid)));
         return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.CREATE)
-    public RoleDetailDto createRole(RoleRequestDto request) {
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.ROLE);
+    public RoleDetailDto createRole(RoleRequestDto request) throws NotFoundException, AttributeException {
+        attributeEngine.validateCustomAttributesContent(Resource.ROLE, request.getCustomAttributes());
         com.czertainly.api.model.core.auth.RoleRequestDto requestDto = new com.czertainly.api.model.core.auth.RoleRequestDto();
         requestDto.setName(request.getName());
         requestDto.setDescription(request.getDescription());
         requestDto.setEmail(request.getEmail());
         requestDto.setSystemRole(false);
         RoleDetailDto dto = roleManagementApiClient.createRole(requestDto);
-        attributeService.createAttributeContent(UUID.fromString(dto.getUuid()), request.getCustomAttributes(), Resource.ROLE);
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(dto.getUuid()), Resource.ROLE));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(dto.getUuid()), request.getCustomAttributes()));
         return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
-    public RoleDetailDto updateRole(String roleUuid, RoleRequestDto request) {
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.ROLE);
+    public RoleDetailDto updateRole(String roleUuid, RoleRequestDto request) throws NotFoundException, AttributeException {
+        attributeEngine.validateCustomAttributesContent(Resource.ROLE, request.getCustomAttributes());
         com.czertainly.api.model.core.auth.RoleRequestDto requestDto = new com.czertainly.api.model.core.auth.RoleRequestDto();
         requestDto.setName(request.getName());
         requestDto.setDescription(request.getDescription());
         requestDto.setEmail(request.getEmail());
         requestDto.setSystemRole(false);
         RoleDetailDto dto = roleManagementApiClient.updateRole(roleUuid, requestDto);
-        attributeService.updateAttributeContent(UUID.fromString(dto.getUuid()), request.getCustomAttributes(), Resource.ROLE);
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(dto.getUuid()), Resource.ROLE));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ROLE, UUID.fromString(dto.getUuid()), request.getCustomAttributes()));
+
         return dto;
     }
 
@@ -81,7 +84,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.DELETE)
     public void deleteRole(String roleUuid) {
         roleManagementApiClient.deleteRole(roleUuid);
-        attributeService.deleteAttributeContent(UUID.fromString(roleUuid), Resource.ROLE);
+        attributeEngine.deleteAllObjectAttributeContent(Resource.ROLE, UUID.fromString(roleUuid));
     }
 
     @Override

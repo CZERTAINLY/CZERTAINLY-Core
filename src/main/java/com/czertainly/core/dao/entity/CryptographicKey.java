@@ -1,9 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.*;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -11,7 +9,10 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
@@ -37,9 +38,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     @Column(name = "token_instance_uuid")
     private UUID tokenInstanceReferenceUuid;
-
-    @Column(name = "attributes")
-    private String attributes;
 
     @Column(name = "owner")
     private String owner;
@@ -118,14 +116,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     public void setTokenInstanceReferenceUuid(UUID tokenInstanceReferenceUuid) {
         this.tokenInstanceReferenceUuid = tokenInstanceReferenceUuid;
-    }
-
-    public String getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
     }
 
     public String getOwner() {
@@ -222,9 +212,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setOwner(owner);
         if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
 
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(
-                AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class)
-        ));
         if (group != null) {
             dto.setGroup(group.mapToDto());
         }

@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.ConnectorController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.connector.ConnectDto;
@@ -79,7 +76,7 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     public ResponseEntity<?> createConnector(@RequestBody ConnectorRequestDto request)
-            throws AlreadyExistException, ConnectorException {
+            throws AlreadyExistException, ConnectorException, AttributeException {
         ConnectorDto connectorDto = connectorService.createConnector(request);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
@@ -91,7 +88,7 @@ public class ConnectorControllerImpl implements ConnectorController {
 
     @Override
     public ConnectorDto editConnector(@PathVariable String uuid, @RequestBody ConnectorUpdateRequestDto request)
-            throws ConnectorException {
+            throws ConnectorException, AttributeException {
         return connectorService.editConnector(SecuredUUID.fromString(uuid), request);
     }
 

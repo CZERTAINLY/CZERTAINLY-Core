@@ -9,8 +9,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
@@ -26,6 +25,8 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
@@ -85,11 +86,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
     @Autowired
-    private MetadataService metadataService;
-    @Autowired
-    private AttributeService attributeService;
-    @Autowired
     private NotificationProducer notificationProducer;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
@@ -100,7 +103,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         // filter discoveries based on attribute filters
-        final List<UUID> objectUUIDs = attributeService.getResourceObjectUuidsByFilters(Resource.DISCOVERY, filter, request.getFilters());
+        final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.DISCOVERY, filter, request.getFilters());
 
         final BiFunction<Root<DiscoveryHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
@@ -123,8 +126,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
         DiscoveryHistoryDetailDto dto = discoveryHistory.mapToDto();
-        dto.setMetadata(metadataService.getFullMetadata(discoveryHistory.getUuid(), Resource.DISCOVERY, null, null));
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.DISCOVERY));
+        dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.DISCOVERY, discoveryHistory.getUuid())));
+        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(discoveryHistory.getConnectorUuid(), null, Resource.DISCOVERY, discoveryHistory.getUuid()));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.DISCOVERY, uuid.getValue()));
         return dto;
     }
 
@@ -139,7 +143,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         // Page number for the user always starts from 1. But for JPA, page number starts from 0
         Pageable p = PageRequest.of(pageNumber > 1 ? pageNumber - 1 : 0, itemsPerPage);
         List<DiscoveryCertificate> certificates;
-        Long maxItems;
+        long maxItems;
         if (newlyDiscovered == null) {
             certificates = discoveryCertificateRepository.findByDiscovery(discoveryHistory, p);
             maxItems = discoveryCertificateRepository.countByDiscovery(discoveryHistory);
@@ -188,7 +192,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
-            attributeService.deleteAttributeContent(discovery.getUuid(), Resource.DISCOVERY);
+            attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
             discoveryRepository.delete(discovery);
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
@@ -237,12 +241,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             dtoRequest.setName(modal.getName());
             dtoRequest.setKind(modal.getKind());
 
-            // Load complete credential data
-            final List<DataAttribute> dataAttributeList = AttributeDefinitionUtils.deserialize(modal.getAttributes(), DataAttribute.class);
-            credentialService.loadFullCredentialData(dataAttributeList);
-            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributeList));
-
             Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(modal.getConnectorUuid().toString()));
+
+            // TODO: necessary to load full credentials this way?
+            // Load complete credential data
+            var dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid());
+            credentialService.loadFullCredentialData(dataAttributes);
+            dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
+
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
             modal.setDiscoveryConnectorReference(response.getUuid());
@@ -254,7 +260,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             getRequest.setPageNumber(1);
             getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
 
-            Boolean waitForCompletion = checkForCompletion(response);
+            boolean waitForCompletion = checkForCompletion(response);
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
             while (waitForCompletion) {
@@ -279,15 +285,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 waitForCompletion = checkForCompletion(response);
             }
 
-            Integer currentPage = 1;
-            Integer currentTotal = 0;
+            int currentPage = 1;
+            int currentTotal = 0;
             Set<DiscoveryProviderCertificateDataDto> certificatesDiscovered = new HashSet<>();
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setPageNumber(currentPage);
                 getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
                 response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
 
-                if(response.getCertificateData().isEmpty()) {
+                if (response.getCertificateData().isEmpty()) {
                     modal.setMessage(String.format("Retrieved only %d certificates but provider discovered %d certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
                     break;
                 }
@@ -307,7 +313,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             updateDiscovery(modal, response);
             List<Certificate> certificates = updateCertificates(certificatesDiscovered, modal);
 
-            for (Certificate certificate: certificates) {
+            for (Certificate certificate : certificates) {
                 certificateService.validate(certificate);
             }
         } catch (InterruptedException e) {
@@ -326,7 +332,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
-    public DiscoveryHistory createDiscoveryModal(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException {
+    public DiscoveryHistory createDiscoveryModal(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
         }
@@ -335,45 +341,35 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
 
-        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
-                SecuredUUID.fromString(request.getConnectorUuid()),
-                FunctionGroupCode.DISCOVERY_PROVIDER,
-                request.getAttributes(),
-                request.getKind());
+        attributeEngine.validateCustomAttributesContent(Resource.DISCOVERY, request.getCustomAttributes());
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
 
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.DISCOVERY);
         DiscoveryHistory modal = new DiscoveryHistory();
         modal.setName(request.getName());
         modal.setConnectorName(connector.getName());
         modal.setStartTime(new Date());
         modal.setStatus(DiscoveryStatus.IN_PROGRESS);
-        modal.setConnectorUuid(connector.getUuid().toString());
-        modal.setAttributes(AttributeDefinitionUtils.serialize(attributes));
+        modal.setConnectorUuid(connector.getUuid());
         modal.setKind(request.getKind());
 
         if (saveEntity) {
             modal = discoveryRepository.save(modal);
-            attributeService.createAttributeContent(modal.getUuid(), request.getCustomAttributes(), Resource.DISCOVERY);
+            attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, modal.getUuid(), request.getCustomAttributes());
+            attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid(), request.getAttributes());
         }
 
         return modal;
     }
 
-    private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response) {
+    private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response) throws AttributeException {
         modal.setStatus(response.getStatus());
         modal.setEndTime(new Date());
-        updateDiscoveryMeta(modal.getConnectorUuid(), response.getMeta(), modal);
         modal.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+        attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(modal.getConnectorUuid(), Resource.DISCOVERY, modal.getUuid()));
         discoveryRepository.save(modal);
     }
 
-    private void updateDiscoveryMeta(UUID connectorUuid, List<MetadataAttribute> metaAttributes, DiscoveryHistory history) {
-        metadataService.createMetadataDefinitions(connectorUuid, metaAttributes);
-        metadataService.createMetadata(connectorUuid, history.getUuid(), null, null, metaAttributes, Resource.DISCOVERY, null);
-
-    }
-
-    private Boolean checkForCompletion(DiscoveryProviderDto response) {
+    private boolean checkForCompletion(DiscoveryProviderDto response) {
         return response.getStatus() == DiscoveryStatus.IN_PROGRESS;
     }
 
@@ -393,7 +389,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 allCerts.add(entry);
                 createDiscoveryCertificate(entry, modal, !existingCertificate);
                 certificateService.updateCertificateEntity(entry);
-                updateMeta(entry, certificate, modal);
+                attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(modal.getConnectorUuid(), Resource.CERTIFICATE, entry.getUuid(), Resource.DISCOVERY, modal.getUuid(), modal.getName()));
                 Map<String, Object> additionalInfo = new HashMap<>();
                 additionalInfo.put("Discovery Name", modal.getName());
                 additionalInfo.put("Discovery UUID", modal.getUuid());
@@ -427,25 +423,20 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryCertificateRepository.save(discoveryCertificate);
     }
 
-    private void updateMeta(Certificate modal, DiscoveryProviderCertificateDataDto certificate, DiscoveryHistory history) {
-        metadataService.createMetadataDefinitions(history.getConnectorUuid(), certificate.getMeta());
-        metadataService.createMetadata(history.getConnectorUuid(), modal.getUuid(), history.getUuid(), history.getName(), certificate.getMeta(), Resource.CERTIFICATE, Resource.DISCOVERY);
-    }
-
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return Collections.emptyList();
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.UPDATE)
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.UPDATE)
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
         getDiscoveryEntity(uuid);
     }
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeService.getResourceSearchableFieldInformation(Resource.DISCOVERY);
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.DISCOVERY);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),

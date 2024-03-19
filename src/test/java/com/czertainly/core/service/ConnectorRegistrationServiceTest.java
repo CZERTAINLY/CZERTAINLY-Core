@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.core.connector.AuthType;
@@ -35,7 +36,7 @@ public class ConnectorRegistrationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRegisterConnector() throws ConnectorException, AlreadyExistException {
+    public void testRegisterConnector() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");

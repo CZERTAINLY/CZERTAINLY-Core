@@ -1,7 +1,6 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -176,12 +175,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "source_certificate_uuid")
     private UUID sourceCertificateUuid;
 
-    @Column(name = "issue_attributes")
-    private String issueAttributes;
-
-    @Column(name = "revoke_attributes")
-    private String revokeAttributes;
-
     @Column(name = "trusted_ca")
     private Boolean trustedCa;
 
@@ -245,12 +238,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         if (this.certificateRequest != null) {
             final CertificateRequestDto certificateRequestDto = new CertificateRequestDto();
             certificateRequestDto.setContent(this.certificateRequest.getContent());
-            certificateRequestDto.setAttributes(
-                    AttributeDefinitionUtils.getResponseAttributes(this.certificateRequest.getAttributes())
-            );
-            certificateRequestDto.setSignatureAttributes(
-                    AttributeDefinitionUtils.getResponseAttributes(this.certificateRequest.getSignatureAttributes())
-            );
             certificateRequestDto.setCertificateType(this.certificateRequest.getCertificateType());
             certificateRequestDto.setCommonName(this.certificateRequest.getCommonName());
             certificateRequestDto.setSubjectDn(this.certificateRequest.getSubjectDn());
@@ -274,8 +261,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             }
         }
         if (key != null) dto.setKey(key.mapToDto());
-        dto.setIssueAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueAttributes, DataAttribute.class)));
-        dto.setRevokeAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(revokeAttributes, DataAttribute.class)));
         return dto;
     }
 
@@ -716,29 +701,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.sourceCertificateUuid = sourceCertificateUuid;
     }
 
-    public String getIssueAttributes() {
-        return issueAttributes;
-    }
-
-    public void setIssueAttributes(String issueAttributes) {
-        this.issueAttributes = issueAttributes;
-    }
-
     public UUID getIssuerCertificateUuid() {
         return issuerCertificateUuid;
     }
 
     public void setIssuerCertificateUuid(UUID issuerCertificateUuid) {
         this.issuerCertificateUuid = issuerCertificateUuid;
-    }
-
-
-    public String getRevokeAttributes() {
-        return revokeAttributes;
-    }
-
-    public void setRevokeAttributes(String revokeAttributes) {
-        this.revokeAttributes = revokeAttributes;
     }
 
     private String getIssuerCommonNameToDto() {

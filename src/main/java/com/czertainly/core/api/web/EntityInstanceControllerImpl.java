@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.interfaces.core.web.EntityInstanceController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -52,7 +53,7 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     }
 
     @Override
-    public ResponseEntity<?> createEntityInstance(EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException {
+    public ResponseEntity<?> createEntityInstance(EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
         EntityInstanceDto entityInstance = entityInstanceService.createEntityInstance(request);
 
         URI location = ServletUriComponentsBuilder
@@ -66,7 +67,7 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
     }
 
     @Override
-    public EntityInstanceDto editEntityInstance(String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException {
+    public EntityInstanceDto editEntityInstance(String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException {
         return entityInstanceService.editEntityInstance(SecuredUUID.fromString(entityUuid), request);
     }
 

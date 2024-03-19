@@ -11,28 +11,21 @@ import java.util.UUID;
 
 @Repository
 public interface AttributeDefinitionRepository extends SecurityFilterRepository<AttributeDefinition, String> {
-    Boolean existsByConnectorUuidAndAttributeUuidAndTypeAndContentType(UUID connectorUuid, UUID attributeUuid, AttributeType type, AttributeContentType contentType);
-
-    Optional<AttributeDefinition> findByConnectorUuidAndAttributeUuid(UUID connectorUuid, UUID attributeUuid);
-
-    Optional<AttributeDefinition> findByConnectorUuidAndAttributeNameAndReference(UUID connectorUuid, String attributeName, Boolean reference);
-
-    Optional<AttributeDefinition> findByConnectorUuidAndAttributeNameAndAttributeUuidAndTypeAndContentType(UUID connectorUuid, String attributeName, UUID attributeUuid, AttributeType type, AttributeContentType contentType);
-
-    Boolean existsByTypeAndAttributeName(AttributeType type, String attributeName);
-
-    Optional<AttributeDefinition> findByTypeAndAttributeUuid(AttributeType type, UUID attributeUuid);
-
-    Optional<AttributeDefinition> findByTypeAndAttributeName(AttributeType type, String attributeName);
-
-    Optional<AttributeDefinition> findByTypeAndAttributeNameAndGlobalAndContentType(AttributeType type, String attributeName, Boolean global, AttributeContentType contentType);
-
-    List<AttributeDefinition> findByConnectorUuidAndGlobalAndType(UUID connectorUuid, Boolean global, AttributeType type);
-
-    List<AttributeDefinition> findByGlobalAndType(Boolean global, AttributeType type);
-
-    List<AttributeDefinition> findByType(AttributeType type);
-
+    Optional<AttributeDefinition> findByUuid(UUID uuid);
+    Optional<AttributeDefinition> findByUuidAndType(UUID uuid, AttributeType type);
+    Optional<AttributeDefinition> findByUuidAndTypeAndGlobalTrue(UUID uuid, AttributeType type);
+    Optional<AttributeDefinition> findByAttributeUuid(UUID uuid);
+    List<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidIn(AttributeType type, UUID connectorUuid, List<UUID> uuids);
     List<AttributeDefinition> findByTypeAndContentType(AttributeType type, AttributeContentType contentType);
+    List<AttributeDefinition> findByTypeAndGlobal(AttributeType type, boolean global);
+    List<AttributeDefinition> findByConnectorUuidAndTypeAndGlobal(UUID connectorUuid, AttributeType type, boolean global);
+    Optional<AttributeDefinition> findByTypeAndNameAndGlobal(AttributeType attributeType, String attributeName, boolean global);
+    Optional<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType attributeType, UUID connectorUuid, UUID attributeUuid, String attributeName);
+    Boolean existsByTypeAndName(AttributeType type, String attributeName);
+    Boolean existsByTypeAndNameAndGlobalTrue(AttributeType type, String attributeName);
+    Optional<AttributeDefinition> findByConnectorUuidAndAttributeUuid(UUID connectorUuid, UUID attributeUuid);
+    Optional<AttributeDefinition> findByTypeAndConnectorUuidAndName(AttributeType type, UUID connectorUuid, String attributeName);
+    Optional<AttributeDefinition> findByTypeAndName(AttributeType type, String attributeName);
+    List<AttributeDefinition> findByType(AttributeType type);
 
 }

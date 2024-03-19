@@ -105,7 +105,7 @@ public class Sql2PredicateConverter {
 
         Predicate predicate = null;
         if (isBoolean) {
-            if (searchableFields.getExpectedValue() == null) {
+            if (searchableFields == null || searchableFields.getExpectedValue() == null) {
                 switch (searchCondition) {
                     case EQUALS -> predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
                     case NOT_EQUALS -> predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
@@ -125,7 +125,7 @@ public class Sql2PredicateConverter {
         switch (searchCondition) {
             case EQUALS -> predicate = criteriaBuilder.equal(expression, expressionValue);
             case NOT_EQUALS -> {
-                if (searchableFields.getPathToBeJoin() != null) {
+                if (searchableFields != null && searchableFields.getPathToBeJoin() != null) {
                     predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, expressionValue), criteriaBuilder.equal(expression, expressionValue)), criteriaBuilder.isNull(expression));
                 } else {
                     predicate = criteriaBuilder.or(criteriaBuilder.notEqual(expression, expressionValue), criteriaBuilder.isNull(expression));
@@ -308,8 +308,7 @@ public class Sql2PredicateConverter {
                 // --- SUB QUERY ---
                 final Subquery<UUID> subquery = criteriaQuery.subquery(UUID.class);
                 final Root<AttributeContent2Object> subRoot = subquery.from(AttributeContent2Object.class);
-                final Join<AttributeContent2Object, AttributeContent> joinAttributeContent = subRoot.join("attributeContent");
-                final Join<AttributeContent, AttributeContentItem> joinAttributeContentItem = joinAttributeContent.join("attributeContentItems");
+                final Join<AttributeContent2Object, AttributeContentItem> joinAttributeContentItem = subRoot.join("attributeContentItem");
 
                 subquery.select(subRoot.get("objectUuid"));
 
@@ -336,11 +335,10 @@ public class Sql2PredicateConverter {
                     final Expression expressionFunctionToGetJsonValue = criteriaBuilder.function("jsonb_extract_path_text", String.class, subACIRoot.get("json"),
                             criteriaBuilder.literal(searchField.getAttributeContentType().isFilterByData() ? "data" : "reference"));
 
-                    final Predicate predicateForContentType = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.contentType"), searchField.getAttributeContentType());
+                    final Predicate predicateForContentType = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeDefinition.contentType"), searchField.getAttributeContentType());
                     final Predicate predicateToKeepRelationWithUpperQuery = criteriaBuilder.equal(subACIRoot.get("uuid"), joinAttributeContentItem.get("uuid"));
-                    final Predicate predicateGroup = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.type"), searchField.getAttributeType());
-                    final Predicate predicateAttributeName =
-                            criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.attributeName"), fieldIdentifierName);
+                    final Predicate predicateGroup = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeDefinition.type"), searchField.getAttributeType());
+                    final Predicate predicateAttributeName = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeDefinition.name"), fieldIdentifierName);
 
                     jsonValueQuery.select(expressionFunctionToGetJsonValue);
                     jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);

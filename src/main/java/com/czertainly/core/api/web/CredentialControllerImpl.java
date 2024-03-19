@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.CredentialController;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
@@ -42,7 +39,7 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+    public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
         CredentialDto credentialDto = credentialService.createCredential(request);
 
         URI location = ServletUriComponentsBuilder
@@ -58,7 +55,7 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    public CredentialDto editCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException {
+    public CredentialDto editCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
         return credentialService.editCredential(SecuredUUID.fromString(uuid), request);
     }
 

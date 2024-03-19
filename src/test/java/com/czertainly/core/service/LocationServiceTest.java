@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.LocationException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -17,15 +14,18 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -35,10 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class LocationServiceTest extends BaseSpringBootTest {
 
@@ -66,9 +63,16 @@ public class LocationServiceTest extends BaseSpringBootTest {
     private Certificate certificate;
     private Certificate certificateWithoutLocation;
     private WireMockServer mockServer;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
+
 
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws NotFoundException, AttributeException {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -90,7 +94,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         certificateWithoutLocation = certificateRepository.save(certificateWithoutLocation);
 
         Connector connector = new Connector();
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -98,6 +102,8 @@ public class LocationServiceTest extends BaseSpringBootTest {
         entityInstanceReference.setEntityInstanceUuid("ad8d8995-f12e-407e-a8d2-9a2fb91772bb");
         entityInstanceReference.setConnector(connector);
         entityInstanceReference = entityInstanceReferenceRepository.save(entityInstanceReference);
+
+        prepareDataAttributesDefinitions();
 
         location = createLocation();
         locationNoMultiEntries = createLocationNoMultiEntries();
@@ -117,15 +123,31 @@ public class LocationServiceTest extends BaseSpringBootTest {
         location = locationRepository.save(location);
         locationNoMultiEntries = locationRepository.save(locationNoMultiEntries);
         locationNoKeyManagement = locationRepository.save(locationNoKeyManagement);
+
+        // sample attribute
+        DataAttribute attribute = new DataAttribute();
+        attribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1d");
+        attribute.setName("sample");
+
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("Sample attribute");
+        attribute.setDescription("description");
+        attribute.setContentType(AttributeContentType.STRING);
+        attribute.setType(AttributeType.DATA);
+        properties.setRequired(true);
+        properties.setReadOnly(false);
+        properties.setVisible(true);
+        attribute.setProperties(properties);
+        attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, List.of(attribute));
     }
 
-    private Location createLocation() {
+    private void prepareDataAttributesDefinitions() throws AttributeException {
         DataAttribute attribute = new DataAttribute();
         attribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1c");
         attribute.setName("attribute");
 
         DataAttributeProperties properties = new DataAttributeProperties();
-        properties.setLabel("attribute");
+        properties.setLabel("Attribute");
         attribute.setDescription("description");
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setType(AttributeType.DATA);
@@ -133,75 +155,78 @@ public class LocationServiceTest extends BaseSpringBootTest {
         properties.setReadOnly(false);
         properties.setVisible(true);
         attribute.setProperties(properties);
-        attribute.setContent(List.of(new StringAttributeContent("location")));
 
+        DataAttribute sample = new DataAttribute();
+        sample.setUuid("c9819613-725e-4f01-89fb-cb896a26e555");
+        sample.setName("sample");
+
+        DataAttributeProperties sampleProps = new DataAttributeProperties();
+        sampleProps.setLabel("Sample Attribute");
+        sample.setDescription("Desc");
+        sample.setContentType(AttributeContentType.STRING);
+        sample.setType(AttributeType.DATA);
+        sampleProps.setRequired(true);
+        sampleProps.setReadOnly(false);
+        sampleProps.setVisible(true);
+        sample.setProperties(sampleProps);
+
+//        DataAttribute test = new DataAttribute();
+//        test.setUuid("a88abe01-2968-4fda-80fd-b434a49db579");
+//        test.setName("testLocation");
+//
+//        DataAttributeProperties testProps = new DataAttributeProperties();
+//        testProps.setLabel("Test location");
+//        test.setDescription("description");
+//        test.setContentType(AttributeContentType.STRING);
+//        test.setType(AttributeType.DATA);
+//        testProps.setRequired(true);
+//        testProps.setReadOnly(false);
+//        testProps.setVisible(true);
+//        test.setProperties(testProps);
+
+        attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, List.of(attribute, sample));
+    }
+
+    private Location createLocation() throws AttributeException, NotFoundException {
         Location location = new Location();
+        location.setUuid(UUID.randomUUID());
         location.setName(LOCATION_NAME);
         location.setEntityInstanceReference(entityInstanceReference);
         location.setEnabled(true);
         location.setSupportKeyManagement(true);
         location.setSupportMultipleEntries(true);
-        List<DataAttribute> attributes = new ArrayList<>();
-        attributes.add(attribute);
-        location.setAttributes(attributes);
 
+        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes("attribute", List.of(new StringAttributeContent("location")));
+        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
         return location;
     }
 
-    private Location createLocationNoMultiEntries() {
-        DataAttribute attribute = new DataAttribute();
-        attribute.setUuid("a9392cc3-6f7f-46a2-8915-b9873f1267df");
-        attribute.setName("attribute");
-        DataAttributeProperties properties = new DataAttributeProperties();
-
-        properties.setLabel("attribute");
-        attribute.setDescription("description");
-        attribute.setContentType(AttributeContentType.STRING);
-        attribute.setType(AttributeType.DATA);
-        properties.setRequired(true);
-        properties.setReadOnly(false);
-        properties.setVisible(true);
-
-        attribute.setProperties(properties);
-
+    private Location createLocationNoMultiEntries() throws AttributeException, NotFoundException {
         Location location = new Location();
+        location.setUuid(UUID.randomUUID());
         location.setName(LOCATION_NAME_NOMULTIENTRIES);
         location.setEntityInstanceReferenceUuid(entityInstanceReference.getUuid());
         location.setEnabled(true);
         location.setSupportKeyManagement(true);
         location.setSupportMultipleEntries(false);
-        List<DataAttribute> attributes = new ArrayList<>();
-        attributes.add(attribute);
-        location.setAttributes(attributes);
+
+        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes("attribute", List.of(new StringAttributeContent("location_multi")));
+        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
 
         return location;
     }
 
-    private Location createLocationNoKeyManagement() {
-        DataAttribute attribute = new DataAttribute();
-        attribute.setUuid("eec75a92-a8c3-4903-935e-60c248f92af6");
-        attribute.setName("attribute");
-        DataAttributeProperties properties = new DataAttributeProperties();
-
-        properties.setLabel("attribute");
-        attribute.setDescription("description");
-        attribute.setContentType(AttributeContentType.STRING);
-        attribute.setType(AttributeType.DATA);
-        properties.setRequired(true);
-        properties.setReadOnly(false);
-        properties.setVisible(true);
-
-        attribute.setProperties(properties);
-
+    private Location createLocationNoKeyManagement() throws AttributeException, NotFoundException {
         Location location = new Location();
+        location.setUuid(UUID.randomUUID());
         location.setName(LOCATION_NAME_NOKEYMANAGEMENT);
         location.setEntityInstanceReference(entityInstanceReference);
         location.setEnabled(true);
         location.setSupportKeyManagement(false);
         location.setSupportMultipleEntries(true);
-        List<DataAttribute> attributes = new ArrayList<>();
-        attributes.add(attribute);
-        location.setAttributes(attributes);
+
+        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes("attribute", List.of(new StringAttributeContent("location_no_key")));
+        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
 
         return location;
     }
@@ -233,7 +258,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddLocation() throws NotFoundException, AlreadyExistException, LocationException {
+    public void testAddLocation() throws ConnectorException, AlreadyExistException, LocationException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -255,14 +280,13 @@ public class LocationServiceTest extends BaseSpringBootTest {
         requestAttributeDto.setContent(List.of(new StringAttributeContent("test")));
         request.setAttributes(List.of(requestAttributeDto));
 
-        LocationDto dto = locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()),request);
+        LocationDto dto = locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
     }
 
     @Test
     public void testAddLocation_DuplicateEntity() throws NotFoundException, AlreadyExistException, LocationException {
-
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName("testLocation2");
         RequestAttributeDto attribute = new RequestAttributeDto();
@@ -270,7 +294,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         attribute.setContent(List.of(new StringAttributeContent("location")));
         request.setAttributes(List.of(attribute));
 
-        Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()),request));
+        Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()), request));
     }
 
     @Test
@@ -289,7 +313,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
 
     // TODO
     @Test
-    public void testEditLocation() throws NotFoundException, LocationException {
+    public void testEditLocation() throws ConnectorException, LocationException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.okJson("[]")));

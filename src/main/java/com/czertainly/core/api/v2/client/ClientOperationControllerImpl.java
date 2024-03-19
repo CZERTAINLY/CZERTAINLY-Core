@@ -97,7 +97,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRevocationDto request) throws NotFoundException {
+            ClientCertificateRevocationDto request) throws ConnectorException, AttributeException {
         clientOperationService.revokeCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 }

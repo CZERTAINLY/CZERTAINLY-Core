@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -12,6 +13,9 @@ import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
@@ -24,7 +28,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.ValidatorUtil;
 import jakarta.transaction.Transactional;
@@ -46,12 +49,17 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     private final ScepProfileRepository scepProfileRepository;
     private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
-    private AttributeService attributeService;
     private CertificateService certificateService;
+    private AttributeEngine attributeEngine;
 
     @Autowired
     public ScepProfileServiceImpl(ScepProfileRepository scepProfileRepository) {
         this.scepProfileRepository = scepProfileRepository;
+    }
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
     }
 
     @Autowired
@@ -62,11 +70,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     @Autowired
     public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
         this.extendedAttributeService = extendedAttributeService;
-    }
-
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
     }
 
     @Autowired
@@ -90,15 +93,19 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.DETAIL)
     public ScepProfileDetailDto getScepProfile(SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting the details for the SCEP Profile with uuid " + uuid);
-        ScepProfileDetailDto dto = getScepProfileEntity(uuid).mapToDetailDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.SCEP_PROFILE));
+        ScepProfile scepProfile = getScepProfileEntity(uuid);
+        ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
+        if (scepProfile.getRaProfile() != null) {
+            dto.setIssueCertificateAttributes(attributeEngine.getObjectDataAttributesContent(scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid()));
+        }
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.SCEP_PROFILE, uuid.getValue()));
         return dto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.CREATE)
-    public ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         if (request.getName() == null || request.getName().isEmpty()) {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
         }
@@ -122,7 +129,13 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             throw new ValidationException(ValidationError.create("Invalid Intune configuration. Missing Intune tenant and/or intune app identification"));
         }
 
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.SCEP_PROFILE);
+        RaProfile raProfile = null;
+        attributeEngine.validateCustomAttributesContent(Resource.SCEP_PROFILE, request.getCustomAttributes());
+        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
+            raProfile = getRaProfile(request.getRaProfileUuid());
+
+            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+        }
 
         logger.info("Creating a new SCEP Profile");
 
@@ -141,23 +154,22 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setIntuneTenant(request.getIntuneTenant());
         scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
         scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
-        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
-            RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
-            scepProfile.setRaProfile(raProfile);
-            scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-        }
-        scepProfileRepository.save(scepProfile);
+        scepProfile.setRaProfile(raProfile);
+        scepProfile = scepProfileRepository.save(scepProfile);
 
-        attributeService.createAttributeContent(scepProfile.getUuid(), request.getCustomAttributes(), Resource.SCEP_PROFILE);
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(scepProfile.getUuid(), Resource.SCEP_PROFILE));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(), request.getCustomAttributes()));
+        if (raProfile != null) {
+            dto.setIssueCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid(), request.getIssueCertificateAttributes()));
+        }
+
         return dto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.UPDATE)
-    public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException {
+    public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException {
         if (request.getCaCertificateUuid() == null || request.getCaCertificateUuid().isEmpty()) {
             throw new ValidationException(ValidationError.create("CA Certificate cannot be empty"));
         }
@@ -172,6 +184,14 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             throw new ValidationException(ValidationError.create("Invalid Intune configuration. Missing Intune tenant and/or intune app identification"));
         }
 
+        attributeEngine.validateCustomAttributesContent(Resource.SCEP_PROFILE, request.getCustomAttributes());
+
+        RaProfile raProfile = null;
+        if (request.getRaProfileUuid() != null) {
+            raProfile = getRaProfile(request.getRaProfileUuid());
+            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+        }
+
         ScepProfile scepProfile = getScepProfileEntity(uuid);
         scepProfile.setRequireManualApproval(false);
         scepProfile.setIncludeCaCertificate(request.isIncludeCaCertificate());
@@ -179,25 +199,29 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         if (request.getRenewalThreshold() != null) scepProfile.setRenewalThreshold(request.getRenewalThreshold());
         if (scepProfile.getChallengePassword() != null)
             scepProfile.setChallengePassword(request.getChallengePassword());
-        if (request.getRaProfileUuid() != null) {
-            RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
-            scepProfile.setRaProfile(raProfile);
-            scepProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-        } else {
-            scepProfile.setRaProfile(null);
-            scepProfile.setIssueCertificateAttributes(null);
+
+        // delete old connector data attributes content
+        UUID oldConnectorUuid = scepProfile.getRaProfile() == null ? null : scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
+        if (oldConnectorUuid != null) {
+            ObjectAttributeContentInfo contentInfo = new ObjectAttributeContentInfo(oldConnectorUuid, Resource.SCEP_PROFILE, scepProfile.getUuid());
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.CERTIFICATE_ISSUE, contentInfo);
         }
+
+        scepProfile.setRaProfile(raProfile);
         scepProfile.setDescription(request.getDescription());
         scepProfile.setCaCertificateUuid(UUID.fromString(request.getCaCertificateUuid()));
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.SCEP_PROFILE);
-        attributeService.updateAttributeContent(scepProfile.getUuid(), request.getCustomAttributes(), Resource.SCEP_PROFILE);
         scepProfile.setIntuneEnabled(intuneEnabled);
         scepProfile.setIntuneTenant(request.getIntuneTenant());
         scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
         scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
         scepProfileRepository.save(scepProfile);
+
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(scepProfile.getUuid(), Resource.SCEP_PROFILE));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(), request.getCustomAttributes()));
+        if (raProfile != null) {
+            dto.setIssueCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid(), request.getIssueCertificateAttributes()));
+        }
+
         return dto;
     }
 
@@ -351,7 +375,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
                     )
             );
         } else {
-            attributeService.deleteAttributeContent(scepProfile.getUuid(), Resource.SCEP_PROFILE);
+            attributeEngine.deleteAllObjectAttributeContent(Resource.SCEP_PROFILE, scepProfile.getUuid());
             scepProfileRepository.delete(scepProfile);
         }
     }

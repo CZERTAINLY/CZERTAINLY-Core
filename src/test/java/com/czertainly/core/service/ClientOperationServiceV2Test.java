@@ -2,14 +2,20 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -78,9 +84,16 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     private WireMockServer mockServer;
 
     private X509Certificate x509Cert;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
+
 
     @BeforeEach
-    public void setUp() throws GeneralSecurityException, IOException {
+    public void setUp() throws GeneralSecurityException, IOException, NotFoundException, AttributeException {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -96,17 +109,29 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         authorityInstanceReference.setConnector(connector);
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
+        // prepare attribute
+        DataAttribute attribute = new DataAttribute();
+        attribute.setUuid("6e9146a6-da8a-403f-99cb-d5d64d93ce1d");
+        attribute.setName("endEntityProfile");
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("End entity");
+        attribute.setDescription("description");
+        attribute.setContentType(AttributeContentType.OBJECT);
+        attribute.setType(AttributeType.DATA);
+        properties.setRequired(true);
+        properties.setReadOnly(false);
+        properties.setVisible(true);
+        attribute.setProperties(properties);
+        attributeEngine.updateDataAttributeDefinitions(connector.getUuid(), null, List.of(attribute));
+
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile.setAuthorityInstanceReferenceUuid(authorityInstanceReference.getUuid());
         raProfile.setEnabled(true);
 
-        raProfile.setAttributes(AttributeDefinitionUtils.serialize(
-                AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("endEntityProfile", List.of(new ObjectAttributeContent(new NameAndIdDto(1, "profile")))))
-        ));
-
         raProfile = raProfileRepository.save(raProfile);
+        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes("endEntityProfile", List.of(new ObjectAttributeContent(new NameAndIdDto(1, "profile")))));
 
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
