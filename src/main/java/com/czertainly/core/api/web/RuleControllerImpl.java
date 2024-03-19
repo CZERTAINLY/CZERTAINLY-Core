@@ -69,7 +69,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, UpdateConditionGroupRequestDto request) throws NotFoundException {
+    public RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException {
         return ruleService.updateConditionGroup(conditionGroupUuid, request);
     }
 
@@ -94,7 +94,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, UpdateActionGroupRequestDto request) throws NotFoundException {
+    public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException {
         return ruleService.updateActionGroup(actionGroupUuid, request);
     }
 
@@ -119,7 +119,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleTriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
+    public RuleTriggerDetailDto updateTrigger(String triggerUuid, UpdateRuleTriggerRequestDto request) throws NotFoundException {
         return ruleService.updateTrigger(triggerUuid, request);
     }
 

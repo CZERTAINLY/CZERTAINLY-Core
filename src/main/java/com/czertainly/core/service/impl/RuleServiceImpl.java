@@ -224,7 +224,7 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, UpdateConditionGroupRequestDto request) throws NotFoundException {
+    public RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException {
         if (request.getConditions() == null) {
             throw new ValidationException("Cannot update a condition group without any conditions.");
         }
@@ -285,7 +285,7 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, UpdateActionGroupRequestDto request) throws NotFoundException {
+    public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException {
 
         if (request.getActions() == null) {
             throw new ValidationException("Cannot update an action group without any actions.");
@@ -390,7 +390,7 @@ public class RuleServiceImpl implements RuleService {
 
 
     @Override
-    public RuleTriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
+    public RuleTriggerDetailDto updateTrigger(String triggerUuid, UpdateRuleTriggerRequestDto request) throws NotFoundException {
 
 
         if (request.getTriggerType() == null) {

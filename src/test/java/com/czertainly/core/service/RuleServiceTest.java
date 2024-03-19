@@ -76,7 +76,7 @@ public class RuleServiceTest extends BaseSpringBootTest {
         RuleConditionGroupDetailDto conditionGroupDetailDto = ruleService.createConditionGroup(conditionGroupRequestDto);
         Assertions.assertNotNull(conditionGroupDetailDto);
 
-        UpdateConditionGroupRequestDto updateConditionGroupRequestDto = new UpdateConditionGroupRequestDto();
+        UpdateRuleConditionGroupRequestDto updateConditionGroupRequestDto = new UpdateRuleConditionGroupRequestDto();
         updateConditionGroupRequestDto.setDescription("description");
         updateConditionGroupRequestDto.setConditions(conditionGroupRequestDto.getConditions());
         Assertions.assertEquals("description", ruleService.updateConditionGroup(conditionGroupDetailDto.getUuid(), updateConditionGroupRequestDto).getDescription());
@@ -100,7 +100,7 @@ public class RuleServiceTest extends BaseSpringBootTest {
         RuleTriggerDetailDto triggerDetailDto = ruleService.createTrigger(triggerRequestDto);
         Assertions.assertNotNull(triggerDetailDto);
 
-        UpdateTriggerRequestDto updateTriggerRequestDto = new UpdateTriggerRequestDto();
+        UpdateRuleTriggerRequestDto updateTriggerRequestDto = new UpdateRuleTriggerRequestDto();
         updateTriggerRequestDto.setDescription("description");
         updateTriggerRequestDto.setTriggerType(RuleTriggerType.EVENT);
         updateTriggerRequestDto.setActions(triggerRequestDto.getActions());
@@ -127,7 +127,7 @@ public class RuleServiceTest extends BaseSpringBootTest {
         RuleActionGroupDetailDto actionGroupDetailDto = ruleService.createActionGroup(actionGroupRequestDto);
         Assertions.assertNotNull(actionGroupDetailDto);
 
-        UpdateActionGroupRequestDto updateActionGroupRequestDto = new UpdateActionGroupRequestDto();
+        UpdateRuleActionGroupRequestDto updateActionGroupRequestDto = new UpdateRuleActionGroupRequestDto();
         updateActionGroupRequestDto.setDescription("description");
         updateActionGroupRequestDto.setActions(actionGroupRequestDto.getActions());
         Assertions.assertEquals("description", ruleService.updateActionGroup(actionGroupDetailDto.getUuid(), updateActionGroupRequestDto).getDescription());
