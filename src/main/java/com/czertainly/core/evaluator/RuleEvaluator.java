@@ -58,16 +58,16 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         // Rule evaluated is check if any rule has been evaluated, no rules will be evaluated if all rules in the list have incompatible resource
         boolean ruleEvaluated = false;
         for (Rule rule : rules) {
-            logger.info("Evaluating rule \"" + rule.getName() + "\".");
+            logger.debug("Evaluating rule \"" + rule.getName() + "\".");
             // Check if resource in the rule corresponds to the class of evaluator
             if (!ResourceToClass.getClassByResource(rule.getResource()).isInstance(object)) {
-                logger.info("Rule \"" + rule.getName() + "\" has been skipped due to incompatible resource.");
+                logger.debug("Rule \"" + rule.getName() + "\" has been skipped due to incompatible resource.");
                 continue;
             }
             ruleEvaluated = true;
             for (RuleCondition condition : rule.getConditions()) {
                 if (!evaluateCondition(condition, object, rule.getResource())) {
-                    logger.info(String.format("Rule %s is not satisfied, condition \"%s %s %s\" from source %s has been evaluated as false for the object.",
+                    logger.debug(String.format("Rule %s is not satisfied, condition \"%s %s %s\" from source %s has been evaluated as false for the object.",
                             rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode()));
                     return false;
                 }
@@ -76,7 +76,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
                 for (RuleCondition condition : conditionGroup.getConditions()) {
                     if (!evaluateCondition(condition, object, rule.getResource())) {
-                        logger.info(String.format("Rule %s is not satisfied, condition \"%s %s %s\" from source %s has been evaluated as false for the object.",
+                        logger.debug(String.format("Rule %s is not satisfied, condition \"%s %s %s\" from source %s has been evaluated as false for the object.",
                                 rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode()));
                         return false;
                     }
@@ -84,19 +84,19 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             }
         }
 
-        if (ruleEvaluated) logger.info("All rules in the list have been satisfied for the object. "); else logger.info("No rules from the list have been evaluated, rules are not satisfied for the object.");
+        if (ruleEvaluated) logger.debug("All rules in the list have been satisfied for the object. "); else logger.info("No rules from the list have been evaluated, rules are not satisfied for the object.");
         return ruleEvaluated;
     }
 
     @Override
-    public boolean evaluateRulesOnList(List<Rule> rules, List<T> listOfObjects) throws RuleException {
+    public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException {
         for (T object : listOfObjects) {
             if (!evaluateRules(rules, object)) {
-                logger.info("Rules have not been satisfied for a object in the list, the list does not contain objects satisfying the rules.");
+                logger.debug("Rules have not been satisfied for a object in the list, the list does not contain objects satisfying the rules.");
                 return false;
             }
         }
-        logger.info("All objects in the list satisfy the rules.");
+        logger.debug("All objects in the list satisfy the rules.");
         return true;
     }
 
@@ -143,7 +143,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             throw new RuleException("Cannot get uuid from resource " + resource + ".");
         }
 
-        if (objectUuid == null) {
+        if (objectUuid != null) {
             if (fieldSource == FilterFieldSource.CUSTOM) {
                 // If source is Custom Attribute, retrieve custom attributes of this object and find the attribute which has Name equal to Field Identifier
                 List<ResponseAttributeDto> responseAttributeDtos = attributeService.getCustomAttributesWithValues(objectUuid, resource);
@@ -174,7 +174,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 return false;
             }
         }
-        // C
+        // Field source is not Property and object is not database, therefore attributes can not be evaluated and condition is not satisfied
         return false;
     }
 
