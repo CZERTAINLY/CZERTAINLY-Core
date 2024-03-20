@@ -67,8 +67,8 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             ruleEvaluated = true;
             for (RuleCondition condition : rule.getConditions()) {
                 if (!evaluateCondition(condition, object, rule.getResource())) {
-                    logger.debug(String.format("Rule %s is not satisfied, condition \"%s %s %s\" from source %s has been evaluated as false for the object.",
-                            rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode()));
+                    logger.debug("Rule {} is not satisfied, condition \"{} {} {}\" from source {} has been evaluated as false for the object.",
+                            rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
                     return false;
                 }
             }
@@ -76,8 +76,8 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
                 for (RuleCondition condition : conditionGroup.getConditions()) {
                     if (!evaluateCondition(condition, object, rule.getResource())) {
-                        logger.debug(String.format("Rule %s is not satisfied, condition \"%s %s %s\" from source %s has been evaluated as false for the object.",
-                                rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode()));
+                        logger.debug("Rule {} is not satisfied, condition \"{} {} {}\" from source {} has been evaluated as false for the object.",
+                                rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
                         return false;
                     }
                 }
