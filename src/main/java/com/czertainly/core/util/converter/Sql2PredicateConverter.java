@@ -5,9 +5,9 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
-import com.czertainly.api.model.core.search.SearchCondition;
-import com.czertainly.api.model.core.search.SearchGroup;
-import com.czertainly.api.model.core.search.SearchableFieldType;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
@@ -30,7 +30,7 @@ public class Sql2PredicateConverter {
         final List<Predicate> predicates = new ArrayList<>();
         boolean hasFilteredAttributes = false;
         for (final SearchFilterRequestDto dto : dtos) {
-            if (dto.getSearchGroup() == SearchGroup.PROPERTY) {
+            if (dto.getFieldSource() == FilterFieldSource.PROPERTY) {
                 predicates.add(mapSearchFilter2Predicate(dto, criteriaBuilder, root));
             } else {
                 hasFilteredAttributes = true;
@@ -69,19 +69,19 @@ public class Sql2PredicateConverter {
     private static Predicate processPredicate(final CriteriaBuilder criteriaBuilder, final Root root, final SearchFilterRequestDto dto, final Object valueObject) {
 
         final SearchableFields searchableFields = SearchableFields.valueOf(dto.getFieldIdentifier());
-        final SearchCondition searchCondition = checkOrReplaceSearchCondition(dto, searchableFields);
+        final FilterConditionOperator filterConditionOperator = checkOrReplaceSearchCondition(dto, searchableFields);
         final SearchFieldTypeEnum searchFieldTypeEnum = SearchFieldNameEnum.getEnumBySearchableFields(searchableFields).getFieldTypeEnum();
         final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(searchFieldTypeEnum) || SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum);
         final Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject, searchableFields);
         if (predicate == null) {
             final Object expressionValue = prepareValue(valueObject, searchableFields);
             final SearchFieldObject searchFieldObject = SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum) ? new SearchFieldObject(AttributeContentType.DATETIME) : null;
-            return buildPredicateByCondition(criteriaBuilder, searchCondition, null, root, searchableFields, expressionValue, isDateFormat, SearchableFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()), dto, searchFieldObject);
+            return buildPredicateByCondition(criteriaBuilder, filterConditionOperator, null, root, searchableFields, expressionValue, isDateFormat, FilterFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()), dto, searchFieldObject);
         }
         return predicate;
     }
 
-    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, SearchCondition searchCondition, Expression expression, Root root, SearchableFields searchableFields, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
+    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, FilterConditionOperator filterConditionOperator, Expression expression, Root root, SearchableFields searchableFields, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
         if (expression == null) {
             if (searchableFields.getPathToBeJoin() == null) {
                 expression = prepareExpression(root, searchableFields.getCode());
@@ -100,13 +100,13 @@ public class Sql2PredicateConverter {
             if (searchFieldObject == null) {
                 searchFieldObject = new SearchFieldObject(AttributeContentType.DATE);
             }
-            return prepareDateTimePredicate(criteriaBuilder, searchCondition, expression, expressionValue.toString(), searchFieldObject);
+            return prepareDateTimePredicate(criteriaBuilder, filterConditionOperator, expression, expressionValue.toString(), searchFieldObject);
         }
 
         Predicate predicate = null;
         if (isBoolean) {
             if (searchableFields.getExpectedValue() == null) {
-                switch (searchCondition) {
+                switch (filterConditionOperator) {
                     case EQUALS -> predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
                     case NOT_EQUALS -> predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
                 }
@@ -114,15 +114,15 @@ public class Sql2PredicateConverter {
             } else {
                 final Boolean booleanValue = Boolean.parseBoolean(expressionValue.toString());
                 expressionValue = searchableFields.getExpectedValue();
-                if (SearchCondition.EQUALS.equals(searchCondition) && !booleanValue) {
-                    searchCondition = SearchCondition.NOT_EQUALS;
-                } else if (SearchCondition.NOT_EQUALS.equals(searchCondition) && !booleanValue) {
-                    searchCondition = SearchCondition.EQUALS;
+                if (FilterConditionOperator.EQUALS.equals(filterConditionOperator) && !booleanValue) {
+                    filterConditionOperator = FilterConditionOperator.NOT_EQUALS;
+                } else if (FilterConditionOperator.NOT_EQUALS.equals(filterConditionOperator) && !booleanValue) {
+                    filterConditionOperator = FilterConditionOperator.EQUALS;
                 }
             }
         }
 
-        switch (searchCondition) {
+        switch (filterConditionOperator) {
             case EQUALS -> predicate = criteriaBuilder.equal(expression, expressionValue);
             case NOT_EQUALS -> {
                 if (searchableFields.getPathToBeJoin() != null) {
@@ -141,7 +141,7 @@ public class Sql2PredicateConverter {
             case EMPTY -> predicate = retrievePredicateForNull(criteriaBuilder, root, searchableFields, expression);
             case NOT_EMPTY -> predicate = criteriaBuilder.isNotNull(expression);
             case GREATER, LESSER -> {
-                if (searchCondition.equals(SearchCondition.GREATER)) {
+                if (filterConditionOperator.equals(FilterConditionOperator.GREATER)) {
                     predicate = criteriaBuilder.greaterThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
                 } else {
                     predicate = criteriaBuilder.lessThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
@@ -162,9 +162,9 @@ public class Sql2PredicateConverter {
         }
     }
 
-    private static Predicate prepareDateTimePredicate(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, final Expression expression, final String value, final SearchFieldObject searchFieldObject) {
+    private static Predicate prepareDateTimePredicate(final CriteriaBuilder criteriaBuilder, final FilterConditionOperator filterConditionOperator, final Expression expression, final String value, final SearchFieldObject searchFieldObject) {
         Predicate dateTimePredicate = null;
-        switch (searchCondition) {
+        switch (filterConditionOperator) {
             case EQUALS -> {
                 switch (searchFieldObject.getAttributeContentType()) {
                     case DATETIME ->
@@ -209,13 +209,13 @@ public class Sql2PredicateConverter {
         return dateTimePredicate;
     }
 
-    private static SearchCondition checkOrReplaceSearchCondition(final SearchFilterRequestDto dto, final SearchableFields searchableFields) {
+    private static FilterConditionOperator checkOrReplaceSearchCondition(final SearchFilterRequestDto dto, final SearchableFields searchableFields) {
         if (searchableFields.getEnumClass() != null
                 && searchableFields.getEnumClass().equals(KeyUsage.class)) {
-            if (dto.getCondition().equals(SearchCondition.EQUALS)) {
-                return SearchCondition.CONTAINS;
-            } else if (dto.getCondition().equals(SearchCondition.NOT_EQUALS)) {
-                return SearchCondition.NOT_CONTAINS;
+            if (dto.getCondition().equals(FilterConditionOperator.EQUALS)) {
+                return FilterConditionOperator.CONTAINS;
+            } else if (dto.getCondition().equals(FilterConditionOperator.NOT_EQUALS)) {
+                return FilterConditionOperator.NOT_CONTAINS;
             }
         }
         return dto.getCondition();
@@ -302,8 +302,8 @@ public class Sql2PredicateConverter {
         final List<Predicate> rootPredicates = new ArrayList<>();
 
         for (final SearchFilterRequestDto dto : dtos) {
-            final SearchGroup searchGroup = dto.getSearchGroup();
-            if (searchGroup == SearchGroup.CUSTOM || searchGroup == SearchGroup.META) {
+            final FilterFieldSource filterFieldSource = dto.getFieldSource();
+            if (filterFieldSource == FilterFieldSource.CUSTOM || filterFieldSource == FilterFieldSource.META) {
 
                 // --- SUB QUERY ---
                 final Subquery<UUID> subquery = criteriaQuery.subquery(UUID.class);
@@ -322,7 +322,7 @@ public class Sql2PredicateConverter {
                 final String fieldIdentifierName = fieldIdentifier[0];
                 final Optional<SearchFieldObject> searchFieldObject =
                         searchableFields.stream().filter(attr ->
-                                attr.getAttributeType().equals(searchGroup.getAttributeType())
+                                attr.getAttributeType().equals(filterFieldSource.getAttributeType())
                                         && attr.getAttributeName().equals(fieldIdentifierName)
                                         && attr.getAttributeContentType().equals(fieldAttributeContentType)).findFirst();
 
