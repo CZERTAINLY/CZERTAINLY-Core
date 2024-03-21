@@ -7,12 +7,12 @@ import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.core.search.SearchGroup;
@@ -288,7 +288,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;

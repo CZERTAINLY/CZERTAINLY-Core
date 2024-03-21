@@ -145,6 +145,12 @@
             <artifactId>bcpkix-jdk18on</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <version>1.9.4</version>
+        </dependency>
+
         <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

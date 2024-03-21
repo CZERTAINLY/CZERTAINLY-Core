@@ -7,7 +7,6 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
@@ -24,7 +23,6 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -1222,7 +1220,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         );
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
 
         logger.debug("Searchable CryptographicKey Fields groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;

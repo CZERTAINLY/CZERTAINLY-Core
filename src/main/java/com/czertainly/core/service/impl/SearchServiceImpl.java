@@ -4,11 +4,8 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
-import com.czertainly.api.model.core.search.SearchCondition;
-import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.SearchableFieldType;
-import com.czertainly.api.model.core.search.SearchableFields;
+import com.czertainly.api.model.core.search.*;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.GroupRepository;
@@ -19,7 +16,6 @@ import jakarta.persistence.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -168,13 +164,13 @@ public class SearchServiceImpl implements SearchService {
                     throw new ValidationException(ValidationError.create("No valid object found for search in " + filter.getFieldLabel()));
                 }
 
-                if (filter.getConditions().get(0).equals(SearchCondition.EQUALS)) {
+                if (filter.getConditions().get(0).equals(FilterConditionOperator.EQUALS)) {
                     qp += " IN (" + String.join(",", whereObjects) + " )";
                     if(filter.getField().equals(SearchableFields.COMPLIANCE_STATUS) && ((List<String>) filter.getValue()).contains("NA")){
                         qp += " or " + ntvCode + " IS NULL ";
                     }
                 }
-                if (filter.getConditions().get(0).equals(SearchCondition.NOT_EQUALS)) {
+                if (filter.getConditions().get(0).equals(FilterConditionOperator.NOT_EQUALS)) {
                     qp += " NOT IN (" + String.join(",", whereObjects) + " )";
                     if(filter.getField().equals(SearchableFields.COMPLIANCE_STATUS) && !((List<String>) filter.getValue()).contains("NA")){
                         qp += " or " + ntvCode + " IS NOT NULL ";
@@ -183,47 +179,47 @@ public class SearchServiceImpl implements SearchService {
 
             } else {
                 if (filter.getField().equals(SearchableFields.SIGNATURE_VALIDATION)) {
-                    if (filter.getConditions().get(0).equals(SearchCondition.SUCCESS)) {
+                    if (filter.getConditions().get(0).equals(FilterConditionOperator.SUCCESS)) {
                         qp += " LIKE '%\"Signature Verification\":{\"status\":\"success\"%'";
-                    } else if (filter.getConditions().get(0).equals(SearchCondition.FAILED)) {
+                    } else if (filter.getConditions().get(0).equals(FilterConditionOperator.FAILED)) {
                         qp += " LIKE '%\"Signature Verification\":{\"status\":\"failed\"%'";
-                    } else if (filter.getConditions().get(0).equals(SearchCondition.UNKNOWN)) {
+                    } else if (filter.getConditions().get(0).equals(FilterConditionOperator.UNKNOWN)) {
                         qp += " LIKE '%\"Signature Verification\":{\"status\":\"not_checked\"%'";
                     }
                 } else if (filter.getField().equals(SearchableFields.OCSP_VALIDATION)) {
-                    if (filter.getConditions().get(0).equals(SearchCondition.SUCCESS)) {
+                    if (filter.getConditions().get(0).equals(FilterConditionOperator.SUCCESS)) {
                         qp += "LIKE '%\"OCSP Verification\":{\"status\":\"success\"%'";
-                    } else if (filter.getConditions().get(0).equals(SearchCondition.FAILED)) {
+                    } else if (filter.getConditions().get(0).equals(FilterConditionOperator.FAILED)) {
                         qp += "LIKE '%\"OCSP Verification\":{\"status\":\"failed\"%'";
-                    } else if (filter.getConditions().get(0).equals(SearchCondition.UNKNOWN)) {
+                    } else if (filter.getConditions().get(0).equals(FilterConditionOperator.UNKNOWN)) {
                         qp += "LIKE '%\"OCSP Verification\":{\"status\":\"unknown\"%'";
-                    } else if (filter.getConditions().get(0).equals(SearchCondition.EMPTY)) {
+                    } else if (filter.getConditions().get(0).equals(FilterConditionOperator.EMPTY)) {
                         qp += "LIKE '%\"OCSP Verification\":{\"status\":\"warning\"%'";
                     }
                 } else if (filter.getField().equals(SearchableFields.CRL_VALIDATION)) {
-                    if (filter.getConditions().get(0).equals(SearchCondition.SUCCESS)) {
+                    if (filter.getConditions().get(0).equals(FilterConditionOperator.SUCCESS)) {
                         qp += "LIKE '%\"CRL Verification\":{\"status\":\"success\"%'";
-                    } else if (filter.getConditions().get(0).equals(SearchCondition.FAILED)) {
+                    } else if (filter.getConditions().get(0).equals(FilterConditionOperator.FAILED)) {
                         qp += "LIKE '%\"CRL Verification\":{\"status\":\"failed\"%'";
-                    } else if (filter.getConditions().get(0).equals(SearchCondition.UNKNOWN)) {
+                    } else if (filter.getConditions().get(0).equals(FilterConditionOperator.UNKNOWN)) {
                         qp += "LIKE '%\"CRL Verification\":{\"status\":\"unknown\"%'";
-                    } else if (filter.getConditions().get(0).equals(SearchCondition.EMPTY)) {
+                    } else if (filter.getConditions().get(0).equals(FilterConditionOperator.EMPTY)) {
                         qp += "LIKE '%\"CRL Verification\":{\"status\":\"warning\"%'";
                     }
-                } else if (filter.getConditions().get(0).equals(SearchCondition.CONTAINS) || filter.getConditions().get(0).equals(SearchCondition.NOT_CONTAINS)) {
+                } else if (filter.getConditions().get(0).equals(FilterConditionOperator.CONTAINS) || filter.getConditions().get(0).equals(FilterConditionOperator.NOT_CONTAINS)) {
                     qp += filter.getConditions().get(0).getCode() + " '%" + filter.getValue().toString() + "%'";
                     try{
-                        if(filter.getConditions().get(0).equals(SearchCondition.NOT_CONTAINS)) {
+                        if(filter.getConditions().get(0).equals(FilterConditionOperator.NOT_CONTAINS)) {
                             qp += " or " + ntvCode + " IS NULL ";
                         }
                     }catch (Exception e){
                         logger.warn("Unable to add empty query");
                     }
-                } else if (filter.getConditions().get(0).equals(SearchCondition.STARTS_WITH)) {
+                } else if (filter.getConditions().get(0).equals(FilterConditionOperator.STARTS_WITH)) {
                     qp += filter.getConditions().get(0).getCode() + " '" + filter.getValue().toString() + "%'";
-                } else if (filter.getConditions().get(0).equals(SearchCondition.ENDS_WITH)) {
+                } else if (filter.getConditions().get(0).equals(FilterConditionOperator.ENDS_WITH)) {
                     qp += filter.getConditions().get(0).getCode() + " '%" + filter.getValue().toString() + "'";
-                } else if (filter.getConditions().get(0).equals(SearchCondition.EMPTY) || filter.getConditions().get(0).equals(SearchCondition.NOT_EMPTY)) {
+                } else if (filter.getConditions().get(0).equals(FilterConditionOperator.EMPTY) || filter.getConditions().get(0).equals(FilterConditionOperator.NOT_EMPTY)) {
                     qp += filter.getConditions().get(0).getCode();
                 } else {
                     if (filter.getField().equals(SearchableFields.RA_PROFILE_NAME)) {

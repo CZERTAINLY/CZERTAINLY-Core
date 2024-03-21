@@ -21,9 +21,9 @@ import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -451,7 +451,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
