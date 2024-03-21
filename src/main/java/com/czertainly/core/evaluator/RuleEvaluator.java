@@ -11,13 +11,13 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Rule;
 import com.czertainly.core.dao.entity.RuleCondition;
 import com.czertainly.core.dao.entity.RuleConditionGroup;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.MetadataService;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,24 +35,15 @@ import java.util.function.BiFunction;
 @Component
 public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
-    private MetadataService metadataService;
-    private AttributeService attributeService;
-
+    private static final Logger logger = LoggerFactory.getLogger(RuleEvaluator.class);
     private static final String DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
+    private AttributeEngine attributeEngine;
 
     @Autowired
-    public void setMetadataService(MetadataService metadataService) {
-        this.metadataService = metadataService;
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
     }
-
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
-    }
-
-    private static final Logger logger = LoggerFactory.getLogger(RuleEvaluator.class);
-
 
     @Override
     public boolean evaluateRules(List<Rule> rules, T object) throws RuleException {
@@ -151,7 +142,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         if (objectUuid != null) {
             if (fieldSource == FilterFieldSource.CUSTOM) {
                 // If source is Custom Attribute, retrieve custom attributes of this object and find the attribute which has Name equal to Field Identifier
-                List<ResponseAttributeDto> responseAttributeDtos = attributeService.getCustomAttributesWithValues(objectUuid, resource);
+                List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
                 ResponseAttributeDto attributeToCompare = responseAttributeDtos.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
                 if (attributeToCompare == null) return false;
                 // Evaluate condition on each attribute content of the attribute, if at least teh condition is evaluated as satisfied at least once, the condition is satisfied for the object
@@ -165,7 +156,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 AttributeContentType fieldAttributeContentType = AttributeContentType.valueOf(split[1]);
                 String fieldIdentifierName = split[0];
                 // From all Metadata of the object, find those with matching Name and Content Type and evaluate condition on these, return true for the first satisfying attribute, otherwise continue wit next
-                List<MetadataResponseDto> metadata = metadataService.getFullMetadata(objectUuid, resource);
+                List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(resource, objectUuid));
                 for (List<ResponseMetadataDto> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
                     for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
                         if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) & fieldAttributeContentType == responseAttributeDto.getContentType()) {

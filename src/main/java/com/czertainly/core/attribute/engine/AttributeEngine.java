@@ -14,8 +14,8 @@ import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContent;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentDetail;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -89,12 +89,12 @@ public class AttributeEngine {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
         final List<SearchFieldObject> metadataSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.META));
         if (!metadataSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), SearchGroup.META));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), FilterFieldSource.META));
         }
 
         final List<SearchFieldObject> customAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM));
         if (!customAttrSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), SearchGroup.CUSTOM));
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), FilterFieldSource.CUSTOM));
         }
 
         return searchFieldDataByGroupDtos;
@@ -102,7 +102,7 @@ public class AttributeEngine {
 
     public List<UUID> getResourceObjectUuidsByFilters(Resource resource, SecurityFilter securityFilter, List<SearchFilterRequestDto> searchFilters) {
         List<SearchFilterRequestDto> attributesFilters;
-        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getSearchGroup() == SearchGroup.CUSTOM || f.getSearchGroup() == SearchGroup.META).toList()).isEmpty()) {
+        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getFieldSource() == FilterFieldSource.CUSTOM || f.getFieldSource() == FilterFieldSource.META).toList()).isEmpty()) {
             return null;
         }
 
@@ -276,10 +276,6 @@ public class AttributeEngine {
     }
 
     public void validateUpdateDataAttributes(UUID connectorUuid, String operation, List<BaseAttribute> attributes, List<RequestAttributeDto> requestAttributes) throws AttributeException {
-        if (connectorUuid == null) {
-            throw new AttributeException("Cannot update data attributes without specifying connector UUID.");
-        }
-
         updateDataAttributeDefinitions(connectorUuid, operation, attributes);
         validateDataAttributesContent(connectorUuid, operation, attributes, requestAttributes);
     }
