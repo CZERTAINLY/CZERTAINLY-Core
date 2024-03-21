@@ -7,23 +7,20 @@ import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.SearchGroup;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
-import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -36,8 +33,6 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -53,7 +48,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -298,7 +292,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, SearchGroup.PROPERTY));
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
