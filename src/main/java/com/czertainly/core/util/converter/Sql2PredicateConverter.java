@@ -106,7 +106,7 @@ public class Sql2PredicateConverter {
         Predicate predicate = null;
         if (isBoolean) {
             if (searchableFields == null || searchableFields.getExpectedValue() == null) {
-                switch (searchCondition) {
+                switch (filterConditionOperator) {
                     case EQUALS -> predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
                     case NOT_EQUALS -> predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
                 }

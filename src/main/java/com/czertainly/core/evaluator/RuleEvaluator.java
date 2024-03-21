@@ -184,8 +184,8 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
     static {
         commonOperatorFunctionMap = new HashMap<>();
-        commonOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> o == c);
-        commonOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> o != c);
+        commonOperatorFunctionMap.put(FilterConditionOperator.EQUALS, Object::equals);
+        commonOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> !o.equals(c));
         commonOperatorFunctionMap.put(FilterConditionOperator.EMPTY, (o, c) -> o == null);
         commonOperatorFunctionMap.put(FilterConditionOperator.NOT_EMPTY, (o, c) -> o != null);
 

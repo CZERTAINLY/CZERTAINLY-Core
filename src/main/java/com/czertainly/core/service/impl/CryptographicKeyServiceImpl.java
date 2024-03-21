@@ -21,6 +21,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.*;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.aop.AuditLogged;
