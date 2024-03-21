@@ -45,6 +45,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     public void setMetadataService(MetadataService metadataService) {
         this.metadataService = metadataService;
     }
+
     @Autowired
     public void setAttributeService(AttributeService attributeService) {
         this.attributeService = attributeService;
@@ -58,16 +59,16 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         // Rule evaluated is check if any rule has been evaluated, no rules will be evaluated if all rules in the list have incompatible resource
         boolean ruleEvaluated = false;
         for (Rule rule : rules) {
-            logger.debug("Evaluating rule \"" + rule.getName() + "\".");
+            logger.debug("Evaluating rule '{}'.", rule.getName());
             // Check if resource in the rule corresponds to the class of evaluator
             if (!ResourceToClass.getClassByResource(rule.getResource()).isInstance(object)) {
-                logger.debug("Rule \"" + rule.getName() + "\" has been skipped due to incompatible resource.");
+                logger.debug("Rule '{}' has been skipped due to incompatible resource.", rule.getName());
                 continue;
             }
             ruleEvaluated = true;
             for (RuleCondition condition : rule.getConditions()) {
                 if (!evaluateCondition(condition, object, rule.getResource())) {
-                    logger.debug("Rule {} is not satisfied, condition \"{} {} {}\" from source {} has been evaluated as false for the object.",
+                    logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
                             rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
                     return false;
                 }
@@ -76,7 +77,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
                 for (RuleCondition condition : conditionGroup.getConditions()) {
                     if (!evaluateCondition(condition, object, rule.getResource())) {
-                        logger.debug("Rule {} is not satisfied, condition \"{} {} {}\" from source {} has been evaluated as false for the object.",
+                        logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
                                 rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
                         return false;
                     }
@@ -84,7 +85,11 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             }
         }
 
-        if (ruleEvaluated) logger.debug("All rules in the list have been satisfied for the object. "); else logger.info("No rules from the list have been evaluated, rules are not satisfied for the object.");
+        if (ruleEvaluated) {
+            logger.debug("All rules in the list have been satisfied for the object.");
+        } else {
+            logger.debug("No rules from the list have been evaluated, rules are not satisfied for the object.");
+        }
         return ruleEvaluated;
     }
 
@@ -124,7 +129,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             try {
                 propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
             } catch (Exception e) {
-                throw new RuleException("Field identifier " + " is not supported.");
+                throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
             }
             FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
             // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
@@ -161,7 +166,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 String fieldIdentifierName = split[0];
                 // From all Metadata of the object, find those with matching Name and Content Type and evaluate condition on these, return true for the first satisfying attribute, otherwise continue wit next
                 List<MetadataResponseDto> metadata = metadataService.getFullMetadata(objectUuid, resource);
-                for (List<ResponseMetadataDto> responseMetadataDtos :  metadata.stream().map(MetadataResponseDto::getItems).toList()) {
+                for (List<ResponseMetadataDto> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
                     for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
                         if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) & fieldAttributeContentType == responseAttributeDto.getContentType()) {
                             // Evaluate condition on each attribute content of the attribute, if at least teh condition is evaluated as satisfied at least once, the condition is satisfied for the object
@@ -249,7 +254,6 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         }
         return false;
     }
-
 
 
     private FilterFieldType contentTypeToFieldType(AttributeContentType contentType) {
