@@ -4,6 +4,7 @@ import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.EndEntityProfileApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
@@ -84,21 +85,22 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     public AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
         AuthorityInstanceReference authorityInstanceReference = getAuthorityInstanceReferenceEntity(uuid);
 
-        AuthorityInstanceDto authorityInstanceDto = new AuthorityInstanceDto();
-        authorityInstanceDto.setName(authorityInstanceReference.getName());
-        authorityInstanceDto.setUuid(authorityInstanceReference.getUuid().toString());
-        authorityInstanceDto.setKind(authorityInstanceReference.getKind());
+        List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceReference.getUuid());
+
+        AuthorityInstanceDto authorityInstanceDto = authorityInstanceReference.mapToDto();
+        authorityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.AUTHORITY, uuid.getValue()));
         if (authorityInstanceReference.getConnector() == null) {
             authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnectorName() + " (Deleted)");
             authorityInstanceDto.setConnectorUuid("");
-            logger.warn("Connector associated with the Authority: {} is not found. Unable to show details", authorityInstanceReference);
+            authorityInstanceDto.setAttributes(attributes);
+            logger.warn("Connector associated with the Authority: {} is not found. Unable to show details", authorityInstanceReference.getName());
+
             return authorityInstanceDto;
         }
 
         AuthorityProviderInstanceDto authorityProviderInstanceDto = authorityInstanceApiClient.getAuthorityInstance(authorityInstanceReference.getConnector().mapToDto(),
                 authorityInstanceReference.getAuthorityInstanceUuid());
 
-        var attributes = attributeEngine.getObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceReference.getUuid());
         if (attributes.isEmpty() && authorityProviderInstanceDto.getAttributes() != null && !authorityProviderInstanceDto.getAttributes().isEmpty()) {
             try {
                 List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.getClientAttributes(authorityProviderInstanceDto.getAttributes());
@@ -109,12 +111,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
             }
         }
 
-        authorityInstanceDto.setName(authorityProviderInstanceDto.getName());
-        authorityInstanceDto.setConnectorName(authorityInstanceReference.getConnector().getName());
-        authorityInstanceDto.setConnectorUuid(authorityInstanceReference.getConnector().getUuid().toString());
         authorityInstanceDto.setAttributes(attributes);
-        authorityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.AUTHORITY, uuid.getValue()));
-
         return authorityInstanceDto;
     }
 

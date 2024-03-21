@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
@@ -115,21 +116,32 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     public EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
         EntityInstanceReference entityInstanceReference = getEntityInstanceReferenceEntity(entityUuid);
 
+        List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid());
+
+        EntityInstanceDto entityInstanceDto = entityInstanceReference.mapToDto();
+        entityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ENTITY, entityUuid.getValue()));
         if (entityInstanceReference.getConnector() == null) {
-            throw new NotFoundException("Connector associated with the Entity is not found. Unable to load details");
+            entityInstanceDto.setConnectorName(entityInstanceReference.getConnectorName() + " (Deleted)");
+            entityInstanceDto.setConnectorUuid("");
+            entityInstanceDto.setAttributes(attributes);
+            logger.warn("Connector associated with the Entity: {} is not found. Unable to show details", entityInstanceReference.getName());
+            return entityInstanceDto;
         }
 
         com.czertainly.api.model.connector.entity.EntityInstanceDto entityProviderInstanceDto = entityInstanceApiClient.getEntityInstance(entityInstanceReference.getConnector().mapToDto(),
                 entityInstanceReference.getEntityInstanceUuid());
 
-        EntityInstanceDto entityInstanceDto = new EntityInstanceDto();
-        entityInstanceDto.setName(entityProviderInstanceDto.getName());
-        entityInstanceDto.setUuid(entityInstanceReference.getUuid().toString());
-        entityInstanceDto.setConnectorUuid(entityInstanceReference.getConnector().getUuid().toString());
-        entityInstanceDto.setKind(entityInstanceReference.getKind());
-        entityInstanceDto.setConnectorName(entityInstanceReference.getConnectorName());
-        entityInstanceDto.setAttributes(attributeEngine.getObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid()));
-        entityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ENTITY, entityUuid.getValue()));
+        if (attributes.isEmpty() && entityProviderInstanceDto.getAttributes() != null && !entityProviderInstanceDto.getAttributes().isEmpty()) {
+            try {
+                List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.getClientAttributes(entityProviderInstanceDto.getAttributes());
+                attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, entityProviderInstanceDto.getAttributes());
+                attributes = attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid(), requestAttributes);
+            } catch (AttributeException e) {
+                logger.warn("Could not update data attributes for entity {} retrieved from connector", entityInstanceReference.getName());
+            }
+        }
+
+        entityInstanceDto.setAttributes(attributes);
         return entityInstanceDto;
     }
 

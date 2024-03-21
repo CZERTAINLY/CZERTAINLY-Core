@@ -23,6 +23,7 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -70,6 +71,9 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         ConnectorDto connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToDto();
 
         // validate first by connector
+        if (attributes == null) {
+            attributes = new ArrayList<>();
+        }
         certificateApiClient.validateIssueCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), attributes);
 
         // get definitions from connector
@@ -109,6 +113,9 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         ConnectorDto connectorDto = raProfile.getAuthorityInstanceReference().getConnector().mapToDto();
 
         // validate first by connector
+        if (attributes == null) {
+            attributes = new ArrayList<>();
+        }
         certificateApiClient.validateRevokeCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), attributes);
 
         // get definitions from connector

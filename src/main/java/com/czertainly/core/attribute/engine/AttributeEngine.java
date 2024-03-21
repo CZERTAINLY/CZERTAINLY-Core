@@ -336,7 +336,7 @@ public class AttributeEngine {
         AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, dataAttribute.getName()).orElse(null);
         if (attributeDefinition != null) {
             // update definition when it was migrated from RequestAttributeDto
-            if (attributeDefinition.getLabel().isEmpty() && ((DataAttribute)attributeDefinition.getDefinition()).getProperties().getLabel().equals(ATTRIBUTE_DEFINITION_FORCE_UPDATE_LABEL)) {
+            if (attributeDefinition.getLabel().isEmpty() && attributeDefinition.getDefinition().getDescription().equals(ATTRIBUTE_DEFINITION_FORCE_UPDATE_LABEL)) {
                 attributeDefinition.setContentType(dataAttribute.getContentType());
                 attributeDefinition.setAttributeUuid(UUID.fromString(dataAttribute.getUuid()));
             }

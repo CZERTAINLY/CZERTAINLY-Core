@@ -890,7 +890,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     principal,
                     signatureAttributes
             );
-        } catch (InvalidKeySpecException | IOException | NoSuchAlgorithmException e) {
+        } catch (InvalidKeySpecException | IOException | NoSuchAlgorithmException | AttributeException e) {
             throw new ValidationException(
                     ValidationError.create(
                             "Failed to generate the CSR. Error: " + e.getMessage()
@@ -952,7 +952,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             // get definitions
             List<BaseAttribute> definitions = CsrAttributes.csrAttributes();
 
-            // validate and update definitions with attribute engine
+            // validate and update definitions of certificate request attributes with attribute engine
             attributeEngine.validateUpdateDataAttributes(null, null, definitions, csrAttributes);
             csr = generateCsr(
                     keyUUid,
