@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
@@ -33,7 +34,7 @@ public interface DiscoveryService extends ResourceExtensionService {
      */
     DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid, Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException;
 
-    DiscoveryHistory createDiscoveryModal(DiscoveryDto request, boolean saveEntity) throws AlreadyExistException, ConnectorException;
+    DiscoveryHistory createDiscoveryModal(DiscoveryDto request, boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException;
 
 
     void createDiscovery(DiscoveryHistory modal) throws AlreadyExistException, ConnectorException;

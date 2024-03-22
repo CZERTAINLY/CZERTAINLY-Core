@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.ComplianceGroupRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceProfileRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceProfileRuleDto;
@@ -196,7 +193,7 @@ public class ComplianceProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void createComplianceProfileTest() throws ConnectorException, AlreadyExistException {
+    public void createComplianceProfileTest() throws ConnectorException, AlreadyExistException, AttributeException {
         ComplianceProfileRequestDto requestDto = new ComplianceProfileRequestDto();
         requestDto.setName("sample2");
         requestDto.setDescription("sampleDescription");

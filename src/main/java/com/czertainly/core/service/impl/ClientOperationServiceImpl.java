@@ -13,9 +13,8 @@ import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequ
 import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
-import com.czertainly.api.model.client.certificate.CertificateUpdateObjectsDto;
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -26,6 +25,7 @@ import com.czertainly.api.model.core.authority.CertificateSignResponseDto;
 import com.czertainly.api.model.core.authority.EditEndEntityRequestDto;
 import com.czertainly.api.model.core.authority.EndEntityDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.RaProfileRepository;
@@ -62,6 +62,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CertificateApiClient certificateApiClient;
     @Autowired
     private CertificateService certificateService;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
@@ -215,14 +221,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     private String getEndEntityProfileName(RaProfile raProfile) {
-        List<DataAttribute> attributes = AttributeDefinitionUtils.deserialize(raProfile.getAttributes(), DataAttribute.class);
-        if (attributes == null
-                || !AttributeDefinitionUtils.containsAttributeDefinition("endEntityProfile", attributes)) {
+        var raProfileAttributes = attributeEngine.getRequestObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid());
+        if (raProfileAttributes == null || raProfileAttributes.stream().noneMatch(a -> a.getName().equals("endEntityProfile"))) {
             throw new ValidationException(ValidationError.create("EndEntityProfile not found in attributes"));
         }
 
         try {
-            NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdData("endEntityProfile", AttributeDefinitionUtils.getClientAttributes(attributes));
+            NameAndIdDto endEntityProfile = AttributeDefinitionUtils.getNameAndIdData("endEntityProfile", raProfileAttributes);
+            if (endEntityProfile == null) {
+                throw new ValidationException(ValidationError.create("EndEntityProfile not found in attributes"));
+            }
+
             return endEntityProfile.getName();
         } catch (Exception e) {
             throw new ValidationException(ValidationError.create("EndEntityProfile could not be retrieved from attributes. {}", e.getMessage()));

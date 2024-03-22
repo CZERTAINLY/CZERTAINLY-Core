@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -39,7 +40,7 @@ public interface EntityInstanceService extends ResourceExtensionService {
      * @throws AlreadyExistException when Entity instance already exists
      * @throws ConnectorException when failed to create Entity instance
      */
-    EntityInstanceDto createEntityInstance(com.czertainly.api.model.client.entity.EntityInstanceRequestDto entityInstanceRequestDto) throws AlreadyExistException, ConnectorException;
+    EntityInstanceDto createEntityInstance(com.czertainly.api.model.client.entity.EntityInstanceRequestDto entityInstanceRequestDto) throws AlreadyExistException, ConnectorException, AttributeException;
 
     /**
      * Update Entity instance
@@ -49,7 +50,7 @@ public interface EntityInstanceService extends ResourceExtensionService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to update Entity instance
      */
-    EntityInstanceDto editEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto entityInstanceUpdateRequestDto) throws NotFoundException, ConnectorException;
+    EntityInstanceDto editEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto entityInstanceUpdateRequestDto) throws NotFoundException, ConnectorException, AttributeException;
 
     /**
      * Delete Entity instance

@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.ScepProfileController;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
@@ -42,7 +39,7 @@ public class ScepProfileControllerImpl implements ScepProfileController {
     }
 
     @Override
-    public ResponseEntity<ScepProfileDetailDto> createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public ResponseEntity<ScepProfileDetailDto> createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         ScepProfileDetailDto scepProfile = scepProfileService.createScepProfile(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(scepProfile.getUuid()).toUri();
@@ -50,7 +47,7 @@ public class ScepProfileControllerImpl implements ScepProfileController {
     }
 
     @Override
-    public ScepProfileDetailDto editScepProfile(String uuid, ScepProfileEditRequestDto request) throws ConnectorException {
+    public ScepProfileDetailDto editScepProfile(String uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException {
         return scepProfileService.editScepProfile(SecuredUUID.fromString(uuid), request);
     }
 

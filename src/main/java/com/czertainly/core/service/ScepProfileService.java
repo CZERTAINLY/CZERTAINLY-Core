@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -40,7 +37,7 @@ public interface ScepProfileService extends ResourceExtensionService {
      * @throws NotFoundException when the profile with the requested UUID is not found
      * @throws ValidationException When the validation fails for the attributes or any other parameters in the request
      */
-    ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
+    ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
 
     /**
      * Update SCEP Profile
@@ -51,7 +48,7 @@ public interface ScepProfileService extends ResourceExtensionService {
      * @throws NotFoundException when the profile with the requested UUID is not found
      * @throws ValidationException When the validation fails for the attributes or any other parameters in the request
      */
-    ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException;
+    ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException;
 
     /**
      * Delete SCEP Profile

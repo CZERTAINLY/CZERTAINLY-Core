@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -118,7 +115,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddTokenProfile() throws ConnectorException, AlreadyExistException {
+    public void testAddTokenProfile() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -167,7 +164,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditTokenProfile() throws ConnectorException {
+    public void testEditTokenProfile() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));

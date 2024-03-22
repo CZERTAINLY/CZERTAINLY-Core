@@ -1,13 +1,10 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallbackMapping;
@@ -24,25 +21,24 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Credential;
-import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import jakarta.transaction.Transactional;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -54,17 +50,17 @@ import java.util.stream.Collectors;
 public class CredentialServiceImpl implements CredentialService {
 
     private static final Logger logger = LoggerFactory.getLogger(CredentialServiceImpl.class);
-    private static final List<AttributeContentType> TO_BE_MASKED = List.of(AttributeContentType.SECRET);
 
     @Autowired
     private CredentialRepository credentialRepository;
     @Autowired
     private ConnectorService connectorService;
-    @Autowired
-    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    @Autowired
-    private AttributeService attributeService;
+    private AttributeEngine attributeEngine;
 
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
@@ -87,26 +83,24 @@ public class CredentialServiceImpl implements CredentialService {
             throw new NotFoundException(Credential.class, kind);
         }
 
-        List<NameAndUuidDto> credentialDataList = credentials.stream()
-                .map(c -> new NameAndUuidDto(c.getUuid().toString(), c.getName()))
-                .collect(Collectors.toList());
-
-        return credentialDataList;
+        return credentials.stream().map(c -> new NameAndUuidDto(c.getUuid().toString(), c.getName())).collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
     public CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException {
-        CredentialDto credentialDto = getCredentialEntity(uuid).mapToDto();
-        credentialDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.CREDENTIAL));
+        Credential credential = getCredentialEntity(uuid);
+        CredentialDto credentialDto = credential.mapToDto();
+        credentialDto.setAttributes(attributeEngine.getObjectDataAttributesContent(credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid()));
+        credentialDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CREDENTIAL, uuid.getValue()));
         return credentialDto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.CREATE)
-    public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException {
+    public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("Name must not be empty"));
         }
@@ -118,47 +112,38 @@ public class CredentialServiceImpl implements CredentialService {
         SecuredUUID connectorUuid = SecuredUUID.fromString(request.getConnectorUuid());
         ConnectorDto connector = connectorService.getConnectorEntity(connectorUuid).mapToDto();
 
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CREDENTIAL);
-        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
-                connectorUuid,
-                FunctionGroupCode.CREDENTIAL_PROVIDER,
-                request.getAttributes(), request.getKind());
+        attributeEngine.validateCustomAttributesContent(Resource.CREDENTIAL, request.getCustomAttributes());
+        connectorService.mergeAndValidateAttributes(connectorUuid, FunctionGroupCode.CREDENTIAL_PROVIDER, request.getAttributes(), request.getKind());
 
         Credential credential = new Credential();
         credential.setName(request.getName());
         credential.setKind(request.getKind());
-        credential.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         credential.setEnabled(true);
         credential.setConnectorUuid(UUID.fromString(request.getConnectorUuid()));
         credential.setConnectorName(connector.getName());
         credentialRepository.save(credential);
 
-        attributeService.createAttributeContent(credential.getUuid(), request.getCustomAttributes(), Resource.CREDENTIAL);
-
         CredentialDto credentialDto = credential.mapToDto();
-        credentialDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(credential.getUuid(), Resource.CREDENTIAL));
+        credentialDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CREDENTIAL, credential.getUuid(), request.getCustomAttributes()));
+        credentialDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid(), request.getAttributes()));
 
-        return credential.mapToDto();
+        return credentialDto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.UPDATE)
-    public CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException {
+    public CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException, AttributeException {
         Credential credential = getCredentialEntity(uuid);
         SecuredUUID connectorUuid = SecuredUUID.fromUUID(credential.getConnectorUuid());
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.CREDENTIAL);
-        List<DataAttribute> attributes = connectorService.mergeAndValidateAttributes(
-                connectorUuid,
-                FunctionGroupCode.CREDENTIAL_PROVIDER,
-                request.getAttributes(), credential.getKind());
 
-        credential.setAttributes(AttributeDefinitionUtils.serialize(attributes));
+        attributeEngine.validateCustomAttributesContent(Resource.CREDENTIAL, request.getCustomAttributes());
+        connectorService.mergeAndValidateAttributes(connectorUuid, FunctionGroupCode.CREDENTIAL_PROVIDER, request.getAttributes(), credential.getKind());
         credentialRepository.save(credential);
-        attributeService.updateAttributeContent(credential.getUuid(), request.getCustomAttributes(), Resource.CREDENTIAL);
 
         CredentialDto credentialDto = credential.mapToDto();
-        credentialDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(credential.getUuid(), Resource.CREDENTIAL));
+        credentialDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CREDENTIAL, credential.getUuid(), request.getCustomAttributes()));
+        credentialDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid(), request.getAttributes()));
 
         return credentialDto;
     }
@@ -168,7 +153,7 @@ public class CredentialServiceImpl implements CredentialService {
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DELETE)
     public void deleteCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = getCredentialEntity(uuid);
-        attributeService.deleteAttributeContent(uuid.getValue(), Resource.CREDENTIAL);
+        attributeEngine.deleteAllObjectAttributeContent(Resource.CREDENTIAL, uuid.getValue());
         credentialRepository.delete(credential);
     }
 
@@ -207,6 +192,7 @@ public class CredentialServiceImpl implements CredentialService {
     @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
     public void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException {
+        // TODO: necessary to load full credentials this way?
         if (attributes == null || attributes.isEmpty()) {
             logger.warn("Given Attributes are null or empty");
             return;
@@ -220,7 +206,10 @@ public class CredentialServiceImpl implements CredentialService {
 
             NameAndUuidDto credentialId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
             Credential credential = getCredentialEntity(SecuredUUID.fromString(credentialId.getUuid()));
-            attribute.setContent(List.of(new CredentialAttributeContent(credentialId.getName(), credential.mapToCredentialContent())));
+
+            CredentialAttributeContentData credentialAttributeContentData = credential.mapToCredentialContent();
+            credentialAttributeContentData.setAttributes(attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid()));
+            attribute.setContent(List.of(new CredentialAttributeContent(credentialId.getName(), credentialAttributeContentData)));
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
         }
     }
@@ -282,8 +271,10 @@ public class CredentialServiceImpl implements CredentialService {
                                             "Invalid value {}. Instance of {} is expected.", bodyKeyValue, NameAndUuidDto.class));
                                 }
 
-                                CredentialAttributeContentData credential = getCredentialEntity(SecuredUUID.fromString(credentialUuid)).mapToCredentialContent();
-                                requestAttributeCallback.getBody().put(mapping.getTo(), credential);
+                                Credential credential = getCredentialEntity(SecuredUUID.fromString(credentialUuid));
+                                CredentialAttributeContentData credentialAttributeContentData = credential.mapToCredentialContent();
+                                credentialAttributeContentData.setAttributes(attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid()));
+                                requestAttributeCallback.getBody().put(mapping.getTo(), credentialAttributeContentData);
                                 break;
                         }
                     }

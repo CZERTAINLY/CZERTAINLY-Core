@@ -1,6 +1,7 @@
 package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
@@ -9,15 +10,18 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.MetadataService;
 import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -50,15 +54,14 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     private ResourceService resourceService;
 
     @Autowired
-    private MetadataService metadataService;
+    private ConnectorRepository connectorRepository;
 
     @Autowired
-    private ConnectorRepository connectorRepository;
+    private AttributeEngine attributeEngine;
 
     private Certificate certificate;
 
     private RuleCondition condition;
-
 
 
     @BeforeEach
@@ -163,7 +166,6 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
 
-
     @Test
     public void testsCryptographicKeyRuleEvaluator() throws RuleException {
         CryptographicKeyItem cryptographicKey = new CryptographicKeyItem();
@@ -185,7 +187,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCertificateRuleEvaluatorCustomAttributes() throws AlreadyExistException, NotFoundException, RuleException {
+    public void testCertificateRuleEvaluatorCustomAttributes() throws AlreadyExistException, NotFoundException, RuleException, AttributeException {
         Certificate certificate = new Certificate();
         certificateRepository.save(certificate);
 
@@ -195,9 +197,9 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         customAttributeRequest.setResources(List.of(Resource.CERTIFICATE));
         customAttributeRequest.setContentType(AttributeContentType.STRING);
 
-        CustomAttributeDefinitionDetailDto customAttribute = attributeService.createAttribute(customAttributeRequest);
+        CustomAttributeDefinitionDetailDto customAttribute = attributeService.createCustomAttribute(customAttributeRequest);
         resourceService.updateAttributeContentForObject(Resource.CERTIFICATE, SecuredUUID.fromUUID(certificate.getUuid()), UUID.fromString(customAttribute.getUuid()),
-                List.of(new BaseAttributeContent("ref", "data1"), new BaseAttributeContent("ref", "data")));
+                List.of(new StringAttributeContent("ref", "data1"), new StringAttributeContent("ref", "data")));
 
         RuleCondition condition = new RuleCondition();
         condition.setFieldSource(FilterFieldSource.CUSTOM);
@@ -208,7 +210,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCertificateRuleEvaluatorMeta() throws RuleException {
+    public void testCertificateRuleEvaluatorMeta() throws RuleException, AttributeException {
         Certificate certificate = new Certificate();
         certificateRepository.save(certificate);
         Connector connector = new Connector();
@@ -218,10 +220,14 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         metadataAttribute.setContentType(AttributeContentType.STRING);
         metadataAttribute.setName("meta");
         metadataAttribute.setUuid(UUID.randomUUID().toString());
-        metadataAttribute.setContent(List.of(new BaseAttributeContent<>("ref","data")));
+        metadataAttribute.setContent(List.of(new StringAttributeContent("ref", "data")));
         metadataAttribute.setType(AttributeType.META);
-        metadataService.createMetadataDefinitions(connectorUuid, List.of(metadataAttribute));
-        metadataService.createMetadata(connectorUuid, certificate.getUuid(), null, null, List.of(metadataAttribute), Resource.CERTIFICATE, null);
+
+        MetadataAttributeProperties props = new MetadataAttributeProperties();
+        props.setLabel("Test meta");
+        metadataAttribute.setProperties(props);
+
+        attributeEngine.updateMetadataAttributes(List.of(metadataAttribute), new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certificate.getUuid()));
 
         RuleCondition condition = new RuleCondition();
         condition.setFieldSource(FilterFieldSource.META);

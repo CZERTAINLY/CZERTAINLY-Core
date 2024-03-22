@@ -1,6 +1,7 @@
 package com.czertainly.core.api.connector;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.interfaces.core.connector.ConnectorRegistrationController;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
@@ -17,7 +18,7 @@ public class ConnectorRegistrationControllerImpl implements ConnectorRegistratio
     private ConnectorRegistrationService connectorRegistrationService;
 
     @Override
-    public UuidDto register(@RequestBody ConnectorRequestDto request) throws ConnectorException, AlreadyExistException {
+    public UuidDto register(@RequestBody ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException {
         return connectorRegistrationService.registerConnector(request);
     }
 }

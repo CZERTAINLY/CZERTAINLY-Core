@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.acme.*;
@@ -16,6 +17,8 @@ import com.czertainly.core.service.acme.AcmeService;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -90,9 +93,23 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     private JWSSigner newRsa2048Signer;
     private RSAKey newRsa2048PublicJWK;
     private String b64UrlCertificate;
+    private WireMockServer mockServer;
 
     @BeforeEach
     public void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
+        // prepare mock server
+        mockServer = new WireMockServer(0);
+        mockServer.start();
+
+        WireMock.configureFor("localhost", mockServer.port());
+
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
+                .willReturn(WireMock.okJson("true")));
+
+        mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
+                .willReturn(WireMock.okJson("[]")));
 
         RSAKey rsa2048JWK = new RSAKeyGenerator(2048)
                 .generate();
@@ -110,7 +127,8 @@ public class AcmeServiceTest extends BaseSpringBootTest {
         b64UrlCertificate = Base64.getUrlEncoder().encodeToString(x509Certificate.getEncoded());
 
         Connector connector = new Connector();
-        connector.setUrl("http://localhost:3665");
+        connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
@@ -223,14 +241,14 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetNonce(){
+    public void testGetNonce() {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/new-nonce");
         ResponseEntity<?> response = acmeService.getNonce(ACME_PROFILE_NAME, true, requestUri, false);
         assertGetNonce(response);
     }
 
     @Test
-    public void testGetNonce_raProfileBased(){
+    public void testGetNonce_raProfileBased() {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/new-nonce");
         ResponseEntity<?> response = acmeService.getNonce(RA_PROFILE_NAME, true, requestUri, true);
         assertGetNonce(response);

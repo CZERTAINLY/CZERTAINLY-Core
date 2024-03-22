@@ -1,14 +1,13 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
 import com.czertainly.api.model.core.credential.CredentialDto;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -26,11 +25,6 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
 
     @Column(name = "kind")
     private String kind;
-
-    //    @Lob
-    @Basic(fetch = FetchType.LAZY)
-    @Column(name = "attributes")
-    private String attributes;
 
     @Column(name = "enabled")
     private Boolean enabled;
@@ -55,14 +49,6 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
 
     public void setKind(String kind) {
         this.kind = kind;
-    }
-
-    public String getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
     }
 
     public Boolean getEnabled() {
@@ -109,7 +95,6 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setKind(this.kind);
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes, BaseAttribute.class)));
         dto.setEnabled(this.enabled);
         dto.setConnectorName(this.connectorName);
         if (this.connectorUuid != null) {
@@ -124,7 +109,6 @@ public class Credential extends UniquelyIdentifiedAndAudited implements Serializ
         dto.setUuid(this.uuid.toString());
         dto.setName(this.name);
         dto.setKind(this.kind);
-        dto.setAttributes(AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class));
         return dto;
     }
 

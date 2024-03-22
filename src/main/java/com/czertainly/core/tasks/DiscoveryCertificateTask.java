@@ -1,6 +1,7 @@
 package com.czertainly.core.tasks;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.core.audit.ObjectType;
@@ -80,7 +81,7 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
         try {
             discoveryHistoryModal = discoveryService.createDiscoveryModal(discoveryDto, true);
             discoveryService.createDiscovery(discoveryHistoryModal);
-        } catch (AlreadyExistException | ConnectorException e) {
+        } catch (AlreadyExistException | ConnectorException | AttributeException e) {
             final String errorMessage = String.format("Unable to create discovery %s for job %s. Error: %s", discoveryDto.getName(), jobName, e.getMessage());
             logger.error(errorMessage);
             return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, discoveryHistoryModal != null ? Resource.DISCOVERY : null, discoveryHistoryModal != null ? discoveryHistoryModal.getUuid().toString() : null);

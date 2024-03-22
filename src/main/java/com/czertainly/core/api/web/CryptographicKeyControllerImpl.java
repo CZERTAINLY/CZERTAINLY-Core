@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.CryptographicKeyController;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
@@ -79,7 +76,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public KeyDetailDto createKey(String tokenInstanceUuid, String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public KeyDetailDto createKey(String tokenInstanceUuid, String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         return cryptographicKeyService.createKey(
                 UUID.fromString(tokenInstanceUuid),
                 SecuredParentUUID.fromString(tokenProfileUuid),
@@ -89,7 +86,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public KeyDetailDto editKey(String tokenInstanceUuid, String uuid, EditKeyRequestDto request) throws ConnectorException {
+    public KeyDetailDto editKey(String tokenInstanceUuid, String uuid, EditKeyRequestDto request) throws ConnectorException, AttributeException {
         return cryptographicKeyService.editKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 UUID.fromString(uuid),
@@ -98,7 +95,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public void syncKeys(String tokenInstanceUuid) throws ConnectorException {
+    public void syncKeys(String tokenInstanceUuid) throws ConnectorException, AttributeException {
         cryptographicKeyService.syncKeys(
                 SecuredParentUUID.fromString(tokenInstanceUuid)
         );

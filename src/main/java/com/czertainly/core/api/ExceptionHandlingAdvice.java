@@ -257,6 +257,18 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link AttributeException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(AttributeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleAttributeException(AttributeException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
      * Handler for {@link AccessDeniedException}.
      *
      * @return

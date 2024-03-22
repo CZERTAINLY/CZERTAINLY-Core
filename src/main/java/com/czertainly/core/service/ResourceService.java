@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
@@ -36,5 +37,5 @@ public interface ResourceService {
             SecuredUUID objectUuid,
             UUID attributeUuid,
             List<BaseAttributeContent> request
-    ) throws NotFoundException;
+    ) throws NotFoundException, AttributeException;
 }

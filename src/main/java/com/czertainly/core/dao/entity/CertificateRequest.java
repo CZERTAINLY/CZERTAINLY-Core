@@ -44,12 +44,6 @@ public class CertificateRequest extends UniquelyIdentifiedAndAudited  {
     @Column(name = "subject_dn")
     private String subjectDn;
 
-    @Column(name = "attributes", length = Integer.MAX_VALUE)
-    private String attributes;
-
-    @Column(name = "signature_attributes", length = Integer.MAX_VALUE)
-    private String signatureAttributes;
-
     @Column(name = "subject_alternative_names")
     private String subjectAlternativeNames;
 
@@ -62,25 +56,5 @@ public class CertificateRequest extends UniquelyIdentifiedAndAudited  {
             final byte[] contentDecoded = Base64.getDecoder().decode(content);
             this.fingerprint = CertificateUtil.getThumbprint(contentDecoded);
         }
-    }
-
-    public List<DataAttribute> getAttributes() {
-        return AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class);
-    }
-
-    public void setAttributes(List<DataAttribute> csrAttributes) {
-        this.attributes = AttributeDefinitionUtils.serialize(csrAttributes);
-    }
-
-    public List<RequestAttributeDto> getSignatureAttributes() {
-        return AttributeDefinitionUtils.deserializeRequestAttributes(signatureAttributes);
-    }
-
-    public void setSignatureAttributes(String signatureAttributes) {
-        this.signatureAttributes = signatureAttributes;
-    }
-
-    public void setSignatureAttributes(List<RequestAttributeDto> signatureAttributes) {
-        this.signatureAttributes = AttributeDefinitionUtils.serializeRequestAttributes(signatureAttributes);
     }
 }

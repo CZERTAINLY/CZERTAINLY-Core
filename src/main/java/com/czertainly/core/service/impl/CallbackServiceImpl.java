@@ -19,6 +19,7 @@ import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
@@ -62,14 +63,15 @@ public class CallbackServiceImpl implements CallbackService {
     @Autowired
     private EntityInstanceApiClient entityInstanceApiClient;
     @Autowired
-    private AttributeService attributeService;
-    @Autowired
     private CryptographicKeyService cryptographicKeyService;
     @Autowired
-    private TokenInstanceService tokenInstanceService;
-    @Autowired
     private TokenProfileService tokenProfileService;
+    private AttributeEngine attributeEngine;
 
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.CALLBACK)
@@ -182,7 +184,7 @@ public class CallbackServiceImpl implements CallbackService {
         }
 
         // if not present in definitions from connector, search in reference attributes in DB
-        DataAttribute referencedAttribute = attributeService.getReferenceAttribute(connectorUuid, name);
+        DataAttribute referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
         if (referencedAttribute != null) {
             return referencedAttribute.getAttributeCallback();
         }
@@ -203,11 +205,8 @@ public class CallbackServiceImpl implements CallbackService {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
-            List<BaseAttribute> responseAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttribute.class));
-            for (BaseAttribute attribute : responseAttributes) {
-                logger.debug("Creating reference attribute: {}", attribute);
-                attributeService.createAttributeDefinition(connectorUuid, attribute);
-            }
+            List<BaseAttribute> callbackAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttribute.class));
+            attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, callbackAttributes);
         } catch (Exception e) {
             logger.debug("Failed to create the reference attributes. Exception is {}", e.getMessage());
         }

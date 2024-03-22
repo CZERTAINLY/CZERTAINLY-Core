@@ -1,12 +1,10 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.service.model.Securable;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import jakarta.persistence.*;
@@ -33,9 +31,6 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
 
     @Column(name = "token_instance_name")
     private String tokenInstanceName;
-
-    @Column(name = "attributes", length = Integer.MAX_VALUE)
-    private String attributes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "token_instance_ref_uuid", insertable = false, updatable = false)
@@ -72,14 +67,6 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
 
     public void setTokenInstanceName(String tokenInstanceName) {
         this.tokenInstanceName = tokenInstanceName;
-    }
-
-    public String getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
     }
 
     public TokenInstanceReference getTokenInstanceReference() {
@@ -137,7 +124,6 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
                 .append("name", name)
                 .append("description", description)
                 .append("tokenInstanceName", tokenInstanceName)
-                .append("attributes", attributes)
                 .append("tokenInstanceReference", tokenInstanceReference)
                 .append("tokenInstanceReferenceUuid", tokenInstanceReferenceUuid)
                 .append("enabled", enabled)
@@ -168,7 +154,6 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
         dto.setTokenInstanceName(tokenInstanceName);
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setTokenInstanceStatus(tokenInstanceReference.getStatus());
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class)));
         dto.setUsages(getUsage());
         // Custom Attributes and Metadata should be set in the service
         return dto;

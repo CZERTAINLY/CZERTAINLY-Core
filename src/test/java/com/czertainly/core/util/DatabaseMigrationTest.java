@@ -64,4 +64,10 @@ public class DatabaseMigrationTest {
         int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202311071500__IssuerAndSubjectDnMigration.java");
         Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202311071500__IssuerAndSubjectDnMigration.getChecksum(), checksum);
     }
+
+    @Test
+    public void testCalculateChecksum_V202402171510__UpdateAndOptimizeAttributesModelMigration() throws IOException {
+        int checksum = DatabaseMigration.calculateChecksum("src/main/java/db/migration/V202402171510__UpdateAndOptimizeAttributesModelMigration.java");
+        Assertions.assertEquals(DatabaseMigration.JavaMigrationChecksums.V202402171510__UpdateAndOptimizeAttributesModelMigration.getChecksum(), checksum);
+    }
 }

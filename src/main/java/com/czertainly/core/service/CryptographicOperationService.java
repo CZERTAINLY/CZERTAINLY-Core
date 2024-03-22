@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -157,5 +158,5 @@ public interface CryptographicOperationService {
             UUID tokenProfileUuid,
             X500Principal principal,
             List<RequestAttributeDto> signatureAttributes
-    ) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException;
+    ) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException;
 }

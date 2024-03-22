@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.SchedulerException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -70,7 +67,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
-            throws NotFoundException, ConnectorException, AlreadyExistException {
+            throws NotFoundException, ConnectorException, AlreadyExistException, AttributeException {
 		final DiscoveryHistory modal = discoveryService.createDiscoveryModal(request,true);
 		discoveryService.createDiscoveryAsync(modal);
 		URI location = ServletUriComponentsBuilder
@@ -99,7 +96,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws ConnectorException, AlreadyExistException, SchedulerException {
+    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws ConnectorException, AlreadyExistException, SchedulerException, AttributeException {
         final DiscoveryDto discoveryDto = scheduleDiscoveryDto.getRequest();
         discoveryService.createDiscoveryModal(discoveryDto, false);
 

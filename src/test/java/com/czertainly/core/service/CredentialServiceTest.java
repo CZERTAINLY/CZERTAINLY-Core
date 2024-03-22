@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -127,7 +124,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddCredential() throws ConnectorException, AlreadyExistException {
+    public void testAddCredential() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -163,7 +160,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditCredential() throws ConnectorException {
+    public void testEditCredential() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
