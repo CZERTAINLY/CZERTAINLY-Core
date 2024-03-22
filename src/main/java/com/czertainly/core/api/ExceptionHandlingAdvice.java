@@ -263,7 +263,7 @@ public class ExceptionHandlingAdvice {
      */
     @ExceptionHandler(AttributeException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorMessageDto handleNotDeletableException(AttributeException ex) {
+    public ErrorMessageDto handleAttributeException(AttributeException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
