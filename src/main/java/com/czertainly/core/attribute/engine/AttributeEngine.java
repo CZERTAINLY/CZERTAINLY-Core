@@ -718,25 +718,25 @@ public class AttributeEngine {
     }
 
     public void deleteAllObjectAttributeContent(Resource objectType, UUID objectUuid) {
-        logger.debug("Deleting the attribute content for {} with UUID: {}", objectType.getLabel(), objectUuid);
+        logger.debug("Deleting the attribute content for resource {} with UUID: {}", objectType.getLabel(), objectUuid);
         long deletedCount = attributeContent2ObjectRepository.deleteByObjectTypeAndObjectUuid(objectType, objectUuid);
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
     }
 
     public void deleteObjectAttributesContent(AttributeType attributeType, ObjectAttributeContentInfo contentInfo) {
-        logger.debug("Deleting the {} attribute content for {} with UUID {}. Info: {}", attributeType.getLabel(), contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
+        logger.debug("Deleting the {} attribute content for resource {} with UUID {}. Info: {}", attributeType.getLabel(), contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
         long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(attributeType, contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, contentInfo.objectType().getLabel(), contentInfo.objectUuid());
     }
 
     public void deleteOperationObjectAttributesContent(AttributeType attributeType, String operation, ObjectAttributeContentInfo contentInfo) {
-        logger.debug("Deleting the {} attribute content of operation {} for {} with UUID {}. Info: {}", attributeType.getLabel(), operation, contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
+        logger.debug("Deleting the {} attribute content of operation {} for resource {} with UUID {}. Info: {}", attributeType.getLabel(), operation, contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
         long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(attributeType, operation, contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, contentInfo.objectType().getLabel(), contentInfo.objectUuid());
     }
 
     private void createObjectAttributeContent(AttributeDefinition attributeDefinition, ObjectAttributeContentInfo objectAttributeContentInfo, List<BaseAttributeContent> attributeContentItems) throws AttributeException {
-        logger.debug("Creating the attribute content for attribute {} of type {}. {}", attributeDefinition.getName(), attributeDefinition.getType().getLabel(), objectAttributeContentInfo);
+        logger.debug("Creating the attribute content for attribute {} of type {}. Info: {}", attributeDefinition.getName(), attributeDefinition.getType().getLabel(), objectAttributeContentInfo);
 
         validateAttributeContent(attributeDefinition, attributeContentItems);
         for (int i = 0; i < attributeContentItems.size(); i++) {
