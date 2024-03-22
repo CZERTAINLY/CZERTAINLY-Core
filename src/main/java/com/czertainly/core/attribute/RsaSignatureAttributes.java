@@ -92,6 +92,7 @@ public class RsaSignatureAttributes {
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
+        attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
         return attribute;
     }
@@ -101,6 +102,7 @@ public class RsaSignatureAttributes {
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
+        attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
 
         return attribute;

@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.TokenInstanceController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
@@ -43,12 +40,12 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
     }
 
     @Override
-    public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         return tokenInstanceService.createTokenInstance(request);
     }
 
     @Override
-    public TokenInstanceDetailDto updateTokenInstance(String uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException {
+    public TokenInstanceDetailDto updateTokenInstance(String uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException {
         return tokenInstanceService.updateTokenInstance(SecuredUUID.fromString(uuid), request);
     }
 

@@ -1,10 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.LocationException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
@@ -40,7 +36,7 @@ public interface LocationService extends ResourceExtensionService {
      * @throws LocationException     when the Location failed to be created.
      * @throws NotFoundException     when the Entity instance referred in the Location is not found.
      */
-    LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto addLocationRequestDto) throws AlreadyExistException, LocationException, NotFoundException;
+    LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto addLocationRequestDto) throws AlreadyExistException, LocationException, ConnectorException, AttributeException;
 
     /**
      * Get existing Location by UUID.
@@ -61,7 +57,7 @@ public interface LocationService extends ResourceExtensionService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the Location failed to be edited.
      */
-    LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto editLocationRequestDto) throws NotFoundException, LocationException;
+    LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto editLocationRequestDto) throws ConnectorException, LocationException, AttributeException;
 
     /**
      * Remove existing Location with the given UUID.
@@ -149,7 +145,7 @@ public interface LocationService extends ResourceExtensionService {
      * @throws NotFoundException when the Location or Certificate with the given UUID is not found.
      * @throws LocationException when the Certificate failed to be pushed to the Location.
      */
-    LocationDto pushCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid, PushToLocationRequestDto pushToLocationRequestDto) throws NotFoundException, LocationException;
+    LocationDto pushCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid, PushToLocationRequestDto pushToLocationRequestDto) throws NotFoundException, LocationException, AttributeException;
 
     /**
      * Push existing requested Certificate to the given Location as result of async issue process.
@@ -159,7 +155,7 @@ public interface LocationService extends ResourceExtensionService {
      * @throws NotFoundException when the CertificateLocation with the given Id is not found.
      * @throws LocationException when the Certificate failed to be pushed to the Location.
      */
-    void pushRequestedCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException;
+    void pushRequestedCertificateToLocationAction(CertificateLocationId certificateLocationId, boolean isRenewal) throws NotFoundException, LocationException, AttributeException;
 
     /**
      * Issue new Certificate to the given Location.

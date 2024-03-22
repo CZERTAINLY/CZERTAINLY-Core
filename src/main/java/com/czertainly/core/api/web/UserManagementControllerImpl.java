@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.UserManagementController;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
@@ -36,7 +37,7 @@ public class UserManagementControllerImpl implements UserManagementController {
     }
 
     @Override
-    public ResponseEntity<UserDetailDto> createUser(AddUserRequestDto request) throws NotFoundException, CertificateException {
+    public ResponseEntity<UserDetailDto> createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
         UserDetailDto userDto = userManagementService.createUser(request);
 
         URI location = ServletUriComponentsBuilder
@@ -48,7 +49,7 @@ public class UserManagementControllerImpl implements UserManagementController {
     }
 
     @Override
-    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
+    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
         return userManagementService.updateUser(userUuid, request);
     }
 

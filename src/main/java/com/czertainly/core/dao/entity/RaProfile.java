@@ -39,11 +39,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "authority_instance_name")
     private String authorityInstanceName;
 
-    //    @Lob
-    @Basic(fetch = FetchType.LAZY)
-    @Column(name = "attributes", length = Integer.MAX_VALUE)
-    private String attributes;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
     private AuthorityInstanceReference authorityInstanceReference;
@@ -158,7 +153,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class)));
         dto.setEnabled(enabled);
 
         if (authorityInstanceReference != null) {
@@ -189,14 +183,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public String getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
     }
 
     public Boolean getEnabled() {

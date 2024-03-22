@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
@@ -114,7 +111,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddDiscovery() throws ConnectorException, AlreadyExistException {
+    public void testAddDiscovery() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));

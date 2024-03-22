@@ -1,6 +1,7 @@
 package com.czertainly.core.service.acme.impl;
 
 import com.czertainly.api.exception.AcmeProblemDocumentException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -13,6 +14,8 @@ import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.*;
@@ -91,6 +94,12 @@ public class AcmeServiceImpl implements AcmeService {
     private AcmeChallengeRepository acmeChallengeRepository;
     private ClientOperationService clientOperationService;
     private CertificateService certificateService;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setAcmeNonceRepository(AcmeNonceRepository acmeNonceRepository) {
@@ -625,7 +634,7 @@ public class AcmeServiceImpl implements AcmeService {
                     .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
                     .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
                     .build();
-        } catch (NotFoundException e) {
+        } catch (NotFoundException | AttributeException e) {
             return ResponseEntity
                     .badRequest()
                     .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
@@ -1079,21 +1088,23 @@ public class AcmeServiceImpl implements AcmeService {
         if (acmeAccount == null) {
             return List.of();
         }
-        String attributes;
+
         if (isRaProfileBased) {
+            String attributes;
             if (isRevoke) {
                 attributes = acmeAccount.getRaProfile().getProtocolAttribute().getAcmeRevokeCertificateAttributes();
             } else {
                 attributes = acmeAccount.getRaProfile().getProtocolAttribute().getAcmeIssueCertificateAttributes();
             }
+            return AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
         } else {
             if (isRevoke) {
-                attributes = acmeAccount.getAcmeProfile().getRevokeCertificateAttributes();
+                return attributeEngine.getRequestObjectDataAttributesContent(acmeAccount.getAcmeProfile().getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, com.czertainly.api.model.core.auth.Resource.ACME_PROFILE, acmeAccount.getAcmeProfile().getUuid());
             } else {
-                attributes = acmeAccount.getAcmeProfile().getIssueCertificateAttributes();
+                return attributeEngine.getRequestObjectDataAttributesContent(acmeAccount.getAcmeProfile().getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, com.czertainly.api.model.core.auth.Resource.ACME_PROFILE, acmeAccount.getAcmeProfile().getUuid());
             }
         }
-        return AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
+
     }
 
     private void createCert(AcmeOrder order, ClientCertificateSignRequestDto certificateSignRequestDto) {
@@ -1116,7 +1127,7 @@ public class AcmeServiceImpl implements AcmeService {
         } else {
             OrderStatus newStatus = checkOrderStatusByCertificate(order.getCertificateReference());
             logger.debug("Calling finalize of Order but certificate is already requested. Current status: {}", newStatus);
-            if(!newStatus.equals(order.getStatus())) {
+            if (!newStatus.equals(order.getStatus())) {
                 order.setStatus(newStatus);
                 acmeOrderRepository.save(order);
             }
@@ -1276,7 +1287,7 @@ public class AcmeServiceImpl implements AcmeService {
         }
 
         // check for status if certificate reference is set
-        if(order.getCertificateReference() != null) {
+        if (order.getCertificateReference() != null) {
             OrderStatus newStatus = checkOrderStatusByCertificate(order.getCertificateReference());
             if (!newStatus.equals(order.getStatus())) {
                 logger.info("ACME Order status changed from {} to {}.", order.getStatus(), newStatus);

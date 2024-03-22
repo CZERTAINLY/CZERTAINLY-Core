@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.GroupController;
@@ -40,7 +41,7 @@ public class GroupControllerImpl implements GroupController {
     }
 
     @Override
-    public ResponseEntity<?> createGroup(@RequestBody GroupRequestDto request) throws ValidationException, AlreadyExistException {
+    public ResponseEntity<?> createGroup(@RequestBody GroupRequestDto request) throws ValidationException, AlreadyExistException, NotFoundException, AttributeException {
         GroupDto groupDto = groupService.createGroup(request);
 
         URI location = ServletUriComponentsBuilder
@@ -54,7 +55,7 @@ public class GroupControllerImpl implements GroupController {
     }
 
     @Override
-    public GroupDto editGroup(@PathVariable String uuid, @RequestBody GroupRequestDto request) throws NotFoundException {
+    public GroupDto editGroup(@PathVariable String uuid, @RequestBody GroupRequestDto request) throws NotFoundException, AttributeException {
         return groupService.editGroup(SecuredUUID.fromString(uuid), request);
     }
 

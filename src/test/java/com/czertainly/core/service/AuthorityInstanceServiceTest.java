@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
@@ -122,7 +123,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddAuthorityInstance() throws ConnectorException, AlreadyExistException {
+    public void testAddAuthorityInstance() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));

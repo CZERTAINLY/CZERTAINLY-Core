@@ -1,26 +1,21 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeDefinition;
-import com.czertainly.core.dao.repository.AttributeContent2ObjectRepository;
-import com.czertainly.core.dao.repository.AttributeContentRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
-import com.czertainly.core.dao.repository.AttributeRelationRepository;
-import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,29 +33,20 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Autowired
     private AttributeDefinitionRepository attributeDefinitionRepository;
 
-    @Autowired
-    private AttributeContentRepository attributeContentRepository;
-
-    @Autowired
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
-
-    @Autowired
-    private AttributeRelationRepository attributeRelationRepository;
-
     private AttributeDefinition definition;
-    private DataAttribute attribute;
+    private CustomAttribute attribute;
     private MetadataAttribute metaAttribute;
     private AttributeDefinition metaDefinition;
 
     @BeforeEach
     public void setUp() {
-        attribute = new DataAttribute();
+        attribute = new CustomAttribute();
         attribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba06e");
         attribute.setName("attribute");
         attribute.setDescription("Attribute");
         attribute.setType(AttributeType.CUSTOM);
         attribute.setContentType(AttributeContentType.STRING);
-        DataAttributeProperties urlProperties = new DataAttributeProperties();
+        CustomAttributeProperties urlProperties = new CustomAttributeProperties();
         urlProperties.setLabel("Attribute");
         urlProperties.setRequired(true);
         urlProperties.setReadOnly(false);
@@ -76,32 +62,36 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         metaAttribute.setType(AttributeType.META);
         metaAttribute.setContentType(AttributeContentType.STRING);
         MetadataAttributeProperties properties = new MetadataAttributeProperties();
-        urlProperties.setLabel("Attribute1");
-        urlProperties.setVisible(true);
+        properties.setLabel("Attribute1");
+        properties.setVisible(true);
         metaAttribute.setProperties(properties);
 
         definition = new AttributeDefinition();
-        definition.setAttributeDefinition(attribute);
-        definition.setAttributeName(attribute.getName());
+        definition.setDefinition(attribute);
+        definition.setName(attribute.getName());
         definition.setAttributeUuid(UUID.fromString(attribute.getUuid()));
         definition.setContentType(attribute.getContentType());
         definition.setType(AttributeType.CUSTOM);
         definition.setEnabled(true);
+        definition.setLabel(attribute.getProperties().getLabel());
+        definition.setRequired(attribute.getProperties().isRequired());
+        definition.setReadOnly(attribute.getProperties().isReadOnly());
         attributeDefinitionRepository.save(definition);
 
         metaDefinition = new AttributeDefinition();
-        metaDefinition.setAttributeDefinition(metaAttribute);
-        metaDefinition.setAttributeName(metaAttribute.getName());
+        metaDefinition.setDefinition(metaAttribute);
+        metaDefinition.setName(metaAttribute.getName());
         metaDefinition.setAttributeUuid(UUID.fromString(metaAttribute.getUuid()));
         metaDefinition.setContentType(metaAttribute.getContentType());
         metaDefinition.setType(AttributeType.META);
         metaDefinition.setEnabled(true);
+        metaDefinition.setLabel(metaAttribute.getProperties().getLabel());
         attributeDefinitionRepository.save(metaDefinition);
     }
 
     @Test
     public void testListAttributes() {
-        List<CustomAttributeDefinitionDto> attributes = attributeService.listAttributes(null);
+        List<CustomAttributeDefinitionDto> attributes = attributeService.listCustomAttributes(null);
         Assertions.assertNotNull(attributes);
         Assertions.assertFalse(attributes.isEmpty());
         Assertions.assertEquals(1, attributes.size());
@@ -110,7 +100,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetAttribute() throws NotFoundException {
-        CustomAttributeDefinitionDetailDto dto = attributeService.getAttribute(SecuredUUID.fromUUID(definition.getUuid()));
+        CustomAttributeDefinitionDetailDto dto = attributeService.getCustomAttribute(definition.getUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertFalse(dto.getUuid().isEmpty());
         Assertions.assertEquals(attribute.getUuid(), dto.getUuid());
@@ -121,11 +111,11 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetAttributeNotFound() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getAttribute(SecuredUUID.fromUUID(metaDefinition.getUuid())));
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getCustomAttribute(metaDefinition.getUuid()));
     }
 
     @Test
-    public void testCreateAttribute() throws ValidationException, AlreadyExistException {
+    public void testCreateAttribute() throws ValidationException, AlreadyExistException, AttributeException {
         CustomAttributeCreateRequestDto request = new CustomAttributeCreateRequestDto();
         request.setName("testAttribute");
         request.setDescription("Sample description");
@@ -135,7 +125,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         request.setVisible(true);
         request.setResources(List.of(Resource.USER, Resource.ROLE));
 
-        CustomAttributeDefinitionDetailDto response = attributeService.createAttribute(request);
+        CustomAttributeDefinitionDetailDto response = attributeService.createCustomAttribute(request);
         Assertions.assertNotNull(response);
         Assertions.assertFalse(response.getUuid().isEmpty());
         Assertions.assertEquals(request.getName(), response.getName());
@@ -154,24 +144,24 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         request.setRequired(true);
         request.setVisible(true);
 
-        Assertions.assertThrows(AlreadyExistException.class, () -> attributeService.createAttribute(request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> attributeService.createCustomAttribute(request));
     }
 
     @Test
     public void testCreateAttributeValidationException() throws ValidationException, AlreadyExistException {
         CustomAttributeCreateRequestDto request = new CustomAttributeCreateRequestDto();
 
-        Assertions.assertThrows(ValidationException.class, () -> attributeService.createAttribute(request));
+        Assertions.assertThrows(AttributeException.class, () -> attributeService.createCustomAttribute(request));
     }
 
     @Test
-    public void testEditAttribute() throws NotFoundException {
+    public void testEditAttribute() throws NotFoundException, AttributeException {
         CustomAttributeUpdateRequestDto request = new CustomAttributeUpdateRequestDto();
         request.setLabel("Updated Attribute");
         request.setDescription("Desc");
         request.setResources(List.of(Resource.RA_PROFILE));
 
-        CustomAttributeDefinitionDetailDto response = attributeService.editAttribute(SecuredUUID.fromUUID(definition.getUuid()), request);
+        CustomAttributeDefinitionDetailDto response = attributeService.editCustomAttribute(definition.getUuid(), request);
         Assertions.assertEquals(request.getDescription(), response.getDescription());
         Assertions.assertEquals(request.getLabel(), response.getLabel());
         Assertions.assertEquals(1, response.getResources().size());
@@ -183,67 +173,67 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         request.setLabel("Updated Attribute");
         request.setDescription("Desc");
 
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.editAttribute(SecuredUUID.fromUUID(metaDefinition.getUuid()), request));
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.editCustomAttribute(metaDefinition.getUuid(), request));
     }
 
     @Test
     public void testEnableAttribute() throws NotFoundException {
-        attributeService.enableAttribute(SecuredUUID.fromUUID(definition.getUuid()), AttributeType.CUSTOM);
-        CustomAttributeDefinitionDetailDto dto = attributeService.getAttribute(SecuredUUID.fromUUID(definition.getUuid()));
+        attributeService.enableCustomAttribute(definition.getUuid(), true);
+        CustomAttributeDefinitionDetailDto dto = attributeService.getCustomAttribute(definition.getUuid());
         Assertions.assertEquals(true, dto.isEnabled());
     }
 
     @Test
     public void testEnableAttributeNotFoundException() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.enableAttribute(SecuredUUID.fromUUID(metaDefinition.getUuid()), AttributeType.CUSTOM));
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.enableCustomAttribute(metaDefinition.getUuid(), true));
     }
 
     @Test
     public void testDisableAttribute() throws NotFoundException {
-        attributeService.disableAttribute(SecuredUUID.fromUUID(definition.getUuid()), AttributeType.CUSTOM);
-        CustomAttributeDefinitionDetailDto dto = attributeService.getAttribute(SecuredUUID.fromUUID(definition.getUuid()));
+        attributeService.enableCustomAttribute(definition.getUuid(), false);
+        CustomAttributeDefinitionDetailDto dto = attributeService.getCustomAttribute(definition.getUuid());
         Assertions.assertEquals(false, dto.isEnabled());
     }
 
     @Test
     public void testDisableAttributeNotFoundException() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.disableAttribute(SecuredUUID.fromUUID(metaDefinition.getUuid()), AttributeType.CUSTOM));
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.enableCustomAttribute(metaDefinition.getUuid(), false));
     }
 
     @Test
     public void testDeleteAttribute() throws NotFoundException {
-        attributeService.deleteAttribute(SecuredUUID.fromUUID(definition.getUuid()), AttributeType.CUSTOM);
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getAttribute(SecuredUUID.fromUUID(definition.getUuid())));
+        attributeService.deleteCustomAttribute(definition.getUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getCustomAttribute(definition.getUuid()));
     }
 
     @Test
     public void testDeleteAttributeNotFoundException() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.disableAttribute(SecuredUUID.fromUUID(metaDefinition.getUuid()), AttributeType.CUSTOM));
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.deleteCustomAttribute(metaDefinition.getUuid()));
     }
 
     @Test
     public void testBulkEnableAttribute() throws NotFoundException {
-        attributeService.bulkEnableAttributes(List.of(SecuredUUID.fromUUID(definition.getUuid())), AttributeType.CUSTOM);
-        CustomAttributeDefinitionDetailDto dto = attributeService.getAttribute(SecuredUUID.fromUUID(definition.getUuid()));
+        attributeService.bulkEnableCustomAttributes(List.of(definition.getUuid().toString()), true);
+        CustomAttributeDefinitionDetailDto dto = attributeService.getCustomAttribute(definition.getUuid());
         Assertions.assertEquals(true, dto.isEnabled());
     }
 
     @Test
     public void testBulkDisableAttribute() throws NotFoundException {
-        attributeService.bulkDisableAttributes(List.of(SecuredUUID.fromUUID(definition.getUuid())), AttributeType.CUSTOM);
-        CustomAttributeDefinitionDetailDto dto = attributeService.getAttribute(SecuredUUID.fromUUID(definition.getUuid()));
+        attributeService.bulkEnableCustomAttributes(List.of(definition.getUuid().toString()), false);
+        CustomAttributeDefinitionDetailDto dto = attributeService.getCustomAttribute(definition.getUuid());
         Assertions.assertEquals(false, dto.isEnabled());
     }
 
     @Test
     public void testBulkDeleteAttribute() throws NotFoundException {
-        attributeService.bulkDeleteAttributes(List.of(SecuredUUID.fromUUID(definition.getUuid())), AttributeType.CUSTOM);
-        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getAttribute(SecuredUUID.fromUUID(definition.getUuid())));
+        attributeService.bulkDeleteCustomAttributes(List.of(definition.getUuid().toString()));
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getCustomAttribute(definition.getUuid()));
     }
 
     @Test
     public void testUpdateResource() throws NotFoundException {
-        attributeService.updateResources(SecuredUUID.fromUUID(definition.getUuid()), List.of(Resource.ROLE, Resource.CREDENTIAL));
+        attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
         List<BaseAttribute> attributes = attributeService.getResourceAttributes(Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
         Assertions.assertEquals(attribute.getUuid(), attributes.get(0).getUuid());
@@ -251,18 +241,12 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testUpdateResourceFailure() throws ValidationException, NotFoundException {
-        Assertions.assertThrows(ValidationException.class, () -> attributeService.updateResources(SecuredUUID.fromUUID(definition.getUuid()), List.of(Resource.AUDIT_LOG)));
-    }
-
-    @Test
-    public void testGetResources() {
-        List<Resource> resources = attributeService.getResources();
-        Assertions.assertEquals(16, resources.size());
+        Assertions.assertThrows(ValidationException.class, () -> attributeService.updateResources(definition.getUuid(), List.of(Resource.AUDIT_LOG)));
     }
 
     @Test
     public void testGetResourceAttributesWithValue() throws NotFoundException {
-        attributeService.updateResources(SecuredUUID.fromUUID(definition.getUuid()), List.of(Resource.ROLE, Resource.CREDENTIAL));
+        attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
         List<BaseAttribute> attributes = attributeService.getResourceAttributes(Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
     }

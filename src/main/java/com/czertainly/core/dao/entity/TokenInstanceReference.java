@@ -1,12 +1,10 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceStatusDetailDto;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -16,7 +14,6 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.io.Serializable;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -46,9 +43,6 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
 
     @Column(name = "connector_name")
     private String connectorName;
-
-    @Column(name = "attributes")
-    private String attributes;
 
     @OneToMany(mappedBy = "tokenInstanceReference", fetch = FetchType.LAZY)
     @JsonIgnore
@@ -111,18 +105,6 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
         this.connectorName = connectorName;
     }
 
-    public List<DataAttribute> getAttributes() {
-        return AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class);
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
-    }
-
-    public void setAttributes(List<DataAttribute> attributes) {
-        this.attributes = AttributeDefinitionUtils.serialize(attributes);
-    }
-
     public Set<TokenProfile> getTokenProfiles() {
         return tokenProfiles;
     }
@@ -171,7 +153,6 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
         dto.setConnectorName(connectorName);
         dto.setConnectorUuid(connectorUuid.toString());
         dto.setKind(kind);
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(getAttributes()));
         // Custom Attributes and the Metadata should be set in the service
         return dto;
     }

@@ -1,11 +1,13 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
@@ -13,6 +15,8 @@ import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -44,9 +48,6 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Autowired
     private CertificateService certificateService;
     @Autowired
-    private MetadataService metadataService;
-
-    @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
     private CertificateContentRepository certificateContentRepository;
@@ -62,6 +63,8 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
     @Autowired
     private GroupRepository groupRepository;
+    private AttributeEngine attributeEngine;
+
 
     private Certificate certificate;
     private Certificate adminCertificate;
@@ -76,8 +79,13 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     private Connector connector;
     private WireMockServer mockServer;
 
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
+
     @BeforeEach
-    public void setUp() throws GeneralSecurityException, IOException {
+    public void setUp() throws GeneralSecurityException, IOException, AttributeException {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -85,7 +93,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
         connector = new Connector();
         connector.setName("authorityInstanceConnector");
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -137,14 +145,14 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         MetadataAttribute tst = new MetadataAttribute();
         tst.setType(AttributeType.META);
         tst.setName("Test");
+        tst.setContentType(AttributeContentType.STRING);
         tst.setUuid("9f94036e-f050-4c9c-a3b8-f47b1be696aa");
-        tst.setProperties(new MetadataAttributeProperties());
+        tst.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
         tst.setContent(List.of(new StringAttributeContent("xyz", "xyz")));
         meta.add(tst);
 
         UUID connectorUuid = raProfileOld.getAuthorityInstanceReference().getConnectorUuid();
-        metadataService.createMetadataDefinitions(connectorUuid, meta);
-        metadataService.createMetadata(connectorUuid, certificate.getUuid(), null, null, meta, Resource.CERTIFICATE, null);
+        attributeEngine.updateMetadataAttributes(meta, new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certificate.getUuid()));
 
         raProfile = new RaProfile();
         raProfile.setName("Test RA profile");
@@ -230,7 +238,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testUploadCertificate() throws CertificateException, AlreadyExistException, NoSuchAlgorithmException {
+    public void testUploadCertificate() throws CertificateException, AlreadyExistException, NoSuchAlgorithmException, NotFoundException, AttributeException {
         UploadCertificateRequestDto request = new UploadCertificateRequestDto();
         request.setCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
 
@@ -241,7 +249,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testUpdateRaProfile() throws NotFoundException, CertificateOperationException, CertificateException, IOException {
+    public void testUpdateRaProfile() throws NotFoundException, CertificateOperationException, CertificateException, IOException, AttributeException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
                 .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
@@ -291,7 +299,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testUpdateCertificateGroup() throws NotFoundException, CertificateOperationException {
+    public void testUpdateCertificateGroup() throws NotFoundException, CertificateOperationException, AttributeException {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setGroupUuid(group.getUuid().toString());
 
@@ -317,7 +325,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     @Disabled("get user from API")
-    public void testUpdateOwner() throws NotFoundException, CertificateOperationException {
+    public void testUpdateOwner() throws NotFoundException, CertificateOperationException, AttributeException {
         CertificateUpdateObjectsDto request = new CertificateUpdateObjectsDto();
         request.setOwnerUuid("newOwner");
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);

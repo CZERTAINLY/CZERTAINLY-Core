@@ -5,12 +5,16 @@ import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
@@ -20,11 +24,9 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AcmeProfileService;
-import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.ValidatorUtil;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -35,6 +37,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,11 +48,16 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     private final AcmeProfileRepository acmeProfileRepository;
     private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
-    private AttributeService attributeService;
+    private AttributeEngine attributeEngine;
 
     @Autowired
     public AcmeProfileServiceImpl(AcmeProfileRepository acmeProfileRepository) {
         this.acmeProfileRepository = acmeProfileRepository;
+    }
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
     }
 
     @Autowired
@@ -60,11 +68,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @Autowired
     public void setExtendedAttributeService(ExtendedAttributeService extendedAttributeService) {
         this.extendedAttributeService = extendedAttributeService;
-    }
-
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
     }
 
     @Override
@@ -83,15 +86,20 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DETAIL)
     public AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting the details for the ACME Profile with uuid " + uuid);
-        AcmeProfileDto dto = getAcmeProfileEntity(uuid).mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.ACME_PROFILE));
+        AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
+        AcmeProfileDto dto = acmeProfile.mapToDto();
+        if (acmeProfile.getRaProfile() != null) {
+            dto.setIssueCertificateAttributes(attributeEngine.getObjectDataAttributesContent(acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.ACME_PROFILE, acmeProfile.getUuid()));
+            dto.setRevokeCertificateAttributes(attributeEngine.getObjectDataAttributesContent(acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.ACME_PROFILE, acmeProfile.getUuid()));
+        }
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ACME_PROFILE, uuid.getValue()));
         return dto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.CREATE)
-    public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         if (request.getName() == null || request.getName().isEmpty()) {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
         }
@@ -110,7 +118,14 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
             throw new AlreadyExistException("ACME Profile with same name already exists");
         }
 
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.ACME_PROFILE);
+        RaProfile raProfile = null;
+        attributeEngine.validateCustomAttributesContent(Resource.ACME_PROFILE, request.getCustomAttributes());
+        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
+            raProfile = getRaProfile(request.getRaProfileUuid());
+
+            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+            extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
+        }
 
         AcmeProfile acmeProfile = new AcmeProfile();
         acmeProfile.setEnabled(false);
@@ -125,27 +140,26 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setRequireContact(request.isRequireContact());
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setDisableNewOrders(false);
+        acmeProfile.setRaProfile(raProfile);
+        acmeProfile = acmeProfileRepository.save(acmeProfile);
 
-        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
-            RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
-            acmeProfile.setRaProfile(raProfile);
-            acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-            acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
-        }
-        acmeProfileRepository.save(acmeProfile);
-
-        attributeService.createAttributeContent(acmeProfile.getUuid(), request.getCustomAttributes(), Resource.ACME_PROFILE);
         AcmeProfileDto dto = acmeProfile.mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(acmeProfile.getUuid(), Resource.ACME_PROFILE));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ACME_PROFILE, acmeProfile.getUuid(), request.getCustomAttributes()));
+        if (raProfile != null) {
+            dto.setIssueCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.ACME_PROFILE, acmeProfile.getUuid(), request.getIssueCertificateAttributes()));
+            dto.setRevokeCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.ACME_PROFILE, acmeProfile.getUuid(), request.getRevokeCertificateAttributes()));
+        }
+
         return dto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
-    public AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException {
+    public AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.ACME_PROFILE);
+        attributeEngine.validateCustomAttributesContent(Resource.ACME_PROFILE, request.getCustomAttributes());
+
         if (request.isRequireContact() != null) {
             acmeProfile.setRequireContact(request.isRequireContact());
         }
@@ -155,16 +169,23 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         if (request.isTermsOfServiceChangeDisable() != null) {
             acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         }
+
+        RaProfile raProfile = null;
         if (request.getRaProfileUuid() != null) {
-            RaProfile raProfile = getRaProfile(request.getRaProfileUuid());
-            acmeProfile.setRaProfile(raProfile);
-            acmeProfile.setIssueCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes())));
-            acmeProfile.setRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes())));
-        } else {
-            acmeProfile.setRaProfile(null);
-            acmeProfile.setIssueCertificateAttributes(null);
-            acmeProfile.setRevokeCertificateAttributes(null);
+            raProfile = getRaProfile(request.getRaProfileUuid());
+            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+            extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
         }
+
+        // delete old connector data attributes content
+        UUID oldConnectorUuid = acmeProfile.getRaProfile() == null ? null : acmeProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
+        if (oldConnectorUuid != null) {
+            ObjectAttributeContentInfo contentInfo = new ObjectAttributeContentInfo(oldConnectorUuid, Resource.ACME_PROFILE, acmeProfile.getUuid());
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.CERTIFICATE_ISSUE, contentInfo);
+            attributeEngine.deleteOperationObjectAttributesContent(AttributeType.DATA, AttributeOperation.CERTIFICATE_REVOKE, contentInfo);
+        }
+
+        acmeProfile.setRaProfile(raProfile);
         if (request.getDescription() != null) {
             acmeProfile.setDescription(request.getDescription());
         }
@@ -198,11 +219,15 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         if (request.getTermsOfServiceChangeUrl() != null) {
             acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
         }
-        acmeProfileRepository.save(acmeProfile);
+        acmeProfile = acmeProfileRepository.save(acmeProfile);
 
-        attributeService.updateAttributeContent(acmeProfile.getUuid(), request.getCustomAttributes(), Resource.ACME_PROFILE);
         AcmeProfileDto dto = acmeProfile.mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(acmeProfile.getUuid(), Resource.ACME_PROFILE));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ACME_PROFILE, acmeProfile.getUuid(), request.getCustomAttributes()));
+        if (raProfile != null) {
+            dto.setIssueCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.ACME_PROFILE, acmeProfile.getUuid(), request.getIssueCertificateAttributes()));
+            dto.setRevokeCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.ACME_PROFILE, acmeProfile.getUuid(), request.getRevokeCertificateAttributes()));
+        }
+
         return dto;
     }
 
@@ -360,7 +385,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
                     )
             );
         } else {
-            attributeService.deleteAttributeContent(acmeProfile.getUuid(), Resource.ACME_PROFILE);
+            attributeEngine.deleteAllObjectAttributeContent(Resource.ACME_PROFILE, acmeProfile.getUuid());
             acmeProfileRepository.delete(acmeProfile);
         }
     }

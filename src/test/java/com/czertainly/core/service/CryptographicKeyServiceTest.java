@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
@@ -147,7 +144,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddKey() throws ConnectorException, AlreadyExistException {
+    public void testAddKey() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -364,7 +361,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testUpdateKey() throws NotFoundException {
+    public void testUpdateKey() throws NotFoundException, AttributeException {
         EditKeyRequestDto request = new EditKeyRequestDto();
         request.setName("updatedName");
         request.setDescription("updatedDescription");
@@ -379,7 +376,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSync_allNewObject() throws ConnectorException {
+    public void testSync_allNewObject() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
                 .willReturn(WireMock.okJson("[\n" +
@@ -452,7 +449,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSync_existingObject() throws ConnectorException {
+    public void testSync_existingObject() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
                 .willReturn(WireMock.okJson("[\n" +

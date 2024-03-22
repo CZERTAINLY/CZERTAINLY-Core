@@ -1,7 +1,6 @@
 package com.czertainly.core.dao.entity.scep;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -9,7 +8,10 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.service.scep.impl.ScepServiceImpl;
-import com.czertainly.core.util.*;
+import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
+import com.czertainly.core.util.SecretEncodingVersion;
+import com.czertainly.core.util.SecretsUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -42,12 +44,6 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Column(name = "ra_profile_uuid")
     private UUID raProfileUuid;
-
-    @Column(name = "issue_certificate_attributes")
-    private String issueCertificateAttributes;
-
-    @Column(name = "revoke_certificate_attributes")
-    private String revokeCertificateAttributes;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
@@ -109,7 +105,6 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setEnabled(isEnabled);
         scepProfileDto.setName(name);
         scepProfileDto.setUuid(uuid.toString());
-        scepProfileDto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueCertificateAttributes, DataAttribute.class)));
         scepProfileDto.setIncludeCaCertificate(includeCaCertificate);
         scepProfileDto.setIncludeCaCertificateChain(includeCaCertificateChain);
         scepProfileDto.setRenewThreshold(renewalThreshold);
@@ -132,8 +127,6 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
                 .append("name", name)
                 .append("isEnabled", isEnabled)
                 .append("requireManualApproval", requireManualApproval)
-                .append("issueCertificateAttributes", issueCertificateAttributes)
-                .append("revokeCertificateAttributes", revokeCertificateAttributes)
                 .toString();
     }
 
@@ -182,22 +175,6 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         this.raProfile = raProfile;
         if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
         else this.raProfileUuid = null;
-    }
-
-    public String getIssueCertificateAttributes() {
-        return issueCertificateAttributes;
-    }
-
-    public void setIssueCertificateAttributes(String issueCertificateAttributes) {
-        this.issueCertificateAttributes = issueCertificateAttributes;
-    }
-
-    public String getRevokeCertificateAttributes() {
-        return revokeCertificateAttributes;
-    }
-
-    public void setRevokeCertificateAttributes(String revokeCertificateAttributes) {
-        this.revokeCertificateAttributes = revokeCertificateAttributes;
     }
 
     public UUID getRaProfileUuid() {

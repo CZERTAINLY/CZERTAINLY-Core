@@ -8,16 +8,30 @@ import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
-import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
+@Getter
+@Setter
 @Entity
 @Table(name = "attribute_definition")
-public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
+@EntityListeners(AuditingEntityListener.class)
+public class AttributeDefinition extends UniquelyIdentified {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
@@ -26,149 +40,98 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     @Column(name = "connector_uuid")
     private UUID connectorUuid;
 
-    @Column(name = "attribute_uuid")
+    @Column(name = "attribute_uuid", nullable = false)
     private UUID attributeUuid;
 
-    @Column(name = "attribute_name")
-    private String attributeName;
+    @Column(name = "name", nullable = false)
+    private String name;
 
-    @Column(name = "attribute_definition", columnDefinition = "TEXT")
-    private String attributeDefinition;
-
-    @Column(name = "attribute_type")
+    @Column(name = "type", nullable = false)
     @Enumerated(EnumType.STRING)
     private AttributeType type;
 
-    @Column(name = "attribute_content_type")
+    @Column(name = "content_type", nullable = false)
     @Enumerated(EnumType.STRING)
     private AttributeContentType contentType;
 
+    @Column(name = "label", nullable = false)
+    private String label;
+
+    @Getter(AccessLevel.NONE)
+    @Column(name = "required")
+    private Boolean required;
+
+    @Getter(AccessLevel.NONE)
+    @Column(name = "read_only")
+    private Boolean readOnly;
+
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name = "definition", nullable = false, columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private BaseAttribute definition;
+
+    @Getter(AccessLevel.NONE)
     @Column(name = "enabled")
     private Boolean enabled;
 
+    @Getter(AccessLevel.NONE)
     @Column(name = "global")
     private Boolean global;
 
-    // This is the reference field. This field states that of the Attribute is stored just for the reference incase of the
-    // response from group attributes
-    @Column(name = "reference")
-    private Boolean reference;
+    @Column(name = "operation")
+    private String operation;
 
-    public Connector getConnector() {
-        return connector;
-    }
+    @Column(name = "created_at", nullable = false, updatable = false)
+    @CreatedDate
+    protected LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    @LastModifiedDate
+    protected LocalDateTime updatedAt;
+
+    @OneToMany(mappedBy = "attributeDefinition", fetch = FetchType.LAZY)
+    private List<AttributeContentItem> contentItems;
+
+    @JsonBackReference
+    @OneToMany(mappedBy = "attributeDefinition", fetch = FetchType.LAZY)
+    private List<AttributeRelation> relations = new ArrayList<>();
 
     public void setConnector(Connector connector) {
         this.connector = connector;
         if (connector != null) this.connectorUuid = connector.getUuid();
     }
 
-    public UUID getConnectorUuid() {
-        return connectorUuid;
-    }
-
-    public void setConnectorUuid(UUID connectorUuid) {
-        this.connectorUuid = connectorUuid;
-    }
-
-    public UUID getAttributeUuid() {
-        return attributeUuid;
-    }
-
-    public void setAttributeUuid(UUID attributeUuid) {
-        this.attributeUuid = attributeUuid;
-    }
-
-    public String getAttributeName() {
-        return attributeName;
-    }
-
-    public void setAttributeName(String attributeName) {
-        this.attributeName = attributeName;
-    }
-
-    public String getAttributeDefinitionAsString() {
-        return attributeDefinition;
-    }
-
-    public <T extends BaseAttribute> T getAttributeDefinition(Class<T> clazz) {
-        return AttributeDefinitionUtils.deserializeSingleAttribute(attributeDefinition, clazz);
-    }
-
-    public void setAttributeDefinition(String attributeDefinition) {
-        this.attributeDefinition = attributeDefinition;
-    }
-
-    public void setAttributeDefinition(InfoAttribute attributeDefinition) {
-        this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
-    }
-
-    public void setAttributeDefinition(MetadataAttribute attributeDefinition) {
-        this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
-    }
-
-    public void setAttributeDefinition(CustomAttribute attributeDefinition) {
-        this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
-    }
-
-    public void setAttributeDefinition(DataAttribute attributeDefinition) {
-        this.attributeDefinition = AttributeDefinitionUtils.serialize(attributeDefinition);
-    }
-
-    public AttributeType getType() {
-        return type;
-    }
-
-    public void setType(AttributeType type) {
-        this.type = type;
-    }
-
-    public AttributeContentType getContentType() {
-        return contentType;
-    }
-
-    public void setContentType(AttributeContentType contentType) {
-        this.contentType = contentType;
-    }
-
     public Boolean isEnabled() {
         return enabled;
-    }
-
-    public void setEnabled(Boolean enabled) {
-        this.enabled = enabled;
     }
 
     public Boolean isGlobal() {
         return global;
     }
 
-    public void setGlobal(Boolean global) {
-        this.global = global;
+    public Boolean isRequired() {
+        return required;
     }
 
-    public Boolean isReference() {
-        return reference;
-    }
-
-    public void setReference(Boolean reference) {
-        this.reference = reference;
+    public Boolean isReadOnly() {
+        return readOnly;
     }
 
     public CustomAttributeDefinitionDto mapToCustomAttributeDefinitionDto() {
         CustomAttributeDefinitionDto dto = new CustomAttributeDefinitionDto();
-        CustomAttribute attribute = getAttributeDefinition(CustomAttribute.class);
+        CustomAttribute attribute = (CustomAttribute) this.definition;
         dto.setUuid(attribute.getUuid());
         dto.setName(attribute.getName());
         dto.setDescription(attribute.getDescription());
         dto.setContentType(attribute.getContentType());
         dto.setEnabled(enabled);
+        dto.setResources(this.relations.stream().map(AttributeRelation::getResource).toList());
         return dto;
     }
 
     public AttributeDefinitionDto mapToGlobalMetadataDefinitionDto() {
         AttributeDefinitionDto dto = new AttributeDefinitionDto();
-        MetadataAttribute attribute = getAttributeDefinition(MetadataAttribute.class);
+        MetadataAttribute attribute = (MetadataAttribute) this.definition;
         dto.setUuid(uuid.toString());
         dto.setName(attribute.getName());
         dto.setContentType(attribute.getContentType());
@@ -177,7 +140,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     }
 
     public CustomAttributeDefinitionDetailDto mapToCustomAttributeDefinitionDetailDto() {
-        CustomAttribute attribute = getAttributeDefinition(CustomAttribute.class);
+        CustomAttribute attribute = (CustomAttribute) this.definition;
         CustomAttributeDefinitionDetailDto dto = new CustomAttributeDefinitionDetailDto();
         dto.setUuid(attribute.getUuid());
         dto.setName(attribute.getName());
@@ -186,6 +149,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
         dto.setContent(attribute.getContent());
         dto.setDescription(attribute.getDescription());
         dto.setEnabled(enabled);
+        dto.setResources(this.relations.stream().map(AttributeRelation::getResource).toList());
         if (attribute.getProperties() != null) {
             CustomAttributeProperties properties = attribute.getProperties();
             dto.setRequired(properties.isRequired());
@@ -200,7 +164,7 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     }
 
     public GlobalMetadataDefinitionDetailDto mapToGlobalMetadataDefinitionDetailDto() {
-        MetadataAttribute attribute = getAttributeDefinition(MetadataAttribute.class);
+        MetadataAttribute attribute = (MetadataAttribute) this.definition;
         GlobalMetadataDefinitionDetailDto dto = new GlobalMetadataDefinitionDetailDto();
         dto.setUuid(uuid.toString());
         dto.setName(attribute.getName());
@@ -220,18 +184,20 @@ public class AttributeDefinition extends UniquelyIdentifiedAndAudited {
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("author", author)
-                .append("created", created)
-                .append("updated", updated)
+                .append("uuid", uuid)
                 .append("connector", connector)
                 .append("connectorUuid", connectorUuid)
                 .append("attributeUuid", attributeUuid)
-                .append("attributeName", attributeName)
-                .append("attributeDefinition", attributeDefinition)
+                .append("name", name)
                 .append("type", type)
                 .append("contentType", contentType)
-                .append("uuid", uuid)
+                .append("label", label)
+                .append("required", required)
+                .append("readOnly", readOnly)
                 .append("enabled", enabled)
+                .append("global", global)
+                .append("operation", operation)
+                .append("definition", definition)
                 .toString();
     }
 }

@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
@@ -139,7 +140,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddTokenInstance() throws ConnectorException, AlreadyExistException {
+    public void testAddTokenInstance() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));

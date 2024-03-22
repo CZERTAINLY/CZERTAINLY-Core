@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -53,7 +50,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws ValidationException   When the validation of attributes or other information fails
      * @throws ConnectorException    when there are issues with connector communication or error from connector
      */
-    TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
+    TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
 
     /**
      * Update the token instance
@@ -65,7 +62,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws ValidationException When the validation of attributes or other information fails
      * @throws ConnectorException  when there are issues with connector communication or error from connector
      */
-    TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException;
+    TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException;
 
     /**
      * Delete a token instance

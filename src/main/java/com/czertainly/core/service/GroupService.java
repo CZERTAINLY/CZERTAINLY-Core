@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
@@ -15,8 +16,8 @@ public interface GroupService extends ResourceExtensionService {
     List<GroupDto> listGroups(SecurityFilter filter);
     GroupDto getGroup(SecuredUUID uuid) throws NotFoundException;
 
-    GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException;
-    GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException;
+    GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException, NotFoundException, AttributeException;
+    GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException, AttributeException;
 
     void deleteGroup(SecuredUUID uuid) throws NotFoundException;
     void bulkDeleteGroup(List<SecuredUUID> groupUuids);

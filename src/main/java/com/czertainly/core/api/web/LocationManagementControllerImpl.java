@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.LocationException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.LocationManagementController;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -46,7 +43,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public ResponseEntity<?> addLocation(String entityUuid, AddLocationRequestDto request) throws NotFoundException, AlreadyExistException, LocationException {
+    public ResponseEntity<?> addLocation(String entityUuid, AddLocationRequestDto request) throws ConnectorException, AlreadyExistException, LocationException, AttributeException {
         LocationDto locationDto = locationService.addLocation(SecuredParentUUID.fromString(entityUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{locationUuid}")
                 .buildAndExpand(locationDto.getUuid()).toUri();
@@ -61,7 +58,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public LocationDto editLocation(String entityUuid, String locationUuid, EditLocationRequestDto request) throws NotFoundException, LocationException {
+    public LocationDto editLocation(String entityUuid, String locationUuid, EditLocationRequestDto request) throws ConnectorException, LocationException, AttributeException {
         return locationService.editLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid), request);
     }
 
@@ -91,7 +88,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public LocationDto pushCertificate(String entityUuid, String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException {
+    public LocationDto pushCertificate(String entityUuid, String locationUuid, String certificateUuid, PushToLocationRequestDto request) throws NotFoundException, LocationException, AttributeException {
         return locationService.pushCertificateToLocation(
                 SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),

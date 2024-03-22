@@ -30,7 +30,7 @@ public interface ClientOperationService {
 
     CertificateDetailDto submitCertificateRequest(
             ClientCertificateRequestDto request
-    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException;
+    ) throws ConnectorException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, AttributeException;
 
     ClientCertificateDataResponseDto issueRequestedCertificate(
             SecuredParentUUID authorityUuid,
@@ -84,7 +84,7 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request
-    ) throws NotFoundException;
+    ) throws ConnectorException, AttributeException;
 
     void revokeCertificateAction(
             final UUID certificateUuid,

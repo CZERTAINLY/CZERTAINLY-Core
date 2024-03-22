@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
@@ -49,13 +46,8 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
-
     @Autowired
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
-
-    @Autowired
-    private ApprovalProfileRepository approvalProfileRepository;
-
     private RaProfile raProfile;
     private Certificate certificate;
     private CertificateContent certificateContent;
@@ -124,7 +116,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testAddRaProfile() throws ConnectorException, AlreadyExistException {
+    public void testAddRaProfile() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -163,7 +155,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testEditRaProfile() throws ConnectorException {
+    public void testEditRaProfile() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -258,7 +250,6 @@ public class RaProfileServiceTest extends ApprovalProfileData {
 
     @Test
     public void testDisassociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
-        final SecurityFilter securityFilter = SecurityFilter.create();
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         final ApprovalProfileRelationDto approvalProfileRelation = raProfileService.associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
         Assertions.assertNotNull(approvalProfileRelation);
@@ -285,7 +276,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException {
+    public void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
                 .willReturn(WireMock.okJson("""

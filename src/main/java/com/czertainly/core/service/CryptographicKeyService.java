@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
@@ -80,7 +77,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
             UUID tokenInstanceUuid,
             SecuredParentUUID tokenProfileUuid,
             KeyRequestType type,
-            KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
+            KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
 
     /**
      * Function to update the key details
@@ -94,7 +91,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
             SecuredParentUUID tokenInstanceUuid,
             UUID uuid,
             EditKeyRequestDto request
-    ) throws NotFoundException;
+    ) throws NotFoundException, AttributeException;
 
     /**
      * Function to disable a key
@@ -237,7 +234,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @param tokenInstanceUuid UUID of the token instance to sync the keys
      * @throws ConnectorException
      */
-    void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException;
+    void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException, AttributeException;
 
     /**
      * Function to mark the key as compromised
