@@ -118,6 +118,7 @@ public class RsaEncryptionAttributes {
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
+        attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
         return attribute;
     }
@@ -127,6 +128,7 @@ public class RsaEncryptionAttributes {
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
+        attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
         return attribute;
     }
@@ -136,6 +138,7 @@ public class RsaEncryptionAttributes {
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
+        attribute.setContentType(AttributeContentType.BOOLEAN);
         attribute.setContent(List.of(new BooleanAttributeContent(value)));
         return attribute;
     }

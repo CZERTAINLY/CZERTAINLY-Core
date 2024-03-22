@@ -513,6 +513,7 @@ public class AttributeEngine {
                 requestAttribute = new RequestAttributeDto();
                 requestAttribute.setUuid(objectContent.uuid().toString());
                 requestAttribute.setName(objectContent.name());
+                requestAttribute.setContentType(objectContent.contentType());
                 requestAttribute.setContent(new ArrayList<>());
                 mapping.put(uuid, requestAttribute);
             }
@@ -805,7 +806,7 @@ public class AttributeEngine {
         }
 
         try {
-            ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent, ATTRIBUTES_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, AttributeContentType.getClass(attributeDefinition.getContentType())));
+            ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent, ATTRIBUTES_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, attributeDefinition.getContentType().getContentClass()));
         } catch (IllegalArgumentException e) {
             throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
         }

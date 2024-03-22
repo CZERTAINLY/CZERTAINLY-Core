@@ -57,6 +57,7 @@ public class EcdsaSignatureAttributes {
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
+        attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
         return attribute;
     }

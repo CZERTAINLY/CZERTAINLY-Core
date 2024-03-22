@@ -10,6 +10,7 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -61,7 +62,6 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     private Certificate certificate;
 
     private RuleCondition condition;
-
 
 
     @BeforeEach
@@ -166,7 +166,6 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
 
-
     @Test
     public void testsCryptographicKeyRuleEvaluator() throws RuleException {
         CryptographicKeyItem cryptographicKey = new CryptographicKeyItem();
@@ -199,8 +198,8 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         customAttributeRequest.setContentType(AttributeContentType.STRING);
 
         CustomAttributeDefinitionDetailDto customAttribute = attributeService.createCustomAttribute(customAttributeRequest);
-        var xxx = resourceService.updateAttributeContentForObject(Resource.CERTIFICATE, SecuredUUID.fromUUID(certificate.getUuid()), UUID.fromString(customAttribute.getUuid()),
-                List.of(new BaseAttributeContent("ref", "data1"), new BaseAttributeContent("ref", "data")));
+        resourceService.updateAttributeContentForObject(Resource.CERTIFICATE, SecuredUUID.fromUUID(certificate.getUuid()), UUID.fromString(customAttribute.getUuid()),
+                List.of(new StringAttributeContent("ref", "data1"), new StringAttributeContent("ref", "data")));
 
         RuleCondition condition = new RuleCondition();
         condition.setFieldSource(FilterFieldSource.CUSTOM);
@@ -221,7 +220,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         metadataAttribute.setContentType(AttributeContentType.STRING);
         metadataAttribute.setName("meta");
         metadataAttribute.setUuid(UUID.randomUUID().toString());
-        metadataAttribute.setContent(List.of(new BaseAttributeContent<>("ref","data")));
+        metadataAttribute.setContent(List.of(new StringAttributeContent("ref", "data")));
         metadataAttribute.setType(AttributeType.META);
 
         MetadataAttributeProperties props = new MetadataAttributeProperties();

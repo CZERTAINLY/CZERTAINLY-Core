@@ -245,6 +245,7 @@ public class NotificationListener {
                     RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
                     requestAttributeDto.setUuid(mappingAttribute.getUuid());
                     requestAttributeDto.setName(mappingAttribute.getName());
+                    requestAttributeDto.setContentType(mappingAttribute.getContentType());
                     requestAttributeDto.setContent(recipientCustomAttribute.getContent());
                     mappedAttributes.add(requestAttributeDto);
                 }
