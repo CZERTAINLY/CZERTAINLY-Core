@@ -65,7 +65,7 @@ public class AttributeDefinition extends UniquelyIdentified {
     @Column(name = "read_only")
     private Boolean readOnly;
 
-//    @Basic(fetch = FetchType.LAZY)
+    @Basic(fetch = FetchType.LAZY)
     @Column(name = "definition", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private BaseAttribute definition;
@@ -116,22 +116,6 @@ public class AttributeDefinition extends UniquelyIdentified {
     public Boolean isReadOnly() {
         return readOnly;
     }
-
-//    public void setDefinition(InfoAttribute definition) {
-//        this.definition = AttributeDefinitionUtils.serialize(definition);
-//    }
-//
-//    public void setDefinition(MetadataAttribute attributeDefinition) {
-//        this.definition = AttributeDefinitionUtils.serialize(attributeDefinition);
-//    }
-//
-//    public void setDefinition(CustomAttribute attributeDefinition) {
-//        this.definition = AttributeDefinitionUtils.serialize(attributeDefinition);
-//    }
-//
-//    public void setDefinition(DataAttribute attributeDefinition) {
-//        this.definition = AttributeDefinitionUtils.serialize(attributeDefinition);
-//    }
 
     public CustomAttributeDefinitionDto mapToCustomAttributeDefinitionDto() {
         CustomAttributeDefinitionDto dto = new CustomAttributeDefinitionDto();

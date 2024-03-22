@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.core.dao.entity.AttributeContentItem;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,5 +15,6 @@ public interface AttributeContentItemRepository extends JpaRepository<AttributeC
     Optional<AttributeContentItem> findByJsonAndAttributeDefinitionUuid(BaseAttributeContent<?> attributeContent, UUID definitionUuid);
 
     long deleteByAttributeDefinitionUuid(UUID definitionUuid);
+    long deleteByAttributeDefinitionTypeAndAttributeDefinitionConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 
 }

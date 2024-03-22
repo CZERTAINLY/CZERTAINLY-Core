@@ -58,6 +58,9 @@ public class V202402171510__UpdateAndOptimizeAttributesModelMigration extends Ba
                     ADD COLUMN updated_at TIMESTAMP NULL,
                     DROP COLUMN i_author,
                     DROP COLUMN reference;
+                
+                ALTER TABLE attribute_definition DROP CONSTRAINT attribute_definition_to_connector_key;
+                ALTER TABLE attribute_definition ADD CONSTRAINT fk_attribute_definition_connector FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
                                         
                 ALTER TABLE attribute_content_item
                     ADD COLUMN attribute_definition_uuid UUID NULL;
@@ -67,6 +70,8 @@ public class V202402171510__UpdateAndOptimizeAttributesModelMigration extends Ba
                     ADD COLUMN attribute_content_item_uuid UUID NULL;
                                         
                 ALTER TABLE attribute_content_item ADD CONSTRAINT fk_attribute_content_item_attribute_definition FOREIGN KEY (attribute_definition_uuid) REFERENCES attribute_definition(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
+                ALTER TABLE attribute_content_2_object DROP CONSTRAINT attribute_definition_to_connector_key;
+                ALTER TABLE attribute_content_2_object ADD CONSTRAINT fk_attribute_content_2_object_connector FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
                 ALTER TABLE attribute_content_2_object ADD CONSTRAINT fk_attribute_content_2_object_attribute_content_item FOREIGN KEY (attribute_content_item_uuid) REFERENCES attribute_content_item(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
                                         
                 -- update new columns

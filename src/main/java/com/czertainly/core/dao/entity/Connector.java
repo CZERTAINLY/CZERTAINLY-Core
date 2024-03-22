@@ -63,14 +63,6 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @JsonIgnore
     private Set<TokenInstanceReference> tokenInstanceReferences = new HashSet<>();
 
-    @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)
-    @JsonIgnore
-    private Set<AttributeDefinition> attributeDefinitions = new HashSet<>();
-
-    @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)
-    @JsonIgnore
-    private Set<AttributeContent2Object> attributeContent2Objects = new HashSet<>();
-
     public String getName() {
         return name;
     }
@@ -141,14 +133,6 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
 
     public Set<TokenInstanceReference> getTokenInstanceReferences() {
         return tokenInstanceReferences;
-    }
-
-    public Set<AttributeDefinition> getAttributeDefinitions() {
-        return attributeDefinitions;
-    }
-
-    public Set<AttributeContent2Object> getAttributeContent2Objects() {
-        return attributeContent2Objects;
     }
 
     @Override

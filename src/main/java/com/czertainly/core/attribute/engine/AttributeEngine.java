@@ -160,12 +160,10 @@ public class AttributeEngine {
             ResponseMetadataDto metadataResponseAttributeDto;
             Map<Resource, Map<UUID, ResponseMetadataDto>> sourceAttributesContentsMapping;
             Map<UUID, ResponseMetadataDto> sourceAttributesContents;
-//            String connectorUuid = objectMetadataContent.connectorUuid() != null ? objectMetadataContent.connectorUuid().toString() : null;
-//            String connectorName = objectMetadataContent.connectorName() != null ? objectMetadataContent.connectorName() : "<No connector>";
-//            String sourceObjectType = objectMetadataContent.sourceObjectType() != null ? objectMetadataContent.sourceObjectType() : "";
-
             if (!connectorMapping.containsKey(objectMetadataContent.connectorUuid())) {
-                connectorMapping.put(objectMetadataContent.connectorUuid(), objectMetadataContent.connectorName());
+//                String connectorName = objectMetadataContent.connectorName() != null ? objectMetadataContent.connectorName() : "<No connector>";
+                String connectorName = objectMetadataContent.connectorName();
+                connectorMapping.put(objectMetadataContent.connectorUuid(), connectorName);
             }
             if ((sourceAttributesContentsMapping = mapping.get(objectMetadataContent.connectorUuid())) == null) {
                 sourceAttributesContentsMapping = new HashMap<>();
@@ -691,6 +689,20 @@ public class AttributeEngine {
         if (!errors.isEmpty()) {
             throw new ValidationException(errors);
         }
+    }
+
+    public void deleteConnectorAttributeDefinitionsContent(UUID connectorUuid) {
+        // delete data attributes with content
+        logger.debug("Deleting data attribute definitions for connector with UUID {}", connectorUuid);
+        attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuid(AttributeType.DATA, connectorUuid);
+        attributeContentItemRepository.deleteByAttributeDefinitionTypeAndAttributeDefinitionConnectorUuid(AttributeType.DATA, connectorUuid);
+        long deletedDefinitions = attributeDefinitionRepository.deleteByTypeAndConnectorUuid(AttributeType.DATA, connectorUuid);
+        logger.debug("Deleted {} data attribute definitions for connector with UUID {}", deletedDefinitions, connectorUuid);
+
+        // remove connector reference from metadata definitions and content
+        // WARNING: connector uuid is removed from all content disregarding attribute type since connector data attributes content was already removed in step before and custom attributes are not linked to connector so it is safe
+        attributeDefinitionRepository.removeConnectorByTypeAndConnectorUuid(AttributeType.META, connectorUuid);
+        attributeContent2ObjectRepository.removeConnectorByConnectorUuid(connectorUuid);
     }
 
     public void deleteAttributeDefinition(AttributeType attributeType, UUID definitionUuid) throws NotFoundException {
