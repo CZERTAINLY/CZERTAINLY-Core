@@ -1,9 +1,7 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
@@ -13,6 +11,8 @@ import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -23,6 +23,7 @@ import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ResourceService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,12 +64,24 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     private RuleCondition condition;
 
+    private RuleTrigger trigger;
+    private RuleAction action;
+    @Autowired
+    private ActionEvaluator<Certificate> certificateActionEvaluator;
+
+
 
     @BeforeEach
     public void setUp() {
         certificate = new Certificate();
         certificateRepository.save(certificate);
         condition = new RuleCondition();
+
+        trigger = new RuleTrigger();
+        trigger.setResource(Resource.CERTIFICATE);
+
+        action = new RuleAction();
+        trigger.setActions(List.of(action));
     }
 
     @Test
@@ -235,6 +248,36 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue("data");
         Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
+
+    }
+
+    @Test
+    public void testSetProperty() throws ActionException, NotFoundException, AttributeException {
+        action.setActionType(RuleActionType.SET_FIELD);
+        action.setFieldSource(FilterFieldSource.PROPERTY);
+        action.setFieldIdentifier("state");
+        action.setActionData(CertificateState.ISSUED);
+        certificateRuleEvaluator.performRuleActions(trigger, certificate);
+        Assertions.assertEquals(CertificateState.ISSUED, certificate.getState());
+    }
+
+    @Test
+    public void testSetCustomAttribute() throws AlreadyExistException, AttributeException, ActionException, NotFoundException {
+        CustomAttributeCreateRequestDto createRequestDto = new CustomAttributeCreateRequestDto();
+        createRequestDto.setName("custom");
+        createRequestDto.setContentType(AttributeContentType.STRING);
+        createRequestDto.setLabel("custom");
+        createRequestDto.setResources(List.of(Resource.CERTIFICATE));
+        attributeService.createCustomAttribute(createRequestDto);
+        List<BaseAttributeContent> baseAttributeContents = List.of(new StringAttributeContent("ref", "data1"), new StringAttributeContent("ref", "data"));
+        String content = AttributeDefinitionUtils.serializeAttributeContent(baseAttributeContents);
+        action.setActionType(RuleActionType.SET_FIELD);
+        action.setFieldSource(FilterFieldSource.CUSTOM);
+        action.setActionData(content);
+        action.setFieldIdentifier("custom");
+        certificateRuleEvaluator.performRuleActions(trigger, certificate);
+        List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(baseAttributeContents, responseAttributeDtos.get(0).getContent());
 
     }
 
