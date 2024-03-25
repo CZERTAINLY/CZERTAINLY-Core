@@ -11,7 +11,6 @@ import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.*;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -97,16 +96,21 @@ public class AttributeEngine {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), FilterFieldSource.CUSTOM));
         }
 
+        final List<SearchFieldObject> dataAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.DATA));
+        if (!dataAttrSearchFieldObject.isEmpty()) {
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttrSearchFieldObject), FilterFieldSource.DATA));
+        }
+
         return searchFieldDataByGroupDtos;
     }
 
     public List<UUID> getResourceObjectUuidsByFilters(Resource resource, SecurityFilter securityFilter, List<SearchFilterRequestDto> searchFilters) {
         List<SearchFilterRequestDto> attributesFilters;
-        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getFieldSource() == FilterFieldSource.CUSTOM || f.getFieldSource() == FilterFieldSource.META).toList()).isEmpty()) {
+        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getFieldSource() == FilterFieldSource.CUSTOM || f.getFieldSource() == FilterFieldSource.META || f.getFieldSource() == FilterFieldSource.DATA).toList()).isEmpty()) {
             return null;
         }
 
-        final List<SearchFieldObject> searchFieldObjects = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM, AttributeType.META));
+        final List<SearchFieldObject> searchFieldObjects = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM, AttributeType.META, AttributeType.DATA));
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, attributesFilters, entityManager.getCriteriaBuilder(), resource);
         return attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(securityFilter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate());
     }
@@ -380,7 +384,7 @@ public class AttributeEngine {
         if (attributeDefinition != null) {
             // check for change of content type
             if (attributeDefinition.getContentType() != metadataAttribute.getContentType()) {
-                throw new AttributeException(String.format("Metadata attribute content type changed to %s while stored attribute definition have content type %s", metadataAttribute.getContentType().getLabel(), attributeDefinition.getContentType().getLabel()), metadataAttribute.getUuid(), metadataAttribute.getName(), metadataAttribute.getType(), connectorUuid.toString());
+                throw new AttributeException(String.format("Metadata attribute content type changed to %s while stored attribute definition have content type %s", metadataAttribute.getContentType().getLabel(), attributeDefinition.getContentType().getLabel()), metadataAttribute.getUuid(), metadataAttribute.getName(), metadataAttribute.getType(), connectorUuid == null ? null : connectorUuid.toString());
             }
         } else {
             attributeDefinition = new AttributeDefinition();
