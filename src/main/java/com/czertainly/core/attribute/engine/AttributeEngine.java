@@ -188,7 +188,9 @@ public class AttributeEngine {
                 sourceAttributesContents.put(objectMetadataContent.uuid(), metadataResponseAttributeDto);
             }
 
-            metadataResponseAttributeDto.getContent().add(objectMetadataContent.contentItem());
+            if (!metadataResponseAttributeDto.getContent().contains(objectMetadataContent.contentItem())) {
+                metadataResponseAttributeDto.getContent().add(objectMetadataContent.contentItem());
+            }
             if (objectMetadataContent.sourceObjectType() != null) {
                 metadataResponseAttributeDto.getSourceObjects().add(new NameAndUuidDto(objectMetadataContent.sourceObjectUuid().toString(), objectMetadataContent.sourceObjectName()));
             }
