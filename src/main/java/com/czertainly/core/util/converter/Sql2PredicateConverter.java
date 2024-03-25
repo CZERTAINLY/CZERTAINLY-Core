@@ -303,7 +303,7 @@ public class Sql2PredicateConverter {
 
         for (final SearchFilterRequestDto dto : dtos) {
             final FilterFieldSource filterFieldSource = dto.getFieldSource();
-            if (filterFieldSource == FilterFieldSource.CUSTOM || filterFieldSource == FilterFieldSource.META) {
+            if (filterFieldSource == FilterFieldSource.CUSTOM || filterFieldSource == FilterFieldSource.META || filterFieldSource == FilterFieldSource.DATA) {
 
                 // --- SUB QUERY ---
                 final Subquery<UUID> subquery = criteriaQuery.subquery(UUID.class);
