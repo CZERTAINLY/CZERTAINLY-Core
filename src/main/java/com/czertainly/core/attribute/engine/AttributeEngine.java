@@ -433,7 +433,11 @@ public class AttributeEngine {
         if (objectAttributeContentInfo.connectorUuid() == null) {
             throw new AttributeException("Cannot update metadata content without specifying connector UUID.");
         }
-        // TODO: check if content needs to be replaced or added, currently appending more content
+
+        // delete content of metadata for this object as its content should be replaced
+        if (metadataAttribute.getProperties().isReplaceContent()) {
+            deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectAttributeContentInfo.objectType(), objectAttributeContentInfo.objectUuid());
+        }
         createObjectAttributeContent(attributeDefinition, objectAttributeContentInfo, contentItems);
     }
 

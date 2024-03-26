@@ -65,7 +65,6 @@ public class AttributeDefinition extends UniquelyIdentified {
     @Column(name = "read_only")
     private Boolean readOnly;
 
-    @Basic(fetch = FetchType.LAZY)
     @Column(name = "definition", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private BaseAttribute definition;
