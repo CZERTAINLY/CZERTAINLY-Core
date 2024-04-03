@@ -42,6 +42,10 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
             logger.info("ACME Request from " + request.getRemoteAddr() + " for " + requestUri);
             AuthHelper.authenticateAsSystemUser(AuthHelper.ACME_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
+        } else if (requestUri.startsWith("/api/v1/protocols/cmp/")) {
+            logger.info("CMPv2 Request from " + request.getRemoteAddr() + " for " + requestUri);
+            AuthHelper.authenticateAsSystemUser(AuthHelper.CMP_USERNAME);
+            filterChain.doFilter(requestWrapper, responseWrapper);
         } else {
             resolver.resolveException(request, response, null, new ValidationException("Invalid protocol request"));
         }

@@ -28,6 +28,7 @@ public class AuthHelper {
     public static final String USER_UUID_HEADER_NAME = "userUuid";
     public static final String ACME_USERNAME = "acme";
     public static final String SCEP_USERNAME = "scep";
+    public static final String CMP_USERNAME = "cmp";
 
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);
 
