@@ -11,36 +11,39 @@ import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
+import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
+@SpringBootTest(properties = {"auth-service.base-url=http://localhost:1111"})
 public class RuleEvaluatorTest extends BaseSpringBootTest {
-
-    @Autowired
-    private RuleEvaluator<Certificate> certificateRuleEvaluator;
     @Autowired
     private RuleEvaluator<CryptographicKeyItem> cryptographicKeyRuleEvaluator;
+
+    @Autowired
+    private GroupRepository groupRepository;
 
     @Autowired
     private RuleEvaluator<DiscoveryHistory> discoveryHistoryRuleEvaluator;
@@ -52,13 +55,21 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     private AttributeService attributeService;
 
     @Autowired
-    private ResourceService resourceService;
-
-    @Autowired
     private ConnectorRepository connectorRepository;
 
     @Autowired
+    private RaProfileRepository raProfileRepository;
+
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
+
+    @Autowired
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @Autowired
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    private CertificateRuleEvaluator certificateRuleEvaluator;
 
     private Certificate certificate;
 
@@ -66,13 +77,12 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     private RuleTrigger trigger;
     private RuleAction action;
-    @Autowired
-    private ActionEvaluator<Certificate> certificateActionEvaluator;
 
-
+    private WireMockServer mockServer;
 
     @BeforeEach
     public void setUp() {
+
         certificate = new Certificate();
         certificateRepository.save(certificate);
         condition = new RuleCondition();
@@ -211,8 +221,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         customAttributeRequest.setContentType(AttributeContentType.STRING);
 
         CustomAttributeDefinitionDetailDto customAttribute = attributeService.createCustomAttribute(customAttributeRequest);
-        resourceService.updateAttributeContentForObject(Resource.CERTIFICATE, SecuredUUID.fromUUID(certificate.getUuid()), UUID.fromString(customAttribute.getUuid()),
-                List.of(new StringAttributeContent("ref", "data1"), new StringAttributeContent("ref", "data")));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate.getUuid(), null, customAttribute.getName(), List.of(new StringAttributeContent("ref", "data1"), new StringAttributeContent("ref", "data")));
 
         RuleCondition condition = new RuleCondition();
         condition.setFieldSource(FilterFieldSource.CUSTOM);
@@ -252,33 +261,101 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSetProperty() throws ActionException, NotFoundException, AttributeException {
+    public void testSetCertificateGroup() throws ActionException, NotFoundException, AttributeException {
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
-        action.setFieldIdentifier("state");
-        action.setActionData(CertificateState.ISSUED);
+        action.setFieldIdentifier("group");
+        Group group = new Group();
+        group.setName("groupName");
+        groupRepository.save(group);
+        action.setActionData(group.getUuid());
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
-        Assertions.assertEquals(CertificateState.ISSUED, certificate.getState());
+        Assertions.assertEquals(group.getName(), certificate.getGroup().getName());
     }
 
     @Test
-    public void testSetCustomAttribute() throws AlreadyExistException, AttributeException, ActionException, NotFoundException {
+    public void testSetCertificateOwner() {
+
+        mockServer = new WireMockServer(1111);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        action.setActionType(RuleActionType.SET_FIELD);
+        action.setFieldSource(FilterFieldSource.PROPERTY);
+        action.setFieldIdentifier("owner");
+        action.setActionData(UUID.randomUUID());
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("{ \"username\": \"ownerName\"}")
+        ));
+
+        certificateRuleEvaluator.performRuleActions(trigger, certificate);
+        Assertions.assertEquals("ownerName", certificate.getOwner());
+
+    }
+
+
+
+    @Test
+    public void testSetRaProfile() {
+
+        mockServer = new WireMockServer(0);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
+                .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
+
+
+        Connector connector = new Connector();
+        connector.setName("authorityInstanceConnector");
+        connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connectorRepository.save(connector);
+
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setAuthorityInstanceUuid("1l");
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReferenceRepository.save(authorityInstanceReference);
+
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("Test RA profile");
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfile = raProfileRepository.save(raProfile);
+
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContent.setContent("content");
+        certificateContentRepository.save(certificateContent);
+        certificate.setCertificateContent(certificateContent);
+
+        action.setActionType(RuleActionType.SET_FIELD);
+        action.setFieldSource(FilterFieldSource.PROPERTY);
+        action.setFieldIdentifier("raProfile");
+        action.setActionData(raProfile.getUuid());
+        certificateRuleEvaluator.performRuleActions(trigger, certificate);
+        Assertions.assertEquals(raProfile.getName(), certificate.getRaProfile().getName());
+    }
+
+    @Test
+    public void testSetCustomAttribute() throws AlreadyExistException, AttributeException {
         CustomAttributeCreateRequestDto createRequestDto = new CustomAttributeCreateRequestDto();
         createRequestDto.setName("custom");
         createRequestDto.setContentType(AttributeContentType.STRING);
         createRequestDto.setLabel("custom");
-        createRequestDto.setResources(List.of(Resource.CERTIFICATE));
+        createRequestDto.setResources(List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY));
         attributeService.createCustomAttribute(createRequestDto);
-        List<BaseAttributeContent> baseAttributeContents = List.of(new StringAttributeContent("ref", "data1"), new StringAttributeContent("ref", "data"));
-        String content = AttributeDefinitionUtils.serializeAttributeContent(baseAttributeContents);
+        LinkedHashMap<String, String> linkedHashSet = new LinkedHashMap<>();
+        linkedHashSet.put("data", "data");
+        linkedHashSet.put("reference", "ref");
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.CUSTOM);
-        action.setActionData(content);
+        action.setActionData(List.of(linkedHashSet));
         action.setFieldIdentifier("custom");
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
         List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
-        Assertions.assertEquals(baseAttributeContents, responseAttributeDtos.get(0).getContent());
-
+        Assertions.assertEquals(1, responseAttributeDtos.get(0).getContent().size());
     }
 
 }

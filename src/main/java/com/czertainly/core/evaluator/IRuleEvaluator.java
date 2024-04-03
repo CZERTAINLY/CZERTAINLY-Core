@@ -47,6 +47,6 @@ public interface IRuleEvaluator<T> {
      * @param trigger       Trigger
      * @param object        Object to perform Actions in Trigger on
      */
-    public void performRuleActions(RuleTrigger trigger, T object) throws ActionException, NotFoundException, AttributeException;
+    public void performRuleActions(RuleTrigger trigger, T object);
 
 }

@@ -11,6 +11,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RuleAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -25,7 +26,7 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
     }
 
     @Override
-    public void performAction(RuleAction action, Certificate object, Resource resource) throws CertificateOperationException, NotFoundException, AttributeException, ActionException {
+    public void performAction(RuleAction action, Certificate object, Resource resource) throws CertificateOperationException, NotFoundException, AttributeException, ActionException, JsonProcessingException {
         if (action.getActionType() == RuleActionType.SET_FIELD & action.getFieldSource() == FilterFieldSource.PROPERTY) {
             SecuredUUID certificateUuid = object.getSecuredUuid();
             SecuredUUID propertyUuid = SecuredUUID.fromString(action.getActionData().toString());

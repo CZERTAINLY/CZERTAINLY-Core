@@ -1,9 +1,6 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.ActionException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
@@ -21,6 +18,9 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,20 +60,24 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 continue;
             }
             ruleEvaluated = true;
-            for (RuleCondition condition : rule.getConditions()) {
-                if (!evaluateCondition(condition, object, rule.getResource())) {
-                    logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
-                            rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
-                    return false;
-                }
-            }
-
-            for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
-                for (RuleCondition condition : conditionGroup.getConditions()) {
+            if (rule.getConditions() != null) {
+                for (RuleCondition condition : rule.getConditions()) {
                     if (!evaluateCondition(condition, object, rule.getResource())) {
                         logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
                                 rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
                         return false;
+                    }
+                }
+            }
+
+            if (rule.getConditionGroups() != null) {
+                for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
+                    for (RuleCondition condition : conditionGroup.getConditions()) {
+                        if (!evaluateCondition(condition, object, rule.getResource())) {
+                            logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
+                                    rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
+                            return false;
+                        }
                     }
                 }
             }
@@ -178,7 +182,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public void performRuleActions(RuleTrigger trigger, T object) throws ActionException, NotFoundException, AttributeException {
+    public void performRuleActions(RuleTrigger trigger, T object) {
         if (!ResourceToClass.getClassByResource(trigger.getResource()).isInstance(object)) {
             logger.debug("Trigger '{}' cannot be executed due to incompatible resource.", trigger.getName());
             return;
@@ -206,13 +210,14 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         }
     }
 
-    private void performAction(RuleAction action, T object, Resource resource) throws ActionException, NotFoundException, AttributeException {
+    public void performAction(RuleAction action, T object, Resource resource) throws ActionException, NotFoundException, AttributeException, CertificateOperationException, JsonProcessingException {
         RuleActionType actionType = action.getActionType();
         String fieldIdentifier = action.getFieldIdentifier();
         Object actionData = action.getActionData();
         FilterFieldSource fieldSource = action.getFieldSource();
 
         if (actionType == RuleActionType.SET_FIELD) {
+            // Set a property of the object using setter, the property must be set as settable
             if (fieldSource == FilterFieldSource.PROPERTY) {
                 SearchFieldNameEnum propertyEnum;
                 try {
@@ -220,16 +225,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 } catch (Exception e) {
                     throw new ActionException("Field identifier '" + fieldIdentifier + "' is not supported.");
                 }
-                if (!propertyEnum.isActionEnabled())
+                if (!propertyEnum.isSettable())
                     throw new ActionException("Setting property '" + fieldIdentifier + "' is not supported.");
                 try {
                     PropertyUtils.setProperty(object, action.getFieldIdentifier(), actionData);
-                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
+                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                     throw new ActionException(e.getMessage());
                 }
             }
-
+            // Set a custom attribute for the object
             if (fieldSource == FilterFieldSource.CUSTOM) {
                 UUID objectUuid;
                 try {
@@ -239,16 +243,14 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 }
 
                 if (objectUuid == null)
-                    throw new ActionException("Cannot perform action " + actionType + " on object not in database.");
+                    throw new ActionException("Cannot set custom attributes for an object not in database.");
 
-                List<BaseAttributeContent> attributeContents = AttributeDefinitionUtils.deserializeAttributeContent(actionData.toString(), BaseAttributeContent.class);
+                ObjectMapper objectMapper = new ObjectMapper();
+                List<BaseAttributeContent> attributeContents = objectMapper.convertValue(actionData , new TypeReference<>() {});
                 attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier, attributeContents);
             }
         }
     }
-
-
-
 
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;
