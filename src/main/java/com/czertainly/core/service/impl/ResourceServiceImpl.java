@@ -209,7 +209,7 @@ public class ResourceServiceImpl implements ResourceService {
                 throw new NotFoundException("Cannot update custom attribute for requested resource: " + objectType.getCode());
         }
 
-        attributeEngine.updateObjectCustomAttributeContent(objectType, objectUuid.getValue(), attributeUuid, attributeContentItems);
+        attributeEngine.updateObjectCustomAttributeContent(objectType, objectUuid.getValue(), attributeUuid, null, attributeContentItems);
         return attributeEngine.getObjectCustomAttributesContent(objectType, objectUuid.getValue());
     }
 }
