@@ -587,8 +587,13 @@ public class AttributeEngine {
 
 //    public void deleteObjectAttributeContent(Resource objectType, UUID objectUuid, List<RequestAttributeDto> requestAttributes)
 
-    public void updateObjectCustomAttributeContent(Resource objectType, UUID objectUuid, UUID definitionUuid, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
-        AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByUuid(definitionUuid).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, definitionUuid.toString()));
+    public void updateObjectCustomAttributeContent(Resource objectType, UUID objectUuid, UUID definitionUuid, String attributeName, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
+        AttributeDefinition attributeDefinition;
+        if (definitionUuid != null) {
+            attributeDefinition = attributeDefinitionRepository.findByUuid(definitionUuid).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, definitionUuid.toString()));
+        } else {
+            attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, attributeName).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, attributeName.toString()));
+        }
         if (attributeDefinition.getType() != AttributeType.CUSTOM) {
             throw new AttributeException("Cannot update content of attribute. Only custom attributes are allowed to be updated directly.", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null);
         }
@@ -596,10 +601,10 @@ public class AttributeEngine {
             throw new AttributeException("Cannot update content of disabled attribute.", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null);
         }
 
-        AttributeRelation relation = attributeRelationRepository.findByResourceAndAttributeDefinitionUuidAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(objectType, definitionUuid, AttributeType.CUSTOM, true).orElseThrow(() -> new AttributeException("Cannot update content of attribute since it is not associated with resource " + objectType.getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null));
+        AttributeRelation relation = attributeRelationRepository.findByResourceAndAttributeDefinitionUuidAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(objectType, attributeDefinition.getUuid(), AttributeType.CUSTOM, true).orElseThrow(() -> new AttributeException("Cannot update content of attribute since it is not associated with resource " + objectType.getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null));
 
         // custom attributes content is automatically replaced
-        deleteObjectAttributeDefinitionContent(definitionUuid, objectType, objectUuid);
+        deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectType, objectUuid);
         if (attributeContentItems != null && !attributeContentItems.isEmpty()) {
             validateAttributeContent(attributeDefinition, attributeContentItems);
             createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), attributeContentItems);
