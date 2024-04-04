@@ -210,7 +210,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         }
     }
 
-    public void performAction(RuleAction action, T object, Resource resource) throws ActionException, NotFoundException, AttributeException, CertificateOperationException, JsonProcessingException {
+    public void performAction(RuleAction action, T object, Resource resource) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
         RuleActionType actionType = action.getActionType();
         String fieldIdentifier = action.getFieldIdentifier();
         Object actionData = action.getActionData();
@@ -223,14 +223,14 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 try {
                     propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
                 } catch (Exception e) {
-                    throw new ActionException("Field identifier '" + fieldIdentifier + "' is not supported.");
+                    throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
                 }
                 if (!propertyEnum.isSettable())
-                    throw new ActionException("Setting property '" + fieldIdentifier + "' is not supported.");
+                    throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
                 try {
                     PropertyUtils.setProperty(object, action.getFieldIdentifier(), actionData);
                 } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                    throw new ActionException(e.getMessage());
+                    throw new RuleException(e.getMessage());
                 }
             }
             // Set a custom attribute for the object
@@ -239,11 +239,11 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 try {
                     objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
                 } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                    throw new ActionException("Cannot get uuid from resource " + resource + ".");
+                    throw new RuleException("Cannot get uuid from resource " + resource + ".");
                 }
 
                 if (objectUuid == null)
-                    throw new ActionException("Cannot set custom attributes for an object not in database.");
+                    throw new RuleException("Cannot set custom attributes for an object not in database.");
 
                 ObjectMapper objectMapper = new ObjectMapper();
                 List<BaseAttributeContent> attributeContents = objectMapper.convertValue(actionData , new TypeReference<>() {});

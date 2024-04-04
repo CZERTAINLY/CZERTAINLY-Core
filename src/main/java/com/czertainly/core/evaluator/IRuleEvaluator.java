@@ -1,17 +1,11 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.ActionException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.Rule;
 import com.czertainly.core.dao.entity.RuleCondition;
 import com.czertainly.core.dao.entity.RuleTrigger;
-import com.czertainly.core.dao.entity.UniquelyIdentified;
-import org.springframework.stereotype.Component;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
 public interface IRuleEvaluator<T> {

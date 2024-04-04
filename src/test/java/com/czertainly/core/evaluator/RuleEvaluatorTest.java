@@ -1,13 +1,15 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
@@ -20,7 +22,6 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -30,7 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.LinkedHashMap;
@@ -261,7 +261,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSetCertificateGroup() throws ActionException, NotFoundException, AttributeException {
+    public void testSetCertificateGroup() {
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
         action.setFieldIdentifier("group");

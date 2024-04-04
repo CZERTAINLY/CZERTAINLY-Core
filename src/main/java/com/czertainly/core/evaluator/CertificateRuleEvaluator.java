@@ -1,9 +1,6 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.ActionException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -26,7 +23,7 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
     }
 
     @Override
-    public void performAction(RuleAction action, Certificate object, Resource resource) throws CertificateOperationException, NotFoundException, AttributeException, ActionException, JsonProcessingException {
+    public void performAction(RuleAction action, Certificate object, Resource resource) throws NotFoundException, AttributeException, CertificateOperationException, RuleException {
         if (action.getActionType() == RuleActionType.SET_FIELD & action.getFieldSource() == FilterFieldSource.PROPERTY) {
             SecuredUUID certificateUuid = object.getSecuredUuid();
             SecuredUUID propertyUuid = SecuredUUID.fromString(action.getActionData().toString());
