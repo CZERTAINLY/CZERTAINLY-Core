@@ -6,16 +6,24 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
+import com.czertainly.core.util.SearchHelper;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -211,5 +219,23 @@ public class ResourceServiceImpl implements ResourceService {
 
         attributeEngine.updateObjectCustomAttributeContent(objectType, objectUuid.getValue(), attributeUuid, null, attributeContentItems);
         return attributeEngine.getObjectCustomAttributesContent(objectType, objectUuid.getValue());
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException {
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource);
+
+        List<SearchFieldNameEnum> enums = SearchFieldNameEnum.getEnumsForResource(resource);
+        List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
+        for (SearchFieldNameEnum fieldEnum : enums) {
+            if (settable && !fieldEnum.isSettable()) continue;
+            if (fieldEnum.getFieldTypeEnum() != SearchFieldTypeEnum.LIST) fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum));
+            if (fieldEnum.getFieldProperty().getEnumClass() != null) fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, fieldEnum.getFieldProperty().getEnumClass()));
+            if (fieldEnum.getFieldResource() != null) fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
+        }
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
+
+        return searchFieldDataByGroupDtos;
     }
 }
