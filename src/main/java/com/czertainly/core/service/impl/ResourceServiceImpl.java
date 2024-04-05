@@ -9,14 +9,17 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.SearchHelper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +53,10 @@ public class ResourceServiceImpl implements ResourceService {
     private RoleManagementService roleManagementService;
     private CertificateService certificateService;
     private AttributeEngine attributeEngine;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -224,18 +231,39 @@ public class ResourceServiceImpl implements ResourceService {
     @Override
     public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException {
         List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource);
+        if (settable) searchFieldDataByGroupDtos.removeIf(dto -> dto.getFilterFieldSource() == FilterFieldSource.META);
 
         List<SearchFieldNameEnum> enums = SearchFieldNameEnum.getEnumsForResource(resource);
         List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
         for (SearchFieldNameEnum fieldEnum : enums) {
+            // If getting only settable fields, skip not settable fields
             if (settable && !fieldEnum.isSettable()) continue;
-            if (fieldEnum.getFieldTypeEnum() != SearchFieldTypeEnum.LIST) fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum));
-            if (fieldEnum.getFieldProperty().getEnumClass() != null) fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, fieldEnum.getFieldProperty().getEnumClass()));
-            if (fieldEnum.getFieldResource() != null) fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
+            // Filter field has a single value, don't need to provide list
+            if (fieldEnum.getFieldTypeEnum() != SearchFieldTypeEnum.LIST)
+                fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum));
+            else {
+                // Filter field has values of an Enum
+                if (fieldEnum.getFieldProperty().getEnumClass() != null)
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, fieldEnum.getFieldProperty().getEnumClass().getEnumConstants()));
+                // Filter field has values of all objects of another entity
+                else if (fieldEnum.getFieldResource() != null)
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
+                    // Filter field has values of all possible values of a property
+                else {
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getAllValuesOfProperty(fieldEnum.getFieldProperty().getCode(), resource)));
+                }
+            }
         }
 
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
 
         return searchFieldDataByGroupDtos;
     }
+
+    private List<Object> getAllValuesOfProperty(String property, Resource resource) {
+        Class resourceClass = ResourceToClass.getClassByResource(resource);
+        Query query = entityManager.createQuery("SELECT DISTINCT " + property + " FROM " + resourceClass.getName());
+        return query.getResultList();
+    }
+
 }
