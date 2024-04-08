@@ -10,16 +10,15 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.Query;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -250,7 +249,7 @@ public class ResourceServiceImpl implements ResourceService {
                     fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
                     // Filter field has values of all possible values of a property
                 else {
-                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getAllValuesOfProperty(fieldEnum.getFieldProperty().getCode(), resource)));
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, Sql2PredicateConverter.getAllValuesOfProperty(fieldEnum.getFieldProperty().getCode(), resource, entityManager).getResultList()));
                 }
             }
         }
@@ -258,12 +257,6 @@ public class ResourceServiceImpl implements ResourceService {
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
 
         return searchFieldDataByGroupDtos;
-    }
-
-    private List<Object> getAllValuesOfProperty(String property, Resource resource) {
-        Class resourceClass = ResourceToClass.getClassByResource(resource);
-        Query query = entityManager.createQuery("SELECT DISTINCT " + property + " FROM " + resourceClass.getName());
-        return query.getResultList();
     }
 
 }
