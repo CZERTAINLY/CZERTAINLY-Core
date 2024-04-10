@@ -1,6 +1,8 @@
 package com.czertainly.core.api.cmp;
 
+import com.czertainly.core.api.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.CmpService;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,8 +27,12 @@ public class CmpControllerImpl implements CmpController { // TODO[toce] swagger 
     }
 
     @Override
+    public ResponseEntity<Object> doGet(String cmpProfileName, byte[] request) throws CmpRuntimeException  {
+        throw new CmpRuntimeException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
+    }
+
+    @Override
     public ResponseEntity<Object> doPost(String cmpProfileName, byte[] request) /*throws CmpException*/ {
-        LOG.info(PkiMessageDumper.dumpPkiMessage(PKIMessage.getInstance(request)));
-        return cmpService.handlePost();
+        return cmpService.handlePost(cmpProfileName, request);//"application/pkixcmp"
     }
 }
