@@ -1,5 +1,6 @@
 package com.czertainly.core.api.cmp;
 
+import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,6 +52,14 @@ import org.springframework.web.bind.annotation.*;
 )})
 public interface CmpController {
 
+    @Operation(summary = "CMP Get Operations")
+    @ApiResponses(value = {@ApiResponse(responseCode = "200", description = "Operation executed", content = @Content(schema = @Schema(description = "Response structure defined in RFC 8894, section 4", type = "string", format = "binary")))})
+    @RequestMapping(method = RequestMethod.GET)
+    ResponseEntity<Object> doGet(
+            @PathVariable String cmpProfileName,
+            @RequestParam(required = false) @Schema(description = "DER encoded CMP data",type = "string",format = "binary") byte[] message
+    ) throws CmpRuntimeException;
+
     @Operation(
             summary = "CMP Post Operation", //TODO [toce] najit nejake blizsi info o http/post
             externalDocs = @ExternalDocumentation(
@@ -74,6 +83,7 @@ public interface CmpController {
             consumes = {"application/pkixcmp"},
             produces = {"application/pkixcmp"}
     )
-    ResponseEntity<Object> doPost(@PathVariable String cmpProfileName, @RequestBody @Schema(description = "Binary CMS data",type = "string",format = "binary") byte[] request);//, @RequestParam String operation, @RequestBody @Schema(description = "Binary CMS data",type = "string",format = "binary") byte[] request) throws Exception;//TODO CmpException aka ScepException
+    ResponseEntity<Object> doPost(@PathVariable String cmpProfileName, @RequestBody @Schema(description = "Binary CMP data",type = "string",format = "binary") byte[] request
+    ) throws CmpRuntimeException;
 }
 

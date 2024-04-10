@@ -4,6 +4,6 @@ import org.springframework.http.ResponseEntity;
 
 public interface CmpService {
 
-    ResponseEntity<Object> handlePost();
+    ResponseEntity<Object> handlePost(String cmpProfileName, byte[] request);
 
 }
