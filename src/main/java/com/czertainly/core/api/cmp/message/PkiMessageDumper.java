@@ -1,4 +1,4 @@
-package com.czertainly.core.api.cmp;
+package com.czertainly.core.api.cmp.message;
 
 import org.bouncycastle.asn1.ASN1Enumerated;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
