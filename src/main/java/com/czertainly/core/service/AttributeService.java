@@ -30,15 +30,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface AttributeService {
+public interface AttributeService extends ResourceExtensionService {
 
     /**
      * Function to list the available custom attributes stored in the database
      *
+     * @param filter : SecurityFilter to load object permissions
      * @param attributeContentType : Attribute content type to filter custom attributes
      * @return - List of Custom Attributes stored in the database
      */
-    List<CustomAttributeDefinitionDto> listCustomAttributes(AttributeContentType attributeContentType);
+    List<CustomAttributeDefinitionDto> listCustomAttributes(SecurityFilter filter, AttributeContentType attributeContentType);
 
     /**
      * Function to list the available global metadata stored in the database
@@ -142,10 +143,11 @@ public interface AttributeService {
     /**
      * Function to get the list of custom attributes that are applicable for the resource
      *
+     * @param filter : SecurityFilter to load object permissions
      * @param resource Name of the resource to get the list of custom attributes
      * @return List of data attributes
      */
-    List<BaseAttribute> getResourceAttributes(Resource resource);
+    List<BaseAttribute> getResourceAttributes(SecurityFilter filter, Resource resource);
 
     /**
      * Function to validate if the custom attributes contains the correct information
