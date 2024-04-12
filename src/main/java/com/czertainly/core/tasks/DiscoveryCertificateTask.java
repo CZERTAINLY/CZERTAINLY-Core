@@ -37,11 +37,18 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
 
     private ObjectMapper mapper = new ObjectMapper();
 
+    private AuthHelper authHelper;
+
     private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss.FFF");
 
     @Autowired
     public void setDiscoveryService(DiscoveryService discoveryService) {
         this.discoveryService = discoveryService;
+    }
+
+    @Autowired
+    public void setAuthHelper(AuthHelper authHelper) {
+        this.authHelper = authHelper;
     }
 
     @Override
@@ -73,7 +80,7 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
     @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     public ScheduledTaskResult performJob(final String jobName) {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName);
-        AuthHelper.authenticateAsUser(scheduledJob.getUserUuid());
+        authHelper.authenticateAsUser(scheduledJob.getUserUuid());
 
         DiscoveryHistory discoveryHistoryModal = null;
         final DiscoveryDto discoveryDto = mapper.convertValue(scheduledJob.getObjectData(), DiscoveryDto.class);

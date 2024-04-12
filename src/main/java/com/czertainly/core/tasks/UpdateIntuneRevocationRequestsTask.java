@@ -62,6 +62,13 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
     @Autowired
     private ClientOperationService clientOperationService;
 
+    private AuthHelper authHelper;
+
+    @Autowired
+    public void setAuthHelper(AuthHelper authHelper) {
+        this.authHelper = authHelper;
+    }
+
     @Override
     String getDefaultJobName() {
         return JOB_NAME;
@@ -90,7 +97,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
     @Override
     public ScheduledTaskResult performJob(String jobName) {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Executing Intune revocation requests update task");
-        AuthHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
+        authHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
 
         List<ScepProfile> scepProfiles = scepProfileRepository.findByIntuneEnabled(true);
         for (ScepProfile scepProfile : scepProfiles) {

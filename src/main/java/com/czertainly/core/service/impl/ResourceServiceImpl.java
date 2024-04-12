@@ -36,6 +36,7 @@ public class ResourceServiceImpl implements ResourceService {
 
     private LocationService locationService;
     private AcmeProfileService acmeProfileService;
+    private AttributeService attributeService;
     private AuthorityInstanceService authorityInstanceService;
     private ComplianceProfileService complianceProfileService;
     private ConnectorService connectorService;
@@ -70,6 +71,11 @@ public class ResourceServiceImpl implements ResourceService {
     @Autowired
     public void setAuthorityInstanceService(AuthorityInstanceService authorityInstanceService) {
         this.authorityInstanceService = authorityInstanceService;
+    }
+
+    @Autowired
+    public void setAttributeService(AttributeService attributeService) {
+        this.attributeService = attributeService;
     }
 
     @Autowired
@@ -152,6 +158,7 @@ public class ResourceServiceImpl implements ResourceService {
         return switch (resourceName) {
             case ACME_PROFILE -> acmeProfileService.listResourceObjects(SecurityFilter.create());
             case AUTHORITY -> authorityInstanceService.listResourceObjects(SecurityFilter.create());
+            case ATTRIBUTE -> attributeService.listResourceObjects(SecurityFilter.create());
             case COMPLIANCE_PROFILE -> complianceProfileService.listResourceObjects(SecurityFilter.create());
             case CONNECTOR -> connectorService.listResourceObjects(SecurityFilter.create());
             case CREDENTIAL -> credentialService.listResourceObjects(SecurityFilter.create());

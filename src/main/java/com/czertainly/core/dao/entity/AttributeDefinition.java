@@ -4,10 +4,14 @@ import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.core.certificate.group.GroupDto;
+import com.czertainly.core.util.DtoMapper;
+import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -31,7 +35,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "attribute_definition")
 @EntityListeners(AuditingEntityListener.class)
-public class AttributeDefinition extends UniquelyIdentified {
+public class AttributeDefinition extends UniquelyIdentified implements ObjectAccessControlMapper<NameAndUuidDto> {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
@@ -114,6 +118,12 @@ public class AttributeDefinition extends UniquelyIdentified {
 
     public Boolean isReadOnly() {
         return readOnly;
+    }
+
+
+    @Override
+    public NameAndUuidDto mapToAccessControlObjects() {
+        return new NameAndUuidDto(uuid.toString(), name);
     }
 
     public CustomAttributeDefinitionDto mapToCustomAttributeDefinitionDto() {
