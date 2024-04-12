@@ -37,7 +37,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
-@SpringBootTest(properties = {"auth-service.base-url=http://localhost:1111"})
 public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
     private RuleEvaluator<CryptographicKeyItem> cryptographicKeyRuleEvaluator;
