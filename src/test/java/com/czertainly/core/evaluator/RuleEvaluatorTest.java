@@ -81,6 +81,10 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
+        mockServer = new WireMockServer(0);
+        mockServer.start();
+
+        WireMock.configureFor("localhost", mockServer.port());
 
         certificate = new Certificate();
         certificateRepository.save(certificate);
@@ -274,11 +278,6 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     @Test
     public void testSetCertificateOwner() {
-
-        mockServer = new WireMockServer(10001);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
-
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
         action.setFieldIdentifier("owner");
@@ -297,16 +296,9 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     @Test
     public void testSetRaProfile() {
-
-        mockServer = new WireMockServer(0);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
-
-
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
                 .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
-
 
         Connector connector = new Connector();
         connector.setName("authorityInstanceConnector");
