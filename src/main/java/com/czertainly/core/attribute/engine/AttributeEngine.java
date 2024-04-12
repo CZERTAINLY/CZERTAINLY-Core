@@ -31,6 +31,7 @@ import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
+import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
@@ -64,6 +65,14 @@ public class AttributeEngine {
     private AttributeRelationRepository attributeRelationRepository;
     private AttributeContentItemRepository attributeContentItemRepository;
     private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
+
+
+    private OpaClient opaClient;
+    @Autowired
+    public void setOpaClient(OpaClient opaClient) {
+        this.opaClient = opaClient;
+    }
+
 
     @Autowired
     public void setAttributeDefinitionRepository(AttributeDefinitionRepository attributeDefinitionRepository) {
@@ -942,6 +951,6 @@ public class AttributeEngine {
             loadAllContent = true;
         }
 
-        return loadAllContent ? null : AuthHelper.loadObjectPermissions(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
+        return loadAllContent ? null : AuthHelper.loadObjectPermissions(opaClient, Resource.ATTRIBUTE, ResourceAction.MEMBERS);
     }
 }

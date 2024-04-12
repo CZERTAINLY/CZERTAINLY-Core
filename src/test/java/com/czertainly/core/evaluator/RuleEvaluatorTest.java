@@ -81,11 +81,6 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
-        mockServer = new WireMockServer(0);
-        mockServer.start();
-
-        WireMock.configureFor("localhost", mockServer.port());
-
         certificate = new Certificate();
         certificateRepository.save(certificate);
         condition = new RuleCondition();
@@ -283,19 +278,24 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         action.setFieldIdentifier("owner");
         action.setActionData(UUID.randomUUID());
 
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
                 WireMock.okJson("{ \"username\": \"ownerName\"}")
         ));
 
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
         Assertions.assertEquals("ownerName", certificate.getOwner());
-
     }
-
-
 
     @Test
     public void testSetRaProfile() {
+        mockServer = new WireMockServer(0);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
                 .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));

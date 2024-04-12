@@ -42,12 +42,10 @@ public class AuthHelper {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);
 
-    private static OpaClient opaClient;
     private static CzertainlyAuthenticationClient czertainlyAuthenticationClient;
 
     @Autowired
-    public AuthHelper(OpaClient opaClient, CzertainlyAuthenticationClient czertainlyAuthenticationClient) {
-        AuthHelper.opaClient = opaClient;
+    public AuthHelper(CzertainlyAuthenticationClient czertainlyAuthenticationClient) {
         AuthHelper.czertainlyAuthenticationClient = czertainlyAuthenticationClient;
     }
 
@@ -104,7 +102,7 @@ public class AuthHelper {
         return userProfileDto;
     }
 
-    public static SecurityResourceFilter loadObjectPermissions(Resource resource, ResourceAction resourceAction) {
+    public static SecurityResourceFilter loadObjectPermissions(OpaClient opaClient, Resource resource, ResourceAction resourceAction) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (!(auth instanceof CzertainlyAuthenticationToken czertainlyAuthenticationToken)) {
             // return filter with empty permissions (no objects allowed)
