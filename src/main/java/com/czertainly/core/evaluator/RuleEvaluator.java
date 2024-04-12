@@ -1,6 +1,9 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.CertificateOperationException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
@@ -17,8 +20,6 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.beanutils.PropertyUtils;
@@ -92,15 +93,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException {
+    public List<T> evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException {
         for (T object : listOfObjects) {
             if (!evaluateRules(rules, object)) {
                 logger.debug("Rules have not been satisfied for a object in the list, the list does not contain objects satisfying the rules.");
-                return false;
+                listOfObjects.remove(object);
             }
         }
         logger.debug("All objects in the list satisfy the rules.");
-        return true;
+        return listOfObjects;
     }
 
     @Override
@@ -210,6 +211,13 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         }
     }
 
+    @Override
+    public void performRuleActions(RuleTrigger trigger, List<T> listOfObjects) {
+        for (T object : listOfObjects) {
+            performRuleActions(trigger, object);
+        }
+    }
+
     public void performAction(RuleAction action, T object, Resource resource) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
         RuleActionType actionType = action.getActionType();
         String fieldIdentifier = action.getFieldIdentifier();
@@ -251,6 +259,8 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             }
         }
     }
+
+
 
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;

@@ -43,4 +43,9 @@ public class EventProducer {
         produceMessage(eventMessage);
     }
 
+    public void produceDiscoveryFinishedEventMessage(final UUID discoveryUuid) {
+        final EventMessage eventMessage = new EventMessage(Resource.DISCOVERY, discoveryUuid, "", "", "", "");
+        produceMessage(eventMessage);
+    }
+
 }

@@ -23,9 +23,9 @@ public interface IRuleEvaluator<T> {
      *
      * @param rules    List of the Rules
      * @param listOfObjects   List of Objects to evaluate rules on
-     * @return True if all the rules for all the objects are satisfied, false otherwise
+     * @return List consisting of objects in the original list that satisfy defined rules
      */
-    public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException;
+    public List<T> evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException;
     /**
      * Method to evaluate a Condition on an Object
      *
@@ -42,5 +42,13 @@ public interface IRuleEvaluator<T> {
      * @param object        Object to perform Actions in Trigger on
      */
     public void performRuleActions(RuleTrigger trigger, T object);
+
+    /**
+     * Method to perform Actions and Action Groups in a Trigger on a List of Objects
+     *
+     * @param trigger       Trigger
+     * @param listOfObjects  List of Objects to perform Actions in Trigger on
+     */
+    public void performRuleActions(RuleTrigger trigger, List<T> listOfObjects);
 
 }
