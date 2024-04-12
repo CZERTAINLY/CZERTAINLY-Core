@@ -66,13 +66,12 @@ public class AttributeEngine {
     private AttributeContentItemRepository attributeContentItemRepository;
     private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
 
+    private AuthHelper authHelper;
 
-    private OpaClient opaClient;
     @Autowired
-    public void setOpaClient(OpaClient opaClient) {
-        this.opaClient = opaClient;
+    public void setAuthHelper(AuthHelper authHelper) {
+        this.authHelper = authHelper;
     }
-
 
     @Autowired
     public void setAttributeDefinitionRepository(AttributeDefinitionRepository attributeDefinitionRepository) {
@@ -951,6 +950,6 @@ public class AttributeEngine {
             loadAllContent = true;
         }
 
-        return loadAllContent ? null : AuthHelper.loadObjectPermissions(opaClient, Resource.ATTRIBUTE, ResourceAction.MEMBERS);
+        return loadAllContent ? null : authHelper.loadObjectPermissions(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
     }
 }

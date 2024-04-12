@@ -42,14 +42,20 @@ public class AuthHelper {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);
 
-    private static CzertainlyAuthenticationClient czertainlyAuthenticationClient;
+    private OpaClient opaClient;
+    private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
 
     @Autowired
-    public AuthHelper(CzertainlyAuthenticationClient czertainlyAuthenticationClient) {
-        AuthHelper.czertainlyAuthenticationClient = czertainlyAuthenticationClient;
+    public void setOpaClient(OpaClient opaClient) {
+        this.opaClient = opaClient;
     }
 
-    public static void authenticateAsSystemUser(String username) {
+    @Autowired
+    public void setCzertainlyAuthenticationClient(CzertainlyAuthenticationClient czertainlyAuthenticationClient) {
+        this.czertainlyAuthenticationClient = czertainlyAuthenticationClient;
+    }
+
+    public void authenticateAsSystemUser(String username) {
         HttpHeaders headers = new HttpHeaders();
         headers.add(SYSTEM_USER_HEADER_NAME, username);
 
@@ -58,7 +64,7 @@ public class AuthHelper {
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
     }
 
-    public static void authenticateAsUser(UUID userUuid) {
+    public void authenticateAsUser(UUID userUuid) {
         HttpHeaders headers = new HttpHeaders();
         headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
 
@@ -102,7 +108,7 @@ public class AuthHelper {
         return userProfileDto;
     }
 
-    public static SecurityResourceFilter loadObjectPermissions(OpaClient opaClient, Resource resource, ResourceAction resourceAction) {
+    public SecurityResourceFilter loadObjectPermissions(Resource resource, ResourceAction resourceAction) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (!(auth instanceof CzertainlyAuthenticationToken czertainlyAuthenticationToken)) {
             // return filter with empty permissions (no objects allowed)
