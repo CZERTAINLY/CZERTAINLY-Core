@@ -11,6 +11,7 @@ import java.util.Arrays;
 public enum ResourceAction {
     NONE("NONE"),
     ANY("ANY"), // Action that is evaluated as any action
+    MEMBERS("members"), // action that is evaluated to allow action for resource lower in hierarchy, e.g. access to certificates through RA profile members action
 
     // Default (CRUD) Actions
     LIST("list"),

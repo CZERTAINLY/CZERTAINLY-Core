@@ -291,7 +291,7 @@ public class ExceptionHandlingAdvice {
                     + BeautificationUtil.camelToHumanForm((String) resourceName)
                     + "'");
         } else {
-            responseDto.setMessage("Access denied for the specified operation");
+            responseDto.setMessage("Access denied for the specified operation: " + ex.getMessage());
         }
         return response.body(responseDto);
     }
