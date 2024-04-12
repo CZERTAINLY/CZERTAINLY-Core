@@ -396,6 +396,17 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link RuleException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(RuleException.class)
+    public ErrorMessageDto handleRuleException(RuleException ex) {
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+
+    /**
      * Handler for {@link Exception}.
      *
      * @return
