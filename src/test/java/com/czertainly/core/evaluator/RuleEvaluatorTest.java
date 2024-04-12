@@ -275,7 +275,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Test
     public void testSetCertificateOwner() {
 
-        mockServer = new WireMockServer(1111);
+        mockServer = new WireMockServer(10001);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
