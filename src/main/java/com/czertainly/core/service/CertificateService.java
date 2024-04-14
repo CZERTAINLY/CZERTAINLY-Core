@@ -5,7 +5,6 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -251,4 +250,12 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return List of available CA certificates
      */
     List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled);
+
+    /**
+     * List certificates eligible for signing CMP responses
+     * @param filter Security Filter
+     * @return List of available signing certificates
+     */
+    List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter);
+
 }

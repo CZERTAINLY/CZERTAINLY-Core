@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.RaProfileCmpDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -8,14 +9,18 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.service.acme.AcmeConstants;
+import com.czertainly.core.service.cmp.CmpConstants;
 import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.service.scep.impl.ScepServiceImpl;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -30,28 +35,42 @@ import java.util.UUID;
 @Table(name = "ra_profile")
 public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto>, Securable, ObjectAccessControlMapper<NameAndUuidDto> {
 
+    @Setter
+    @Getter
     @Column(name = "name")
     private String name;
 
+    @Setter
+    @Getter
     @Column(name = "description")
     private String description;
 
+    @Setter
+    @Getter
     @Column(name = "authority_instance_name")
     private String authorityInstanceName;
 
+    @Getter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
     private AuthorityInstanceReference authorityInstanceReference;
 
+    @Getter
     @Column(name = "authority_instance_ref_uuid")
     private UUID authorityInstanceReferenceUuid;
 
+    @Setter
+    @Getter
     @Column(name = "enabled")
     private Boolean enabled;
 
+    @Setter
+    @Getter
     @Column(name = "authority_certificate_uuid")
     private UUID authorityCertificateUuid;
 
+    @Setter
+    @Getter
     @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinTable(
             name = "ra_profile_2_compliance_profile",
@@ -59,12 +78,14 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             inverseJoinColumns = @JoinColumn(name = "compliance_profile_uuid"))
     private Set<ComplianceProfile> complianceProfiles;
 
+    @Setter
     @OneToOne(mappedBy = "raProfile", fetch = FetchType.LAZY)
     private RaProfileProtocolAttribute protocolAttribute;
 
     /**
      * Acme related objects for RA Profile
      */
+    @Getter
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "acme_profile_uuid", insertable = false, updatable = false)
     private AcmeProfile acmeProfile;
@@ -72,12 +93,24 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "acme_profile_uuid")
     private UUID acmeProfileUuid;
 
+    @Getter
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scep_profile_uuid", insertable = false, updatable = false)
     private ScepProfile scepProfile;
 
     @Column(name = "scep_profile_uuid")
     private UUID scepProfileUuid;
+
+    /**
+     * CMP protocol related objects for RA Profile
+     */
+    @Getter
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cmp_profile_uuid", insertable = false, updatable = false)
+    private CmpProfile cmpProfile;
+
+    @Column(name = "cmp_profile_uuid")
+    private UUID cmpProfileUuid;
 
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
@@ -109,6 +142,34 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         return dto;
     }
 
+    public RaProfileCmpDetailResponseDto mapToCmpDto() {
+        RaProfileCmpDetailResponseDto dto = new RaProfileCmpDetailResponseDto();
+        if (cmpProfile == null) {
+            dto.setCmpAvailable(false);
+            return dto;
+        }
+        dto.setName(cmpProfile.getName());
+        dto.setUuid(cmpProfile.getUuid().toString());
+        dto.setIssueCertificateAttributes(
+                AttributeDefinitionUtils.getResponseAttributes(
+                        AttributeDefinitionUtils.deserialize(
+                                protocolAttribute.getCmpIssueCertificateAttributes(),
+                                DataAttribute.class)
+                )
+        );
+        dto.setRevokeCertificateAttributes(
+                AttributeDefinitionUtils.getResponseAttributes(
+                        AttributeDefinitionUtils.deserialize(
+                                protocolAttribute.getCmpRevokeCertificateAttributes(),
+                                DataAttribute.class)
+                )
+        );
+        dto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                + CmpConstants.CMP_BASE_CONTEXT + "/raProfile/" + name);
+        dto.setCmpAvailable(true);
+        return dto;
+    }
+
     public RaProfileDto mapToDtoSimple() {
         RaProfileDto dto = new RaProfileDto();
         dto.setUuid(this.uuid.toString());
@@ -119,6 +180,9 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         if (scepProfile != null) {
             enabledProtocols.add("SCEP");
+        }
+        if (cmpProfile != null) {
+            enabledProtocols.add("CMP");
         }
         dto.setEnabledProtocols(enabledProtocols);
         dto.setDescription(this.description);
@@ -169,51 +233,11 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         return new NameAndUuidDto(uuid.toString(), name);
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public Boolean getEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(Boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public String getAuthorityInstanceName() {
-        return authorityInstanceName;
-    }
-
-    public void setAuthorityInstanceName(String authorityInstanceName) {
-        this.authorityInstanceName = authorityInstanceName;
-    }
-
-    public AuthorityInstanceReference getAuthorityInstanceReference() {
-        return authorityInstanceReference;
-    }
-
     public void setAuthorityInstanceReference(AuthorityInstanceReference authorityInstanceReference) {
         this.authorityInstanceReference = authorityInstanceReference;
         if (authorityInstanceReference != null)
             this.authorityInstanceReferenceUuid = authorityInstanceReference.getUuid();
         else this.authorityInstanceReferenceUuid = null;
-    }
-
-    public UUID getAuthorityInstanceReferenceUuid() {
-        return authorityInstanceReferenceUuid;
     }
 
     public void setAuthorityInstanceReferenceUuid(UUID authorityInstanceReferenceUuid) {
@@ -224,18 +248,10 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         this.authorityInstanceReferenceUuid = UUID.fromString(authorityInstanceReferenceUuid);
     }
 
-    public AcmeProfile getAcmeProfile() {
-        return acmeProfile;
-    }
-
     public void setAcmeProfile(AcmeProfile acmeProfile) {
         this.acmeProfile = acmeProfile;
         if (acmeProfile != null) this.acmeProfileUuid = acmeProfile.getUuid();
         else this.acmeProfileUuid = null;
-    }
-
-    public ScepProfile getScepProfile() {
-        return scepProfile;
     }
 
     public void setScepProfile(ScepProfile scepProfile) {
@@ -244,12 +260,10 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         else this.scepProfileUuid = null;
     }
 
-    public Set<ComplianceProfile> getComplianceProfiles() {
-        return complianceProfiles;
-    }
-
-    public void setComplianceProfiles(Set<ComplianceProfile> complianceProfiles) {
-        this.complianceProfiles = complianceProfiles;
+    public void setCmpProfile(CmpProfile cmpProfile) {
+        this.cmpProfile = cmpProfile;
+        if (cmpProfile != null) this.cmpProfileUuid = cmpProfile.getUuid();
+        else this.cmpProfileUuid = null;
     }
 
     public RaProfileProtocolAttribute getProtocolAttribute() {
@@ -257,18 +271,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             return new RaProfileProtocolAttribute();
         }
         return protocolAttribute;
-    }
-
-    public void setProtocolAttribute(RaProfileProtocolAttribute protocolAttribute) {
-        this.protocolAttribute = protocolAttribute;
-    }
-
-    public UUID getAuthorityCertificateUuid() {
-        return authorityCertificateUuid;
-    }
-
-    public void setAuthorityCertificateUuid(UUID authorityCertificateUuid) {
-        this.authorityCertificateUuid = authorityCertificateUuid;
     }
 
     @Override

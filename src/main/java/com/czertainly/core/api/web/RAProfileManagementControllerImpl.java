@@ -21,8 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Optional;
 
@@ -128,6 +126,32 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     public void deactivateScepForRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
         raProfileService.deactivateScepForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
+    }
+
+    @Override
+    public RaProfileCmpDetailResponseDto getCmpForRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        return raProfileService.getCmpForRaProfile(
+                SecuredParentUUID.fromString(authorityUuid),
+                SecuredUUID.fromString(raProfileUuid)
+        );
+    }
+
+    @Override
+    public RaProfileCmpDetailResponseDto activateCmpForRaProfile(String authorityUuid, String raProfileUuid, String cmpProfileUuid, ActivateCmpForRaProfileRequestDto request) throws ConnectorException, AttributeException {
+        return raProfileService.activateCmpForRaProfile(
+                SecuredParentUUID.fromString(authorityUuid),
+                SecuredUUID.fromString(raProfileUuid),
+                SecuredUUID.fromString(cmpProfileUuid),
+                request
+        );
+    }
+
+    @Override
+    public void deactivateCmpForRaProfile(String authorityUuid, String raProfileUuid) throws NotFoundException {
+        raProfileService.deactivateCmpForRaProfile(
+                SecuredParentUUID.fromString(authorityUuid),
+                SecuredUUID.fromString(raProfileUuid)
+        );
     }
 
     @Override
