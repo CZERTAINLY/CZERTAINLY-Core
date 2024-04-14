@@ -11,13 +11,10 @@ CREATE TABLE cmp_profile (
     ra_profile_uuid UUID NULL DEFAULT NULL,
 
     request_protection_method VARCHAR(255) NULL DEFAULT NULL, -- supported PKI message protection methods (5.1.3) - "sharedSecret" or "signature"
+    response_protection_method VARCHAR(255) NULL DEFAULT NULL, -- supported PKI message protection methods (5.1.3) - "sharedSecret" or "signature"
+    shared_secret VARCHAR(255) NULL DEFAULT NULL, -- shared secret for "sharedSecret" protection method
+    signing_certificate_uuid UUID, -- signing certificate for "signature" protection method
 
-    require_manual_approval BOOLEAN NOT NULL,
-    ca_certificate_uuid UUID NOT NULL,
-    challenge_password VARCHAR NULL DEFAULT NULL,
-    include_ca_certificate BOOLEAN NULL DEFAULT NULL,
-    include_ca_certificate_chain BOOLEAN NULL DEFAULT NULL,
-    renew_threshold INTEGER NULL DEFAULT NULL,
     PRIMARY KEY (uuid)
 );
 
