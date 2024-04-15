@@ -44,6 +44,8 @@ public class ActionListener {
 
     private NotificationProducer notificationProducer;
 
+    private AuthHelper authHelper;
+
     @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter")
     public void processMessage(final ActionMessage actionMessage) throws MessageHandlingException {
         boolean hasApproval = actionMessage.getApprovalUuid() != null;
@@ -70,7 +72,7 @@ public class ActionListener {
         }
 
         try {
-            AuthHelper.authenticateAsUser(actionMessage.getUserUuid());
+            authHelper.authenticateAsUser(actionMessage.getUserUuid());
             processAction(actionMessage, hasApproval, isApproved);
         } catch (Exception e) {
             String errorMessage = String.format("Failed to perform %s %s%s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode(), isApproved ? "" : " rejected");
@@ -149,5 +151,10 @@ public class ActionListener {
     @Autowired
     public void setNotificationProducer(NotificationProducer notificationProducer) {
         this.notificationProducer = notificationProducer;
+    }
+
+    @Autowired
+    public void setAuthHelper(AuthHelper authHelper) {
+        this.authHelper = authHelper;
     }
 }
