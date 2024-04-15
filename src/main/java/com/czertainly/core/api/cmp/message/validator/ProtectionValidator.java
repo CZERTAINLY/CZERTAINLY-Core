@@ -14,11 +14,13 @@ public class ProtectionValidator implements Validator<PKIMessage, Void> {
     public Void validate(PKIMessage message) throws CmpException {
         final ASN1BitString protection = message.getProtection();
         if (protection == null) {
-            throw new CmpException(PKIFailureInfo.notAuthorized, ImplFailureInfo.CRYPTOPRO006);
+            throw new CmpException(PKIFailureInfo.notAuthorized,
+                    ImplFailureInfo.CRYPTOPRO006);
         }
         final AlgorithmIdentifier protectionAlg = message.getHeader().getProtectionAlg();
         if (protectionAlg == null) {
-            throw new CmpException(PKIFailureInfo.notAuthorized, ImplFailureInfo.CRYPTOPRO007);
+            throw new CmpException(PKIFailureInfo.notAuthorized,
+                    ImplFailureInfo.CRYPTOPRO007);
         }
         if (CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())) {
             //todo tocecz - password based mac validator
