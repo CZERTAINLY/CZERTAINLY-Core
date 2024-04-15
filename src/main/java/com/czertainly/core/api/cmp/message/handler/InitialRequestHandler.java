@@ -4,6 +4,7 @@ import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.validator.POPValidator;
 import com.czertainly.core.api.cmp.message.validator.ProtectionSignatureBasedValidator;
+import com.czertainly.core.api.cmp.message.validator.ProtectionValidator;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -132,7 +133,7 @@ public class InitialRequestHandler implements MessageHandler {
                 .validate(request);
 
         // -- PKI Message Protection
-        new ProtectionSignatureBasedValidator()
+        new ProtectionValidator()
                 .validate(request);
 
         throw new CmpException(PKIFailureInfo.badDataFormat, ImplFailureInfo.TODO);
