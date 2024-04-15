@@ -39,6 +39,10 @@ public enum ImplFailureInfo {
     CRYPTOPRO006(506, "validation protection: protection element is missing"),
     CRYPTOPRO007(507, "validation protection: protectionAlg element is missing"),
 
+    CRYPTOSIG521(521, "signature-based protection: extraCerts is empty"),
+    CRYPTOSIG522(522, "signature-based protection: check failed - signature broken"),
+    CRYPTOSIG523(523, "signature-based protection: certificate (used for protecting) has key not suitable for signing"),
+
     // -- developer
     TODO(-999, "Only for developer purpose - inform czertainly admin")
     ;

@@ -3,6 +3,7 @@ package com.czertainly.core.api.cmp.message.handler;
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.validator.POPValidator;
+import com.czertainly.core.api.cmp.message.validator.ProtectionSignatureBasedValidator;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -117,17 +118,21 @@ public class InitialRequestHandler implements MessageHandler {
      */
     @Override
     public PKIMessage handle(PKIMessage request) throws CmpException {
-        final PKIBody body = request.getBody();
-        final int requestBodyType = body.getType();
-        final CertReqMsg certReqMsg = ((CertReqMessages) body.getContent()).toCertReqMsgArray()[0];
+        PKIBody body = request.getBody();
+        int requestBodyType = body.getType();
+        CertReqMsg certReqMsg = ((CertReqMessages) body.getContent()).toCertReqMsgArray()[0];
         CertRequest certRequest = certReqMsg.getCertReq();
         CertTemplate certTemplate = certRequest.getCertTemplate();
 
         PKCSObjectIdentifiers p;
-        final ProofOfPossession popo = certReqMsg.getPop();
+        ProofOfPossession popo = certReqMsg.getPop();
 
         // -- Proof-of-Possession validation
         new POPValidator()
+                .validate(request);
+
+        // -- PKI Message Protection
+        new ProtectionSignatureBasedValidator()
                 .validate(request);
 
         throw new CmpException(PKIFailureInfo.badDataFormat, ImplFailureInfo.TODO);

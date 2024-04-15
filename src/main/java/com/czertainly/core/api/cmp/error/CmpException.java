@@ -26,14 +26,17 @@ public class CmpException extends BaseException {
      * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
      * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
      */
-    public CmpException(PKIFailureInfo failureInfo, ImplFailureInfo implFailureInfo, Exception e) {
-        this(failureInfo.intValue(),implFailureInfo, e);
+    public CmpException(int failureInfo, ImplFailureInfo implFailureInfo) {
+        this(failureInfo,implFailureInfo, null);
     }
 
-    public CmpException(int failureInfo, ImplFailureInfo implFailureInfo) {
-        super(failureInfo, implFailureInfo.name() + "("+implFailureInfo.getCode()+"): "+ implFailureInfo.getDescription(), null);
-        this.failureInfo = failureInfo;
-        this.implFailureInfo = implFailureInfo;
+    /**
+     * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
+     * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
+     * @param ex failure reason
+     */
+    public CmpException(PKIFailureInfo failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
+        this(failureInfo.intValue(),implFailureInfo, ex);
     }
 
     /**
@@ -45,6 +48,23 @@ public class CmpException extends BaseException {
         super(failureInfo, implFailureInfo.name() + "("+implFailureInfo.getCode()+"): "+ implFailureInfo.getDescription(), ex);
         this.failureInfo = failureInfo;
         this.implFailureInfo = implFailureInfo;
+    }
+
+    /**
+     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
+     * @param errorDetails string description of error
+     */
+    public CmpException(int failureInfo, String errorDetails) {
+        super(failureInfo,errorDetails, null);
+    }
+
+    /**
+     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
+     * @param errorDetails string description of error
+     * @param ex failure reason
+     */
+    public CmpException(int failureInfo, String errorDetails, Exception ex) {
+        super(failureInfo,errorDetails, ex);
     }
 
     /**
