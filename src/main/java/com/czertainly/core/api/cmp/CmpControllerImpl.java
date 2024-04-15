@@ -1,9 +1,9 @@
 package com.czertainly.core.api.cmp;
 
-import com.czertainly.core.api.cmp.message.PkiMessageDumper;
+import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.service.cmp.CmpService;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
-import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,8 +27,8 @@ public class CmpControllerImpl implements CmpController { // TODO[toce] swagger 
     }
 
     @Override
-    public ResponseEntity<Object> doGet(String cmpProfileName, byte[] request) throws CmpRuntimeException  {
-        throw new CmpRuntimeException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
+    public ResponseEntity<Object> doGet(String cmpProfileName, byte[] request) throws CmpException {
+        throw new CmpException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
     }
 
     @Override

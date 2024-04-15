@@ -1,7 +1,7 @@
 package com.czertainly.core.service.cmp.impl;
 
-import com.czertainly.core.api.cmp.CmpRuntimeException;
-import com.czertainly.core.api.cmp.ImplFailureInfo;
+import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
 import com.czertainly.core.api.cmp.message.PkiMessageError;
 import com.czertainly.core.api.cmp.message.handler.InitialRequestHandler;
@@ -41,7 +41,7 @@ public class CmpServiceImpl implements CmpService {
     @Override
     public ResponseEntity<Object> handlePost(String profileName, byte[] request) {
 
-        boolean verbose = false;//konfiguracni polozka cmp.verbose=true/false
+        boolean verbose = true;//konfiguracni polozka cmp.verbose=true/false
 
         PKIMessage pkiRequest = null;
         try { pkiRequest = PKIMessage.getInstance(request); }
@@ -66,30 +66,29 @@ public class CmpServiceImpl implements CmpService {
                 case PKIBody.TYPE_REVOCATION_REQ: // (11)       rr,  Revocation Request; RevReqContent
                 case PKIBody.TYPE_CONFIRM:        // (19)  pkiconf,        Confirmation; PKIConfirmContent
                 case PKIBody.TYPE_CERT_CONFIRM:   // (24) certConf, Certificate confirm; CertConfirmContent
-                    throw new CmpRuntimeException(PKIFailureInfo.badRequest,
+                    throw new CmpException(PKIFailureInfo.badRequest,
                             ImplFailureInfo.CMPVALR001);
                 default:
                     LOG.error("cmp TID={}, profile={} | unknown message type, value: {}", tid, profileName, pkiRequest.getBody().getType());
-                    throw new CmpRuntimeException(PKIFailureInfo.badRequest,
+                    throw new CmpException(PKIFailureInfo.badRequest,
                             ImplFailureInfo.CMPVALR002);
             }
             LOG.info("cmp TID={}, profile={} | successfully processed, response: {}", tid, profileName, PkiMessageDumper.dumpPkiMessage(pkiResponse));
             return buildEncoded(HttpStatus.OK, pkiResponse);
-        } catch (CmpRuntimeException e) {
-            PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(e.toPKIBody());
-            LOG.error("cmp TID="+tid+", profile="+profileName+" | processing failed, response: "+PkiMessageDumper.dumpPkiMessage(pkiResponse), verbose ? e : null);
+        } catch (CmpException e) {
+            PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e.toPKIBody());
+            LOG.error("cmp TID="+tid+", profile="+profileName+" | processing failed, response: "+PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             return build(HttpStatus.BAD_REQUEST, pkiResponse);
         } catch (IOException e) {
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(
+                    pkiRequest.getHeader(),
                     PKIFailureInfo.badDataFormat,
                     ImplFailureInfo.CMPSRVR002);
-            LOG.error("cmp TID="+tid+", profile="+profileName+" | parsing failed, response: "+PkiMessageDumper.dumpPkiMessage(pkiResponse), verbose ? e : null);
+            LOG.error("cmp TID="+tid+", profile="+profileName+" | parsing failed, response: "+PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             return build(HttpStatus.BAD_REQUEST, pkiResponse);
         } catch (Exception e) {
-            PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(
-                    PKIFailureInfo.badDataFormat,
-                    ImplFailureInfo.CMPSRVR003);
-            LOG.error("cmp TID="+tid+", profile="+profileName+" | handling failed, response: "+PkiMessageDumper.dumpPkiMessage(pkiResponse), verbose ? e : null);
+            PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e);
+            LOG.error("cmp TID="+tid+", profile="+profileName+" | handling failed, response: "+PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             return build(HttpStatus.BAD_REQUEST, pkiResponse);
         }
     }

@@ -1,6 +1,6 @@
 package com.czertainly.core.api.cmp.message;
 
-import com.czertainly.core.api.cmp.ImplFailureInfo;
+import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.DERUTF8String;
 import org.bouncycastle.asn1.cmp.*;
@@ -43,19 +43,34 @@ public class PkiMessageError {
                 PKIHeader.NULL_NAME);
     }
 
-    public static PKIMessage unprotectedMessage(PKIBody body) {
-        return new PKIMessage(generateHeader(), body);
+    public static PKIMessage unprotectedMessage(PKIHeader header, PKIBody body) {
+        return new PKIMessage(header, body);
+    }
+
+    public static PKIMessage unprotectedMessage(PKIHeader header, Exception ex) {
+        return new PKIMessage(header,
+                generateBody(PKIFailureInfo.systemFailure, ex.getMessage()));
     }
 
     public static PKIMessage unprotectedMessage(int failInfo, ImplFailureInfo implFailureInfo) {
+        return unprotectedMessage(generateHeader(), failInfo, implFailureInfo);
+    }
+
+    public static PKIMessage unprotectedMessage(PKIHeader header, int failInfo, ImplFailureInfo implFailureInfo) {
         if (implFailureInfo == null) throw new IllegalStateException("error handling: there must be known purpose of implementation error");
-        return new PKIMessage(generateHeader(),
+        return new PKIMessage(header,
                 generateBody(failInfo, implFailureInfo));
     }
 
     public static PKIBody generateBody(int failInfo, ImplFailureInfo implFailureInfo) {
         PKIStatusInfo pkiStatusInfo = pkiStatusInfo(failInfo, implFailureInfo);
         ErrorMsgContent errorMsgContent = errorMsgContent(pkiStatusInfo, implFailureInfo);
+        return new PKIBody(PKIBody.TYPE_ERROR, errorMsgContent);
+    }
+
+    public static PKIBody generateBody(int failInfo, String errorDetails) {
+        PKIStatusInfo pkiStatusInfo = pkiStatusInfo(failInfo, errorDetails);
+        ErrorMsgContent errorMsgContent = errorMsgContent(pkiStatusInfo, -1, errorDetails);
         return new PKIBody(PKIBody.TYPE_ERROR, errorMsgContent);
     }
 
@@ -80,11 +95,15 @@ public class PkiMessageError {
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">...</a>
      */
     private static PKIStatusInfo pkiStatusInfo(int failInfo, ImplFailureInfo errorFailure){
+        return pkiStatusInfo(failInfo, errorFailure.name() + ": " +errorFailure.getDescription());
+    }
+
+    private static PKIStatusInfo pkiStatusInfo(int failInfo, String errorDetails){
         PKIFreeText statusText = null;
-        if(errorFailure == null) {
+        if(errorDetails == null || errorDetails.isBlank()) {
             statusText=new PKIFreeText("");
         } else {
-            statusText=new PKIFreeText(errorFailure.name() + ": " +errorFailure.getDescription());
+            statusText=new PKIFreeText(errorDetails);
         }
         return new PKIStatusInfo(
                 PKIStatus.rejection,//TODO [toce] when error => always 'rejection' (check spec)
@@ -110,13 +129,15 @@ public class PkiMessageError {
      */
     private static ErrorMsgContent errorMsgContent(PKIStatusInfo pkiStatusInfo,
                                                    ImplFailureInfo implFailureInfo) {
-        if(implFailureInfo == null) {
-            return new ErrorMsgContent(pkiStatusInfo);
-        }
+        return errorMsgContent(pkiStatusInfo,
+                implFailureInfo.getCode(), implFailureInfo.getDescription());
+    }
+    private static ErrorMsgContent errorMsgContent(PKIStatusInfo pkiStatusInfo,
+                                                   int code, String errorText) {
         return new ErrorMsgContent(
                 pkiStatusInfo,
-                new ASN1Integer(implFailureInfo.getCode()),
-                new PKIFreeText(new DERUTF8String(implFailureInfo.getDescription())));
+                new ASN1Integer(code),
+                new PKIFreeText(new DERUTF8String(errorText)));
     }
 
     /**
