@@ -13,6 +13,7 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
@@ -23,9 +24,12 @@ import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttribute
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.AttributeDefinition;
+import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -37,6 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -58,12 +63,12 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
-    public List<CustomAttributeDefinitionDto> listCustomAttributes(AttributeContentType attributeContentType) {
+    public List<CustomAttributeDefinitionDto> listCustomAttributes(SecurityFilter filter, AttributeContentType attributeContentType) {
         logger.debug("Fetching custom attributes");
 
         List<AttributeDefinition> customAttributes = attributeContentType == null
-                ? attributeDefinitionRepository.findByType(AttributeType.CUSTOM)
-                : attributeDefinitionRepository.findByTypeAndContentType(AttributeType.CUSTOM, attributeContentType);
+                ? attributeDefinitionRepository.findUsingSecurityFilter(filter, (root, cb) -> cb.equal(root.get("type"), AttributeType.CUSTOM))
+                : attributeDefinitionRepository.findUsingSecurityFilter(filter, (root, cb) -> cb.and(cb.equal(root.get("type"), AttributeType.CUSTOM), cb.equal(root.get("contentType"), attributeContentType)));
 
         return customAttributes.stream().map(AttributeDefinition::mapToCustomAttributeDefinitionDto).toList();
     }
@@ -285,14 +290,29 @@ public class AttributeServiceImpl implements AttributeService {
     }
 
     @Override
-    // TODO: ???REMOVE AS ATTRIBUTE ENGINE REPLACEMENT??? Maybe keep in both places
-    public List<BaseAttribute> getResourceAttributes(Resource resource) {
-        return attributeEngine.getCustomAttributesByResource(resource);
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.MEMBERS)
+    public List<BaseAttribute> getResourceAttributes(SecurityFilter filter, Resource resource) {
+        return attributeEngine.getCustomAttributesByResource(resource, filter.getResourceFilter());
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
     public void updateResources(UUID uuid, List<Resource> resources) throws NotFoundException {
         attributeEngine.updateCustomAttributeResources(uuid, resources);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        List<AttributeDefinition> customAttributes = attributeDefinitionRepository.findUsingSecurityFilter(
+                filter,
+                (root, cb) -> cb.equal(root.get("type"), AttributeType.CUSTOM));
+
+        return customAttributes.stream().map(AttributeDefinition::mapToAccessControlObjects).collect(Collectors.toList());
+    }
+
+    @Override
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        // not necessary to evaluate permissions to update
     }
 }

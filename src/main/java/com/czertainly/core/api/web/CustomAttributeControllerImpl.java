@@ -14,7 +14,9 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.converter.AttributeContentTypeConverter;
@@ -46,8 +48,9 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.ATTRIBUTE)
     public List<CustomAttributeDefinitionDto> listCustomAttributes(AttributeContentType attributeContentType) {
-        return attributeService.listCustomAttributes(attributeContentType);
+        return attributeService.listCustomAttributes(SecurityFilter.create(), attributeContentType);
     }
 
     @Override
@@ -109,7 +112,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     public List<BaseAttribute> getResourceCustomAttributes(Resource resource) {
-        return attributeService.getResourceAttributes(resource);
+        return attributeService.getResourceAttributes(SecurityFilter.create(), resource);
     }
 
     @Override

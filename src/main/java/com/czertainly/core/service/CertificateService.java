@@ -129,11 +129,37 @@ public interface CertificateService extends ResourceExtensionService  {
      */
     void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException;
 
+
     /**
-     * Method to update the Objects of multiple certificates
-     *
-     * @param request Request to update multiple objects
+     * Method to switch RA profile of a Certificate
+     * @param uuid          UUID of the certificate
+     * @param raProfileUuid UUID of the RA profile to switch to
      */
+    void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException, AttributeException;
+
+    /**
+     * Method to change Certificate Group for a Certificate
+     * @param uuid      UUID of the certificate
+     * @param groupUuid UUID of the certificate group
+     */
+    void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException;
+
+
+    /**
+     * Method to change Owner for a Certificate
+     * @param uuid        UUID of the certificate
+     * @param ownerUuid   UUID of the certificate owner
+     * @param ownerName   Name of the certificate owner
+     */
+    void updateOwner(SecuredUUID uuid, String ownerUuid, String ownerName) throws NotFoundException;
+
+
+
+        /**
+         * Method to update the Objects of multiple certificates
+         *
+         * @param request Request to update multiple objects
+         */
     void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException;
 
     /**
