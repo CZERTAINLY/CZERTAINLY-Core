@@ -59,7 +59,6 @@ public class ProtectionValidator implements Validator<PKIMessage, Void> {
         } else if (PKCSObjectIdentifiers.id_PBMAC1.equals(protectionAlg.getAlgorithm())) {
             //todo tocecz - add id_PBMAC1 validator
         } else {
-            //todo tocecz - add certificate/signature based validator
             new ProtectionSignatureBasedValidator().validate(message);
         }
         return null;
