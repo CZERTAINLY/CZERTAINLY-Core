@@ -14,8 +14,6 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.model.SecuredList;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Optional;
 
@@ -62,6 +60,72 @@ public interface RaProfileService extends ResourceExtensionService {
     RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException;
 
     void deactivateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------
+    // CMP protocol management
+    // -----------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Get the RA Profile CMP protocol details
+     *
+     * @param authorityInstanceUuid UUID of the Authority
+     * @param raProfileUuid UUID of the RA Profile
+     * @return RA Profile CMP protocol details
+     * @throws NotFoundException in case the entity is not found
+     */
+    RaProfileCmpDetailResponseDto getCmpForRaProfile(
+            SecuredParentUUID authorityInstanceUuid,
+            SecuredUUID raProfileUuid
+    ) throws NotFoundException;
+
+    /**
+     * Activate the CMP protocol for the RA Profile
+     *
+     * @param authorityUuid UUID of the Authority
+     * @param uuid UUID of the RA Profile
+     * @param cmpProfileUuid UUID of the CMP Profile
+     * @param request RaProfileCmpDetailResponseDto
+     * @return CMP Profile details
+     * @throws ConnectorException in case the connector throws an exception
+     * @throws ValidationException in case the validation fails
+     * @throws AttributeException in case the attribute is not found
+     */
+    RaProfileCmpDetailResponseDto activateCmpForRaProfile(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID uuid,
+            SecuredUUID cmpProfileUuid,
+            ActivateCmpForRaProfileRequestDto request
+    ) throws ConnectorException, ValidationException, AttributeException;
+
+    /**
+     * Deactivate the CMP protocol for the RA Profile
+     *
+     * @param authorityUuid UUID of the Authority
+     * @param uuid UUID of the RA Profile
+     * @throws NotFoundException in case the entity is not found
+     */
+    void deactivateCmpForRaProfile(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID uuid
+    ) throws NotFoundException;
+
+    /**
+     * Function to list the RA Profiles associated with the CMP Profiles
+     * @param cmpProfileUuid UUID of the CMP Profile
+     * @param filter Security filter
+     * @return List of RA Profiles associated with the CMP Profiles
+     */
+    SecuredList<RaProfile> listRaProfilesAssociatedWithCmpProfile(String cmpProfileUuid, SecurityFilter filter);
+
+
+    /**
+     * Remove CMP Profiles from the RA Profiles
+     *
+     * @param uuids List of RA Profile UUIDs
+     */
+    void bulkRemoveAssociatedCmpProfile(List<SecuredUUID> uuids);
 
     List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException;
 

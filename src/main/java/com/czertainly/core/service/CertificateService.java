@@ -5,7 +5,6 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -130,37 +129,11 @@ public interface CertificateService extends ResourceExtensionService  {
      */
     void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException;
 
-
     /**
-     * Method to switch RA profile of a Certificate
-     * @param uuid          UUID of the certificate
-     * @param raProfileUuid UUID of the RA profile to switch to
+     * Method to update the Objects of multiple certificates
+     *
+     * @param request Request to update multiple objects
      */
-    void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException, AttributeException;
-
-    /**
-     * Method to change Certificate Group for a Certificate
-     * @param uuid      UUID of the certificate
-     * @param groupUuid UUID of the certificate group
-     */
-    void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException;
-
-
-    /**
-     * Method to change Owner for a Certificate
-     * @param uuid        UUID of the certificate
-     * @param ownerUuid   UUID of the certificate owner
-     * @param ownerName   Name of the certificate owner
-     */
-    void updateOwner(SecuredUUID uuid, String ownerUuid, String ownerName) throws NotFoundException;
-
-
-
-        /**
-         * Method to update the Objects of multiple certificates
-         *
-         * @param request Request to update multiple objects
-         */
     void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException;
 
     /**
@@ -277,4 +250,12 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return List of available CA certificates
      */
     List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled);
+
+    /**
+     * List certificates eligible for signing CMP responses
+     * @param filter Security Filter
+     * @return List of available signing certificates
+     */
+    List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter);
+
 }

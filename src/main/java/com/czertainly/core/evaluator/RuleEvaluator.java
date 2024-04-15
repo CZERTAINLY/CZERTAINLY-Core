@@ -1,26 +1,23 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Rule;
+import com.czertainly.core.dao.entity.RuleCondition;
+import com.czertainly.core.dao.entity.RuleConditionGroup;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,24 +57,20 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 continue;
             }
             ruleEvaluated = true;
-            if (rule.getConditions() != null) {
-                for (RuleCondition condition : rule.getConditions()) {
+            for (RuleCondition condition : rule.getConditions()) {
+                if (!evaluateCondition(condition, object, rule.getResource())) {
+                    logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
+                            rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
+                    return false;
+                }
+            }
+
+            for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
+                for (RuleCondition condition : conditionGroup.getConditions()) {
                     if (!evaluateCondition(condition, object, rule.getResource())) {
                         logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
                                 rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
                         return false;
-                    }
-                }
-            }
-
-            if (rule.getConditionGroups() != null) {
-                for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
-                    for (RuleCondition condition : conditionGroup.getConditions()) {
-                        if (!evaluateCondition(condition, object, rule.getResource())) {
-                            logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
-                                    rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
-                            return false;
-                        }
                     }
                 }
             }
@@ -180,78 +173,6 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         // Field source is not Property and object is not database, therefore attributes can not be evaluated and condition is not satisfied
         return false;
     }
-
-    @Override
-    public void performRuleActions(RuleTrigger trigger, T object) {
-        if (!ResourceToClass.getClassByResource(trigger.getResource()).isInstance(object)) {
-            logger.debug("Trigger '{}' cannot be executed due to incompatible resource.", trigger.getName());
-            return;
-        }
-        if (trigger.getActions() != null) {
-            for (RuleAction action : trigger.getActions()) {
-                try {
-                    performAction(action, object, trigger.getResource());
-
-                } catch (Exception e) {
-                    logger.debug("Action with UUID {} has not been performed, reason: {}.", action.getUuid(), e.getMessage());
-                }
-            }
-        }
-        if (trigger.getActionGroups() != null) {
-            for (RuleActionGroup actionGroup : trigger.getActionGroups()) {
-                for (RuleAction action : actionGroup.getActions()) {
-                    try {
-                        performAction(action, object, trigger.getResource());
-                    } catch (Exception e) {
-                        logger.debug("Action with UUID {} has not been performed, reason: {}.", action.getUuid(), e.getMessage());
-                    }
-                }
-            }
-        }
-    }
-
-    public void performAction(RuleAction action, T object, Resource resource) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
-        RuleActionType actionType = action.getActionType();
-        String fieldIdentifier = action.getFieldIdentifier();
-        Object actionData = action.getActionData();
-        FilterFieldSource fieldSource = action.getFieldSource();
-
-        if (actionType == RuleActionType.SET_FIELD) {
-            // Set a property of the object using setter, the property must be set as settable
-            if (fieldSource == FilterFieldSource.PROPERTY) {
-                SearchFieldNameEnum propertyEnum;
-                try {
-                    propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
-                } catch (Exception e) {
-                    throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
-                }
-                if (!propertyEnum.isSettable())
-                    throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
-                try {
-                    PropertyUtils.setProperty(object, action.getFieldIdentifier(), actionData);
-                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                    throw new RuleException(e.getMessage());
-                }
-            }
-            // Set a custom attribute for the object
-            if (fieldSource == FilterFieldSource.CUSTOM) {
-                UUID objectUuid;
-                try {
-                    objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
-                } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                    throw new RuleException("Cannot get uuid from resource " + resource + ".");
-                }
-
-                if (objectUuid == null)
-                    throw new RuleException("Cannot set custom attributes for an object not in database.");
-
-                ObjectMapper objectMapper = new ObjectMapper();
-                List<BaseAttributeContent> attributeContents = objectMapper.convertValue(actionData , new TypeReference<>() {});
-                attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier, attributeContents);
-            }
-        }
-    }
-
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;
     private static final Map<FilterFieldType, Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>>> fieldTypeToOperatorActionMap;

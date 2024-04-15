@@ -10,12 +10,9 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.Query;
 import jakarta.persistence.criteria.*;
 
 import java.util.*;
@@ -366,11 +363,6 @@ public class Sql2PredicateConverter {
     public static Predicate constructFilterForJobHistory(final CriteriaBuilder cb, final Root<ScheduledJobHistory> root, final UUID scheduledJobUuid) {
         final Expression<?> expressionPath = prepareExpression(root, "scheduledJobUuid");
         return cb.equal(expressionPath, scheduledJobUuid);
-    }
-
-    public static Query getAllValuesOfProperty(String property, Resource resource, EntityManager entityManager) {
-        Class resourceClass = ResourceToClass.getClassByResource(resource);
-        return entityManager.createQuery("SELECT DISTINCT " + property + " FROM " + resourceClass.getName());
     }
 
 
