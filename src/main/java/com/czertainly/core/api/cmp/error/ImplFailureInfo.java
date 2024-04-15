@@ -1,4 +1,4 @@
-package com.czertainly.core.api.cmp;
+package com.czertainly.core.api.cmp.error;
 
 /**
  * List of implementation error states - it helps to find quickly a purpose of problem
@@ -16,6 +16,7 @@ public enum ImplFailureInfo {
 
     // -- general
     INCONS(-1, "Inconsistency state"), // very general error (if detail missing)
+    SYSTEM_FAILURE(-1, "Fatal system failure"),
 
     // -- controller.level=CNT
     CMPCNTR001(1,"http get method is not supported"),
@@ -28,6 +29,15 @@ public enum ImplFailureInfo {
     // -- validation.level=VAL
     CMPVALR001(200,"validation: pki message type is not supported"),
     CMPVALR002(201,"validation: pki message type is unknown"),
+
+    // -- crypto validators
+    CRYPTOPOP001(501, "validation pop: cannot extract public key"),
+    CRYPTOPOP002(502, "validation pop: cannot initialize signature"),
+    CRYPTOPOP003(503, "validation pop: cannot verification signature"),
+    CRYPTOPOP004(504, "validation pop: wrong type"),
+    CRYPTOPOP005(505, "validation pop: wrong signature"),
+    CRYPTOPRO006(506, "validation protection: protection element is missing"),
+    CRYPTOPRO007(507, "validation protection: protectionAlg element is missing"),
 
     // -- developer
     TODO(-999, "Only for developer purpose - inform czertainly admin")

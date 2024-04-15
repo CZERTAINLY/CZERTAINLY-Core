@@ -1,7 +1,7 @@
 package com.czertainly.core.api.cmp.message.handler.temp;
 
-import com.czertainly.core.api.cmp.CmpRuntimeException;
-import com.czertainly.core.api.cmp.ImplFailureInfo;
+import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.handler.MessageHandler;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -19,11 +19,11 @@ abstract class BaseMessageValidator implements MessageValidator {
     }
 
     @Override
-    public PKIMessage handle(PKIMessage request) throws CmpRuntimeException {
+    public PKIMessage handle(PKIMessage request) throws CmpException {
         if(!SUPPORTED_MESSAGES_TYPES.contains(request.getBody().getType())) {
             LOG.error("cmp TID={} | type of incoming request message is not supported, type={}",
                     request.getHeader().getTransactionID(), request.getBody().getType());
-            throw new CmpRuntimeException(PKIFailureInfo.badMessageCheck,
+            throw new CmpException(PKIFailureInfo.badMessageCheck,
                     ImplFailureInfo.TODO);
         }
 
@@ -34,7 +34,7 @@ abstract class BaseMessageValidator implements MessageValidator {
         if(response.getBody() == null || response.getHeader() == null) {
             LOG.error("cmp TID={} | outgoing response message has invalid format (body/header missing), type={}",
                     request.getHeader().getTransactionID(), request.getBody().getType());
-            throw new CmpRuntimeException(PKIFailureInfo.badMessageCheck,
+            throw new CmpException(PKIFailureInfo.badMessageCheck,
                     ImplFailureInfo.TODO);
         }
         return response;
