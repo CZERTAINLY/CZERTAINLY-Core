@@ -1297,6 +1297,19 @@ public class CertificateServiceImpl implements CertificateService {
                 .map(Certificate::mapToListDto).toList();
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    public List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter) {
+        setupSecurityFilter(filter);
+
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter,
+                (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.equal(root.get("state"), CertificateState.ISSUED), cb.or(cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID), cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING))));
+
+        return certificates.stream()
+                .filter(CertificateUtil::isCertificateCmpAcceptable)
+                .map(Certificate::mapToListDto).toList();
+    }
+
     private String getExpiryTime(Date now, Date expiry) {
         long diffInMilliseconds = expiry.getTime() - now.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMilliseconds, TimeUnit.MILLISECONDS);
@@ -1509,7 +1522,7 @@ public class CertificateServiceImpl implements CertificateService {
         return "";
     }
 
-    public void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException, AttributeException {
+    private void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException, AttributeException {
         Certificate certificate = getCertificateEntity(uuid);
 
         // check if there is change in RA profile compared to current state
@@ -1569,7 +1582,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, currentRaProfileName + " -> " + newRaProfileName, "");
     }
 
-    public void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
+    private void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
         // check if there is change in group compared to current state
@@ -1592,7 +1605,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, currentGroupName + " -> " + newGroupName, "");
     }
 
-    public void updateOwner(SecuredUUID uuid, String ownerUuid, String ownerName) throws NotFoundException {
+    private void updateOwner(SecuredUUID uuid, String ownerUuid, String ownerName) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
         // if there is no change, do not update and save request to Auth service

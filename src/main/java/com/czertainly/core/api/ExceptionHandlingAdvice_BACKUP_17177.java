@@ -6,7 +6,10 @@ import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.BeautificationUtil;
+<<<<<<< HEAD
+=======
 import jakarta.validation.ConstraintViolationException;
+>>>>>>> feature/cmpv2
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -15,7 +18,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+<<<<<<< HEAD
+=======
 import org.springframework.web.bind.MethodArgumentNotValidException;
+>>>>>>> feature/cmpv2
 import org.springframework.web.bind.MissingRequestValueException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -26,10 +32,14 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.net.ConnectException;
 import java.security.cert.CertificateException;
+<<<<<<< HEAD
+import java.util.List;
+=======
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+>>>>>>> feature/cmpv2
 
 @RestControllerAdvice
 public class ExceptionHandlingAdvice {
@@ -110,6 +120,8 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+<<<<<<< HEAD
+=======
      * Handler for {@link MethodArgumentNotValidException}.
      *
      * @return
@@ -146,6 +158,7 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+>>>>>>> feature/cmpv2
      * Handler for {@link MissingRequestValueException}.
      *
      * @return
@@ -335,6 +348,108 @@ public class ExceptionHandlingAdvice {
             responseDto.setMessage("Access denied for the specified operation");
         }
         return response.body(responseDto);
+<<<<<<< HEAD
+=======
+    }
+
+    /**
+     * Handler for {@link AcmeProblemDocumentException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(AcmeProblemDocumentException.class)
+    public ResponseEntity<ProblemDocument> handleAcmeProblemDocumentException(AcmeProblemDocumentException ex) {
+        LOG.warn("ACME Error: {}", ex.getProblemDocument());
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.getHttpStatusCode()).contentType(MediaType.valueOf("application/problem+json"));
+        if (ex.getAdditionalHeaders() != null) {
+            for (String entry : ex.getAdditionalHeaders().keySet()) {
+                response.header(entry, ex.getAdditionalHeaders().get(entry));
+            }
+        }
+        return response.body(ex.getProblemDocument());
+    }
+
+    /**
+     * Handler for {@link LocationException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(LocationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleLocationException(LocationException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link CertificateOperationException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(CertificateOperationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleCertificateOperationException(CertificateOperationException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+
+    /**
+     * Handler for {@link AuthenticationServiceException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(AuthenticationServiceException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<AuthenticationServiceExceptionDto> handleCertificateOperationException(AuthenticationServiceException ex) {
+        Integer statusCode = HttpStatus.BAD_REQUEST.value();
+        if (ex.getException() != null) {
+            statusCode = ex.getException().getStatusCode();
+        }
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(statusCode).contentType(MediaType.valueOf("application/problem+json"));
+        return response.body(ex.getException());
+    }
+
+    /**
+     * Handler for {@link ScepException}.
+     *
+     * @return {@link ResponseEntity}
+     */
+    @ExceptionHandler(ScepException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleScepException(ScepException ex) {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("SCEP error occurred: ")
+                .append(ex.getMessage())
+                .append(", ")
+                .append("failInfo=").append(ex.getFailInfo().getName());
+
+        if (ex.getCause() != null) {
+            messageBuilder
+                    .append(", ")
+                    .append("cause=").append(ex.getCause().getMessage())
+                    .append(". ");
+        }
+
+        LOG.info("HTTP 400: {}", messageBuilder);
+        return ErrorMessageDto.getInstance(messageBuilder.toString());
+    }
+
+    @ExceptionHandler(CertificateException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorMessageDto handleCertificateException(CertificateException ex) {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("Certificate error occurred: ")
+                .append(ex.getMessage());
+        if (ex.getCause() != null) {
+            messageBuilder
+                    .append(", ")
+                    .append("cause=").append(ex.getCause().getMessage())
+                    .append(". ");
+        }
+        LOG.error("HTTP 500: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(messageBuilder.toString());
+>>>>>>> feature/cmpv2
     }
 
     /**
@@ -435,6 +550,17 @@ public class ExceptionHandlingAdvice {
         LOG.error("HTTP 500: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(messageBuilder.toString());
     }
+
+    /**
+     * Handler for {@link RuleException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(RuleException.class)
+    public ErrorMessageDto handleRuleException(RuleException ex) {
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
 
     /**
      * Handler for {@link Exception}.

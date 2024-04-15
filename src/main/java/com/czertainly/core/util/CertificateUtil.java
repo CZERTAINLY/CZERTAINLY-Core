@@ -476,6 +476,29 @@ public class CertificateUtil {
         return privateKeyAvailable;
     }
 
+    public static boolean isCertificateCmpAcceptable(Certificate certificate) {
+        if (certificate.getKey() == null ||
+                !certificate.getState().equals(CertificateState.ISSUED) ||
+                (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)
+                        && !certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRING))
+        ) {
+            return false;
+        }
+
+        // Check if the private key has SIGN enabled
+        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
+        boolean privateKeyAvailable = false;
+        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
+            if (item.getType().equals(KeyType.PRIVATE_KEY)) {
+                if (item.getState() != KeyState.ACTIVE || !item.getUsage().contains(KeyUsage.SIGN)) {
+                    return false;
+                }
+                privateKeyAvailable = true;
+            }
+        }
+        return privateKeyAvailable;
+    }
+
     public static String generateRandomX509CertificateBase64(KeyPair keyPair) throws CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
         return Base64.getEncoder().encodeToString(generateRandomX509Certificate(keyPair).getEncoded());
     }
