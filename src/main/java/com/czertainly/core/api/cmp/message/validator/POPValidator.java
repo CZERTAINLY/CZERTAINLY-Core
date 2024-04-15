@@ -2,6 +2,7 @@ package com.czertainly.core.api.cmp.message.validator;
 
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
+import com.czertainly.core.api.cmp.message.util.BouncyCastleUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
@@ -74,7 +75,7 @@ public class POPValidator implements Validator<PKIMessage, Void> {
             SubjectPublicKeyInfo subjectPublicKeyInfo = certRequest.getCertTemplate().getPublicKey();
             publicKey = KeyFactory.getInstance(
                             subjectPublicKeyInfo.getAlgorithm().getAlgorithm().toString(),
-                            getBouncyCastleProvider()
+                    BouncyCastleUtil.getBouncyCastleProvider()
             ).generatePublic(new X509EncodedKeySpec(subjectPublicKeyInfo.getEncoded(ASN1Encoding.DER)));
         } catch (InvalidKeySpecException|NoSuchAlgorithmException|IOException e) {
             LOG.error(createLogMessage(tid, ImplFailureInfo.CRYPTOPOP001));
@@ -92,7 +93,7 @@ public class POPValidator implements Validator<PKIMessage, Void> {
         Signature signature = null;
         try {
             signature = Signature.getInstance(
-                    popoSigningKey.getAlgorithmIdentifier().getAlgorithm().getId(), getBouncyCastleProvider());
+                    popoSigningKey.getAlgorithmIdentifier().getAlgorithm().getId(), BouncyCastleUtil.getBouncyCastleProvider());
             signature.initVerify(publicKey);
             signature.update(certRequest.getEncoded(ASN1Encoding.DER));
         } catch (NoSuchAlgorithmException|InvalidKeyException|SignatureException|IOException e) {
@@ -119,22 +120,5 @@ public class POPValidator implements Validator<PKIMessage, Void> {
 
     private String createLogMessage(ASN1OctetString transactionId, ImplFailureInfo failureInfo) {
         return "cmp TID="+transactionId+", code="+failureInfo.name()+" | " + failureInfo.getDescription();
-    }
-
-    private static Provider BOUNCY_CASTLE_PROVIDER;
-    private static Provider getBouncyCastleProvider() {
-        if (BOUNCY_CASTLE_PROVIDER == null) {
-            BOUNCY_CASTLE_PROVIDER = BouncyCastleInitializer.getInstance();
-        }
-
-        return BOUNCY_CASTLE_PROVIDER;
-    }
-    private static class BouncyCastleInitializer {
-        private static synchronized Provider getInstance() {
-            return Arrays.stream(Security.getProviders())
-                    .filter(it -> Objects.equals(it.getName(), BouncyCastleProvider.PROVIDER_NAME))
-                    .findFirst()
-                    .orElseGet(BouncyCastleProvider::new);
-        }
     }
 }
