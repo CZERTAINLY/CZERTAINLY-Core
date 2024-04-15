@@ -12,12 +12,12 @@ public class SecurityResourceFilter {
     /**
      * List of object uuids user can access
      */
-    private List<UUID> allowedObjects;
+    private final List<UUID> allowedObjects;
 
     /**
      * List of object uuids user can not access
      */
-    private List<UUID> forbiddenObjects;
+    private final List<UUID> forbiddenObjects;
 
     /**
      * Specifies whether the user has access to all objects or only those explicitly allowed.
@@ -57,11 +57,11 @@ public class SecurityResourceFilter {
     }
 
     public void addAllowedObjects(List<String> objectUUIDs) {
-        this.allowedObjects.addAll(objectUUIDs.stream().map(UUID::fromString).collect(Collectors.toList()));
+        this.allowedObjects.addAll(objectUUIDs.stream().map(UUID::fromString).toList());
     }
 
     public void addDeniedObjects(List<String> objectUUIDs) {
-        this.forbiddenObjects.addAll(objectUUIDs.stream().map(UUID::fromString).collect(Collectors.toList()));
+        this.forbiddenObjects.addAll(objectUUIDs.stream().map(UUID::fromString).toList());
     }
 
     public boolean areOnlySpecificObjectsAllowed() {

@@ -36,9 +36,11 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
                 WHERE ad.type = ?1 AND ad.enabled = true AND aco.objectType = ?2 AND aco.objectUuid = ?3
+                    AND (COALESCE(?4) IS NULL OR aci.attributeDefinitionUuid IN (?4))
+                    AND (COALESCE(?5) IS NULL OR aci.attributeDefinitionUuid NOT IN (?5))
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getObjectCustomAttributesContent(AttributeType attributeType, Resource objectType, UUID objectUuid);
+    List<ObjectAttributeContent> getObjectCustomAttributesContent(AttributeType attributeType, Resource objectType, UUID objectUuid, List<UUID> allowedDefinitionUuids, List<UUID> forbiddenDefinitionUuids);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(

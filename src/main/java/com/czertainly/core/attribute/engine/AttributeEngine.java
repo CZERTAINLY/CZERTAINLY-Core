@@ -28,7 +28,11 @@ import com.czertainly.core.dao.repository.AttributeContentItemRepository;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.model.SearchFieldObject;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.security.authz.SecurityResourceFilter;
+import com.czertainly.core.security.authz.opa.OpaClient;
+import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -61,6 +65,13 @@ public class AttributeEngine {
     private AttributeRelationRepository attributeRelationRepository;
     private AttributeContentItemRepository attributeContentItemRepository;
     private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
+
+    private AuthHelper authHelper;
+
+    @Autowired
+    public void setAuthHelper(AuthHelper authHelper) {
+        this.authHelper = authHelper;
+    }
 
     @Autowired
     public void setAttributeDefinitionRepository(AttributeDefinitionRepository attributeDefinitionRepository) {
@@ -118,12 +129,17 @@ public class AttributeEngine {
     //endregion
 
     // TODO: return CustomAttribute instead of generic one
-    public List<BaseAttribute> getCustomAttributesByResource(Resource resource) {
+    public List<BaseAttribute> getCustomAttributesByResource(Resource resource, SecurityResourceFilter securityResourceFilter) {
         List<AttributeRelation> relations = attributeRelationRepository.findByResourceAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(resource, AttributeType.CUSTOM, true);
-        return relations.stream().map(r -> r.getAttributeDefinition().getDefinition()).toList();
+
+        // filter definitions that are not allowed for user
+        if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
+            return relations.stream().filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> r.getAttributeDefinition().getDefinition()).toList();
+        } else {
+            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> r.getAttributeDefinition().getDefinition()).toList();
+        }
     }
 
-    // TODO: REMOVE - not necessary anymore, all data attributes definitions will be stored and validated as part of attribute engine update content
     public DataAttribute getDataAttributeDefinition(UUID connectorUuid, String name) {
         AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, name).orElse(null);
         if (definition != null) {
@@ -154,7 +170,6 @@ public class AttributeEngine {
 
     // TODO: make it generic to be used also for DATA attributes and update DTOs accordingly
     public List<MetadataResponseDto> getMappedMetadataContent(ObjectAttributeContentInfo contentInfo) {
-        // TODO: use also operation?
         List<ObjectAttributeContentDetail> objectMetadataContents = attributeContent2ObjectRepository.getObjectAttributeContentDetail(AttributeType.META, contentInfo.connectorUuid(), null, contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
 
         Map<UUID, String> connectorMapping = new HashMap<>();
@@ -463,8 +478,24 @@ public class AttributeEngine {
 
     public List<ResponseAttributeDto> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid) {
         logger.debug("Getting the custom attributes for {} with UUID: {}", objectType.getLabel(), objectUuid);
-        List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, objectType, objectUuid);
+        SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
 
+        return getObjectCustomAttributesContent(objectType, objectUuid, securityResourceFilter);
+    }
+
+    private List<ResponseAttributeDto> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid, SecurityResourceFilter securityResourceFilter) {
+        List<UUID> allowedAttributes = null;
+        List<UUID> forbiddenAttributes = null;
+        if (securityResourceFilter != null) {
+            if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
+                allowedAttributes = securityResourceFilter.getAllowedObjects();
+                if (allowedAttributes.isEmpty()) allowedAttributes.add(null);
+            } else if (!securityResourceFilter.getForbiddenObjects().isEmpty()) {
+                forbiddenAttributes = securityResourceFilter.getForbiddenObjects();
+            }
+        }
+
+        List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository.getObjectCustomAttributesContent(AttributeType.CUSTOM, objectType, objectUuid, allowedAttributes, forbiddenAttributes);
         return getResponseAttributes(objectContents);
     }
 
@@ -574,18 +605,37 @@ public class AttributeEngine {
         if (requestAttributes == null) {
             requestAttributes = new ArrayList<>();
         }
-        // custom attributes content is automatically replaced
-        deleteObjectAttributeContentByType(AttributeType.CUSTOM, objectType, objectUuid);
-        validateCustomAttributesContent(objectType, requestAttributes);
-        for (RequestAttributeDto requestAttribute : requestAttributes) {
-            AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
-            createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
+
+        SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
+        validateCustomAttributesContent(objectType, requestAttributes, securityResourceFilter);
+
+        if(securityResourceFilter == null) {
+            // custom attributes content is automatically replaced
+            deleteObjectAttributeContentByType(AttributeType.CUSTOM, objectType, objectUuid);
+            for (RequestAttributeDto requestAttribute : requestAttributes) {
+                AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
+                createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
+            }
+        } else {
+            for (RequestAttributeDto requestAttribute : requestAttributes) {
+                AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
+                if ((securityResourceFilter.areOnlySpecificObjectsAllowed())) {
+                    if (!securityResourceFilter.getAllowedObjects().contains(attributeDefinition.getUuid())) {
+                        throw new AttributeException(String.format("Updating custom attribute `%s` is not allowed", attributeDefinition.getName()));
+                    }
+                } else {
+                    if (securityResourceFilter.getForbiddenObjects().contains(attributeDefinition.getUuid())) {
+                        throw new AttributeException(String.format("Updating custom attribute `%s` is not allowed", attributeDefinition.getName()));
+                    }
+                }
+
+                deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectType, objectUuid);
+                createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
+            }
         }
 
-        return getObjectCustomAttributesContent(objectType, objectUuid);
+        return getObjectCustomAttributesContent(objectType, objectUuid, securityResourceFilter);
     }
-
-//    public void deleteObjectAttributeContent(Resource objectType, UUID objectUuid, List<RequestAttributeDto> requestAttributes)
 
     public void updateObjectCustomAttributeContent(Resource objectType, UUID objectUuid, UUID definitionUuid, String attributeName, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
         AttributeDefinition attributeDefinition;
@@ -602,6 +652,20 @@ public class AttributeEngine {
         }
 
         AttributeRelation relation = attributeRelationRepository.findByResourceAndAttributeDefinitionUuidAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(objectType, attributeDefinition.getUuid(), AttributeType.CUSTOM, true).orElseThrow(() -> new AttributeException("Cannot update content of attribute since it is not associated with resource " + objectType.getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null));
+
+        // filter out updating
+        SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
+        if (securityResourceFilter != null) {
+            if ((securityResourceFilter.areOnlySpecificObjectsAllowed())) {
+                if (!securityResourceFilter.getAllowedObjects().contains(definitionUuid)) {
+                    throw new AttributeException(String.format("Updating custom attribute `%s` is not allowed", attributeDefinition.getName()));
+                }
+            } else {
+                if (securityResourceFilter.getForbiddenObjects().contains(definitionUuid)) {
+                    throw new AttributeException(String.format("Updating custom attribute `%s` is not allowed", attributeDefinition.getName()));
+                }
+            }
+        }
 
         // custom attributes content is automatically replaced
         deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectType, objectUuid);
@@ -672,12 +736,30 @@ public class AttributeEngine {
 
     public void validateCustomAttributesContent(Resource resource, List<RequestAttributeDto> attributes) throws ValidationException {
         logger.debug("Validating custom attributes: {}", attributes);
+        SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
+        validateCustomAttributesContent(resource, attributes, securityResourceFilter);
+    }
+
+    private void validateCustomAttributesContent(Resource resource, List<RequestAttributeDto> attributes, SecurityResourceFilter securityResourceFilter) throws ValidationException {
         if (attributes == null) {
             attributes = new ArrayList<>();
         }
 
         List<AttributeRelation> relations = attributeRelationRepository.findByResourceAndAttributeDefinitionType(resource, AttributeType.CUSTOM);
-        Map<String, AttributeDefinition> definitionsMapping = relations.stream().collect(Collectors.toMap(r -> r.getAttributeDefinition().getName(), AttributeRelation::getAttributeDefinition));
+
+        // filter definitions that are not allowed for user
+        Map<String, AttributeDefinition> definitionsMapping;
+        if (securityResourceFilter != null) {
+            if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
+                definitionsMapping = relations.stream().filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid())).collect(Collectors.toMap(r -> r.getAttributeDefinition().getName(), AttributeRelation::getAttributeDefinition));
+                attributes = attributes.stream().filter(a -> securityResourceFilter.getAllowedObjects().contains(UUID.fromString(a.getUuid()))).toList();
+            } else {
+                definitionsMapping = relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).collect(Collectors.toMap(r -> r.getAttributeDefinition().getName(), AttributeRelation::getAttributeDefinition));
+                attributes = attributes.stream().filter(a -> !securityResourceFilter.getForbiddenObjects().contains(UUID.fromString(a.getUuid()))).toList();
+            }
+        } else {
+            definitionsMapping = relations.stream().collect(Collectors.toMap(r -> r.getAttributeDefinition().getName(), AttributeRelation::getAttributeDefinition));
+        }
 
         // no attributes to validate
         if (definitionsMapping.isEmpty() && attributes.isEmpty()) {
@@ -855,5 +937,19 @@ public class AttributeEngine {
     private void deleteObjectAttributeDefinitionContent(UUID definitionUuid, Resource objectType, UUID objectUuid) {
         long deletedCount = attributeContent2ObjectRepository.deleteByObjectTypeAndObjectUuidAndAttributeContentItemAttributeDefinitionUuid(objectType, objectUuid, definitionUuid);
         logger.debug("Deleted {} attribute content items for {} with UUID {} for attribute {}", deletedCount, objectType.getLabel(), objectUuid, definitionUuid);
+    }
+
+    private SecurityResourceFilter loadCustomAttributesSecurityResourceFilter() {
+        // if user is anonymous or protocol user, allow all custom attribute content for sake of system processes and protocol operations
+        boolean loadAllContent = false;
+        try {
+            loadAllContent = AuthHelper.isLoggedProtocolUser();
+        } catch (ValidationException ex) {
+            // anonymous user
+            // NOTE: subject to change in case of revealing custom attributes content unnecessarily
+            loadAllContent = true;
+        }
+
+        return loadAllContent ? null : authHelper.loadObjectPermissions(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
     }
 }
