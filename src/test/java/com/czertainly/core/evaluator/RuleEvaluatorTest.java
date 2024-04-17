@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
+@SpringBootTest(properties = {"auth-service.base-url=http://localhost:1111"})
 public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
     private RuleEvaluator<CryptographicKeyItem> cryptographicKeyRuleEvaluator;
@@ -81,6 +82,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     @BeforeEach
     public void setUp() {
+
         certificate = new Certificate();
         certificateRepository.save(certificate);
         condition = new RuleCondition();
@@ -273,14 +275,15 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     @Test
     public void testSetCertificateOwner() {
+
+        mockServer = new WireMockServer(1111);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
         action.setFieldIdentifier("owner");
         action.setActionData(UUID.randomUUID());
-
-        mockServer = new WireMockServer(10001);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
 
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
                 WireMock.okJson("{ \"username\": \"ownerName\"}")
@@ -288,17 +291,23 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
         Assertions.assertEquals("ownerName", certificate.getOwner());
+
     }
+
+
 
     @Test
     public void testSetRaProfile() {
+
         mockServer = new WireMockServer(0);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
+
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
                 .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
+
 
         Connector connector = new Connector();
         connector.setName("authorityInstanceConnector");

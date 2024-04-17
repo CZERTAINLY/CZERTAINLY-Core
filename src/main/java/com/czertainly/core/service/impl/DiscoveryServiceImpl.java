@@ -382,22 +382,23 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             modal = discoveryRepository.save(modal);
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, modal.getUuid(), request.getCustomAttributes());
             attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid(), request.getAttributes());
-            int triggerOrder = 0;
-            for (UUID triggerUuid : request.getTriggers()) {
-                RuleTrigger2Object ruleTrigger2Object = new RuleTrigger2Object();
-                ruleTrigger2Object.setResource(Resource.DISCOVERY);
-                ruleTrigger2Object.setObjectUuid(modal.getUuid());
-                ruleTrigger2Object.setTriggerUuid(triggerUuid);
-
-                RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerUuid));
-                // If there is an ignore action in trigger, the order is always -1, otherwise increment the order
-                if (trigger.getActions().stream().map(RuleAction::getActionType).toList().contains(RuleActionType.IGNORE)) {
-                    ruleTrigger2Object.setTriggerOrder(-1);
-                } else {
-                    ruleTrigger2Object.setTriggerOrder(triggerOrder);
-                    triggerOrder += 1;
+            if (request.getTriggers() != null) {
+                int triggerOrder = 0;
+                for (UUID triggerUuid : request.getTriggers()) {
+                    RuleTrigger2Object ruleTrigger2Object = new RuleTrigger2Object();
+                    ruleTrigger2Object.setResource(Resource.DISCOVERY);
+                    ruleTrigger2Object.setObjectUuid(modal.getUuid());
+                    ruleTrigger2Object.setTriggerUuid(triggerUuid);
+                    RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerUuid));
+                    // If there is an ignore action in trigger, the order is always -1, otherwise increment the order
+                    if (trigger.getActions().stream().map(RuleAction::getActionType).toList().contains(RuleActionType.IGNORE)) {
+                        ruleTrigger2Object.setTriggerOrder(-1);
+                    } else {
+                        ruleTrigger2Object.setTriggerOrder(triggerOrder);
+                        triggerOrder += 1;
+                    }
+                    object2TriggerRepository.save(ruleTrigger2Object);
                 }
-                object2TriggerRepository.save(ruleTrigger2Object);
             }
         }
 
