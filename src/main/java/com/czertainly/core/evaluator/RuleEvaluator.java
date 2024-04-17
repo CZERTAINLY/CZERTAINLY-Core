@@ -93,15 +93,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public List<T> evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException {
+    public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException {
         for (T object : listOfObjects) {
             if (!evaluateRules(rules, object)) {
                 logger.debug("Rules have not been satisfied for a object in the list, the list does not contain objects satisfying the rules.");
-                listOfObjects.remove(object);
+                return false;
             }
         }
         logger.debug("All objects in the list satisfy the rules.");
-        return listOfObjects;
+        return true;
     }
 
     @Override
@@ -192,7 +192,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             for (RuleAction action : trigger.getActions()) {
                 try {
                     performAction(action, object, trigger.getResource());
-
+                    logger.debug("Action with UUID {} has been performed.", action.getUuid());
                 } catch (Exception e) {
                     logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
                 }
@@ -203,18 +203,12 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 for (RuleAction action : actionGroup.getActions()) {
                     try {
                         performAction(action, object, trigger.getResource());
+                        logger.debug("Action with UUID {} has been performed.", action.getUuid());
                     } catch (Exception e) {
                         logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
                     }
                 }
             }
-        }
-    }
-
-    @Override
-    public void performRuleActions(RuleTrigger trigger, List<T> listOfObjects) {
-        for (T object : listOfObjects) {
-            performRuleActions(trigger, object);
         }
     }
 
