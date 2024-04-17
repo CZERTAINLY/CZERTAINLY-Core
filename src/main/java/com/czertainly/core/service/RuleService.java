@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.*;
+import com.czertainly.core.dao.entity.RuleTrigger;
 
 import java.util.List;
 
@@ -29,6 +30,7 @@ public interface RuleService {
     List<RuleTriggerDto> listTriggers(Resource resource, Resource triggerResource);
     RuleTriggerDetailDto createTrigger(RuleTriggerRequestDto request);
     RuleTriggerDetailDto getTrigger(String triggerUuid) throws NotFoundException;
+    RuleTrigger getRuleTriggerEntity(String triggerUuid) throws NotFoundException;
     RuleTriggerDetailDto updateTrigger(String triggerUuid, UpdateRuleTriggerRequestDto request) throws NotFoundException;
     void deleteTrigger(String triggerUuid) throws NotFoundException;
 
