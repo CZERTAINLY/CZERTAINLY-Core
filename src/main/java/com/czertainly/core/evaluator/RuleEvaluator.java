@@ -168,7 +168,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 for (List<ResponseMetadataDto> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
                     for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
                         if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) & fieldAttributeContentType == responseAttributeDto.getContentType()) {
-                            // Evaluate condition on each attribute content of the attribute, if at least teh condition is evaluated as satisfied at least once, the condition is satisfied for the object
+                            // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
                             if (evaluateConditionOnAttribute(responseAttributeDto, conditionValue, operator))
                                 return true;
                         }
@@ -194,7 +194,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                     performAction(action, object, trigger.getResource());
 
                 } catch (Exception e) {
-                    logger.debug("Action with UUID {} has not been performed, reason: {}.", action.getUuid(), e.getMessage());
+                    logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
                 }
             }
         }
@@ -204,7 +204,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                     try {
                         performAction(action, object, trigger.getResource());
                     } catch (Exception e) {
-                        logger.debug("Action with UUID {} has not been performed, reason: {}.", action.getUuid(), e.getMessage());
+                        logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
                     }
                 }
             }
