@@ -28,15 +28,14 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
             SecuredUUID certificateUuid = object.getSecuredUuid();
             SecuredUUID propertyUuid = SecuredUUID.fromString(action.getActionData().toString());
             switch (action.getFieldIdentifier()) {
-                case "raProfile":
-                    certificateService.switchRaProfile(certificateUuid, propertyUuid);
-                case "group":
-                    certificateService.updateCertificateGroup(object.getSecuredUuid(), propertyUuid);
-                case "owner":
-                    certificateService.updateOwner(certificateUuid, String.valueOf(propertyUuid), null);
+                case "raProfile" -> certificateService.switchRaProfile(certificateUuid, propertyUuid);
+                case "group" -> certificateService.updateCertificateGroup(object.getSecuredUuid(), propertyUuid);
+                case "owner" -> certificateService.updateOwner(certificateUuid, String.valueOf(propertyUuid), null);
             }
         }
-        super.performAction(action, object, Resource.CERTIFICATE);
+        else {
+            super.performAction(action, object, Resource.CERTIFICATE);
+        }
     }
 
 
