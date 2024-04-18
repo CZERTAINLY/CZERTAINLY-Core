@@ -154,6 +154,11 @@ public class AttributeEngine {
 
         Map<String, MetadataAttribute> mapping = new HashMap<>();
         for (ObjectAttributeDefinitionContent objectDefinitionContent : objectDefinitionContents) {
+            // check in case data is null because of malformed data
+            if (objectDefinitionContent.contentItem().getData() == null) {
+                continue;
+            }
+
             String uuid = objectDefinitionContent.uuid().toString();
             MetadataAttribute attribute;
             if ((attribute = mapping.get(uuid)) == null) {
@@ -175,6 +180,11 @@ public class AttributeEngine {
         Map<UUID, String> connectorMapping = new HashMap<>();
         Map<UUID, Map<Resource, Map<UUID, ResponseMetadataDto>>> mapping = new HashMap<>();
         for (ObjectAttributeContentDetail objectMetadataContent : objectMetadataContents) {
+            // check in case data is null because of malformed data
+            if (objectMetadataContent.contentItem().getData() == null) {
+                continue;
+            }
+
             // do we need check for empty content?
             ResponseMetadataDto metadataResponseAttributeDto;
             Map<Resource, Map<UUID, ResponseMetadataDto>> sourceAttributesContentsMapping;
@@ -609,7 +619,7 @@ public class AttributeEngine {
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
         validateCustomAttributesContent(objectType, requestAttributes, securityResourceFilter);
 
-        if(securityResourceFilter == null) {
+        if (securityResourceFilter == null) {
             // custom attributes content is automatically replaced
             deleteObjectAttributeContentByType(AttributeType.CUSTOM, objectType, objectUuid);
             for (RequestAttributeDto requestAttribute : requestAttributes) {
@@ -914,10 +924,20 @@ public class AttributeEngine {
             }
         }
 
-        try {
-            ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent, ATTRIBUTES_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, attributeDefinition.getContentType().getContentClass()));
-        } catch (IllegalArgumentException e) {
-            throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+        if (!noContent) {
+            // check for malformed content
+            for (BaseAttributeContent contentItem : attributeContent) {
+                if (contentItem.getData() == null) {
+                    throw new AttributeException("Attribute content is malformed and does not contain data", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                }
+            }
+
+            // convert content items to its respective content classes
+            try {
+                ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent, ATTRIBUTES_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, attributeDefinition.getContentType().getContentClass()));
+            } catch (IllegalArgumentException e) {
+                throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+            }
         }
     }
 
