@@ -104,7 +104,7 @@ public class CmpServiceImpl implements CmpService {
             @Override
             public ProtectionStrategy getProtectionStrategy() {
                 return new SingatureBaseProtectionStrategy(this);
-            }
+            }// pri vyberu
         };
         try {
             PKIMessage pkiResponse = null;

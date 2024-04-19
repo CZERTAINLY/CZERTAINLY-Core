@@ -3,7 +3,6 @@ package com.czertainly.core.api.cmp.mock;
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageBuilder;
-import com.czertainly.core.api.cmp.message.util.BouncyCastleUtil;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
@@ -47,15 +46,20 @@ public class MockCaImpl {
 
     private static final JcaPEMKeyConverter JCA_KEY_CONVERTER = new JcaPEMKeyConverter();
 
+    /*//
     private static KeyPair CA_ROOT_KEY_PAIR;
     private static X509Certificate CA_ROOT_CERT;
     private static KeyPair CA_INTERMEDIATE_KEY_PAIR;
     private static X509Certificate CA_INTERMEDIATE_CERT;
+    //*/
+    private static PrivateKey SIGNING_CERT_PRIV_KEY;
     private static LinkedList<X509Certificate> chainOfIssuerCerts;
 
     public static void init()
-            throws InvalidAlgorithmParameterException, NoSuchAlgorithmException,
-            NoSuchProviderException, CertificateException, OperatorCreationException, CertIOException, PEMException {
+            throws Exception {
+        /*
+        // -- vytvareni keystore/certifikatu v pameti
+        // -- (bohuzel, ale pak chybi cert pro openssl cmp klienta!)
         if(CA_ROOT_CERT == null) {
             // -- operator root CA
             CA_ROOT_KEY_PAIR = generateKeyPairEC();
@@ -73,6 +77,17 @@ public class MockCaImpl {
         chainOfIssuerCerts = new LinkedList(List.of(
                 CA_ROOT_CERT,
                 CA_INTERMEDIATE_CERT));
+        //*/
+
+        KeyStore ks = KeystoreService.loadKeystoreFromFile("tc.p12", "tc".toCharArray());
+//        KeystoreService.saveAsymmetricKey(
+//                /* keystore     */ks,
+//                /* alias        */"cmp-server",
+//                /* caPrivateKey */CA_INTERMEDIATE_KEY_PAIR.getPrivate(), "tc",
+//                CA_ROOT_CERT, CA_INTERMEDIATE_CERT);
+        Map<PrivateKey, LinkedList<X509Certificate>> map = KeystoreService.loadKeyAndCertChain(ks, "tc".toCharArray());
+        chainOfIssuerCerts = map.values().iterator().next();
+        SIGNING_CERT_PRIV_KEY=map.keySet().iterator().next();
     }
 
     public static LinkedList<X509Certificate> getChainOfIssuerCerts() {
@@ -126,9 +141,19 @@ public class MockCaImpl {
         PKIMessage response = null;
 
         try {
-            CMPCertificate[] caPubs = new CMPCertificate[2];
+            /*
+             * See Section 5.3.4 for CertRepMessage syntax.  Note that if the PKI
+             *    Message Protection is "shared secret information" (see Section
+             *    5.1.3), then any certificate transported in the caPubs field may be
+             *    directly trusted as a root CA certificate by the initiator.
+             *    @see https://www.rfc-editor.org/rfc/rfc4210#section-5.3.2
+             * Scope: ip, cp, kup, ccp
+             * Location: (optional) CertRepMessage.caPubs
+             * RESULT: TODO [tomascejka] ke zvazeni, kde caPubs plnit a kdy?
+             */
+            CMPCertificate[] caPubs = null;/*new CMPCertificate[2];
             caPubs[1] = CMPCertificate.getInstance(CA_ROOT_CERT.getEncoded());
-            caPubs[0] = CMPCertificate.getInstance(CA_INTERMEDIATE_CERT.getEncoded());
+            caPubs[0] = CMPCertificate.getInstance(CA_INTERMEDIATE_CERT.getEncoded());*/
 
             response = new PkiMessageBuilder(config)
                     .addHeader(request.getHeader())
@@ -136,6 +161,19 @@ public class MockCaImpl {
                             request.getBody(),
                             CMPCertificate.getInstance(newIssuedCert.getEncoded()),
                             caPubs))
+                    /*
+                     * The extraCerts field can contain certificates that may be useful to
+                     *      the recipient.  For example, this can be used by a CA or RA to
+                     *      present an end entity with certificates that it needs to verify its
+                     *      own new certificate (if, for example, the CA that issued the end
+                     *      entity's certificate is not a root CA for the end entity).  Note that
+                     *      this field does not necessarily contain a certification path; the
+                     *      recipient may have to sort, select from, or otherwise process the
+                     *      extra certificates in order to use them.
+                     * Location:
+                     *      (optional) PKIMessage.caPubs (na urovni header/body)
+                     * @see https://www.rfc-editor.org/rfc/rfc4210#section-5.1
+                     */
                     .addExtraCerts(extraCerts)
                     .build();
         } catch (Exception e) {
@@ -164,7 +202,7 @@ public class MockCaImpl {
             throws NoSuchAlgorithmException, CertificateException, OperatorCreationException, CertIOException, PEMException {
         return new CertificationGeneratorStrategy().generateCertificate(
                 subject, publicKey, issuingCert,
-                CA_ROOT_KEY_PAIR.getPrivate(), extensionsFromTemplate);
+                SIGNING_CERT_PRIV_KEY, extensionsFromTemplate);
     }
 
     private static KeyPair generateKeyPairEC() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, NoSuchProviderException {
@@ -175,7 +213,7 @@ public class MockCaImpl {
     }
 
     public static PrivateKey getPrivateKeyForSigning() {
-        return CA_INTERMEDIATE_KEY_PAIR.getPrivate();
+        return SIGNING_CERT_PRIV_KEY;
     }
 
     private static class CertificationGeneratorStrategy {
@@ -187,8 +225,8 @@ public class MockCaImpl {
                     /* issuer       */issuer,
                     /* serialNumber */new BigInteger(10, new SecureRandom()),
                     /* start        */new Date(),
-                    /* until        */Date.from(LocalDate.now().plus(365, ChronoUnit.DAYS)
-                            .atStartOfDay().toInstant(ZoneOffset.UTC)),
+                    /* until        */Date.from(LocalDate.now().plus(365*10, ChronoUnit.DAYS)
+                                      .atStartOfDay().toInstant(ZoneOffset.UTC)),
                     /* subject      */subject,
                     /* publicKey    */pubKeyInfo
             );

@@ -38,7 +38,7 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
     @Override
     public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {
         Signature sig = Signature.getInstance(getSignatureAlgorithmName());
-        sig.initSign(configuration.getPrivateKeyForSigning());
+        sig.initSign(configuration.getPrivateKeyForSigning());//podivat se do SCMP, podepisuje se via provider/CzertainlyProvider, + ScepResposne.createSignedData
         sig.update(new ProtectedPart(header, body).getEncoded(ASN1Encoding.DER));
         return new DERBitString(sig.sign());
     }
@@ -47,7 +47,7 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
     public List<CMPCertificate> getProtectingExtraCerts() throws CertificateException {
         final List<X509Certificate> certChain = getCertChain();
         if (certChain.size() <= 1) {
-            // protecting cert might be selfsigned
+            // protecting certificate might be self-signed
             Arrays.asList(CertUtils.toCmpCertificates(certChain));
         }
         // filter out selfsigned certificates
