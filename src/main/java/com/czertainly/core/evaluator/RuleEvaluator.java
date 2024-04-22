@@ -1,6 +1,9 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.CertificateOperationException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
@@ -17,8 +20,6 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.beanutils.PropertyUtils;
@@ -167,7 +168,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 for (List<ResponseMetadataDto> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
                     for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
                         if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) & fieldAttributeContentType == responseAttributeDto.getContentType()) {
-                            // Evaluate condition on each attribute content of the attribute, if at least teh condition is evaluated as satisfied at least once, the condition is satisfied for the object
+                            // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
                             if (evaluateConditionOnAttribute(responseAttributeDto, conditionValue, operator))
                                 return true;
                         }
@@ -191,9 +192,9 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             for (RuleAction action : trigger.getActions()) {
                 try {
                     performAction(action, object, trigger.getResource());
-
+                    logger.debug("Action with UUID {} has been performed.", action.getUuid());
                 } catch (Exception e) {
-                    logger.debug("Action with UUID {} has not been performed, reason: {}.", action.getUuid(), e.getMessage());
+                    logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
                 }
             }
         }
@@ -202,8 +203,9 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 for (RuleAction action : actionGroup.getActions()) {
                     try {
                         performAction(action, object, trigger.getResource());
+                        logger.debug("Action with UUID {} has been performed.", action.getUuid());
                     } catch (Exception e) {
-                        logger.debug("Action with UUID {} has not been performed, reason: {}.", action.getUuid(), e.getMessage());
+                        logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
                     }
                 }
             }
@@ -251,6 +253,8 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             }
         }
     }
+
+
 
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;
