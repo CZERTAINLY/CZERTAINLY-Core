@@ -391,7 +391,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     ruleTrigger2Object.setTriggerUuid(triggerUuid);
                     RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerUuid));
                     // If there is an ignore action in trigger, the order is always -1, otherwise increment the order
-                    if (trigger.getActions().stream().map(RuleAction::getActionType).toList().contains(RuleActionType.IGNORE)) {
+                    if (trigger.getActions().stream().anyMatch(action -> action.getActionType() == RuleActionType.IGNORE)) {
                         ruleTrigger2Object.setTriggerOrder(-1);
                     } else {
                         ruleTrigger2Object.setTriggerOrder(triggerOrder);
@@ -488,12 +488,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Override
     public void evaluateDiscoveryTriggers(UUID discoveryUuid) {
 
-        // Get discovered certificates
-        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuid(discoveryUuid);
+        // Get newly discovered certificates
         DiscoveryHistory discoveryHistory = discoveryRepository.findByUuid(discoveryUuid).orElse(null);
+        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, true, Pageable.unpaged());
         // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
-        List<RuleTrigger2Object> ruleTrigger2Objects = object2TriggerRepository.findAllByResourceAndObjectUuid(Resource.DISCOVERY, discoveryUuid);
-        ruleTrigger2Objects.sort((Comparator.comparingInt(RuleTrigger2Object::getTriggerOrder)));
+        List<RuleTrigger2Object> ruleTrigger2Objects = object2TriggerRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
         List<RuleTrigger> orderedTriggers = new ArrayList<>();
         List<RuleTrigger> ignoreTriggers = new ArrayList<>();
         for (RuleTrigger2Object ruleTrigger2Object : ruleTrigger2Objects) {
@@ -511,8 +510,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         for (DiscoveryCertificate discoveryCertificate : discoveredCertificates) {
-            // Only evaluate triggers for newly discovered certificates
-            if (discoveryCertificate.isNewlyDiscovered()) {
                 // Get X509 from discovered certificate and create certificate entity, do not save in database yet
                 X509Certificate x509Cert;
                 try {
@@ -566,7 +563,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 );
                 certificateService.validate(entry);
             }
-        }
     }
 
     // Check if rules are satisfied for a certificate, rules are considered not satisfied also when an error is encountered
