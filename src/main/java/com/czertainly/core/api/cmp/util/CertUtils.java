@@ -1,6 +1,8 @@
-package com.czertainly.core.api.cmp.message.util;
+package com.czertainly.core.api.cmp.util;
 
 import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
@@ -13,11 +15,12 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Predicate;
+
+import static com.czertainly.core.api.cmp.message.PkiMessageDumper.ifNotNull;
 
 public class CertUtils {
     private static CertificateFactory certificateFactory;
-    private static Provider BOUNCY_CASTLE_PROVIDER;
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     /**
      * function converts CMPCertificates to X509 certificates
@@ -115,19 +118,34 @@ public class CertUtils {
      * @return <code>true</code> if the certificate is intermediate and not
      *         self-signed
      */
-    public static boolean isIntermediateCertificate(final X509Certificate cert) {
+    public static boolean isIntermediateCertificate(X509Certificate cert) {
         try {
-            // Try to verify certificate signature with its own public key
-            final PublicKey key = cert.getPublicKey();
-            cert.verify(key);
-            // self-signed
+            cert.verify(cert.getPublicKey());// true=self-signed (certificate signature with its own public key)
             return false;
         } catch (final SignatureException | InvalidKeyException keyEx) {
-            // Invalid key --> definitely not self-signed
-            return true;
+            return true;// invalid key == it is not self-signed
         } catch (CertificateException | NoSuchAlgorithmException | NoSuchProviderException e) {
-            // processing error, could be self-signed
-            return false;
+            return false;// could be self-signed
         }
+    }
+
+    /**
+     * Extract SubjectKeyIdentifier from a given <code>certificate</code>
+     *
+     * @param certificate to fetch the SubjectKeyIdentifier from
+     * @return SubjectKeyIdentifier encoded as DEROctetString
+     */
+    public static DEROctetString extractSubjectKeyIdentifierFromCert(X509Certificate certificate) {
+        return ifNotNull(
+                certificate.getExtensionValue(org.bouncycastle.asn1.x509.Extension.subjectKeyIdentifier.getId()),
+                x -> new DEROctetString(
+                        ASN1OctetString.getInstance(ASN1OctetString.getInstance(x).getOctets())
+                        .getOctets()));
+    }
+
+    public static byte[] generateRandomBytes(int length) {
+        final byte[] generated = new byte[length];
+        SECURE_RANDOM.nextBytes(generated);
+        return generated;
     }
 }

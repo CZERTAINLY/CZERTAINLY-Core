@@ -1,4 +1,4 @@
-package com.czertainly.core.api.cmp.message;
+package com.czertainly.core.api.cmp.message.builder;
 
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import org.bouncycastle.asn1.ASN1Integer;

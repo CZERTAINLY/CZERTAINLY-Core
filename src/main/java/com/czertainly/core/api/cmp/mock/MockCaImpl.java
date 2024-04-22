@@ -2,7 +2,7 @@ package com.czertainly.core.api.cmp.mock;
 
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
-import com.czertainly.core.api.cmp.message.PkiMessageBuilder;
+import com.czertainly.core.api.cmp.message.builder.PkiMessageBuilder;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
@@ -125,9 +125,9 @@ public class MockCaImpl {
             X500Name subject = requestTemplate.getSubject();
             newIssuedCert = createCertificateV2(subject, publicKey,
                     chainOfIssuerCerts.get(0)/*issuingCert*/, requestTemplate.getExtensions());
-            // remove ROOT CA certificate
+            // remove ROOT CA certificate - TODO [tocecz] jeste overit v 3gpp
             LinkedList<X509Certificate> withoutRootCa = new LinkedList<>(chainOfIssuerCerts);
-            withoutRootCa.remove(withoutRootCa.size() - 1);
+            // withoutRootCa.remove(withoutRootCa.size() - 1);
             if(!withoutRootCa.isEmpty()) {
                 extraCerts = new ArrayList<>(withoutRootCa.size());
                 for (final X509Certificate x509Cert : withoutRootCa) {
@@ -155,8 +155,31 @@ public class MockCaImpl {
             caPubs[1] = CMPCertificate.getInstance(CA_ROOT_CERT.getEncoded());
             caPubs[0] = CMPCertificate.getInstance(CA_INTERMEDIATE_CERT.getEncoded());*/
 
+
             response = new PkiMessageBuilder(config)
-                    .addHeader(request.getHeader())
+                    .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(request)/*new HeaderTemplate() {
+                        @Override
+                        public int getPvno() { return request.getHeader().getPvno().intValueExact(); }
+
+                        @Override
+                        public GeneralName getSender() { return null; }
+
+                        @Override
+                        public ASN1OctetString getSenderNonce() { return new DEROctetString(CertUtils.generateRandomBytes(16)); }
+
+                        @Override
+                        public GeneralName getRecipient() { return request.getHeader().getSender(); }
+
+
+                        @Override
+                        public ASN1OctetString getRecipNonce() { return request.getHeader().getSenderNonce(); }
+
+                        @Override
+                        public ASN1OctetString getTransactionID() { return request.getHeader().getTransactionID(); }
+
+                        @Override
+                        public InfoTypeAndValue[] getGeneralInfo() { return request.getHeader().getGeneralInfo(); }
+                    }*/)
                     .addBody(PkiMessageBuilder.createIpCpKupBody(
                             request.getBody(),
                             CMPCertificate.getInstance(newIssuedCert.getEncoded()),
@@ -351,4 +374,32 @@ public class MockCaImpl {
         }
     }
     // -- final
+
+    /**
+     * <pre>
+     *          CertConfirmContent ::= SEQUENCE OF CertStatus
+     *
+     *          CertStatus ::= SEQUENCE {
+     *             certHash    OCTET STRING,
+     *             certReqId   INTEGER,
+     *             statusInfo  PKIStatusInfo OPTIONAL
+     *          }
+     * </pre>
+     * @param message
+     * @param configuration for given profile/request processing
+     *
+     * @return
+     *
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.18">Certificate Confirmation Content</a>
+     */
+    public PKIMessage handleCertConfirm(PKIMessage message, ConfigurationContext configuration) throws CmpException {
+        try {
+            return new PkiMessageBuilder(configuration)
+                    .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(message))
+                    .addBody(new PKIBody(PKIBody.TYPE_CONFIRM, new PKIConfirmContent()))
+                    .build();
+        } catch (Exception e) {
+            throw new CmpException(PKIFailureInfo.systemFailure, "problem with create pkiConf response message", e);
+        }
+    }
 }

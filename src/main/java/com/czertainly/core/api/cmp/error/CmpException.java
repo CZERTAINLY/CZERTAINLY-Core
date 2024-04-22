@@ -1,7 +1,7 @@
 package com.czertainly.core.api.cmp.error;
 
 import com.czertainly.core.api.cmp.CmpController;
-import com.czertainly.core.api.cmp.message.PkiMessageError;
+import com.czertainly.core.api.cmp.message.builder.PkiMessageError;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.slf4j.Logger;

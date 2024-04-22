@@ -1,9 +1,10 @@
 package com.czertainly.core.api.cmp.message.protection;
 
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
-import com.czertainly.core.api.cmp.message.util.CertUtils;
+import com.czertainly.core.api.cmp.util.CertUtils;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.DERBitString;
+import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIHeader;
@@ -64,11 +65,15 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
 
     /**
      * @return CA name
-     *
-     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3.3">Sender in singnature-based protection at rfc4210</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3.3">Sender in signature-based protection at rfc4210</a>
      */
     @Override
     public GeneralName getSender() {
         return new GeneralName(X500Name.getInstance(getEndCertificate().getSubjectX500Principal().getEncoded()));
+    }
+
+    @Override
+    public DEROctetString getSenderKID() {
+        return CertUtils.extractSubjectKeyIdentifierFromCert(getEndCertificate());
     }
 }

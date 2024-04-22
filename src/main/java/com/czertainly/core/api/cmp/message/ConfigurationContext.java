@@ -36,4 +36,11 @@ public interface ConfigurationContext {
      *         which is configured at czertainly server
      */
     ProtectionStrategy getProtectionStrategy();
+
+    /**
+     * @return if given implementation needs the Proof-Of-Possesion validation
+     *
+     * TODO [toce] 3gpp profile: there is a need POP validation, see 9.5.4.2	Initialization Request
+     */
+    boolean proofOfPossessionValidationNeeded();
 }

@@ -1,4 +1,4 @@
-package com.czertainly.core.api.cmp.message.util;
+package com.czertainly.core.api.cmp.util;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 

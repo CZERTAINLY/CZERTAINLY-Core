@@ -4,22 +4,11 @@ import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.validator.POPValidator;
-import com.czertainly.core.api.cmp.message.validator.ProtectionSignatureBasedValidator;
+import com.czertainly.core.api.cmp.message.validator.ProtectionValidator;
 import com.czertainly.core.api.cmp.mock.MockCaImpl;
 import org.bouncycastle.asn1.cmp.*;
-import org.bouncycastle.asn1.crmf.*;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-
-import javax.security.auth.x500.X500Principal;
-import java.math.BigInteger;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.Arrays;
-import java.util.Date;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <p>Interface how to handle incoming Initial Request (ir) message from client.</p>
@@ -42,6 +31,8 @@ import java.util.Date;
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-3">[3] - CertRequest syntax</a>
  */
 public class InitialRequestHandler implements MessageHandler {
+
+    private static final Logger LOG = LoggerFactory.getLogger(InitialRequestHandler.class.getName());
 
     /**
      *<pre>
@@ -129,20 +120,12 @@ public class InitialRequestHandler implements MessageHandler {
      */
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpException {
-        PKIBody body = request.getBody();
-        int requestBodyType = body.getType();
-        CertReqMsg certReqMsg = ((CertReqMessages) body.getContent()).toCertReqMsgArray()[0];
-        CertRequest certRequest = certReqMsg.getCertReq();
-        CertTemplate certTemplate = certRequest.getCertTemplate();
-        PKCSObjectIdentifiers p;
-        ProofOfPossession popo = certReqMsg.getPop();
-
         // -- Proof-of-Possession validation
-        new POPValidator()
+        new POPValidator(configuration)
                 .validate(request);
 
-        // -- PKI Message Protection
-        new ProtectionSignatureBasedValidator()
+        // -- PKIProtection, see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3
+        new ProtectionValidator(configuration)
                 .validate(request);
 
         PKIMessage response = new MockCaImpl()

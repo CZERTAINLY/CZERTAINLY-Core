@@ -30,19 +30,24 @@ public enum ImplFailureInfo {
     CMPVALR001(200,"validation: pki message type is not supported"),
     CMPVALR002(201,"validation: pki message type is unknown"),
 
-    // -- crypto validators
+    // -- proof of possesion
     CRYPTOPOP501(501, "validation pop: cannot extract public key"),
     CRYPTOPOP502(502, "validation pop: cannot initialize signature"),
     CRYPTOPOP503(503, "validation pop: cannot verification signature"),
-    CRYPTOPOP504(504, "validation pop: popo is null"),
-    CRYPTOPOP505(505, "validation pop: wrong type"),
+    CRYPTOPOP504(504, "validation pop: ProofOfPossession field is null"),
+    CRYPTOPOP505(505, "validation pop: ProofOfPossession type RAVerified is not allowed"),
     CRYPTOPOP506(506, "validation pop: wrong signature"),
-    CRYPTOPRO507(507, "validation protection: protection element is missing"),
-    CRYPTOPRO508(508, "validation protection: protectionAlg element is missing"),
+    CRYPTOPOP507(507, "validation pop: public key in template is missing"),
+    CRYPTOPOP508(508, "validation pop: PoposkInput field must be absent"),
+    CRYPTOPOP509(509, "validation pop: subject in template is missing"),
 
-    CRYPTOSIG521(521, "signature-based protection: extraCerts is empty"),
-    CRYPTOSIG522(522, "signature-based protection: signature verification is broken"),
-    CRYPTOSIG523(523, "signature-based protection: certificate (used for protecting) has key not suitable for signing"),
+    // -- protection
+    CRYPTOPRO530(530, "validation protection: protection element is missing"),
+    CRYPTOPRO531(531, "validation protection: protectionAlg element is missing"),
+
+    CRYPTOSIG541(541, "signature-based protection: extraCerts is empty"),
+    CRYPTOSIG542(542, "signature-based protection: signature verification is broken"),
+    CRYPTOSIG543(543, "signature-based protection: certificate (used for protecting) has key not suitable for signing"),
 
     // -- developer
     TODO(-999, "Only for developer purpose - inform czertainly admin")
