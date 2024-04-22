@@ -379,7 +379,6 @@ public class RuleServiceImpl implements RuleService {
         trigger.setDescription(request.getDescription());
         trigger.setResource(request.getResource());
         trigger.setTriggerResource(request.getTriggerResource());
-        if (request.getTriggerResourceUuid()!= null) trigger.setTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid()));
         trigger.setTriggerType(request.getTriggerType());
         trigger.setRules(rules);
         triggerRepository.save(trigger);
@@ -458,7 +457,6 @@ public class RuleServiceImpl implements RuleService {
 
         trigger.setDescription(request.getDescription());
         trigger.setTriggerResource(request.getTriggerResource());
-        if (request.getTriggerResourceUuid() != null) trigger.setTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid()));
         trigger.setTriggerType(request.getTriggerType());
 
         triggerRepository.save(trigger);
