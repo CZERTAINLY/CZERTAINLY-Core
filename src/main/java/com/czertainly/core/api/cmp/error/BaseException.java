@@ -38,7 +38,7 @@ public class BaseException extends Exception {
         if (ex instanceof BaseException) {
             this.failureInfo = ((BaseException) ex).failureInfo;
             this.errorDetails = ((BaseException) ex).errorDetails;
-            LOG.error("exception at: " + errorDetails, ex);
+            LOG.error("exception at: {}", errorDetails, ex);
         } else {
             this.failureInfo = failureInfo;
             this.errorDetails = errorDetails;

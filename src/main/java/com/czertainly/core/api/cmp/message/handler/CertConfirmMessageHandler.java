@@ -3,7 +3,7 @@ package com.czertainly.core.api.cmp.message.handler;
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
-import com.czertainly.core.api.cmp.message.validator.ProtectionValidator;
+import com.czertainly.core.api.cmp.message.validator.impl.ProtectionValidator;
 import com.czertainly.core.api.cmp.mock.MockCaImpl;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
@@ -18,7 +18,7 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
  *      certConf [24] CertConfirmContent,    --Certificate confirm
  * </pre>
  */
-public class CertificateConfirmationHandler implements MessageHandler {
+public class CertConfirmMessageHandler implements MessageHandler {
 
     /**
      * <pre>
@@ -73,14 +73,14 @@ public class CertificateConfirmationHandler implements MessageHandler {
         if(PKIBody.TYPE_CERT_CONFIRM!=request.getBody().getType()) {
             throw new CmpException(
                     PKIFailureInfo.systemFailure,
-                    "message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()) +"; only type=cerfConf is supported");
+                    "confirmation (certConf) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()) +"; only type=cerfConf is supported");
         }
 
         // -- PKIProtection, see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3
         new ProtectionValidator(configuration)
                 .validate(request);
 
-        PKIMessage response = new MockCaImpl()
+        PKIMessage response = MockCaImpl
                 .handleCertConfirm(request, configuration);//.getBody().getContent();
 
         if(response != null) { return response; }

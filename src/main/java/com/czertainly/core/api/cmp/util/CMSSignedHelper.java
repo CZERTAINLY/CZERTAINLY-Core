@@ -108,7 +108,7 @@ public class CMSSignedHelper {
 
     /**
      * Return the digest encryption algorithm using one of the standard
-     * JCA string representations rather the the algorithm identifier (if
+     * JCA string representations rather the algorithm identifier (if
      * possible).
      */
     public String getEncryptionAlgName(

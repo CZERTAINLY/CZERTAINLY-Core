@@ -1,8 +1,9 @@
-package com.czertainly.core.api.cmp.message.validator;
+package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
-import com.czertainly.core.api.cmp.util.BouncyCastleUtil;
+import com.czertainly.core.api.cmp.message.validator.Validator;
+import com.czertainly.core.api.cmp.util.CryptoUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -73,7 +74,7 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
     /**
      * Try to get wrapper element {@link SubjectPublicKeyInfo} from {@link CertRequest}
      * and validate its content (public key bytes cannot be empty or zero).
-     *
+     * <p>
      * if <code>poposkInput</code> is null, <code>public key</code> and subject must be filled (see POP/4.1 - point 3, rfc 4211)
      *
      * @param certRequest field which keeps public key metadata
@@ -104,7 +105,7 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
         try {
             return KeyFactory.getInstance(
                     subjectPublicKeyInfo.getAlgorithm().getAlgorithm().toString(),
-                    BouncyCastleUtil.getBouncyCastleProvider()
+                    CryptoUtil.getBouncyCastleProvider()
             ).generatePublic(new X509EncodedKeySpec(subjectPublicKeyInfo.getEncoded(ASN1Encoding.DER)));
         } catch (InvalidKeySpecException | NoSuchAlgorithmException | IOException e) {
             throw new CmpException(PKIFailureInfo.badPOP,
@@ -117,7 +118,6 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
      * @param certReqMsg field which keeps all needed field to check POP
      * @param publicKey extracted public key from incoming cert template
      * @return built signature object for verification
-     * @throws CmpException
      */
     private Signature buildSignature(CertReqMsg certReqMsg, PublicKey publicKey) throws CmpException {
         CertRequest certRequest = certReqMsg.getCertReq();
@@ -149,7 +149,7 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
              */
             byte[] subjectOfVerification = certRequest.getEncoded(ASN1Encoding.DER);
             Signature signature = Signature.getInstance(
-                    popoSigningKey.getAlgorithmIdentifier().getAlgorithm().getId(), BouncyCastleUtil.getBouncyCastleProvider());
+                    popoSigningKey.getAlgorithmIdentifier().getAlgorithm().getId(), CryptoUtil.getBouncyCastleProvider());
             signature.initVerify(publicKey);
             signature.update(subjectOfVerification);
             return signature;

@@ -61,7 +61,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PkiMessageDumper {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(PkiMessageDumper.class.getName());    private static final Map<Integer, String> TYPE_MAP = new ConcurrentHashMap<>();
+    private static final Logger LOG = LoggerFactory.getLogger(PkiMessageDumper.class.getName());
+    private static final Map<Integer, String> TYPES = new ConcurrentHashMap<>();
     private static Map<ASN1ObjectIdentifier, OidDescription> oidToKeyMap;
 
     static {
@@ -71,9 +72,9 @@ public class PkiMessageDumper {
                     && (aktField.getModifiers() & Modifier.STATIC) != 0
                     && aktField.getName().startsWith("TYPE_")) {
                 try {
-                    TYPE_MAP.put(aktField.getInt(null), aktField.getName().substring(5));
+                    TYPES.put(aktField.getInt(null), aktField.getName().substring(5));
                 } catch (IllegalArgumentException | IllegalAccessException e) {
-                    LOGGER.error("error filling typemap", e);
+                    LOG.error("error filling typemap", e);
                 }
             }
         }
@@ -99,7 +100,7 @@ public class PkiMessageDumper {
             dumpSingleValue("Protection", msg.getProtection(), ret);
             dumpSingleValue("ExtraCerts", msg.getExtraCerts(), ret);
         } catch (final Exception e) {
-            LOGGER.error("dump error", e);
+            LOG.error("dump error", e);
         }
         ret.append("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
         return ret.toString();
@@ -211,16 +212,14 @@ public class PkiMessageDumper {
     }
 
     /**
-     * Dumping PKI message to a string in a short form.
-     *
-     * @param msg PKI message to be dumped
-     * @return string short representation of the PKI message
+     * @param msg message to be dumped
+     * @return short representation of the message
      */
     public static String msgAsShortString(final PKIMessage msg) {
         if (msg == null) {
             return "<null>";
         }
-        return msgTypeAsString(msg.getBody()) + " [" + msg.getHeader().getSender() + " => "
+        return "tid=" +msg.getHeader().getTransactionID()+ ": "+ msgTypeAsString(msg.getBody()) + " [" + msg.getHeader().getSender() + " => "
                 + msg.getHeader().getRecipient() + "]";
     }
 
@@ -231,7 +230,7 @@ public class PkiMessageDumper {
      * @return message type as string
      */
     public static String msgTypeAsString(final int msgType) {
-        return TYPE_MAP.get(msgType);
+        return TYPES.get(msgType);
     }
 
     /**
@@ -241,7 +240,7 @@ public class PkiMessageDumper {
      * @return message type as string
      */
     public static String msgTypeAsString(final PKIBody body) {
-        return TYPE_MAP.get(body.getType());
+        return TYPES.get(body.getType());
     }
 
     /**
@@ -416,7 +415,7 @@ public class PkiMessageDumper {
                         final OidDescription oidDescription = new OidDescription(aktClass, name, oid);
                         oidToKeyMap.put(oid, oidDescription);
                     } catch (IllegalArgumentException | IllegalAccessException e) {
-                        LOGGER.error("error loading ObjectIdentifier Names from BC", e);
+                        LOG.error("error loading ObjectIdentifier Names from BC", e);
                     }
                 }
             }

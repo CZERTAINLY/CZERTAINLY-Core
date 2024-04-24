@@ -1,8 +1,9 @@
-package com.czertainly.core.api.cmp.message.validator;
+package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
+import com.czertainly.core.api.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -93,10 +94,6 @@ public class POPValidator implements Validator<PKIMessage, Void> {
      */
     @Override
     public Void validate(PKIMessage message) throws CmpException {
-        if(!configuration.proofOfPossessionValidationNeeded()) {
-            return null;//client (via conf) has disabled this feature!!!
-        }
-
         /* PKIBody ::= CHOICE {
           ir       [0]  CertReqMessages,       --Initialization Req
           cr       [2]  CertReqMessages,       --Certification Req

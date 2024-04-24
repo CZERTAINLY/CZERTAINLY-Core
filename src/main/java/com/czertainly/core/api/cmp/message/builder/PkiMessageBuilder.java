@@ -3,7 +3,7 @@ package com.czertainly.core.api.cmp.message.builder;
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.protection.ProtectionStrategy;
-import com.czertainly.core.api.cmp.util.CertUtils;
+import com.czertainly.core.api.cmp.util.CertUtil;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
@@ -22,8 +22,10 @@ import java.util.stream.Stream;
 
 import static com.czertainly.core.api.cmp.util.NullUtil.*;
 
+/**
+ * Builder pattern implementation to create specific types of {@link PKIMessage}.
+ */
 public class PkiMessageBuilder {
-
     /**
      * see rfc4210, D.1.4
      * <p>A "special" X.500 DN is called the "NULL-DN"; this means a DN
@@ -33,15 +35,40 @@ public class PkiMessageBuilder {
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.1">General Rules for Interpretation of These Profiles at rfcx4210</a>
      */
     public static final GeneralName NULL_DN = new GeneralName(new X500Name(new RDN[0]));
-
+    /**
+     * Mandatory field, {@link PKIHeader}
+     *
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">Overall of PKI Message (header is mandatory)</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.1">PKI header structure</a>
+     */
     private PKIHeader pkiHeader;
+    /**
+     * Mandatory field, {@link PKIBody}
+     *
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">Overall of PKI Message (header is mandatory)</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI body structure</a>
+     */
     private PKIBody pkiBody;
+    /**
+     * <p>Optional field, extraCerts   [1] SEQUENCE SIZE (1..MAX) OF CMPCertificate OPTIONAL</p>
+     *
+     * <p>The extraCerts field can contain certificates that may be useful to
+     *    the recipient.  For example, this can be used by a CA or RA to
+     *    present an end entity with certificates that it needs to verify its
+     *    own new certificate (if, for example, the CA that issued the end
+     *    entity's certificate is not a root CA for the end entity).  Note that
+     *    this field does not necessarily contain a certification path; the
+     *    recipient may have to sort, select from, or otherwise process the
+     *    extra certificates in order to use them.</p>
+     *
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">Overall of PKI Message (extraCert is OPTIONAL)</a>
+     */
     private CMPCertificate[] extraCerts;
 
     private final ConfigurationContext config;
     private final ProtectionStrategy protectionStrategy;
 
-    public PkiMessageBuilder(ConfigurationContext configuration){
+    public PkiMessageBuilder(ConfigurationContext configuration) throws CmpException {
         this.config = configuration;
         this.protectionStrategy = configuration.getProtectionStrategy();
     }
@@ -64,10 +91,10 @@ public class PkiMessageBuilder {
      *                              InfoTypeAndValue     OPTIONAL
      *      }
      * </pre>
-     * @param template
-     * @return
+     * @param template wrapper which keeps/creates values for build of {@link PKIHeader}
+     * @return builder itself
      */
-    public PkiMessageBuilder addHeader(HeaderTemplate template) {
+    public PkiMessageBuilder addHeader(HeaderTemplate template) throws CmpException {
         final GeneralName recipient = computeDefaultIfNull(config.getRecipient(), template::getRecipient);
         final GeneralName sender = computeDefaultIfNull(protectionStrategy.getSender(), template::getSender);
 
@@ -89,7 +116,17 @@ public class PkiMessageBuilder {
         return this;
     }
 
-    public PkiMessageBuilder addBody(PKIBody pkiBody) {
+    /**
+     * @param pkiBody which will be added to final {@link PKIMessage}
+     * @return builder itself (for flow-api)
+     *
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">Overall of PKI Message (Body is mandatory)</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI body structure</a>
+     */
+    public PkiMessageBuilder addBody(PKIBody pkiBody) throws CmpException {
+        if(pkiBody == null) {
+            throw new CmpException(PKIFailureInfo.systemFailure, "PKI body is null");
+        }
         this.pkiBody = pkiBody;
         return this;
     }
@@ -104,9 +141,9 @@ public class PkiMessageBuilder {
      *      recipient may have to sort, select from, or otherwise process the
      *      extra certificates in order to use them.</p>
      * Location:
-     *      (optional) PKIMessage.caPubs (na urovni header/body)
+     *      (optional) PKIMessage.caPubs (at same level as header/body)
      *
-     * @param chainOfCertificates
+     * @param chainOfCertificates chain of certificates for extraCerts
      * @return builder itself
      * @throws Exception if any error occurs (filtering/listing of incoming certificates)
      *
@@ -123,10 +160,12 @@ public class PkiMessageBuilder {
 
     public PKIMessage build() throws Exception {
         if(pkiHeader == null) {
-            throw new CmpException(PKIFailureInfo.systemFailure, "response message cannot be without PKIHeader");
+            throw new CmpException(PKIFailureInfo.systemFailure,
+                    "response message cannot be without PKIHeader");
         }
         if(pkiBody == null) {
-            throw new CmpException(PKIFailureInfo.systemFailure, "response message cannot be without PKIBody");
+            throw new CmpException(PKIFailureInfo.systemFailure,
+                    "response message cannot be without PKIBody");
         }
         return new PKIMessage(
                 pkiHeader,
@@ -135,16 +174,16 @@ public class PkiMessageBuilder {
                 (extraCerts == null || extraCerts.length == 0) ? null : extraCerts);
     }
 
-    /******************************************************************************************************
-      HELPER METHODS
-     *******************************************************************************************************/
+    //------------------------------------------------------------------------------------------------------
+    //  HELPER METHODS
+    //------------------------------------------------------------------------------------------------------
 
     /**
      * Basic (most message use this way) {@link PKIHeader} template object (it means that
      * it keeps or create pki header values for another processing).
      *
-     * @param message ability to get/create value from given {@PKIMessage}
-     * @return template object with values for {@PKIHeader}
+     * @param message ability to get/create value from given {@link PKIMessage}
+     * @return template object with values for {@link HeaderTemplate}
      */
     public static HeaderTemplate buildBasicHeaderTemplate(PKIMessage message) {
         return new HeaderTemplate() {
@@ -175,7 +214,7 @@ public class PkiMessageBuilder {
              * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.1">[1]PKIHeader element</a>
              */
             @Override
-            public ASN1OctetString getSenderNonce() { return new DEROctetString(CertUtils.generateRandomBytes(16)); }
+            public ASN1OctetString getSenderNonce() { return new DEROctetString(CertUtil.generateRandomBytes(16)); }
 
             /**
              * <p>The recipient field contains the name of the recipient of the
@@ -225,7 +264,7 @@ public class PkiMessageBuilder {
     }
 
     /**
-     * generate {@link PKIBody} for types:
+     * Generate an {@link PKIBody} for types:
      * <ul>
      *     <li>{@link PKIBody#TYPE_INIT_REP} IP,</li>
      *     <li>{@link PKIBody#TYPE_CERT_REP} CP,</li>
@@ -234,7 +273,7 @@ public class PkiMessageBuilder {
      *  with returning a certificate
      *
      * @param body        of message (supported only PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ or
-     *                    *                    PKIBody.TYPE_KEY_UPDATE_REQ)
+     *                    PKIBody.TYPE_KEY_UPDATE_REQ)
      * @param certificate the certificate to return
      * @param caPubs list of CA certifications
      * @return a IP, CP or KUP body

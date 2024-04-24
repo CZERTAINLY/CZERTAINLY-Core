@@ -1,6 +1,7 @@
-package com.czertainly.core.api.cmp.message.protection;
+package com.czertainly.core.api.cmp.message.protection.impl;
 
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
+import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 
 import java.security.cert.X509Certificate;
 import java.util.LinkedList;
@@ -13,7 +14,7 @@ public abstract class BaseProtectionStrategy {
 
     protected BaseProtectionStrategy(ConfigurationContext configuration) {
         this.configuration = configuration;
-        this.certificationsChain = new LinkedList<>(configuration.getCertificateChain());
+        this.certificationsChain = new LinkedList<>(configuration.getExtraCertsCertificateChain());
     }
 
     public X509Certificate getEndCertificate() {

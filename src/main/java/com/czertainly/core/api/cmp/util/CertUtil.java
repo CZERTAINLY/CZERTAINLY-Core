@@ -18,7 +18,7 @@ import java.util.List;
 
 import static com.czertainly.core.api.cmp.message.PkiMessageDumper.ifNotNull;
 
-public class CertUtils {
+public class CertUtil {
     private static CertificateFactory certificateFactory;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -68,10 +68,10 @@ public class CertUtils {
      * Function to convert: from list of X509 certificates to list of CMPCertificates
      *
      * @param certs certificates to convert
-     * @return list of converted certificates
+     * @return array of converted certificates
      * @throws CertificateException if certificate could not be converted
      */
-    public static CMPCertificate[] toCmpCertificates(final List<X509Certificate> certs) throws CertificateException {
+    public static CMPCertificate[] toCmpCertificates(List<X509Certificate> certs) throws CertificateException {
         final CMPCertificate[] ret = new CMPCertificate[certs.size()];
         int index = 0;
         for (final X509Certificate aktCert : certs) {

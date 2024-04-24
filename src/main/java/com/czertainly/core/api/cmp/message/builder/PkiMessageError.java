@@ -74,6 +74,14 @@ public class PkiMessageError {
         return new PKIBody(PKIBody.TYPE_ERROR, errorMsgContent);
     }
 
+    // crmf - ip, cp, kup body
+    public static PKIBody generateCrmfErrorBody(final int bodyType, final int failInfo, final String errorDetails) {
+        final PKIStatusInfo pkiStatusInfo =
+                new PKIStatusInfo(PKIStatus.rejection, new PKIFreeText(errorDetails), new PKIFailureInfo(failInfo));
+        final CertResponse[] response = {new CertResponse(new ASN1Integer(0), pkiStatusInfo)};
+        return new PKIBody(bodyType, new CertRepMessage(null, response));
+    }
+
     /**
      * ANS.1 structure of PKIStatusInfo
      * <pre>
@@ -99,7 +107,7 @@ public class PkiMessageError {
     }
 
     private static PKIStatusInfo pkiStatusInfo(int failInfo, String errorDetails){
-        PKIFreeText statusText = null;
+        PKIFreeText statusText;
         if(errorDetails == null || errorDetails.isBlank()) {
             statusText=new PKIFreeText("");
         } else {

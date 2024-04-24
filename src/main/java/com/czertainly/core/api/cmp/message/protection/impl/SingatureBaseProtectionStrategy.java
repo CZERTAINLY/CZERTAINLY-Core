@@ -1,7 +1,9 @@
-package com.czertainly.core.api.cmp.message.protection;
+package com.czertainly.core.api.cmp.message.protection.impl;
 
+import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
-import com.czertainly.core.api.cmp.util.CertUtils;
+import com.czertainly.core.api.cmp.message.protection.ProtectionStrategy;
+import com.czertainly.core.api.cmp.util.CertUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DEROctetString;
@@ -12,7 +14,6 @@ import org.bouncycastle.asn1.cmp.ProtectedPart;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 
 import java.security.Signature;
 import java.security.cert.CertificateException;
@@ -27,18 +28,14 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
         super(configuration);
     }
 
-    private String getSignatureAlgorithmName() {
-        return this.configuration.getSignatureAlgorithmName();
-    }
-
     @Override
-    public AlgorithmIdentifier getProtectionAlg() {
-        return new DefaultSignatureAlgorithmIdentifierFinder().find(getSignatureAlgorithmName());
+    public AlgorithmIdentifier getProtectionAlg() throws CmpException {
+        return this.configuration.getSignatureAlgorithm();
     }
 
     @Override
     public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {
-        Signature sig = Signature.getInstance(getSignatureAlgorithmName());
+        Signature sig = Signature.getInstance(getProtectionAlg().getAlgorithm().getId());
         sig.initSign(configuration.getPrivateKeyForSigning());//podivat se do SCMP, podepisuje se via provider/CzertainlyProvider, + ScepResposne.createSignedData
         sig.update(new ProtectedPart(header, body).getEncoded(ASN1Encoding.DER));
         return new DERBitString(sig.sign());
@@ -48,14 +45,12 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
     public List<CMPCertificate> getProtectingExtraCerts() throws CertificateException {
         final List<X509Certificate> certChain = getCertChain();
         if (certChain.size() <= 1) {
-            // protecting certificate might be self-signed
-            Arrays.asList(CertUtils.toCmpCertificates(certChain));
+            return Arrays.asList(CertUtil.toCmpCertificates(certChain));//self-signed
         }
-        // filter out selfsigned certificates
         return certChain.stream()
-                .filter(CertUtils::isIntermediateCertificate)
+                .filter(CertUtil::isIntermediateCertificate)//filter self-signed
                 .map(t -> {
-                    try { return CertUtils.toCmpCertificate(t); }
+                    try { return CertUtil.toCmpCertificate(t); }
                     catch (final CertificateException e) {
                         throw new RuntimeException(e);
                     }
@@ -74,6 +69,6 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
 
     @Override
     public DEROctetString getSenderKID() {
-        return CertUtils.extractSubjectKeyIdentifierFromCert(getEndCertificate());
+        return CertUtil.extractSubjectKeyIdentifierFromCert(getEndCertificate());
     }
 }

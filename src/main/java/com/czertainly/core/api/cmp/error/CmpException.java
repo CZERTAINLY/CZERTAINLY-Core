@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Exception for error handling for cmp failure scenarios.
- *
+ * <p>
  * citation (from rfc4210):
  *      This message MAY be generated at any time during a PKI transaction.
  *
@@ -19,8 +19,8 @@ public class CmpException extends BaseException {
 
     private static final Logger LOG = LoggerFactory.getLogger(CmpController.class.getName());
 
-    private int failureInfo;
-    private ImplFailureInfo implFailureInfo;
+    protected int failureInfo;
+    protected ImplFailureInfo implFailureInfo;
 
     /**
      * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})

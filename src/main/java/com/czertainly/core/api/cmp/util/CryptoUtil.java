@@ -7,7 +7,7 @@ import java.security.Security;
 import java.util.Arrays;
 import java.util.Objects;
 
-public class BouncyCastleUtil {
+public class CryptoUtil {
 
     private static Provider BOUNCY_CASTLE_PROVIDER;
     public static Provider getBouncyCastleProvider() {

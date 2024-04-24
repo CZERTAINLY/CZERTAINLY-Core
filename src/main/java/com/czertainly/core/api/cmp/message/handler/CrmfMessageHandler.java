@@ -1,14 +1,15 @@
 package com.czertainly.core.api.cmp.message.handler;
 
 import com.czertainly.core.api.cmp.error.CmpException;
-import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
-import com.czertainly.core.api.cmp.message.validator.POPValidator;
-import com.czertainly.core.api.cmp.message.validator.ProtectionValidator;
+import com.czertainly.core.api.cmp.message.PkiMessageDumper;
+import com.czertainly.core.api.cmp.message.validator.impl.POPValidator;
 import com.czertainly.core.api.cmp.mock.MockCaImpl;
 import org.bouncycastle.asn1.cmp.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 /**
  * <p>Interface how to handle incoming Initial Request (ir) message from client.</p>
@@ -30,9 +31,15 @@ import org.slf4j.LoggerFactory;
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.1">[2] - CertReqMessages syntax</a>
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-3">[3] - CertRequest syntax</a>
  */
-public class InitialRequestHandler implements MessageHandler {
+public class CrmfMessageHandler implements MessageHandler {
 
-    private static final Logger LOG = LoggerFactory.getLogger(InitialRequestHandler.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(CrmfMessageHandler.class.getName());
+    private static final List<Integer> ALLOWED_TYPES = List.of(
+            PKIBody.TYPE_INIT_REQ,          // ir       [0]  CertReqMessages,       --Initialization Req
+            PKIBody.TYPE_CERT_REQ,          // cr       [2]  CertReqMessages,       --Certification Req
+            PKIBody.TYPE_KEY_UPDATE_REQ,    // kur      [7]  CertReqMessages,       --Key Update Request
+            PKIBody.TYPE_KEY_RECOVERY_REQ,  // krr      [9]  CertReqMessages,       --Key Recovery Req     (not implemented)
+            PKIBody.TYPE_CROSS_CERT_REQ);   // ccr      [13] CertReqMessages,       --Cross-Cert.  Request (not implemented)
 
     /**
      *<pre>
@@ -80,60 +87,26 @@ public class InitialRequestHandler implements MessageHandler {
      * 			  generalTime    GeneralizedTime }
      *</pre>
      *
-     * @param request
-     * @return
+     * @param request crmf-base message as ir, cr, kur, krr, ccr
+     * @return response message related <code>request</code> message
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-5">...</a>
      */
-
-    /*
-			The device discovers the RA/CA address.
-
-			The device generates the private/public key pair to be enrolled in the operator CA, if this is not pre-provisioned.
-
-			The device generates the Initialization Request (IR). The CertReqMsg inside the request specifies the requested certificate. If the suggested identity is known to the device, it includes this in the subject field. To provide proof of possession, the device generates the signature for the POPOSigningKey field of the CertReqMsg using the private key related to the public key to be certified by the RA/CA. The device signs the request using the vendor provided public key, and includes the digital signature in the PKIMessage. Its own vendor signed certificate and any intermediate certificates are included in the extraCerts field of the PKIMessage carrying the initialization request.
-
-			The device sends the signed initialization request message to the RA/CA.
-
-			The RA/CA verifies the digital signature on the initialization request message against the vendor root certificate using the certificate(s) sent by the device. The RA/CA also verifies the proof of the possession of the private key for the requested certificate.
-
-			The RA/CA generates the certificate for the device. If the suggested identity of the device is not included in the initialization request message, the RA/CA determines the suggested identity, based on the vendor provided identity contained in the device certificate. The RA/CA may also replace a suggested identity sent by the device with another identity based on local information.
-
-			The RA/CA generates an Initialization Response (IP) which includes the issued certificate. The RA/CA signs the response with the RA/CA private key (or the private key for signing CMP messages, if separate), and includes the signature, the RA/CA certificate(s) and the operator root certificate in the PKIMessage. The appropriate certificate chains for authenticating the RA/CA certificate(s) are included in the PKIMessage.
-
-			The RA/CA sends the signed initialization response to the device.
-
-			If the operator root certificate is not pre-provisioned to the device, the device extracts the operator root certificate from the PKIMessage. The device authenticates the PKIMessage using the RA/CA certificate and installs the device certificate on success.
-
-			The device creates and signs the CertificateConfirm (certconf) message.
-
-			The device sends the PKIMessage that includes the signed CertificateConfirm to the RA/CA.
-
-			The RA/CA authenticates the PKI Message that includes the CertificateConfirm.
-
-			The RA/CA creates and signs a Confirmation message (pkiconf).
-
-			The RA/CA sends the signed PKIMessage including the pkiconf message to the device.
-
-			The device authenticates the pkiconf message.
-			zdroj - https://ejbca.3key.company/ejbca/doc/Using_CMP_with_3GPP.html
-     */
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpException {
-        // -- Proof-of-Possession validation
+        if(!ALLOWED_TYPES.contains(request.getBody().getType())) {
+            throw new CmpException(PKIFailureInfo.systemFailure, //system uses this handler bad way
+                        "CRMF message cannot be handled, wrong message body/type, type="+request.getBody().getType());
+        }
         new POPValidator(configuration)
                 .validate(request);
 
-        // -- PKIProtection, see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3
-        new ProtectionValidator(configuration)
-                .validate(request);
+        PKIMessage response = MockCaImpl
+                .handleCrmfCertificateRequest(request, configuration);
 
-        PKIMessage response = new MockCaImpl()
-                .handleCrmfCerticateRequest(request, configuration);//.getBody().getContent();
-        if(response != null) {
-            return response;
-        }
-        throw new CmpException(PKIFailureInfo.badDataFormat, ImplFailureInfo.TODO);
+        if(response != null) { return response; }
+        throw new CmpException(
+                PKIFailureInfo.systemFailure, "general problem while handling PKIMessage, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()));
     }
 
 

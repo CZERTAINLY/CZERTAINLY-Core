@@ -97,8 +97,8 @@ public class KeystoreService {
             }
             Certificate[] keystoreChain = keyStore.getCertificateChain(alias);
 
-            for (Certificate aktCert : keystoreChain) {
-                chainOfTrustedCerts.add((X509Certificate) aktCert);
+            for (Certificate cert : keystoreChain) {
+                chainOfTrustedCerts.add((X509Certificate) cert);
             }
             return Map.of((PrivateKey) privateKey/*privateKeyOfEndCertificate*/, chainOfTrustedCerts);
         }

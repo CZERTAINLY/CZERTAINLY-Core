@@ -2,14 +2,14 @@ package com.czertainly.core.api.cmp.error;
 
 /**
  * List of implementation error states - it helps to find quickly a purpose of problem
- *
+ * <p>
  * rules:
  *  1. DO NOT REUSE THEM - each error has own enum item
  *  2. MUST BE USED ONLY FOR ONE TIME - uniquest is clear, bug is quickly identifiable
  *  3. DO NOT BE LAZY - create own error codes every(time|where) you need it!
  *  4. FORMAT errorCode:
  *      0-2 chars CMP,
- *      3-5 shortcut for location (eg. Controller->CNT),
+ *      3-5 shortcut for location (e.g. Controller->CNT),
  *      6-8 number (from 001-999)
  */
 public enum ImplFailureInfo {
@@ -52,8 +52,8 @@ public enum ImplFailureInfo {
     // -- developer
     TODO(-999, "Only for developer purpose - inform czertainly admin")
     ;
-    private int errorCode;
-    private String errorDescription;
+    private final int errorCode;
+    private final String errorDescription;
 
     ImplFailureInfo(int errorCode, String errorDescrition) {
         this.errorCode = errorCode;

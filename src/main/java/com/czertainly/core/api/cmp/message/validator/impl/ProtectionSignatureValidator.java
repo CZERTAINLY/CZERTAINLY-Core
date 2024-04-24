@@ -1,11 +1,17 @@
-package com.czertainly.core.api.cmp.message.validator;
+package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
-import com.czertainly.core.api.cmp.util.BouncyCastleUtil;
-import com.czertainly.core.api.cmp.util.CertUtils;
+import com.czertainly.core.api.cmp.message.ConfigurationContext;
+import com.czertainly.core.api.cmp.message.PkiMessageDumper;
+import com.czertainly.core.api.cmp.message.validator.Validator;
+import com.czertainly.core.api.cmp.util.CryptoUtil;
+import com.czertainly.core.api.cmp.util.CertUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.security.KeyException;
 import java.security.NoSuchAlgorithmException;
@@ -28,6 +34,12 @@ import java.util.List;
  */
 class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ProtectionSignatureValidator.class.getName());
+
+    private final ConfigurationContext configuration;
+
+    public ProtectionSignatureValidator(ConfigurationContext configuration){ this.configuration=configuration; }
+
     /**
      * Signature-base protection implementation assumes:
      *  <ul>
@@ -46,18 +58,26 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
      */
     @Override
     public Void validate(PKIMessage message) throws CmpException {
+        ConfigurationContext.ProtectionType typeOfProtection = configuration.getProtectionType();
+        if(ConfigurationContext.ProtectionType.SHARED_SECRET.equals(typeOfProtection)) {
+            throw new CmpException(PKIFailureInfo.systemFailure, "wrong configuration: SHARED SECRET is not configured");
+        }
+
+        ASN1OctetString tid = message.getHeader().getTransactionID();
+        String msgType = PkiMessageDumper.msgTypeAsString(message.getBody().getType());
         CMPCertificate[] extraCerts = message.getExtraCerts();
         if (extraCerts == null || extraCerts.length == 0 || extraCerts[0] == null) {
+            LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getName());
             throw new CmpException(PKIFailureInfo.addInfoNotAvailable,
                     ImplFailureInfo.CRYPTOSIG541);
         }
 
         try {
-            List<X509Certificate> extraCertsAsX509 = CertUtils.toX509Certificates(extraCerts);
+            List<X509Certificate> extraCertsAsX509 = CertUtil.toX509Certificates(extraCerts);
             PKIHeader header = message.getHeader();
             byte[] protectedBytes = new ProtectedPart(header, message.getBody()).getEncoded(ASN1Encoding.DER);
             byte[] protectionBytes = message.getProtection().getBytes();
-            Signature signature = Signature.getInstance(header.getProtectionAlg().getAlgorithm().getId(), BouncyCastleUtil.getBouncyCastleProvider());
+            Signature signature = Signature.getInstance(header.getProtectionAlg().getAlgorithm().getId(), CryptoUtil.getBouncyCastleProvider());
             signature.initVerify(extraCertsAsX509.get(0).getPublicKey());
             signature.update(protectedBytes);
             if (!signature.verify(protectionBytes, 0, protectionBytes.length)) {

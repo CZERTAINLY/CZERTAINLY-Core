@@ -1,14 +1,20 @@
-package com.czertainly.core.api.cmp.message.validator;
+package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
+import com.czertainly.core.api.cmp.message.PkiMessageDumper;
+import com.czertainly.core.api.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.ASN1BitString;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.CMPObjectIdentifiers;
+import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * <pre>[1]
@@ -44,30 +50,43 @@ import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
  */
 public class ProtectionValidator implements Validator<PKIMessage, Void> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ProtectionValidator.class.getName());
+
     private final ConfigurationContext configuration;
 
-    public ProtectionValidator(ConfigurationContext configuration){
+    public ProtectionValidator(ConfigurationContext configuration) {
         this.configuration = configuration;
     }
     
     @Override
     public Void validate(PKIMessage message) throws CmpException {
-        final ASN1BitString protection = message.getProtection();
+        ASN1BitString protection = message.getProtection();
+        ASN1OctetString tid = message.getHeader().getTransactionID();
+
         if (protection == null) {
-            throw new CmpException(PKIFailureInfo.notAuthorized,
-                    ImplFailureInfo.CRYPTOPRO530);
+            switch (message.getBody().getType()) {
+                case PKIBody.TYPE_ERROR:
+                case PKIBody.TYPE_CONFIRM:
+                case PKIBody.TYPE_REVOCATION_REP:
+                    LOG.warn("TID={} | ignore protection for type={}", tid, PkiMessageDumper.msgTypeAsString(message.getBody()));
+                    return null;
+                default:
+                    throw new CmpException(PKIFailureInfo.notAuthorized,
+                            ImplFailureInfo.CRYPTOPRO530);
+            }
         }
+
         final AlgorithmIdentifier protectionAlg = message.getHeader().getProtectionAlg();
         if (protectionAlg == null) {
             throw new CmpException(PKIFailureInfo.notAuthorized,
                     ImplFailureInfo.CRYPTOPRO531);
         }
         if (CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())) {
-            //todo tocecz - password based mac validator
+            new ProtectionMacValidator(configuration).validate(message);
         } else if (PKCSObjectIdentifiers.id_PBMAC1.equals(protectionAlg.getAlgorithm())) {
-            //todo tocecz - add id_PBMAC1 validator
+            new ProtectionPBMac1Validator(configuration).validate(message);
         } else {
-            new ProtectionSignatureValidator().validate(message);
+            new ProtectionSignatureValidator(configuration).validate(message);
         }
         return null;
     }

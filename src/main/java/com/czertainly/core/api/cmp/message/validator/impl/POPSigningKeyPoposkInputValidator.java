@@ -1,6 +1,8 @@
-package com.czertainly.core.api.cmp.message.validator;
+package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.message.validator.Validator;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 
 /**
@@ -79,9 +81,9 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
  *    the general name field in the certificate request or 2) either the
  *    regToken (see section 6.1) or authToken (see section 6.2) controls.</p>
  */
-public class POPSigningKeyPoposkInputValidator implements Validator<PKIMessage, Void> {
+class POPSigningKeyPoposkInputValidator implements Validator<PKIMessage, Void> {
     @Override
     public Void validate(PKIMessage subject) throws CmpException {
-        return null;
+        throw new CmpException(PKIFailureInfo.systemFailure, "not implemented yet");//TODO tocecz, check 3gpp spec
     }
 }

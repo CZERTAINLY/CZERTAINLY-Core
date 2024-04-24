@@ -1,5 +1,6 @@
 package com.czertainly.core.api.cmp.message.protection;
 
+import com.czertainly.core.api.cmp.error.CmpException;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
@@ -58,12 +59,12 @@ public interface ProtectionStrategy {
     DEROctetString getSenderKID();
 
     /**
-     * get protection algorithm
      * @return protection algorithm
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.2">Algorithm Use Profile</a>
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc9481.html">Certificate Management Protocol (CMP) Algorithms</a>
      */
-    AlgorithmIdentifier getProtectionAlg();
+    AlgorithmIdentifier getProtectionAlg() throws CmpException;
 
     /**
      * create {@link PKIMessage} protection string using {@link ProtectedPart}
