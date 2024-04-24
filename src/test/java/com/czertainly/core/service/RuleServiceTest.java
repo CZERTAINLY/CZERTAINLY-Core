@@ -73,7 +73,7 @@ public class RuleServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> ruleService.createConditionGroup(conditionGroupRequestDto));
 
         conditionGroupRequestDto.setConditions(List.of(conditionRequestDto));
-        RuleConditionGroupDetailDto conditionGroupDetailDto = ruleService.createConditionGroup(conditionGroupRequestDto);
+        RuleConditionGroupDto conditionGroupDetailDto = ruleService.createConditionGroup(conditionGroupRequestDto);
         Assertions.assertNotNull(conditionGroupDetailDto);
 
         UpdateRuleConditionGroupRequestDto updateConditionGroupRequestDto = new UpdateRuleConditionGroupRequestDto();
@@ -124,7 +124,7 @@ public class RuleServiceTest extends BaseSpringBootTest {
         actionGroupRequestDto.setResource(Resource.CERTIFICATE);
         Assertions.assertThrows(ValidationException.class, () -> ruleService.createActionGroup(actionGroupRequestDto));
         actionGroupRequestDto.setActions(List.of(actionRequestDto));
-        RuleActionGroupDetailDto actionGroupDetailDto = ruleService.createActionGroup(actionGroupRequestDto);
+        RuleActionGroupDto actionGroupDetailDto = ruleService.createActionGroup(actionGroupRequestDto);
         Assertions.assertNotNull(actionGroupDetailDto);
 
         UpdateRuleActionGroupRequestDto updateActionGroupRequestDto = new UpdateRuleActionGroupRequestDto();
