@@ -8,6 +8,7 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -250,6 +251,7 @@ public interface CertificateService extends ResourceExtensionService  {
     /**
      * Create certificate request entity and certificate in status New, store it in the database ready for issuing
      * @param csr - PKCS10 certificate request to be added
+     * @param csrFormat - format of the certificate request
      * @param signatureAttributes signatureAttributes used to sign the CSR. If the CSR is uploaded from the User
      *                            this parameter should be left empty
      * @param csrAttributes Attributes used to create CSR
@@ -259,7 +261,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param sourceCertificateUuid UUID of the source certificate specified in case of renew/rekey operation
      * return Certificate detail DTO
      */
-    CertificateDetailDto submitCertificateRequest(String csr, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid) throws NoSuchAlgorithmException, InvalidKeyException, IOException, ConnectorException, AttributeException;
+    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid) throws NoSuchAlgorithmException, InvalidKeyException, IOException, ConnectorException, AttributeException;
 
     /**
      * Function to change the Certificate Entity from CSR to Certificate

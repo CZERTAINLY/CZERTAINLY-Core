@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.model.request.CertificateRequest;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
@@ -374,26 +375,26 @@ public class CertificateUtil {
     }
 
 
-    public static void prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
-        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubject()));
-        if (certificate.getPublicKey() == null) {
+    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) {
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificateRequest.getSubject()));
+        if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
-                            "Invalid Certificate. Public Key is missing"
+                            "Invalid public key in certificate request"
                     )
             );
         }
         try {
-            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificate.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
+            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificateRequest.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
-            logger.error("Failed to calculate the thumbprint of the certificate");
+            logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
         }
 
-        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()));
+        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
         DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
-        modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificate.getSignatureAlgorithm()).replace("WITH", "with"));
-        modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
-        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(getSAN(certificate)));
+        modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
+        modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
+        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(certificateRequest.getSubjectAlternativeNames()));
     }
 
     private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {

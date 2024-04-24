@@ -3,7 +3,6 @@ package com.czertainly.core.service.scep.impl;
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -39,7 +38,7 @@ import com.czertainly.core.service.scep.message.ScepResponse;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.CsrUtil;
+import com.czertainly.core.util.CertificateRequestUtils;
 import com.czertainly.core.util.RandomUtil;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
@@ -744,7 +743,7 @@ public class ScepServiceImpl implements ScepService {
         try {
             client.ValidateRequest(
                     scepRequest.getTransactionId(),
-                    CsrUtil.byteArrayCsrToString(scepRequest.getPkcs10Request().getEncoded())
+                    CertificateRequestUtils.byteArrayCsrToString(scepRequest.getPkcs10Request().getEncoded())
             );
         } catch (Exception e) {
             throw new ScepException("Validation failed for Intune request.", e, FailInfo.BAD_REQUEST);
@@ -765,7 +764,7 @@ public class ScepServiceImpl implements ScepService {
             String sha1Thumbprint = CertificateUtil.getSha1Thumbprint(certificate.getEncoded());
             client.SendSuccessNotification(
                     request.getTransactionId(),
-                    CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
+                    CertificateRequestUtils.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
                     sha1Thumbprint,
                     serialNumber,
                     expiryDate,
@@ -783,7 +782,7 @@ public class ScepServiceImpl implements ScepService {
             try {
                 client.SendFailureNotification(
                         request.getTransactionId(),
-                        CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
+                        CertificateRequestUtils.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
                         errorCode,
                         error
                 );

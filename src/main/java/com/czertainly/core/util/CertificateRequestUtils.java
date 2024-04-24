@@ -2,7 +2,11 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.attribute.CsrAttributes;
+import com.czertainly.core.model.request.CertificateRequest;
+import com.czertainly.core.model.request.CrmfCertificateRequest;
+import com.czertainly.core.model.request.Pkcs10CertificateRequest;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
@@ -19,8 +23,8 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.List;
 
-public class CsrUtil {
-    private static final Logger logger = LoggerFactory.getLogger(CsrUtil.class);
+public class CertificateRequestUtils {
+    private static final Logger logger = LoggerFactory.getLogger(CertificateRequestUtils.class);
 
     public static JcaPKCS10CertificationRequest csrStringToJcaObject(String csr) throws IOException {
         csr = normalizeCsrContent(csr);
@@ -139,6 +143,18 @@ public class CsrUtil {
                 .replace("\r", "").replace("\n", "")
                 .replace("-----END NEW CERTIFICATE REQUEST-----", "");
         return csr;
+    }
+
+    public static CertificateRequest createCertificateRequest(byte[] certificateRequest, CertificateRequestFormat format) {
+        switch (format) {
+            case PKCS10 -> {
+                return new Pkcs10CertificateRequest(certificateRequest);
+            }
+            case CRMF -> {
+                return new CrmfCertificateRequest(certificateRequest);
+            }
+            default -> throw new IllegalArgumentException("Unsupported certificate request format: " + format);
+        }
     }
 
 }

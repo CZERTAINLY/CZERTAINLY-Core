@@ -534,7 +534,7 @@ public class AcmeServiceImpl implements AcmeService {
         try {
             p10Object = new JcaPKCS10CertificationRequest(Base64.getUrlDecoder().decode(request.getCsr()));
             validateCSR(p10Object, order);
-            decodedCsr = CsrUtil.normalizeCsrContent(JcaPKCS10CertificationRequestToString(p10Object));
+            decodedCsr = CertificateRequestUtils.normalizeCsrContent(JcaPKCS10CertificationRequestToString(p10Object));
         } catch (IOException e) {
             logger.error(e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_CSR);
