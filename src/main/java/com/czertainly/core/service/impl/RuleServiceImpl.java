@@ -338,7 +338,7 @@ public class RuleServiceImpl implements RuleService {
         List<RuleAction> actions = createActions(request.getActions(), trigger, null);
 
         // If there is IGNORE action in actions, do not create any action groups, since it is supposed to be the only action in the trigger
-        if (actions.stream().noneMatch(action -> action.getActionType() == RuleActionType.IGNORE) && !request.getActionGroupsUuids().isEmpty())
+        if (actions.stream().anyMatch(action -> action.getActionType() == RuleActionType.IGNORE) && !request.getActionGroupsUuids().isEmpty())
             throw new ValidationException("Trigger has action of Ignore type, cannot create action groups for such trigger.");
         List<RuleActionGroup> actionGroups = new ArrayList<>();
         for (String actionGroupUuid : request.getActionGroupsUuids()) {
@@ -403,7 +403,7 @@ public class RuleServiceImpl implements RuleService {
 
         List<RuleAction> actions = createActions(request.getActions(), trigger, null);
         // If there is IGNORE action in actions, do not create any action groups, since it is supposed to be the only action in the trigger
-        if (actions.stream().noneMatch(action -> action.getActionType() == RuleActionType.IGNORE) && !request.getActionGroupsUuids().isEmpty())
+        if (actions.stream().anyMatch(action -> action.getActionType() == RuleActionType.IGNORE) && !request.getActionGroupsUuids().isEmpty())
             throw new ValidationException("Trigger has action of Ignore type, cannot create action groups for such trigger.");
         List<RuleActionGroup> actionGroups = new ArrayList<>();
 
