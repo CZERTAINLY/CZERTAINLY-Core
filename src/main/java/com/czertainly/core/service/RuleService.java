@@ -16,15 +16,15 @@ public interface RuleService {
     void deleteRule(String ruleUuid) throws NotFoundException;
 
     List<RuleConditionGroupDto> listConditionGroups(Resource resource);
-    RuleConditionGroupDetailDto createConditionGroup(RuleConditionGroupRequestDto request);
-    RuleConditionGroupDetailDto getConditionGroup(String conditionGroupUuid) throws NotFoundException;
-    RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException;
+    RuleConditionGroupDto createConditionGroup(RuleConditionGroupRequestDto request);
+    RuleConditionGroupDto getConditionGroup(String conditionGroupUuid) throws NotFoundException;
+    RuleConditionGroupDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException;
     void deleteConditionGroup(String conditionGroupUuid) throws NotFoundException;
 
     List<RuleActionGroupDto> listActionGroups(Resource resource);
-    RuleActionGroupDetailDto createActionGroup(RuleActionGroupRequestDto request);
-    RuleActionGroupDetailDto getActionGroup(String actionGroupUuid) throws NotFoundException;
-    RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException;
+    RuleActionGroupDto createActionGroup(RuleActionGroupRequestDto request);
+    RuleActionGroupDto getActionGroup(String actionGroupUuid) throws NotFoundException;
+    RuleActionGroupDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException;
     void deleteActionGroup(String actionGroupUuid) throws NotFoundException;
 
     List<RuleTriggerDto> listTriggers(Resource resource, Resource triggerResource);
