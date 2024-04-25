@@ -17,6 +17,7 @@ import com.czertainly.core.model.request.CertificateRequest;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
+import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
@@ -32,6 +33,7 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
@@ -185,18 +187,25 @@ public class CertificateUtil {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> getSAN(JcaPKCS10CertificationRequest csr) {
+    public static Map<String, Object> getSAN(JcaPKCS10CertificationRequest csr, CertTemplate certTemplate) {
         Map<String, Object> sans = buildEmptySans();
 
         GeneralNames gns = null;
-        Attribute[] certAttributes = csr.getAttributes();
-        for (Attribute attribute : certAttributes) {
-            if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
-                Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
-                gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
-                break;
+
+        if (csr != null) {
+            Attribute[] certAttributes = csr.getAttributes();
+            for (Attribute attribute : certAttributes) {
+                if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
+                    Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
+                    gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+                    break;
+                }
             }
+        } else if (certTemplate != null) {
+            Extensions extensions = Extensions.getInstance(certTemplate.getExtensions());
+            gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
         }
+
 
         if (gns == null) {
             return sans;
@@ -375,7 +384,7 @@ public class CertificateUtil {
     }
 
 
-    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) {
+    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, InvalidKeyException, PEMException {
         setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificateRequest.getSubject()));
         if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(

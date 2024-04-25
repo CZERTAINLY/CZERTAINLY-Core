@@ -145,7 +145,7 @@ public class CertificateRequestUtils {
         return csr;
     }
 
-    public static CertificateRequest createCertificateRequest(byte[] certificateRequest, CertificateRequestFormat format) {
+    public static CertificateRequest createCertificateRequest(byte[] certificateRequest, CertificateRequestFormat format) throws IOException {
         switch (format) {
             case PKCS10 -> {
                 return new Pkcs10CertificateRequest(certificateRequest);
