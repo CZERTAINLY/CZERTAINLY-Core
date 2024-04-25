@@ -41,6 +41,7 @@ public class RuleConditionGroup extends UniquelyIdentified {
         ruleConditionGroupDto.setName(name);
         ruleConditionGroupDto.setDescription(description);
         ruleConditionGroupDto.setResource(resource);
+        if (conditions != null) ruleConditionGroupDto.setConditions(conditions.stream().map(RuleCondition::mapToDto).toList());
         return ruleConditionGroupDto;
     }
 

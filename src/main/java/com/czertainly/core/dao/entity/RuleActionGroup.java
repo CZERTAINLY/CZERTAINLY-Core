@@ -41,6 +41,7 @@ public class RuleActionGroup extends UniquelyIdentified {
         ruleActionGroupDto.setName(name);
         ruleActionGroupDto.setDescription(description);
         ruleActionGroupDto.setResource(resource);
+        if (actions != null) ruleActionGroupDto.setActions(actions.stream().map(RuleAction::mapToDto).toList());
         return ruleActionGroupDto;
     }
 
