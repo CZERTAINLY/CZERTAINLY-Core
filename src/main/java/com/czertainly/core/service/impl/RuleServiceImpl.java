@@ -95,8 +95,11 @@ public class RuleServiceImpl implements RuleService {
 
         for (String conditionGroupUuid : request.getConditionGroupsUuids()) {
             Optional<RuleConditionGroup> ruleConditionGroup = conditionGroupRepository.findByUuid(SecuredUUID.fromString(conditionGroupUuid));
-            if (ruleConditionGroup.isPresent() && ruleConditionGroup.get().getResource() == request.getResource())
+            if (ruleConditionGroup.isPresent() && ruleConditionGroup.get().getResource() == request.getResource()) {
                 ruleConditionGroups.add(ruleConditionGroup.get());
+            } else {
+                throw new ValidationException("Condition group with UUID " + conditionGroupUuid + " is either not present or resource of the group does not match rule resource.");
+            }
         }
 
         rule.setConditions(createConditions(request.getConditions(), rule, null));
@@ -135,8 +138,11 @@ public class RuleServiceImpl implements RuleService {
 
         for (String conditionGroupUuid : request.getConditionGroupsUuids()) {
             Optional<RuleConditionGroup> ruleConditionGroup = conditionGroupRepository.findByUuid(SecuredUUID.fromString(conditionGroupUuid));
-            if (ruleConditionGroup.isPresent() && ruleConditionGroup.get().getResource() == rule.getResource())
+            if (ruleConditionGroup.isPresent() && ruleConditionGroup.get().getResource() == rule.getResource()) {
                 ruleConditionGroups.add(ruleConditionGroup.get());
+            } else {
+                throw new ValidationException("Condition group with UUID " + conditionGroupUuid + " is either not present or resource of the group does not match rule resource.");
+            }
         }
 
         conditionRepository.deleteAll(rule.getConditions());
@@ -322,23 +328,29 @@ public class RuleServiceImpl implements RuleService {
 
         for (String ruleUuid : request.getRulesUuids()) {
             Optional<Rule> rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid));
-            if (rule.isPresent() && rule.get().getResource() == request.getResource()) rules.add(rule.get());
+            if (rule.isPresent() && rule.get().getResource() == request.getResource()) {
+                rules.add(rule.get());
+            } else {
+                throw new ValidationException("Rule with UUID " + ruleUuid + " is either not present or resource of the rule does not match trigger resource.");
+            }
         }
 
         List<RuleAction> actions = createActions(request.getActions(), trigger, null);
 
         // If there is IGNORE action in actions, do not create any action groups, since it is supposed to be the only action in the trigger
-        if (actions.stream().noneMatch(action -> action.getActionType() == RuleActionType.IGNORE)) {
-            List<RuleActionGroup> actionGroups = new ArrayList<>();
-            for (String actionGroupUuid : request.getActionGroupsUuids()) {
-                Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
-                if (actionGroup.isPresent() && actionGroup.get().getResource() == request.getResource())
-                    actionGroups.add(actionGroup.get());
+        if (actions.stream().noneMatch(action -> action.getActionType() == RuleActionType.IGNORE) && !request.getActionGroupsUuids().isEmpty())
+            throw new ValidationException("Trigger has action of Ignore type, cannot create action groups for such trigger.");
+        List<RuleActionGroup> actionGroups = new ArrayList<>();
+        for (String actionGroupUuid : request.getActionGroupsUuids()) {
+            Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
+            if (actionGroup.isPresent() && actionGroup.get().getResource() == request.getResource()) {
+                actionGroups.add(actionGroup.get());
+            } else {
+                throw new ValidationException("Action group with UUID " + actionGroupUuid + " is either not present or resource of the group does not match trigger resource.");
             }
-            trigger.setActionGroups(actionGroups);
         }
 
-
+        trigger.setActionGroups(actionGroups);
         trigger.setName(request.getName());
         trigger.setDescription(request.getDescription());
         trigger.setResource(request.getResource());
@@ -382,26 +394,31 @@ public class RuleServiceImpl implements RuleService {
 
         for (String ruleUuid : request.getRulesUuids()) {
             Optional<Rule> rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid));
-            if (rule.isPresent() && rule.get().getResource() == trigger.getResource()) rules.add(rule.get());
+            if (rule.isPresent() && rule.get().getResource() == trigger.getResource()) {
+                rules.add(rule.get());
+            } else {
+                throw new ValidationException("Rule with UUID " + ruleUuid + " is either not present or resource of the rule does not match trigger resource.");
+            }
         }
 
         List<RuleAction> actions = createActions(request.getActions(), trigger, null);
         // If there is IGNORE action in actions, do not create any action groups, since it is supposed to be the only action in the trigger
-        if (actions.stream().noneMatch(action -> action.getActionType() == RuleActionType.IGNORE)) {
-            List<RuleActionGroup> actionGroups = new ArrayList<>();
+        if (actions.stream().noneMatch(action -> action.getActionType() == RuleActionType.IGNORE) && !request.getActionGroupsUuids().isEmpty())
+            throw new ValidationException("Trigger has action of Ignore type, cannot create action groups for such trigger.");
+        List<RuleActionGroup> actionGroups = new ArrayList<>();
 
-            for (String actionGroupUuid : request.getActionGroupsUuids()) {
-                Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
-                if (actionGroup.isPresent() && actionGroup.get().getResource() == trigger.getResource())
-                    actionGroups.add(actionGroup.get());
+        for (String actionGroupUuid : request.getActionGroupsUuids()) {
+            Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
+            if (actionGroup.isPresent() && actionGroup.get().getResource() == trigger.getResource()) {
+                actionGroups.add(actionGroup.get());
+            } else {
+                throw new ValidationException("Action group with UUID " + actionGroupUuid + " is either not present or resource of the group does not match trigger resource.");
             }
-            trigger.setActionGroups(actionGroups);
         }
 
-
+        trigger.setActionGroups(actionGroups);
         trigger.setRules(rules);
         trigger.setActions(actions);
-
         trigger.setDescription(request.getDescription());
         trigger.setTriggerResource(request.getTriggerResource());
         trigger.setTriggerType(request.getTriggerType());
@@ -420,7 +437,7 @@ public class RuleServiceImpl implements RuleService {
         List<RuleCondition> conditions = new ArrayList<>();
         for (RuleConditionRequestDto conditionRequestDto : conditionRequestDtos) {
             if (conditionRequestDto.getFieldSource() == null || conditionRequestDto.getFieldIdentifier() == null || conditionRequestDto.getOperator() == null)
-                continue;
+                throw new ValidationException("Missing field source, field identifier or operator in a condition.");
             RuleCondition condition = new RuleCondition();
             if (rule != null) {
                 condition.setRule(rule);
@@ -440,7 +457,11 @@ public class RuleServiceImpl implements RuleService {
     private List<RuleAction> createActions(List<RuleActionRequestDto> actionRequestDtos, RuleTrigger trigger, RuleActionGroup actionGroup) {
         List<RuleAction> actions = new ArrayList<>();
         for (RuleActionRequestDto actionRequestDto : actionRequestDtos) {
-            if (actionRequestDto.getActionType() == null) continue;
+            if (actionRequestDto.getActionType() == null)
+                throw new ValidationException("Missing action type in an action.");
+            // If the Action Type is Ignore, it must be the only action in the list
+            if (actionRequestDto.getActionType() == RuleActionType.IGNORE && !actionRequestDtos.isEmpty())
+                throw new ValidationException("Actions contain action with Action Type Ignore, it must be the only action in the list.");
             RuleAction action = new RuleAction();
             if (trigger != null) {
                 action.setRuleTrigger(trigger);
@@ -452,8 +473,7 @@ public class RuleServiceImpl implements RuleService {
             action.setFieldIdentifier(actionRequestDto.getFieldIdentifier());
             action.setActionData(actionRequestDto.getActionData());
             actionRepository.save(action);
-            // If the Action Type is Ignore, it must be the only action in the list
-            if (action.getActionType() == RuleActionType.IGNORE) return List.of(action);
+
             actions.add(action);
         }
         return actions;
