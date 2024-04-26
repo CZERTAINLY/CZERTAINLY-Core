@@ -1,10 +1,10 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
 import com.czertainly.core.api.cmp.message.validator.Validator;
-import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.cmp.*;
@@ -47,16 +47,16 @@ public class BodyValidator implements Validator<PKIMessage, Void> {
                 case PKIBody.TYPE_GEN_MSG:
                 case PKIBody.TYPE_GEN_REP:
                 case PKIBody.TYPE_NESTED:
-                    throw new CmpException(PKIFailureInfo.badDataFormat,
+                    throw new CmpProcessingException(PKIFailureInfo.badDataFormat,
                             "body validator: "+PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not implemented");
                 default:
-                    throw new CmpException(PKIFailureInfo.badDataFormat,
+                    throw new CmpProcessingException(PKIFailureInfo.badDataFormat,
                             "body validator: "+PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not supported");
             }
-        } catch (CmpException ex) {
+        } catch (CmpProcessingException ex) {
             throw ex;
         } catch (Throwable thr) {
-            throw new CmpException(PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
                     "body validator: internal error - " + thr.getLocalizedMessage());
         }
         return null;

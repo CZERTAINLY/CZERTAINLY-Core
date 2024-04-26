@@ -1,82 +1,58 @@
 package com.czertainly.core.api.cmp.error;
 
-import com.czertainly.core.api.cmp.CmpController;
-import com.czertainly.core.api.cmp.message.builder.PkiMessageError;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Exception for error handling for cmp failure scenarios.
- * <p>
- * citation (from rfc4210):
- *      This message MAY be generated at any time during a PKI transaction.
- *
- * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.21">...</a>
- */
-public class CmpException extends BaseException {
+public class CmpException extends Exception {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CmpController.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(CmpException.class.getName());
 
-    protected int failureInfo;
-    protected ImplFailureInfo implFailureInfo;
+    protected final int failureInfo;
+    protected final String errorDetails;
 
-    /**
-     * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
-     * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
-     */
-    public CmpException(int failureInfo, ImplFailureInfo implFailureInfo) {
-        this(failureInfo,implFailureInfo, null);
+    protected CmpException(Exception ex) {
+        super(ex);
+        if (ex instanceof CmpException) {
+            this.failureInfo = ((CmpException) ex).failureInfo;
+            this.errorDetails = ((CmpException) ex).errorDetails;
+        } else {
+            this.failureInfo = PKIFailureInfo.systemFailure;
+            this.errorDetails = ex.getLocalizedMessage();
+            LOG.error("exception at: ", ex);
+        }
     }
 
     /**
-     * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
-     * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
-     * @param ex failure reason
+     * @param failureInfo   cmp failureInfo for CMP error message
+     * @param errorDetails  description of details related to the error
+     * @param ex            the underlying exception
      */
-    public CmpException(PKIFailureInfo failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
-        this(failureInfo.intValue(),implFailureInfo, ex);
-    }
-
-    /**
-     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
-     * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
-     * @param ex failure reason
-     */
-    public CmpException(int failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
-        super(failureInfo, implFailureInfo.name() + "("+implFailureInfo.getCode()+"): "+ implFailureInfo.getDescription(), ex);
-        this.failureInfo = failureInfo;
-        this.implFailureInfo = implFailureInfo;
-    }
-
-    /**
-     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
-     * @param errorDetails string description of error
-     */
-    public CmpException(int failureInfo, String errorDetails) {
-        super(failureInfo,errorDetails, null);
-    }
-
-    /**
-     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
-     * @param errorDetails string description of error
-     * @param ex failure reason
-     */
-    public CmpException(int failureInfo, String errorDetails, Exception ex) {
-        super(failureInfo,errorDetails, ex);
+    protected CmpException(int failureInfo, String errorDetails, Throwable ex) {
+        super(ex == null || ex.getMessage() == null ? errorDetails : ex.getMessage(),
+                ex == null || ex.getCause() == null ? ex : ex.getCause());
+        if (ex instanceof CmpException) {
+            this.failureInfo = ((CmpException) ex).failureInfo;
+            this.errorDetails = ((CmpException) ex).errorDetails;
+            LOG.error("exception at: {}", errorDetails, ex);
+        } else {
+            this.failureInfo = failureInfo;
+            this.errorDetails = errorDetails;
+            if (ex != null) {
+                LOG.error("exception at: ", ex);
+            } else {
+                LOG.error("error at: {}", errorDetails);
+            }
+        }
     }
 
     /**
      * @return help to build {@link PKIBody} for response flow
      */
-    public PKIBody toPKIBody() {
-        if(implFailureInfo != null) {
-            return PkiMessageError.generateBody(failureInfo, implFailureInfo);
-        }
-        return PkiMessageError.generateBody(failureInfo, errorDetails);
-    }
+    public PKIBody toPKIBody() { return PkiMessageError.generateBody(failureInfo, errorDetails); }
 
     @Override
-    public String toString() { return "CmpException [failInfo=" + failureInfo + ", implFailureInfo=" + implFailureInfo + "]"; }
+    public String toString() { return "CmpException [failureInfo=" + failureInfo + ", errorDetails=" + errorDetails + "]"; }
+
 }

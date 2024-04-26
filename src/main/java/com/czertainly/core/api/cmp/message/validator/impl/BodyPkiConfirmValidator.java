@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.cmp.PKIBody;

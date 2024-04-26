@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
@@ -71,15 +72,15 @@ public class ProtectionValidator implements Validator<PKIMessage, Void> {
                     LOG.warn("TID={} | ignore protection for type={}", tid, PkiMessageDumper.msgTypeAsString(message.getBody()));
                     return null;
                 default:
-                    throw new CmpException(PKIFailureInfo.notAuthorized,
-                            ImplFailureInfo.CRYPTOPRO530);
+                    throw new CmpProcessingException(PKIFailureInfo.notAuthorized,
+                            ImplFailureInfo.CMPVALPRO530);
             }
         }
 
         final AlgorithmIdentifier protectionAlg = message.getHeader().getProtectionAlg();
         if (protectionAlg == null) {
-            throw new CmpException(PKIFailureInfo.notAuthorized,
-                    ImplFailureInfo.CRYPTOPRO531);
+            throw new CmpProcessingException(PKIFailureInfo.notAuthorized,
+                    ImplFailureInfo.CMPVALPRO531);
         }
         if (CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())) {
             new ProtectionMacValidator(configuration).validate(message);

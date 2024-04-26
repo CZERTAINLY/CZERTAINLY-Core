@@ -81,12 +81,75 @@ public class PkiMessageDumper {
     }
 
     /**
+     * @param msg source of data for log prefix
+     * @param profileName next data for log prefix
+     * @return short version of pki message (type, tid, profileName)
+     */
+    public static final String logPrefix(PKIMessage msg, String profileName) {
+        return String.format("%s TID=%s, PN=%s",
+                PkiMessageDumper.msgTypeAsShortCut(true, msg),
+                msg.getHeader().getTransactionID(),
+                profileName);
+    }
+
+    /**
+     * @param msg whose type is translated into shortcut, e.g. InitialRequest->ir
+     * @return shortcut of given {@link PKIBody#getType()}
+     *
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI Body overview</a>
+     */
+    public static final String msgTypeAsShortCut(boolean showIndex, PKIMessage msg) {
+        String format = showIndex ? "(%s:%s)" : "(%s)";
+        int type = msg.getBody().getType();
+        switch(type){
+            case PKIBody.TYPE_INIT_REQ ->          {return String.format(format, "ir",      type/* 0*/ );}
+            case PKIBody.TYPE_INIT_REP ->          {return String.format(format, "ip",      type/* 1*/ );}
+            case PKIBody.TYPE_CERT_REQ ->          {return String.format(format, "cr",      type/* 2*/ );}
+            case PKIBody.TYPE_CERT_REP ->          {return String.format(format, "ip",      type/* 3*/ );}
+            case PKIBody.TYPE_P10_CERT_REQ ->      {return String.format(format, "p10cr",   type/* 4*/ );}
+            case PKIBody.TYPE_POPO_CHALL ->        {return String.format(format, "popdecc", type/* 5*/ );}
+            case PKIBody.TYPE_POPO_REP ->          {return String.format(format, "popdecr", type/* 6*/ );}
+            case PKIBody.TYPE_KEY_UPDATE_REQ ->    {return String.format(format, "kur",     type/* 7*/ );}
+            case PKIBody.TYPE_KEY_UPDATE_REP ->    {return String.format(format, "kup",     type/* 8*/ );}
+            case PKIBody.TYPE_KEY_RECOVERY_REQ ->  {return String.format(format, "krr",     type/* 9*/ );}
+            case PKIBody.TYPE_KEY_RECOVERY_REP ->  {return String.format(format, "krp",     type/*10*/ );}
+            case PKIBody.TYPE_REVOCATION_REQ ->    {return String.format(format, "rr",      type/*11*/ );}
+            case PKIBody.TYPE_REVOCATION_REP ->    {return String.format(format, "rp",      type/*12*/ );}
+            case PKIBody.TYPE_CROSS_CERT_REQ ->    {return String.format(format, "ccr",     type/*13*/ );}
+            case PKIBody.TYPE_CROSS_CERT_REP ->    {return String.format(format, "ccp",     type/*14*/ );}
+            case PKIBody.TYPE_CA_KEY_UPDATE_ANN -> {return String.format(format, "ckuann",  type/*15*/ );}
+            case PKIBody.TYPE_CERT_ANN ->          {return String.format(format, "cann",    type/*16*/ );}
+            case PKIBody.TYPE_REVOCATION_ANN ->    {return String.format(format, "rann",    type/*17*/ );}
+            case PKIBody.TYPE_CRL_ANN ->           {return String.format(format, "crlann",  type/*18*/ );}
+            case PKIBody.TYPE_CONFIRM ->           {return String.format(format, "pkiconf", type/*19*/ );}
+            case PKIBody.TYPE_NESTED ->            {return String.format(format, "nested",  type/*20*/ );}
+            case PKIBody.TYPE_GEN_MSG ->           {return String.format(format, "genm",    type/*21*/ );}
+            case PKIBody.TYPE_GEN_REP ->           {return String.format(format, "genp",    type/*22*/ );}
+            case PKIBody.TYPE_ERROR ->             {return String.format(format, "error",   type/*23*/ );}
+            case PKIBody.TYPE_CERT_CONFIRM ->      {return String.format(format, "certConf",type/*24*/ );}
+            case PKIBody.TYPE_POLL_REQ ->          {return String.format(format, "pollReq", type/*25*/ );}
+            case PKIBody.TYPE_POLL_REP ->          {return String.format(format, "pollRep", type/*26*/ );}
+        }
+        return "<uknown-type>";
+    }
+
+    /**
+     * @param verbose if true (=long version) otherwise short version of {@link PKIMessage}
+     * @param msg message for dump
+     * @return return log version (short/long by given <code>verbose</code> flag) of {@link PKIMessage}
+     */
+    public static final String dumpPkiMessage(boolean verbose, PKIMessage msg){
+        if(verbose) return dumpPkiMessage(msg);
+        return " [" + msg.getHeader().getSender() + " => " + msg.getHeader().getRecipient() + "]";
+    }
+
+    /**
      * Dump PKI message to a string.
      *
      * @param msg PKI message to be dumped
      * @return string representation of the PKI message
      */
-    public static String dumpPkiMessage(final PKIMessage msg) {
+    public static String dumpPkiMessage(PKIMessage msg) {
         if (msg == null) {
             return "<null>";
         }
@@ -301,7 +364,9 @@ public class PkiMessageDumper {
             ret.deleteCharAt(ret.length() - 1);
             ret.append("):<null>\n");
         }
-    }    public static class OidDescription {
+    }
+
+    public static class OidDescription {
         private final String id;
         private final String declaringPackage;
         private final ASN1ObjectIdentifier oid;
@@ -361,8 +426,9 @@ public class PkiMessageDumper {
         public String toString() {
             return declaringPackage + "." + id + " (" + oid + ")";
         }
-    }    /**
-     * // load ObjectIdentifiers defined somewhere in BouncyCastle
+    }
+    /**
+     * load ObjectIdentifiers defined somewhere in BouncyCastle
      */
     private static synchronized void initNameOidMaps() {
         if (oidToKeyMap != null) {
@@ -421,7 +487,6 @@ public class PkiMessageDumper {
             }
         }
     }
-
     /**
      * Get OID Description for a given OID (ASN.1 representation)
      *
@@ -453,17 +518,7 @@ public class PkiMessageDumper {
         R apply(T arg) throws E;
     }
 
-    /**
-     * evaluate a function if a parameter is not <code>null</code>
-     * @param <T> function result type
-     * @param <R> value type
-     * @param <E> exception thrown by function
-     * @param value value to evaluate for <code>null</code>, function parameter
-     * @param function function to evaluate
-     * @return null or function result
-     * @throws E if function throws an exception
-     */
-    public static <T, R, E extends Exception> T ifNotNull(final R value, final ExFunction<R, T, E> function) throws E {
+    public static <R, V, E extends Exception> R ifNotNull(final V value, final ExFunction<V, R, E> function) throws E {
         try {
             return value == null ? null : function.apply(value);
         } catch (final NullPointerException npe) {

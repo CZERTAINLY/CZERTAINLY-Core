@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.cmp.ErrorMsgContent;
@@ -41,7 +42,7 @@ public class BodyErrorMessageValidator extends BaseValidator implements Validato
      *
      * @param response which contains {@link ErrorMsgContent}
      * @return null if validation is ok
-     * @throws CmpException if validation has failed
+     * @throws CmpProcessingException if validation has failed
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.21">Error Message Content</a>
      */

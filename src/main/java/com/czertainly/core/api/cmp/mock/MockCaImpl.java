@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.mock;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.api.cmp.util.CertUtil;
@@ -93,7 +94,7 @@ public class MockCaImpl {
      *
      */
     public static PKIMessage handleCrmfCertificateRequest(PKIMessage request, ConfigurationContext config)
-            throws CmpException {
+            throws CmpProcessingException {
         switch(request.getBody().getType()) {
             case PKIBody.TYPE_INIT_REQ:
             case PKIBody.TYPE_CERT_REQ:
@@ -126,7 +127,7 @@ public class MockCaImpl {
                 }
             }
         } catch (Exception e) {
-            throw new CmpException(PKIFailureInfo.badCertTemplate, "problem with create certificate", e);
+            throw new CmpProcessingException(PKIFailureInfo.badCertTemplate, "problem with create certificate", e);
         }
 
         PKIMessage response;
@@ -155,7 +156,7 @@ public class MockCaImpl {
                     .addExtraCerts(extraCerts)
                     .build();
         } catch (Exception e) {
-            throw new CmpException(PKIFailureInfo.systemFailure, "problem with create response message", e);
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure, "problem with create response message", e);
         }
 
         return response;
@@ -336,7 +337,7 @@ public class MockCaImpl {
      * </pre>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.18">Certificate Confirmation Content</a>
      */
-    public static PKIMessage handleCertConfirm(PKIMessage message, ConfigurationContext configuration) throws CmpException {
+    public static PKIMessage handleCertConfirm(PKIMessage message, ConfigurationContext configuration) throws CmpProcessingException {
         try {
             return new PkiMessageBuilder(configuration)
                     .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(message))
@@ -344,7 +345,7 @@ public class MockCaImpl {
                     .addExtraCerts(getExtraCerts(chainOfIssuerCerts))
                     .build();
         } catch (Exception e) {
-            throw new CmpException(PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
                     "problem with create pkiConf response message", e);
         }
     }
@@ -366,17 +367,22 @@ public class MockCaImpl {
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.9">Revocation requeset content</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.10">Revocation response content</a>
      */
-    public static PKIMessage handleRevocationRequest(PKIMessage message, ConfigurationContext configuration) throws Exception {
+    public static PKIMessage handleRevocationRequest(PKIMessage message, ConfigurationContext configuration) throws CmpException {
         RevReqContent revBody = (RevReqContent) message.getBody().getContent();
         RevDetails[] revDetails = revBody.toRevDetailsArray();
 
         RevRepContentBuilder rrcb = new RevRepContentBuilder();
         rrcb.add(new PKIStatusInfo(PKIStatus.granted));
-        return new PkiMessageBuilder(configuration)
-                .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(message))
-                .addBody(new PKIBody(PKIBody.TYPE_REVOCATION_REP, rrcb.build()))
-                .addExtraCerts(getExtraCerts(chainOfIssuerCerts))
-                .build();
+        try {
+            return new PkiMessageBuilder(configuration)
+                    .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(message))
+                    .addBody(new PKIBody(PKIBody.TYPE_REVOCATION_REP, rrcb.build()))
+                    .addExtraCerts(getExtraCerts(chainOfIssuerCerts))
+                    .build();
+        } catch (Exception e) {
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
+                    "TID="+message.getHeader().getTransactionID()+" | problem processing recovation response message", e);
+        }
     }
 
     private static List<CMPCertificate> getExtraCerts(List<X509Certificate> chainOfIssuerCerts) throws CertificateEncodingException {

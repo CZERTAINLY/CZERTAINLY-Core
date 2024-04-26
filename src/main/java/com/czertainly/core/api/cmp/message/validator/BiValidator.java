@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 
 /**
@@ -25,7 +26,7 @@ public interface BiValidator<E,R> {
      *
      * @param response message incoming from CA/RA
      * @return null if validation is ok
-     * @throws CmpException if validation has failed
+     * @throws CmpProcessingException if validation has failed
      */
     E validateOut(PKIMessage response) throws CmpException;
 

@@ -1,40 +1,11 @@
 package com.czertainly.core.api.cmp.message.handler;
 
-import com.czertainly.api.exception.*;
-import com.czertainly.api.model.core.acme.CertificateRevocationRequest;
-import com.czertainly.api.model.core.acme.Problem;
-import com.czertainly.api.model.core.authority.CertificateRevocationReason;
-import com.czertainly.api.model.core.certificate.CertificateState;
-import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
-import com.czertainly.api.model.core.scep.FailInfo;
-import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
 import com.czertainly.core.api.cmp.mock.MockCaImpl;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.security.authz.SecuredParentUUID;
-import com.czertainly.core.service.acme.AcmeConstants;
-import com.czertainly.core.service.acme.message.AcmeJwsRequest;
-import com.czertainly.core.service.scep.message.ScepRequest;
-import com.czertainly.core.util.AcmeJsonProcessor;
-import com.czertainly.core.util.AcmePublicKeyProcessor;
-import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.cmp.*;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.cms.CMSException;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-
-import java.net.URI;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.Arrays;
 
 /**
  * <p>5.3.9.  Revocation Request Content</p>
@@ -69,9 +40,9 @@ import java.util.Arrays;
  */
 public class RevocationMessageHandler implements MessageHandler {
     @Override
-    public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws Exception {
+    public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpException {
         if(PKIBody.TYPE_REVOCATION_REQ!=request.getBody().getType()) {
-            throw new CmpException(
+            throw new CmpProcessingException(
                     PKIFailureInfo.systemFailure,
                     "revocation (rr) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()) +"; only type=cerfConf is supported");
         }
@@ -82,7 +53,7 @@ public class RevocationMessageHandler implements MessageHandler {
                 .handleRevocationRequest(request, configuration);
 
         if(response != null) { return response; }
-        throw new CmpException(
+        throw new CmpProcessingException(
                 PKIFailureInfo.systemFailure,
                 "general problem while handling message, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()));
     }

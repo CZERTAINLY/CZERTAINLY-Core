@@ -1,19 +1,22 @@
 package com.czertainly.core.api.cmp.profiles;
 
+import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.api.cmp.error.CmpCrmfValidationException;
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.protection.ProtectionStrategy;
+import com.czertainly.core.api.cmp.message.protection.impl.PasswordBasedMacProtectionStrategy;
 import com.czertainly.core.api.cmp.message.protection.impl.SingatureBaseProtectionStrategy;
 import com.czertainly.core.api.cmp.mock.MockCaImpl;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
-import org.bouncycastle.asn1.cmp.CertRepMessage;
-import org.bouncycastle.asn1.cmp.PKIBody;
-import org.bouncycastle.asn1.cmp.PKIFailureInfo;
-import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.crmf.CertReqMsg;
 import org.bouncycastle.asn1.crmf.CertTemplate;
+import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
@@ -38,13 +41,9 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
     }
 
     @Override
-    public byte[] getSharedSecret() {
-        return "1234-5678".getBytes();
-    }
-
-    @Override
-    public PrivateKey getPrivateKeyForSigning() {
-        return MockCaImpl.getPrivateKeyForSigning();
+    public ASN1OctetString getSenderKID() {
+        ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();
+        return senderKID == null ? new DEROctetString(new byte[0]) : senderKID;
     }
 
     @Override
@@ -52,32 +51,31 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
         return MockCaImpl.getChainOfIssuerCerts();
     }
 
-    /**
-     * @return algorithm for signature (for PKI Protection field)
-     * @throws CmpException if algorithm cannot be found (e.g. wrong signature name).
-     */
     @Override
-    public AlgorithmIdentifier getSignatureAlgorithm() throws CmpException {
-        AlgorithmIdentifier algorithmIdentifier = requestMessage.getHeader().getProtectionAlg();
-        if(algorithmIdentifier == null) {
-            /*
-             * import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
-             * import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
-             * AlgorithmIdentifier sigAlgId = new DefaultSignatureAlgorithmIdentifierFinder().find(signatureAlgorithm);
-             * AlgorithmIdentifier digAlgId = new DefaultDigestAlgorithmIdentifierFinder().find(sigAlgId);
-             */
-            algorithmIdentifier = SIGNATURE_ALGORITHM_FINDER.find("SHA256withECDSA");//db query/cmp profile.getSignatureName
-            if(algorithmIdentifier == null) {
-                throw new CmpException(PKIFailureInfo.systemFailure, "wrong name of security signature algorithm");
-            }
-        }
-        return algorithmIdentifier;
+    public GeneralName getRecipient() {
+        return requestMessage.getHeader().getRecipient();
     }
 
     @Override
-    public GeneralName getRecipient() {
-        // C=CZ,ST=Czechia,L=South Bohemia,O=development,OU=ca-root-operator-ec,CN=localhost
-        return requestMessage.getHeader().getRecipient();
+    public PrivateKey getPrivateKeyForSigning() {
+        return MockCaImpl.getPrivateKeyForSigning();
+    }
+
+    /**
+     * <p>The publicKey field of the CertTemplate shall be mandatory and shall contain
+     * the public key of the base station to be certified by the RA/CA.
+     * The private/public key pair may be pre-provisioned to the base station,
+     * or generated inside the base station for the CMPv2 protocol run.
+     * </p>
+     *
+     * @param certReqMsgs which keeps related certificate
+     * @return public key wrapper
+     *
+     * @see 9.5.4.2	Initialization Request (chapter 9 Base Station), 3gpp 310
+     */
+    private static SubjectPublicKeyInfo getPublicKey(CertReqMsg[] certReqMsgs) {
+        CertTemplate certTemplate = certReqMsgs[0].getCertReq().getCertTemplate();
+        return certTemplate.getPublicKey();
     }
 
     /**
@@ -94,7 +92,7 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
      *
      */
     @Override
-    public void validateCertReq(int bodyType, CertReqMessages content) throws CmpException {
+    public void validateCertReq(int bodyType, CertReqMessages content) throws CmpProcessingException {
         switch (bodyType) {
             case PKIBody.TYPE_INIT_REQ:
                 CertReqMsg[] certReqMsgs = content.toCertReqMsgArray();
@@ -115,26 +113,8 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
             case PKIBody.TYPE_KEY_UPDATE_REQ:
                 break;// do something
             default:
-                throw new CmpException(PKIFailureInfo.badDataFormat, "only CRMF-based message can be validated");
+                throw new CmpProcessingException(PKIFailureInfo.badDataFormat, "only CRMF-based message can be validated");
         }
-    }
-
-    /**
-     *
-     * <p>The publicKey field of the CertTemplate shall be mandatory and shall contain
-     * the public key of the base station to be certified by the RA/CA.
-     * The private/public key pair may be pre-provisioned to the base station,
-     * or generated inside the base station for the CMPv2 protocol run.
-     * </p>
-     *
-     * @param certReqMsgs which keeps related certificate
-     * @return public key wrapper
-     *
-     * @see 9.5.4.2	Initialization Request (chapter 9 Base Station), 3gpp 310
-     */
-    private static SubjectPublicKeyInfo getPublicKey(CertReqMsg[] certReqMsgs) {
-        CertTemplate certTemplate = certReqMsgs[0].getCertReq().getCertTemplate();
-        return certTemplate.getPublicKey();
     }
 
     /**
@@ -161,7 +141,7 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
      *
      */
     @Override
-    public void validateCertRep(int bodyType, CertRepMessage content) throws CmpException {
+    public void validateCertRep(int bodyType, CertRepMessage content) throws CmpProcessingException {
         // TODO toce implementatce, viz. javadoc vyse
         switch (bodyType) {
             case PKIBody.TYPE_INIT_REP:
@@ -169,23 +149,104 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
             case PKIBody.TYPE_KEY_UPDATE_REP:
                 break;// do something
             default:
-                throw new CmpException(PKIFailureInfo.badDataFormat, "only CRMF-based message can be validated");
+                throw new CmpProcessingException(PKIFailureInfo.badDataFormat, "only CRMF-based message can be validated");
         }
     }
 
     @Override
     public ProtectionType getProtectionType() {
-        return ProtectionType.SHARED_SECRET;
+        // tohle je message-based, todo vyresit dle cmp profilu
+        AlgorithmIdentifier protectionAlg = requestMessage.getHeader().getProtectionAlg();
+        if (CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())) {
+            return ProtectionType.SHARED_SECRET;
+        } else if (PKCSObjectIdentifiers.id_PBMAC1.equals(protectionAlg.getAlgorithm())) {
+            return ProtectionType.SHARED_SECRET;
+        }
+        return ProtectionType.SIGNATURE;
     }
 
     @Override
     public ProtectionStrategy getProtectionStrategy() throws CmpException {
         switch (getProtectionType()){
             case SIGNATURE: return new SingatureBaseProtectionStrategy(this);
-            case SHARED_SECRET: throw new UnsupportedOperationException("need to implements");
+            case SHARED_SECRET: return new PasswordBasedMacProtectionStrategy(this);
             default:
-                throw new CmpException(PKIFailureInfo.systemFailure,
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                         "wrong config3gppProfile: unknow type of protection strategy, type="+getProtectionType());
         }
     }// pri vyberu
+
+    @Override
+    public byte[] getSharedSecret() {
+        /* senderKID field MUST hold an identifier
+         *    that indicates to the receiver the appropriate shared secret
+         *    information to use to verify the message */
+        ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();//muze byt pouzit pro dohledani v db
+        return "1234-5678".getBytes();
+    }
+
+    /**
+     * <p>salt contains a randomly generated value used in computing the key
+     *       of the MAC process.  The salt SHOULD be at least 8 octets (64
+     *       bits) long.</p>
+     * @return at least 64 bits value for salting of password
+     *
+     * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3.1">Shared Secret Information</a>
+     */
+    public byte[] getSalt() { return "8765-4321".getBytes(); }
+
+    @Override
+    public int getIterationCount() { return 1000; }
+
+    /**
+     * @return algorithm for digital digest (for PKI Protection field)
+     * @throws CmpConfigurationException if algorithm cannot be found (e.g. wrong digest name).
+     */
+    @Override
+    public AlgorithmIdentifier getDigestAlgorithm() throws CmpConfigurationException {
+        PBMParameter pbmParameter = PBMParameter.getInstance(
+                requestMessage.getHeader().getProtectionAlg().getParameters());
+        AlgorithmIdentifier algorithmIdentifier = pbmParameter.getOwf();
+        if(algorithmIdentifier == null) {
+            algorithmIdentifier = DIGEST_ALGORITHM_IDENTIFIER_FINDER.find("SHA256");//db query/cmp profile.getSignatureName
+            if(algorithmIdentifier == null) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of DIGEST algorithm");
+            }
+        }
+        return algorithmIdentifier;
+    }
+
+    /**
+     * @return algorithm for mac (for PKI Protection field)
+     * @throws CmpConfigurationException if algorithm cannot be found (e.g. wrong mac name).
+     */
+    @Override
+    public AlgorithmIdentifier getMacAlgorithm() throws CmpConfigurationException {
+        PBMParameter pbmParameter = PBMParameter.getInstance(
+                requestMessage.getHeader().getProtectionAlg().getParameters());
+        AlgorithmIdentifier algorithmIdentifier = pbmParameter.getMac();
+        if(algorithmIdentifier == null) {
+            algorithmIdentifier = MAC_ALGORITHM_IDENTIFIER_FINDER.find("HMACSHA256");//db query/cmp profile.getSignatureName
+            if(algorithmIdentifier == null) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of MAC algorithm");
+            }
+        }
+        return algorithmIdentifier;
+    }
+
+    /**
+     * @return algorithm for signature (for PKI Protection field)
+     * @throws CmpConfigurationException if algorithm cannot be found (e.g. wrong signature name).
+     */
+    @Override
+    public AlgorithmIdentifier getSignatureAlgorithm() throws CmpConfigurationException {
+        AlgorithmIdentifier algorithmIdentifier = requestMessage.getHeader().getProtectionAlg();
+        if(algorithmIdentifier == null) {
+            algorithmIdentifier = SIGNATURE_ALGORITHM_IDENTIFIER_FINDER.find("SHA256withECDSA");//db query/cmp profile.getSignatureName
+            if(algorithmIdentifier == null) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of SIGNATURE algorithm");
+            }
+        }
+        return algorithmIdentifier;
+    }
 }

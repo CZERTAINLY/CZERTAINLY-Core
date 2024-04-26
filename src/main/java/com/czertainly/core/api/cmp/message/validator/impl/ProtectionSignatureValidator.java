@@ -1,6 +1,8 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
+import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
@@ -54,13 +56,14 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
      * @param message is subject of signature-based validation
      * @return null, if validation is ok
      *
-     * @throws CmpException if validation has failed
+     * @throws CmpProcessingException if validation has failed
      */
     @Override
     public Void validate(PKIMessage message) throws CmpException {
         ConfigurationContext.ProtectionType typeOfProtection = configuration.getProtectionType();
         if(ConfigurationContext.ProtectionType.SHARED_SECRET.equals(typeOfProtection)) {
-            throw new CmpException(PKIFailureInfo.systemFailure, "wrong configuration: SHARED SECRET is not configured");
+            throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                    "wrong configuration: SHARED SECRET is not configured");
         }
 
         ASN1OctetString tid = message.getHeader().getTransactionID();
@@ -68,7 +71,7 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
         CMPCertificate[] extraCerts = message.getExtraCerts();
         if (extraCerts == null || extraCerts.length == 0 || extraCerts[0] == null) {
             LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getName());
-            throw new CmpException(PKIFailureInfo.addInfoNotAvailable,
+            throw new CmpProcessingException(PKIFailureInfo.addInfoNotAvailable,
                     ImplFailureInfo.CRYPTOSIG541);
         }
 
@@ -81,16 +84,16 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
             signature.initVerify(extraCertsAsX509.get(0).getPublicKey());
             signature.update(protectedBytes);
             if (!signature.verify(protectionBytes, 0, protectionBytes.length)) {
-                throw new CmpException(PKIFailureInfo.wrongIntegrity,
+                throw new CmpProcessingException(PKIFailureInfo.wrongIntegrity,
                         ImplFailureInfo.CRYPTOSIG542);
             }
-        } catch(CmpException ex) {
+        } catch(CmpProcessingException ex) {
             throw ex;
         }  catch (final KeyException | NoSuchAlgorithmException ex) {
-            throw new CmpException(PKIFailureInfo.badAlg,
+            throw new CmpProcessingException(PKIFailureInfo.badAlg,
                     ImplFailureInfo.CRYPTOSIG543);
         } catch(Exception ex) {
-            throw new CmpException(
+            throw new CmpProcessingException(
                     PKIFailureInfo.notAuthorized,
                     ex.getClass().getSimpleName() + ":" + ex.getLocalizedMessage());
         }

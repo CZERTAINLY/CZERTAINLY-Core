@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.builder;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.api.cmp.util.CertUtil;
@@ -123,9 +124,9 @@ public class PkiMessageBuilder {
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">Overall of PKI Message (Body is mandatory)</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI body structure</a>
      */
-    public PkiMessageBuilder addBody(PKIBody pkiBody) throws CmpException {
+    public PkiMessageBuilder addBody(PKIBody pkiBody) throws CmpProcessingException {
         if(pkiBody == null) {
-            throw new CmpException(PKIFailureInfo.systemFailure, "PKI body is null");
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure, "PKI body is null");
         }
         this.pkiBody = pkiBody;
         return this;
@@ -160,11 +161,11 @@ public class PkiMessageBuilder {
 
     public PKIMessage build() throws Exception {
         if(pkiHeader == null) {
-            throw new CmpException(PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
                     "response message cannot be without PKIHeader");
         }
         if(pkiBody == null) {
-            throw new CmpException(PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
                     "response message cannot be without PKIBody");
         }
         return new PKIMessage(
@@ -277,11 +278,11 @@ public class PkiMessageBuilder {
      * @param certificate the certificate to return
      * @param caPubs list of CA certifications
      * @return a IP, CP or KUP body
-     * @throws CmpException if body is not (PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ or
+     * @throws CmpProcessingException if body is not (PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ or
      *                      PKIBody.TYPE_KEY_UPDATE_REQ)
      */
     public static PKIBody createIpCpKupBody(PKIBody body, CMPCertificate certificate,
-                                            CMPCertificate[] caPubs) throws CmpException {
+                                            CMPCertificate[] caPubs) throws CmpProcessingException {
         int bodyType = body.getType();
         switch(bodyType){
             case PKIBody.TYPE_INIT_REQ:
@@ -289,7 +290,7 @@ public class PkiMessageBuilder {
             case PKIBody.TYPE_KEY_UPDATE_REQ:
                 break;
             default:
-                throw new CmpException(PKIFailureInfo.systemFailure, "cannot generated response for given type, type="+bodyType);
+                throw new CmpProcessingException(PKIFailureInfo.systemFailure, "cannot generated response for given type, type="+bodyType);
         }
         CertReqMsg certReqMsg = ((CertReqMessages) body.getContent()).toCertReqMsgArray()[0];
         CertRequest certRequest = certReqMsg.getCertReq();

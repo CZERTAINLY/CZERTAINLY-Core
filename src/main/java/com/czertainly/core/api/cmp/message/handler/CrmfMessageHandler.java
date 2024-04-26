@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.handler;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
 import com.czertainly.core.api.cmp.message.validator.impl.POPValidator;
@@ -95,7 +96,7 @@ public class CrmfMessageHandler implements MessageHandler {
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpException {
         if(!ALLOWED_TYPES.contains(request.getBody().getType())) {
-            throw new CmpException(PKIFailureInfo.systemFailure, //system uses this handler bad way
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure, //system uses this handler bad way
                         "CRMF message cannot be handled, wrong message body/type, type="+request.getBody().getType());
         }
         new POPValidator(configuration)
@@ -105,7 +106,7 @@ public class CrmfMessageHandler implements MessageHandler {
                 .handleCrmfCertificateRequest(request, configuration);
 
         if(response != null) { return response; }
-        throw new CmpException(
+        throw new CmpProcessingException(
                 PKIFailureInfo.systemFailure, "general problem while handling PKIMessage, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()));
     }
 

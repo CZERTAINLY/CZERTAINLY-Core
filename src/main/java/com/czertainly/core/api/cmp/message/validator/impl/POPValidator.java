@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.validator.Validator;
@@ -88,27 +89,14 @@ public class POPValidator implements Validator<PKIMessage, Void> {
      * @param message which has been used for Proof-of-Possession (POP) verification
      * @return Void/null is ok
      *
-     * @throws CmpException if any problem (technically or with implementation)
+     * @throws CmpProcessingException if any problem (technically or with implementation)
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-3">CertReqMessages syntax</a>
      */
     @Override
     public Void validate(PKIMessage message) throws CmpException {
-        /* PKIBody ::= CHOICE {
-          ir       [0]  CertReqMessages,       --Initialization Req
-          cr       [2]  CertReqMessages,       --Certification Req
-          kur      [7]  CertReqMessages,       --Key Update Request
-          krr      [9]  CertReqMessages,       --Key Recovery Req
-          ccr      [13] CertReqMessages,       --Cross-Cert.  Request */
-        switch(message.getBody().getType()) {
-            case PKIBody.TYPE_INIT_REQ:
-            case PKIBody.TYPE_CERT_REQ:
-            case PKIBody.TYPE_KEY_UPDATE_REQ:
-            case PKIBody.TYPE_KEY_RECOVERY_REQ:
-            case PKIBody.TYPE_CROSS_CERT_REQ:
-                break;
-            default:
-                throw new CmpException(PKIFailureInfo.systemFailure, //system uses this validator bad way
+        if(!SUPPORTED_CRMF_MESSAGES_TYPES.contains(message.getBody().getType())) {
+                throw new CmpProcessingException(PKIFailureInfo.systemFailure, //system uses this validator bad way
                         "validation pop: cannot use proofOfPossession verification for given message body/type, type="
                         +message.getBody().getType());
         }
@@ -117,17 +105,17 @@ public class POPValidator implements Validator<PKIMessage, Void> {
         ProofOfPossession proofOfPossession = certReqMsg.getPop();
 
         if (proofOfPossession == null) {
-            throw new CmpException(PKIFailureInfo.badPOP,
-                    ImplFailureInfo.CRYPTOPOP504);
+            throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                    ImplFailureInfo.CMPVALPOP504);
         }
 
         // -- pop type (dispatch type of validation)
         switch (proofOfPossession.getType()){
             case ProofOfPossession.TYPE_RA_VERIFIED:
-                throw new CmpException(PKIFailureInfo.badPOP, ImplFailureInfo.CRYPTOPOP505);
+                throw new CmpProcessingException(PKIFailureInfo.badPOP, ImplFailureInfo.CMPVALPOP505);
             case ProofOfPossession.TYPE_KEY_AGREEMENT:
             case ProofOfPossession.TYPE_KEY_ENCIPHERMENT:
-                throw new CmpException(PKIFailureInfo.badPOP,
+                throw new CmpProcessingException(PKIFailureInfo.badPOP,
                         "validation pop: the given proofOfPossession type is not implemented yet");
             case ProofOfPossession.TYPE_SIGNING_KEY:
                 POPOSigningKey popoSigningKey = (POPOSigningKey) proofOfPossession.getObject();
@@ -164,12 +152,12 @@ public class POPValidator implements Validator<PKIMessage, Void> {
                      *        Certificate Template structures.  The signature field is computed
                      *        over the DER-encoded POPOSigningKeyInput structure.
                      */
-                    throw new CmpException(PKIFailureInfo.badPOP,
-                            ImplFailureInfo.CRYPTOPOP508);
+                    throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                            ImplFailureInfo.CMPVALPOP508);
                     // TODO [tocecz] this feature is not implemented yet (3gpp profile does not talk about)
                 }
             default:
-                throw new CmpException(PKIFailureInfo.badPOP,
+                throw new CmpProcessingException(PKIFailureInfo.badPOP,
                         "validation pop: the given proofOfPossession type is not supported yet");
         }
         return null;

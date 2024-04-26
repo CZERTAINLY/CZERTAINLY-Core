@@ -1,11 +1,10 @@
 package com.czertainly.core.api.cmp;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.service.cmp.CmpService;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,9 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
  *      next add into doGet (is not allow at all)
  */
 @RestController
-public class CmpControllerImpl implements CmpController { // TODO[toce] swagger api
-
-    private static final Logger LOG = LoggerFactory.getLogger(CmpControllerImpl.class.getName());
+public class CmpControllerImpl implements CmpController {
 
     private CmpService cmpService;
     @Autowired
@@ -28,11 +25,11 @@ public class CmpControllerImpl implements CmpController { // TODO[toce] swagger 
 
     @Override
     public ResponseEntity<Object> doGet(String cmpProfileName, byte[] request) throws CmpException {
-        throw new CmpException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
+        throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
     }
 
     @Override
-    public ResponseEntity<Object> doPost(String cmpProfileName, byte[] request) /*throws CmpException*/ {
-        return cmpService.handlePost(cmpProfileName, request);//"application/pkixcmp"
+    public ResponseEntity<Object> doPost(String cmpProfileName, byte[] request) throws CmpException {
+        return cmpService.handlePost(cmpProfileName, request);
     }
 }

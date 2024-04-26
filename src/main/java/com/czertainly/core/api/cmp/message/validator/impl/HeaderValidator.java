@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.ASN1Integer;
@@ -36,7 +37,7 @@ public class HeaderValidator extends BaseValidator implements Validator<PKIMessa
     @Override
     public Void validate(PKIMessage message) throws CmpException {
         if (Objects.isNull(message)) {
-            throw new CmpException(PKIFailureInfo.badDataFormat,
+            throw new CmpProcessingException(PKIFailureInfo.badDataFormat,
                     "message cannot be null");
         }
 
@@ -46,7 +47,7 @@ public class HeaderValidator extends BaseValidator implements Validator<PKIMessa
         checkValueNotNull(pvno, PKIFailureInfo.unsupportedVersion, "pvno");
         long versionNumber = pvno.longValueExact();
         if (versionNumber != PKIHeader.CMP_2000) {
-            throw new CmpException(PKIFailureInfo.unsupportedVersion,
+            throw new CmpProcessingException(PKIFailureInfo.unsupportedVersion,
                     "version " + versionNumber + " not supported");
         }
         checkValueNotNull(header.getSender(), PKIFailureInfo.badDataFormat, "sender");

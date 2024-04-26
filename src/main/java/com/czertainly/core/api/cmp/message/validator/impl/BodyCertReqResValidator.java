@@ -1,7 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpCrmfValidationException;
-import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
 import com.czertainly.core.api.cmp.message.validator.BiValidator;
@@ -77,13 +77,13 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
      * </pre>
 
      * @param request correspondent type of {@link CertReqMessages} to given parameter <code>bodyType</code>
-     * @throws CmpException if validation will fail
+     * @throws CmpProcessingException if validation will fail
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-3">CertReqMessage Syntax</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
      */
     @Override
-    public Void validateIn(PKIMessage request) throws CmpException {
+    public Void validateIn(PKIMessage request) throws CmpProcessingException {
         CertReqMessages content = (CertReqMessages) request.getBody().getContent();
         int bodyType = request.getBody().getType();
         CertReqMsg[] certReqMsgs = content.toCertReqMsgArray();
@@ -103,14 +103,14 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
         CertReqMsg certReqMsg = certReqMsgs[0];
         CertRequest certReq = certReqMsg.getCertReq();
         if (!Objects.equals(certReq.getCertReqId(), ZERO)) {
-            throw new CmpException(PKIFailureInfo.badDataFormat,
+            throw new CmpProcessingException(PKIFailureInfo.badDataFormat,
                     PkiMessageDumper.msgTypeAsString(bodyType)+": certReq must be zero");
         }
         // -- certTemplate/version,  version MUST be 2 if supplied.
         CertTemplate certTemplate = certReq.getCertTemplate();
         int versionInTemplate = certTemplate.getVersion();
         if (versionInTemplate != -1 && versionInTemplate != 2) {
-            throw new CmpException(
+            throw new CmpProcessingException(
                     PKIFailureInfo.badCertTemplate,
                     PkiMessageDumper.msgTypeAsString(bodyType)+": certTemplate version must be -1 or 2");
         }
@@ -159,10 +159,10 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
      * </pre>
      *
      * @param response correspondent type of {@link CertRepMessage} to given parameter <code>bodyType</code>
-     * @throws CmpException if validation will fail
+     * @throws CmpProcessingException if validation will fail
      */
     @Override
-    public Void validateOut(PKIMessage response) throws CmpException {
+    public Void validateOut(PKIMessage response) throws CmpProcessingException {
         CertRepMessage content = (CertRepMessage) response.getBody().getContent();
         CertResponse[] responses = content.getResponse();
         CertResponse certResponse = responses[0];

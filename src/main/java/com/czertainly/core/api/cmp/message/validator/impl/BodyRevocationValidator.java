@@ -1,6 +1,6 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.validator.BiValidator;
 import org.bouncycastle.asn1.ASN1Enumerated;
@@ -38,12 +38,12 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
      *                }
      * </pre>
      * @param request of message containing {@link RevReqContent}
-     * @throws CmpException if validation will fail
+     * @throws CmpProcessingException if validation will fail
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
      */
     @Override
-    public Void validateIn(PKIMessage request) throws CmpException {
+    public Void validateIn(PKIMessage request) throws CmpProcessingException {
         assertEqualBodyType(PKIBody.TYPE_REVOCATION_REQ, request);
         RevReqContent content = (RevReqContent) request.getBody().getContent();
         RevDetails[] revDetails = content.toRevDetailsArray();
@@ -60,7 +60,7 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
         long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
                 .getValue().longValue();
         if (reasonCode < 0 || reasonCode > 10) {
-            throw new CmpException(PKIFailureInfo.badDataFormat, "reasonCode is out of range <0,10>");
+            throw new CmpProcessingException(PKIFailureInfo.badDataFormat, "reasonCode is out of range <0,10>");
         }
 
         return null;// validation is ok
@@ -83,12 +83,12 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
      * </pre>
      *
      * @param response of message containing {@link RevRepContent}
-     * @throws CmpException if validation will fail
+     * @throws CmpProcessingException if validation will fail
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
      */
     @Override
-    public Void validateOut(PKIMessage response) throws CmpException {
+    public Void validateOut(PKIMessage response) throws CmpProcessingException {
         assertEqualBodyType(PKIBody.TYPE_REVOCATION_REP, response);
         RevRepContent content = (RevRepContent) response.getBody().getContent();
         PKIStatusInfo[] statuses = content.getStatus();

@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -84,6 +85,6 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
 class POPSigningKeyPoposkInputValidator implements Validator<PKIMessage, Void> {
     @Override
     public Void validate(PKIMessage subject) throws CmpException {
-        throw new CmpException(PKIFailureInfo.systemFailure, "not implemented yet");//TODO tocecz, check 3gpp spec
+        throw new CmpProcessingException(PKIFailureInfo.systemFailure, "not implemented yet");//TODO tocecz, check 3gpp spec
     }
 }

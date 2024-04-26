@@ -1,6 +1,6 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -28,13 +28,13 @@ public abstract class BaseValidator {
      *
      * @param expectedBodyType type which is checked
      * @param checkedMessage message which must be same as <code>expectedBodyType</code>
-     * @throws CmpException if bodyTypes (expected,checked) are not equals
+     * @throws CmpProcessingException if bodyTypes (expected,checked) are not equals
      */
-    protected void assertEqualBodyType(int expectedBodyType, PKIMessage checkedMessage) throws CmpException {
+    protected void assertEqualBodyType(int expectedBodyType, PKIMessage checkedMessage) throws CmpProcessingException {
         if(expectedBodyType!=checkedMessage.getBody().getType()){
             ASN1OctetString tid = checkedMessage.getHeader().getTransactionID();
             int incomingType = checkedMessage.getBody().getType();
-            throw new CmpException(PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
                     "TID="+tid+" | mismatch using validator (type is "+incomingType+", but must be="+expectedBodyType+")");
         }
     }
@@ -43,58 +43,58 @@ public abstract class BaseValidator {
      * Check if given values (<code>value1</code>, <code>value2</>) are the same
      * @param value1 first value for
      * @param value2 first value for
-     * @throws CmpException if values are different
+     * @throws CmpProcessingException if values are different
      */
     protected void assertEqual(Object value1, Object value2, String errorMsg)
-            throws CmpException {
+            throws CmpProcessingException {
         if (!Objects.equals(value1, value2)) {
-            throw new CmpException(PKIFailureInfo.badDataFormat, errorMsg);
+            throw new CmpProcessingException(PKIFailureInfo.badDataFormat, errorMsg);
         }
     }
 
     protected void checkOneElementInArray(Object[] array, String fieldName)
-            throws CmpException {
+            throws CmpProcessingException {
         if (array == null) {
-            throw new CmpException(
+            throw new CmpProcessingException(
                     PKIFailureInfo.addInfoNotAvailable, "missing '" + fieldName + "'");
         }
         if (array.length != 1) {
-            throw new CmpException(
+            throw new CmpProcessingException(
                     PKIFailureInfo.badDataFormat, "'" + fieldName + "' must have one element");
         }
         if (array[0] == null) {
-            throw new CmpException(
+            throw new CmpProcessingException(
                     PKIFailureInfo.addInfoNotAvailable, "missing '" + fieldName + "'");
         }
     }
 
     /**
-     * Check if <code>value</code> is NULL otherwise (value is NOT NULL) throws {@link CmpException}
+     * Check if <code>value</code> is NULL otherwise (value is NOT NULL) throws {@link CmpProcessingException}
      *
      * @param value which must be NULL
      * @param failInfo type of purpose (why value is NOT NULL)
      * @param errorMsg error description (why value is NOT NULL)
-     * @throws CmpException if value is NOT NULL
+     * @throws CmpProcessingException if value is NOT NULL
      */
     protected void checkValueIsNull(Object value, int failInfo, String errorMsg)
-            throws CmpException {
+            throws CmpProcessingException {
         if (!Objects.isNull(value)) {
-            throw new CmpException(failInfo, errorMsg);
+            throw new CmpProcessingException(failInfo, errorMsg);
         }
     }
 
     /**
-     * Check if <code>value</code> is NOT NULL otherwise (value is NULL) throws {@link CmpException}
+     * Check if <code>value</code> is NOT NULL otherwise (value is NULL) throws {@link CmpProcessingException}
      *
      * @param value which must be NOT NULL (not be empty)
      * @param failInfo type of purpose (why value is NULL)
      * @param fieldName name of field (whose value is NULL)
-     * @throws CmpException if value is NULL
+     * @throws CmpProcessingException if value is NULL
      */
     protected void checkValueNotNull(Object value, int failInfo, String fieldName)
-            throws CmpException {
+            throws CmpProcessingException {
         if (Objects.isNull(value)) {
-            throw new CmpException(failInfo, "'" + fieldName + "' has null value");
+            throw new CmpProcessingException(failInfo, "'" + fieldName + "' has null value");
         }
     }
     /**
@@ -109,12 +109,12 @@ public abstract class BaseValidator {
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.4">Initial Registration/Certification (Basic Authenticated Scheme)</a>
      */
-    protected void validatePositiveStatus(final PKIStatusInfo pkiStatusInfo) throws CmpException {
+    protected void validatePositiveStatus(final PKIStatusInfo pkiStatusInfo) throws CmpProcessingException {
         switch (pkiStatusInfo.getStatus().intValue()) {
             case PKIStatus.GRANTED:
             case PKIStatus.GRANTED_WITH_MODS:
                 if(!Objects.isNull(pkiStatusInfo.getFailInfo())) {
-                    throw new CmpException(PKIFailureInfo.badDataFormat,
+                    throw new CmpProcessingException(PKIFailureInfo.badDataFormat,
                             "failInfo cannot be present in positive status");
                 }
                 return;
@@ -138,15 +138,15 @@ public abstract class BaseValidator {
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.4">Initial Registration/Certification (Basic Authenticated Scheme)</a>
      */
-    protected void validateNegativeStatus(PKIStatusInfo pkiStatusInfo) throws CmpException {
+    protected void validateNegativeStatus(PKIStatusInfo pkiStatusInfo) throws CmpProcessingException {
         if (pkiStatusInfo.getStatus().intValue() == PKIStatus.REJECTION) {
             if (Objects.isNull(pkiStatusInfo.getFailInfo())) {
-                throw new CmpException(PKIFailureInfo.badMessageCheck,
+                throw new CmpProcessingException(PKIFailureInfo.badMessageCheck,
                         "failInfo cannot be null if status is 'rejection'");
             }
         } else {
             if (!Objects.isNull(pkiStatusInfo.getFailInfo())) {
-                throw new CmpException(PKIFailureInfo.badMessageCheck,
+                throw new CmpProcessingException(PKIFailureInfo.badMessageCheck,
                         "failInfo must present only if the status is 'rejection'");
             }
         }
@@ -160,17 +160,17 @@ public abstract class BaseValidator {
      * @param value value which is checked (for given <code>minimalLength</code>)
      * @param minimalLength <code>value</code>'s length must be greater
      * @param fieldName where length is checked
-     * @throws CmpException if validation failed
+     * @throws CmpProcessingException if validation failed
      */
     protected void checkMinimalLength(
             final ASN1OctetString value, final int minimalLength, final String fieldName)
-            throws CmpException {
+            throws CmpProcessingException {
         if (value == null) {
-            throw new CmpException(PKIFailureInfo.addInfoNotAvailable,
+            throw new CmpProcessingException(PKIFailureInfo.addInfoNotAvailable,
                     "mandatory field '" + fieldName + "' is missing");
         }
         if (value.getOctets().length < minimalLength) {
-            throw new CmpException(PKIFailureInfo.badRequest,
+            throw new CmpProcessingException(PKIFailureInfo.badRequest,
                     fieldName + "'s value is too short");
         }
     }

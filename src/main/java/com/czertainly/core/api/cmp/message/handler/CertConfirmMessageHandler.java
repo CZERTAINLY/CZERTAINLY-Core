@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.handler;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.message.ConfigurationContext;
 import com.czertainly.core.api.cmp.message.PkiMessageDumper;
 import com.czertainly.core.api.cmp.message.validator.impl.ProtectionValidator;
@@ -71,7 +72,7 @@ public class CertConfirmMessageHandler implements MessageHandler {
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpException {
         if(PKIBody.TYPE_CERT_CONFIRM!=request.getBody().getType()) {
-            throw new CmpException(
+            throw new CmpProcessingException(
                     PKIFailureInfo.systemFailure,
                     "confirmation (certConf) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()) +"; only type=cerfConf is supported");
         }
@@ -84,7 +85,7 @@ public class CertConfirmMessageHandler implements MessageHandler {
                 .handleCertConfirm(request, configuration);//.getBody().getContent();
 
         if(response != null) { return response; }
-        throw new CmpException(
+        throw new CmpProcessingException(
                 PKIFailureInfo.systemFailure, "general problem while handling PKIMessage, type=certConf");
     }
 }

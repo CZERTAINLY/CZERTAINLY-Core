@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.message.validator.impl;
 
 import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.api.cmp.message.validator.Validator;
 import com.czertainly.core.api.cmp.util.CryptoUtil;
@@ -52,20 +53,20 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
         // this field must be filled
         // @see https://www.rfc-editor.org/rfc/rfc4211#section-4.1 (point 3)
         X500Name subject = certRequest.getCertTemplate().getSubject();
-        if(subject == null) throw new CmpException(PKIFailureInfo.badPOP,
-                ImplFailureInfo.CRYPTOPOP509);
+        if(subject == null) throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                ImplFailureInfo.CMPVALPOP509);
 
         // -- signature
         Signature signature = buildSignature(certReqMsg, publicKey);
         try {
             POPOSigningKey popoSigningKey = (POPOSigningKey) proofOfPossession.getObject();
             if(!signature.verify(popoSigningKey.getSignature().getBytes())) {//podpisy nesedi
-                throw new CmpException(PKIFailureInfo.badPOP,
-                        ImplFailureInfo.CRYPTOPOP506);
+                throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                        ImplFailureInfo.CMPVALPOP506);
             }
         } catch (SignatureException e) {
-            throw new CmpException(PKIFailureInfo.badPOP,
-                    ImplFailureInfo.CRYPTOPOP503, e);
+            throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                    ImplFailureInfo.CMPVALPOP503, e);
         }
 
         return null;
@@ -79,16 +80,16 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
      *
      * @param certRequest field which keeps public key metadata
      * @return public key metadata field
-     * @throws CmpException if validation of field is going to fail
+     * @throws CmpProcessingException if validation of field is going to fail
      */
-    private SubjectPublicKeyInfo getSubjectPublicKeyInfo(CertRequest certRequest) throws CmpException {
+    private SubjectPublicKeyInfo getSubjectPublicKeyInfo(CertRequest certRequest) throws CmpProcessingException {
         SubjectPublicKeyInfo subjectPublicKeyInfo = certRequest.getCertTemplate().getPublicKey();
         if(subjectPublicKeyInfo==null
                 || subjectPublicKeyInfo.getPublicKeyData() == null
                 || subjectPublicKeyInfo.getPublicKeyData().getBytes() == null
                 || subjectPublicKeyInfo.getPublicKeyData().getBytes().length == 0) {
-            throw new CmpException(PKIFailureInfo.badPOP,
-                    ImplFailureInfo.CRYPTOPOP507);
+            throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                    ImplFailureInfo.CMPVALPOP507);
         }
         return subjectPublicKeyInfo;
     }
@@ -99,17 +100,17 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
      * @param subjectPublicKeyInfo contains {@link PublicKey} for signature verification (motivation)
      * @return public key incoming from {@link PKIMessage}
      *
-     * @throws CmpException if extraction of public key is going to fail
+     * @throws CmpProcessingException if extraction of public key is going to fail
      */
-    private PublicKey getPublicKey(SubjectPublicKeyInfo subjectPublicKeyInfo) throws CmpException {
+    private PublicKey getPublicKey(SubjectPublicKeyInfo subjectPublicKeyInfo) throws CmpProcessingException {
         try {
             return KeyFactory.getInstance(
                     subjectPublicKeyInfo.getAlgorithm().getAlgorithm().toString(),
                     CryptoUtil.getBouncyCastleProvider()
             ).generatePublic(new X509EncodedKeySpec(subjectPublicKeyInfo.getEncoded(ASN1Encoding.DER)));
         } catch (InvalidKeySpecException | NoSuchAlgorithmException | IOException e) {
-            throw new CmpException(PKIFailureInfo.badPOP,
-                    ImplFailureInfo.CRYPTOPOP501, e);
+            throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                    ImplFailureInfo.CMPVALPOP501, e);
         }
     }
 
@@ -119,7 +120,7 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
      * @param publicKey extracted public key from incoming cert template
      * @return built signature object for verification
      */
-    private Signature buildSignature(CertReqMsg certReqMsg, PublicKey publicKey) throws CmpException {
+    private Signature buildSignature(CertReqMsg certReqMsg, PublicKey publicKey) throws CmpProcessingException {
         CertRequest certRequest = certReqMsg.getCertReq();
         ProofOfPossession proofOfPossession = certReqMsg.getPop();
         POPOSigningKey popoSigningKey = (POPOSigningKey) proofOfPossession.getObject();
@@ -154,8 +155,8 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
             signature.update(subjectOfVerification);
             return signature;
         } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | IOException e) {
-            throw new CmpException(PKIFailureInfo.badPOP,
-                    ImplFailureInfo.CRYPTOPOP502, e);
+            throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                    ImplFailureInfo.CMPVALPOP502, e);
         }
 
     }

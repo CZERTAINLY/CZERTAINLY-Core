@@ -42,6 +42,10 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     @Getter
     @Column(name="enabled")
     private Boolean enabled;
+    public Boolean isEnabled() { return enabled; }
+    public void setEnabled(Boolean enabled) {
+        this.enabled = enabled;
+    }
 
     @Getter
     @OneToOne(fetch = FetchType.LAZY)
