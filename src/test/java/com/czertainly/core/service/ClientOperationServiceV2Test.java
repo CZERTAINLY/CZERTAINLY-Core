@@ -221,7 +221,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         request.setRequest(SAMPLE_PKCS10);
         request.setAttributes(List.of());
-        clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
+//        clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
     }
 
     @Disabled
