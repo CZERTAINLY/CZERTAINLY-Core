@@ -370,7 +370,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
-        certificateRequestDto.setPkcs10(requestContent);
+        certificateRequestDto.setRequest(request.getRequest());
+        certificateRequestDto.setFormat(request.getFormat());
         certificateRequestDto.setKeyUuid(oldCertificate.getKeyUuid());
         certificateRequestDto.setSourceCertificateUuid(oldCertificate.getUuid());
         certificateRequestDto.setCustomAttributes(AttributeDefinitionUtils.getClientAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, oldCertificate.getUuid())));
@@ -415,7 +416,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         logger.debug("Renewing Certificate: {}", oldCertificate);
 
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
-        caRequest.setPkcs10(certificate.getCertificateRequest().getContent());
+        caRequest.setRequest(certificate.getCertificateRequest().getContent());
+        caRequest.setFormat(certificate.getCertificateRequest().getCertificateRequestFormat());
         caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
         // TODO: check if retrieved correctly, just metadata with null source object
@@ -507,7 +509,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             validatePublicKeyForCsrAndCertificate(certificateContent, request.getPkcs10(), false);
             validateSubjectDnForCertificate(certificateContent, request.getPkcs10());
 
-            certificateRequestDto.setPkcs10(request.getPkcs10());
+            certificateRequestDto.setRequest(request.getPkcs10());
+            certificateRequestDto.setFormat(CertificateRequestFormat.PKCS10);
         } else {
             UUID keyUuid = existingKeyValidation(request.getKeyUuid(), request.getSignatureAttributes(), oldCertificate);
             X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
@@ -525,7 +528,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             );
 
             certificateRequestDto.setKeyUuid(keyUuid);
-            certificateRequestDto.setPkcs10(requestContent);
+            certificateRequestDto.setRequest(requestContent);
+            certificateRequestDto.setFormat(CertificateRequestFormat.PKCS10);
             certificateRequestDto.setSignatureAttributes(signatureAttributes);
         }
 
@@ -572,7 +576,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         logger.debug("Rekeying Certificate: {}", oldCertificate);
         CertificateRenewRequestDto caRequest = new CertificateRenewRequestDto();
-        caRequest.setPkcs10(certificate.getCertificateRequest().getContent());
+        caRequest.setRequest(certificate.getCertificateRequest().getContent());
+        caRequest.setFormat(certificate.getCertificateRequest().getCertificateRequestFormat());
         caRequest.setRaProfileAttributes(attributeEngine.getRequestObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
         caRequest.setCertificate(oldCertificate.getCertificateContent().getContent());
         // TODO: check if retrieved correctly, just metadata with null source object

@@ -543,7 +543,7 @@ public class AcmeServiceImpl implements AcmeService {
         logger.debug("Initiating issue Certificate for Order with ID: {}", order.getOrderId());
         ClientCertificateSignRequestDto certificateSignRequestDto = new ClientCertificateSignRequestDto();
         certificateSignRequestDto.setAttributes(getClientOperationAttributes(false, order.getAcmeAccount(), isRaProfileBased));
-        certificateSignRequestDto.setPkcs10(decodedCsr);
+        certificateSignRequestDto.setRequest(decodedCsr);
         order.setStatus(OrderStatus.PROCESSING);
         acmeOrderRepository.save(order);
         createCert(order, certificateSignRequestDto);

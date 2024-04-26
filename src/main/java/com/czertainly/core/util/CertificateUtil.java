@@ -401,7 +401,10 @@ public class CertificateUtil {
 
         modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
         DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
-        modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
+        if (certificateRequest.getSignatureAlgorithm() == null)
+            modal.setSignatureAlgorithm(null);
+        else
+            modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
         modal.setSubjectAlternativeNames(MetaDefinitions.serialize(certificateRequest.getSubjectAlternativeNames()));
     }
@@ -506,11 +509,11 @@ public class CertificateUtil {
         }
 
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                owner, new BigInteger( 64, random ), notBefore, notAfter, owner, keyPair.getPublic() );
+                owner, new BigInteger(64, random), notBefore, notAfter, owner, keyPair.getPublic());
 
         PrivateKey privateKey = keyPair.getPrivate();
-        ContentSigner signer = new JcaContentSignerBuilder("SHA512WithRSAEncryption" ).build(privateKey);
-        X509CertificateHolder certHolder = builder.build( signer );
+        ContentSigner signer = new JcaContentSignerBuilder("SHA512WithRSAEncryption").build(privateKey);
+        X509CertificateHolder certHolder = builder.build(signer);
         X509Certificate cert = new JcaX509CertificateConverter()
                 .setProvider(new BouncyCastleProvider())
                 .getCertificate(certHolder);

@@ -23,6 +23,7 @@ import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -774,7 +775,7 @@ public class LocationServiceImpl implements LocationService {
         ClientCertificateSignRequestDto clientCertificateSignRequestDto = new ClientCertificateSignRequestDto();
         clientCertificateSignRequestDto.setAttributes(issueAttributes);
         // TODO: support for different types of certificate
-        clientCertificateSignRequestDto.setPkcs10(csr);
+        clientCertificateSignRequestDto.setRequest(csr);
         clientCertificateSignRequestDto.setCustomAttributes(certificateCustomAttributes);
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
@@ -795,8 +796,8 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private ClientCertificateDataResponseDto renewCertificate(CertificateLocation certificateLocation, String csr) throws LocationException {
-        ClientCertificateRenewRequestDto clientCertificateRenewRequestDto = new ClientCertificateRenewRequestDto();
-        clientCertificateRenewRequestDto.setPkcs10(csr);
+        ClientCertificateRenewRequestDto clientCertificateRenewRequestDto = ClientCertificateRenewRequestDto.builder().build();
+        clientCertificateRenewRequestDto.setRequest(csr);
         clientCertificateRenewRequestDto.setReplaceInLocations(false);
 
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;

@@ -438,7 +438,7 @@ public class ScepServiceImpl implements ScepService {
         }
         ClientCertificateSignRequestDto requestDto = new ClientCertificateSignRequestDto();
         try {
-            requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
             requestDto.setAttributes(issueAttributes);
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
@@ -504,7 +504,7 @@ public class ScepServiceImpl implements ScepService {
         ClientCertificateRequestDto requestDto = new ClientCertificateRequestDto();
         if (raProfile != null) requestDto.setRaProfileUuid(raProfile.getUuid());
         try {
-            requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
         }
